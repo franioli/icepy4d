@@ -1,3 +1,6 @@
 [submodule "thirdParts/pydegensac"]
 	path = thirdParts/pydegensac
 	url = https://github.com/ducha-aiki/pydegensac.git
+[submodule "thirdParts/hloc"]
+	path = thirdParts/hloc
+	url = https://github.com/cvg/Hierarchical-Localization.git
