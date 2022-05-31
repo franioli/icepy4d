@@ -2,21 +2,29 @@
 # 
 # 
 # 
-# 
-# 
 # v0.1 2022.05.17
 
-
-from pathlib import Path
-import argparse
-import random
 import numpy as np
-import matplotlib.cm as cm
-import  pydegensac
-from copy import deepcopy
+import os
 import cv2 
+# import torch
+# import argparse
+# import random
+# import time
+# import  pydegensac
+# from pathlib import Path
+# from copy import deepcopy
+# import matplotlib.pyplot as plt
+# import matplotlib.cm as cm
+# import matplotlib
+# matplotlib.use('Qt5Agg')
+# import json
 
-from utils import utils
+# from utils.utils import read_img
+# from utils.tiles import *
+
+from utils.match_pairs import match_pair
+from utils.track_matches import track_matches
 
 # from models.matching import Matching
 # from models.utils import (compute_pose_error, compute_epipolar_error,
@@ -34,24 +42,31 @@ from utils import utils
 if __name__ == '__main__':
     rootDirPath = '.'
     
-    
-    imFld           = 'data/IMG'
-    imExt           = '.JPG'
+    #- Folders and paths
+    imFld           = 'data/img'
+    imExt           = '.tif'
     calibFld        = 'data/calib'
-    
+   
+    #- CAMERAS
     numCams         = 2
-     
+    camNames        = ['p2', 'p3']
+    maskBB          = [[600,1900,5300, 3600], [800,1800,5500,3500]]             # Bounding box for processing the images from the two cameras
+    # maskBB          = [[400,1700,5500, 3800], [600,1600,5700,3700]]             # Bounding box for processing the images from the two cameras
+
+    #- ON-OFF switches
+    # undistimgs      = True
+    # enhanceimgs     = True
+    # printFigs       = False
+    # useTiles        = False
+    # warpImages      = False
     
-    undistimgs      = True
-    enhanceimgs     = True
-    printFigs       = False
-    useTiles        = False
     
-    warpImages      = False
-    
-#%% Initialize structures for storing data
-    cameras         = {}                                                            # Dict for storing cameras information
-    images          = {'imds': [], 'exif': []}                                      # Dict for storing image datastore strctures
+#%%  Load data
+    print('Loading data:...')
+
+    cameras         = []                                                            # List for storing cameras information (as dicts)
+    # images          = {'imds': [], 'exif': []}                                    # Dict for storing image datastore strctures
+    images          = []                                                            # List for storing image paths
     im              = []                                                            # List for storing image pairs
     
     matchedPts      = {}                                                            # Dict for storing double points found at each epoch by DFM or SuperGlue
@@ -60,82 +75,118 @@ if __name__ == '__main__':
     sparsePts       = {'labels': [], 'pointsXYZ': []}                               # Dict for storing point clouds at all epochs
     
     fMats = []
+        
+    #- images
+    for jj, cam in enumerate(camNames):
+        d  = os.listdir(os.path.join(rootDirPath, imFld, cam))
+        for i, f in enumerate(d):
+            d[i] = os.path.join(rootDirPath, imFld, cam, f)
+        d.sort()
+        if jj > 0 and len(d) is not len(images[jj-1]):
+            print('Error: different number of images per camera')
+        else:
+            images.insert(jj, d)
+       
+    #- Cameras structures
+    # TO DO: implement camera class!
+    for jj, cam in enumerate(camNames):
+        path = (os.path.join(rootDirPath, calibFld, cam+'.txt'))
+        with open(path, 'r') as f:
+            data = np.loadtxt(f)
+        K = data[0:9].astype(float).reshape(3, 3, order='C')
+        dist = data[10:15].astype(float)
+        cameras.insert(jj, {'K': K, 'dist': dist})
+       
+    # im, _ = read_img(images[0][0], True, [-1], crop)
+    # plt.imshow(cv2.cvtColor(im, cv2.COLOR_BGR2RGB))
+    # plt.show()
+        
     
-    maskBB          = []
-    maskGlacier     = []
+#%% Process epoch 
+
+epoches2process = [0,1] #1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
+numEpoch2track  = 1;
+
+for epoch in epoches2process:
+    print(f'Processing epoch {epoch}...')
+
+    # Find Matches
+    print('Run Superglue to find matches at epoch {}'.format(epoch))          
+    pair = [images[0][epoch], images[1][epoch]]
+    maskBB = np.array(maskBB).astype('int')
+    opt_matching ={'resize': [-1],
+                   'resize_float': True,
+                   'equalize_hist': False,
     
-#%% Load data
-    
-    print('Loading data:...')
-    
-    d = os.listdir(os.path.join(rootDirPath, imFld))
-    
-    
-    %- Get lists of images and calibration data
-    d = dir(fullfile(rootDirPath, imFld)) ;
-    % d = d([d(:).isdir] & ~ismember({d(:).name},{'.','..'}));
-    % d = d(ismember({d(:).name},{'p1','p2'}));
-    d = d(ismember({d(:).name},{'p2','p3'}));
-    c = dir(fullfile(rootDirPath, calibFld,'*.mat'));                           % Rivedere assegnazione file calibrazione a camera.
-    
-    %- inizialize camera structures
-    for jj = 1:numCams
-        a = load(fullfile(rootDirPath, calibFld, c(jj).name));      
-        cameras(jj).cameraParams   = a.cameraParams;  
-        cameras(jj).K       = cameras(jj).cameraParams.IntrinsicMatrix';
-        cameras(jj).t{1}    = zeros(3,1);     
-        cameras(jj).R{1}    = eye(3,3);
-        cameras(jj).P{1}    = cameras(jj).K * [cameras(jj).R{1} cameras(jj).t{1}];
-        cameras(jj).X0{1}   = - cameras(jj).P{1}(:,1:3)\cameras(jj).P{1}(:,4);
-    end
-    
-    %- inizialize image datastore structures
-    warning off
-    for jj = 1:numCams
-        images(jj).imds    = imageDatastore(fullfile(rootDirPath, imFld, d(jj).name),'FileExtensions',{imExt}, 'LabelSource','foldernames'); 
-        for imgId = 1:length(images(jj).imds.Files)
-            images(jj).exif    = imfinfo(images(jj).imds.Files{imgId});
-        end
-    end
-    clearvars a c d jj
-    warning on      
-    
-    %- Load mask for cropping images  (To do: allow also polygon mask)
-    if exist(fullfile(rootDirPath, imFld,'mask.mat'), 'file')
-        load(fullfile(rootDirPath, imFld,'mask.mat'))
-    else
-        maskBB = struct('roi', []);
-        for jj = 1:numCams
-            mskFig = figure('Name', 'Mask');     
-            im{jj} = readimage(images(jj).imds,1); 
-            ax = mskFig.CurrentAxes; 
-            imshow(im{jj});  
-            roi = drawrectangle(ax);
-            maskBB(jj).roi = roi;
-            maskBB(jj).pos = round(maskBB(jj).roi.Position/100)*100;
-        end
-        save(fullfile(rootDirPath, imFld,'mask.mat'), 'maskBB')    
-        close(mskFig), clearvars ax fig roi
-    end
-    
-    %- load mask on glacier
-    if exist(fullfile(rootDirPath, imFld,'maskGlacier.mat'), 'file')
-        load(fullfile(rootDirPath, imFld,'maskGlacier.mat'))
-    else
-        maskGlacier = struct('roi', []);
-        for jj = 1:numCams
-            mskFig = figure('Name', 'Mask');     
-            im{jj} = readimage(images(jj).imds,1); 
-            ax = mskFig.CurrentAxes; 
-            imshow(im{jj});  
-            roi = drawpolygon(ax);
-            maskGlacier(jj).roi = roi;
-        end
-        save(fullfile(rootDirPath, imFld,'maskGlacier.mat'), 'maskGlacier')    
-        close(mskFig), clearvars ax fig roi I1
-    end
-    
-    %- load DFM network
-    % dfmModel = load(fullfile(rootDirPath, 'mat', 'thirdParts', 'DFM\models\imagenet-vgg-verydeep-19.mat'));
-    
-    fprintf('Done.\n')
+                   'nms_radius': 3 , 
+                   'keypoint_threshold': 0.0001, 
+                   'max_keypoints': 4096, 
+                   
+                   'superglue': 'outdoor',
+                   'sinkhorn_iterations': 100,
+                   'match_threshold': 0.2, 
+                 
+                   'viz':  True,
+                   'viz_extension': 'png',   # choices=['png', 'pdf'],
+                   'fast_viz': True,
+                   'opencv_display' : False, 
+                   'show_keypoints': False, 
+                   
+                   'output_dir': os.path.join('res','epoch_'+str(epoch)), 
+                   
+                   'cache': False,
+                   'force_cpu': False,
+                             
+                   'useTile': True, 
+                   'writeTile2Disk': False,
+                   'do_viz_tile': False,
+                   'rowDivisor': 2,
+                   'colDivisor': 3,
+                   'overlap': 300,            
+                   }
+    out_matches, matchesTensors = match_pair(pair, maskBB, opt_matching)
+
+
+    # Track previous matches
+    if epoch > 0:
+        print('Track points from epoch {} to epoch {}'.format(epoch-1, epoch))
+        
+        prevs = matchesTensors
+        pairs = [ [ images[0][epoch-1], images[0][epoch] ], 
+                  [ images[1][epoch-1], images[1][epoch] ] ] 
+        maskBB = np.array(maskBB).astype('int')
+        opt_tracking = {   'resize': [-1],
+                           'resize_float': True,
+                           'equalize_hist': False,
+            
+                           'nms_radius': 3 , 
+                           'keypoint_threshold': 0.0005, 
+                           'max_keypoints': 8192, 
+                           
+                           'superglue': 'outdoor',
+                           'sinkhorn_iterations': 100,
+                           'match_threshold': 0.4, 
+                         
+                           'viz':  True,
+                           'viz_extension': 'png',   # choices=['png', 'pdf'],
+                           'fast_viz': True,
+                           'opencv_display' : False, 
+                           'show_keypoints': False, 
+                           
+                           'output_dir': os.path.join('res','epoch_'+str(epoch), 'from_t'+str(epoch-1)), 
+                           
+                           'cache': False,
+                           'force_cpu': False,
+                                     
+                           'useTile': True, 
+                           'writeTile2Disk': False,
+                           'do_viz_tile': False,
+                           'rowDivisor': 2,
+                           'colDivisor': 4,
+                           'overlap': 0,            
+                           }   
+        out_matches = track_matches(pairs, maskBB, prevs, opt_tracking)
+
+#%% Reconstruct geometry
+
+
