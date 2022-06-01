@@ -199,9 +199,11 @@ for epoch in epoches2process:
                         'rowDivisor': 2,
                         'colDivisor': 4,
                            }   
+        
         prevPts_cam0 = {'keypoints0': features[epoch-1]['mkpts0'], 
                        'descriptors0': features[epoch-1]['descr0'],
                        'scores0': features[epoch-1]['scores0']}
+        
         prevPts_cam1 = {'keypoints0': features[epoch-1]['mkpts1'], 
                        'descriptors0': features[epoch-1]['descr1'], 
                        'scores0': features[epoch-1]['scores1']}

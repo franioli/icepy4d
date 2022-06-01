@@ -261,7 +261,7 @@ def frame2tensor(frame, device):
     return torch.from_numpy(frame/255.).float()[None, None].to(device)
 
 
-def read_image(path, device, resize=-1, rotation=0, resize_float=False, crop=[], equalize_hist=False):
+def read_image(path, device, resize=-1, rotation=0, resize_float=True, crop=[], equalize_hist=False):
     image = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
     if image is None:
         return None, None, None

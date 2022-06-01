@@ -1,29 +1,3 @@
-# from pathlib import Path
-# import argparse
-# import random
-# import numpy as np
-# import matplotlib.cm as cm
-# import torch
-# import os
-# import cv2
-# import pydegensac
-# from copy import deepcopy
-
-# from models.matching import Matching
-# from models.utils import (compute_pose_error, compute_epipolar_error,
-#                           estimate_pose, make_matching_plot,
-#                           error_colormap, AverageTimer, pose_auc, read_image,
-#                           rotate_intrinsics, rotate_pose_inplane,
-#                           scale_intrinsics, frame2tensor,
-#                           vizTileRes)
-# from models.tiles import (subdivideImage,
-#                            appendPred, applyMatchesOffset)
-# torch.set_grad_enabled(False)
-
-# import matplotlib
-# import matplotlib.pyplot as plt
-# matplotlib.use('qt5agg')
-
 from pathlib import Path
 import numpy as np
 import matplotlib.cm as cm
