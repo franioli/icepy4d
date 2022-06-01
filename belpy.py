@@ -67,14 +67,12 @@ if __name__ == '__main__':
     cameras         = []                                                            # List for storing cameras information (as dicts)
     # images          = {'imds': [], 'exif': []}                                    # Dict for storing image datastore strctures
     images          = []                                                            # List for storing image paths
-    im              = []                                                            # List for storing image pairs
+    # im              = []                                                            # List for storing image pairs
     
-    matchedPts      = {}                                                            # Dict for storing double points found at each epoch by DFM or SuperGlue
-    trackedPoints   = {}                                                            # Dict for storing tracked points for each camera in time
-    features        = {}                                                            # Dict for storing all the valid matched features at all epochs
-    sparsePts       = {'labels': [], 'pointsXYZ': []}                               # Dict for storing point clouds at all epochs
+    features        = []                                                            # Dict for storing all the valid matched features at all epochs
+    # sparsePts       = []                               # Dict for storing point clouds at all epochs
     
-    fMats = []
+    # fMats = []
         
     #- images
     for jj, cam in enumerate(camNames):
@@ -103,21 +101,28 @@ if __name__ == '__main__':
     # cv2.destroyAllWindows()
     # plt.imshow(cv2.cvtColor(im, cv2.COLOR_BGR2RGB))
     # plt.show()
-        
+     
+    # Remove some variables
+    del d, data, K, dist, path, f, i, jj
     
 #%% Process epoch 
 
-epoches2process = [0,1] #1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
-numEpoch2track  = 1;
+epoches2process = [0,1,2,3] #1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
+# numEpoch2track  = 1;
 
+# epoch = 2
+# if epoch == 2:
 for epoch in epoches2process:
     print(f'Processing epoch {epoch}...')
 
-    # Find Matches
-    print('Run Superglue to find matches at epoch {}'.format(epoch))          
+    #=== Find Matches at current epoch ===#
+    print('Run Superglue to find matches at epoch {}'.format(epoch))    
+    epochdir = os.path.join('res','epoch_'+str(epoch))      
     pair = [images[0][epoch], images[1][epoch]]
     maskBB = np.array(maskBB).astype('int')
-    opt_matching ={'resize': [-1],
+    opt_matching ={'output_dir': epochdir, 
+                   
+                   'resize': [-1],
                    'resize_float': True,
                    'equalize_hist': False,
     
@@ -134,9 +139,7 @@ for epoch in epoches2process:
                    'fast_viz': True,
                    'opencv_display' : False, 
                    'show_keypoints': False, 
-                   
-                   'output_dir': os.path.join('res','epoch_'+str(epoch)), 
-                   
+                                      
                    'cache': False,
                    'force_cpu': False,
                              
@@ -147,48 +150,76 @@ for epoch in epoches2process:
                    'colDivisor': 3,
                    'overlap': 300,            
                    }
-    out_matches, matchesTensors = match_pair(pair, maskBB, opt_matching)
-
-
-    # Track previous matches
+    matchedPts, matchedPtsScores, matchedDescriptors, matchedTensors = match_pair(pair, maskBB, opt_matching)
+    
+    if epoch == 0:
+        # Store matches in features structure
+        features.insert(0, {'mkpts0': matchedPts['mkpts0'], 
+                            'mkpts1': matchedPts['mkpts1'],
+                            # 'mconf': matchedPts['match_confidence'],
+                            # 'scores0': matchedPtsScores[0], 
+                            # 'scores1': matchedPtsScores[1],
+                            # 'descr0': matchedDescriptors[0], 
+                            # 'descr1': matchedDescriptors[1] 
+                            })
+    
+    
+    #=== Track previous matches at current epoch ===#
     if epoch > 0:
         print('Track points from epoch {} to epoch {}'.format(epoch-1, epoch))
-        
-        prevs = matchesTensors
+        trackoutdir = os.path.join('res','epoch_'+str(epoch), 'from_t'+str(epoch-1))
         pairs = [ [ images[0][epoch-1], images[0][epoch] ], 
                   [ images[1][epoch-1], images[1][epoch] ] ] 
         maskBB = np.array(maskBB).astype('int')
-        opt_tracking = {   'resize': [-1],
-                           'resize_float': True,
-                           'equalize_hist': False,
-            
-                           'nms_radius': 3 , 
-                           'keypoint_threshold': 0.0005, 
-                           'max_keypoints': 8192, 
-                           
-                           'superglue': 'outdoor',
-                           'sinkhorn_iterations': 100,
-                           'match_threshold': 0.4, 
-                         
-                           'viz':  True,
-                           'viz_extension': 'png',   # choices=['png', 'pdf'],
-                           'fast_viz': True,
-                           'opencv_display' : False, 
-                           'show_keypoints': False, 
-                           
-                           'output_dir': os.path.join('res','epoch_'+str(epoch), 'from_t'+str(epoch-1)), 
-                           
-                           'cache': False,
-                           'force_cpu': False,
-                                     
-                           'useTile': True, 
-                           'writeTile2Disk': False,
-                           'do_viz_tile': False,
-                           'rowDivisor': 2,
-                           'colDivisor': 4,
-                           'overlap': 0,            
+        opt_tracking = {'output_dir': trackoutdir,
+                        
+                        'resize': [-1],
+                        'resize_float': True,
+                        'equalize_hist': False,
+         
+                        'nms_radius': 3 , 
+                        'keypoint_threshold': 0.0005, 
+                        'max_keypoints': 8192, 
+                        
+                        'superglue': 'outdoor',
+                        'sinkhorn_iterations': 100,
+                        'match_threshold': 0.4, 
+                      
+                        'viz':  True,
+                        'viz_extension': 'png',   # choices=['png', 'pdf'],
+                        'fast_viz': True,
+                        'opencv_display' : False, 
+                        'show_keypoints': False, 
+                        
+                        'cache': False,
+                        'force_cpu': False,
+                                  
+                        'useTile': True, 
+                        'writeTile2Disk': False,
+                        'do_viz_tile': False,
+                        'rowDivisor': 2,
+                        'colDivisor': 4,
+                        'overlap': 0,            
                            }   
-        out_matches = track_matches(pairs, maskBB, prevs, opt_tracking)
+        trackedPoints = track_matches(pairs, maskBB, matchedTensors, opt_tracking)
+        # TO DO: tenere traccia anche dei descriptors and scores dei punti traccati!
+        
+        # Store all matches in features structure
+        features.append({'mkpts0': np.concatenate((matchedPts['mkpts0'], trackedPoints['mkpts0'].astype(float)), axis=0 ), 
+                         'mkpts1': np.concatenate((matchedPts['mkpts1'], trackedPoints['mkpts1'].astype(float)), axis=0 ),
+                         # 'mconf': matchedPts['match_confidence'],
+                         # 'scores0': matchedPtsScores[0], 
+                         # 'scores1': matchedPtsScores[1],
+                         # 'descr0': matchedDescriptors[0], 
+                         # 'descr1': matchedDescriptors[1] 
+                         })
+        
+    # Write matched points to file
+    np.savetxt( os.path.join(epochdir,'mkpts0_epoch'+str(epoch)+'.txt'), features[epoch]['mkpts0'],
+               delimiter=',', fmt='%i')     
+    np.savetxt( os.path.join(epochdir,'mkpts1_epoch'+str(epoch)+'.txt'), features[epoch]['mkpts1'],
+               delimiter=',', fmt='%i')  
+
 
 #%% Reconstruct geometry
 

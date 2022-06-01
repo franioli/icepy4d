@@ -45,11 +45,11 @@ torch.set_grad_enabled(False)
 
 def track_matches(pairs, maskBB, prevs, opt):
  
-    # assert not (opt['['opencv_display'] and not opt['viz), 'Must use --viz with --opencv_display'
-    # assert not (opt['opencv_display and not opt['fast_viz), 'Cannot use --opencv_display without --fast_viz'
-    # assert not (opt['fast_viz and not opt['viz), 'Must use --viz with --fast_viz'
-    # assert not (opt['fast_viz and opt['viz_extension == 'pdf'), 'Cannot use pdf extension with --fast_viz'
-
+    assert not (opt['opencv_display'] and not opt['viz']), 'Must use --viz with --opencv_display'
+    assert not (opt['opencv_display'] and not opt['fast_viz']), 'Cannot use --opencv_display without --fast_viz'
+    assert not (opt['fast_viz'] and not opt['viz']), 'Must use --viz with --fast_viz'
+    assert not (opt['fast_viz'] and opt['viz_extension'] == 'pdf'), 'Cannot use pdf extension with --fast_viz'
+    
     if len(opt['resize']) == 2 and opt['resize'][1] == -1:
         opt['resize'] = opt['resize'][0:1]
     if len(opt['resize']) == 2:
@@ -378,5 +378,6 @@ def track_matches(pairs, maskBB, prevs, opt):
                 'match_confidence': []}
     np.savez(str(matches_path), **out_matches)
     
-    
+    # Free cuda memory and return variables
+    torch.cuda.empty_cache()
     return out_matches
