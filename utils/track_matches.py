@@ -92,6 +92,8 @@ def track_matches(pairs, maskBB, prevs, opt):
     kpts1_full = []
     wasMatched = []
     # mconf_full = []
+    descriptors1_full = []
+    scores1_full = []
 
     timer = AverageTimer(newline=True)
     for cam, pair in enumerate(pairs):
@@ -127,26 +129,30 @@ def track_matches(pairs, maskBB, prevs, opt):
         do_viz_tile = opt['do_viz_tile']
         rowDivisor = opt['rowDivisor']
         colDivisor = opt['colDivisor']
-        overlap = opt['overlap']
 
         timerTile = AverageTimer(newline=True)
-        tiles0, limits0 = generateTiles(image0, rowDivisor=rowDivisor, colDivisor=colDivisor, overlap=overlap,
+        tiles0, limits0 = generateTiles(image0, rowDivisor=rowDivisor, colDivisor=colDivisor, overlap=0,
                                           viz=do_viz_tile, out_dir=output_dir/'tiles0', writeTile2Disk=writeTile2Disk)
-        tiles1, limits1 = generateTiles(image1, rowDivisor=rowDivisor, colDivisor=colDivisor, overlap=overlap,
+        tiles1, limits1 = generateTiles(image1, rowDivisor=rowDivisor, colDivisor=colDivisor, overlap=0,
                                           viz=do_viz_tile, out_dir=output_dir/'tiles1', writeTile2Disk=writeTile2Disk)         
         print(f'Images subdivided in {rowDivisor}x{colDivisor} tiles')                                     
         timer.update('create_tiles')
 
-        # Run tracking
+#%% Run tracking
+     
+        # try:
+        #     if torch.is_tensor(prevs[cam]['keypoints0'][0]):
+        #         prev = {k: v[0].cpu().numpy() for k, v in prevs[cam].items()}   
+        #     print('Prev data are tensors: converted to np')
+        # except:        
         prev = prevs[cam]
-        kpts0_full.append(
-            np.full(np.shape(prev['keypoints0'][0].cpu().numpy()), -1, dtype=(float)))
-        kpts1_full.append(
-            np.full(np.shape(prev['keypoints0'][0].cpu().numpy()), -1, dtype=(float)))
-        wasMatched.append(
-            np.full((len(prev['keypoints0'][0].cpu().numpy())), -1, dtype=(float)))
-        # mconf_full.append(
-            # np.full((len(prev['keypoints0'][0].cpu().numpy())), 0, dtype=(float)))
+        kpts0_full.append(np.full(np.shape(prev['keypoints0']), -1, dtype=(float)))
+        kpts1_full.append(np.full(np.shape(prev['keypoints0']), -1, dtype=(float)))
+        wasMatched.append(np.full( len(prev['keypoints0']), -1, dtype=(float) ))
+        
+        descriptors1_full.append(np.full( np.shape(prev['descriptors0']), -1, dtype=(float) ))
+        scores1_full.append(np.full( len(prev['scores0']), -1, dtype=(float) ))
+        # mconf_full.append(np.full((len(prev['keypoints0'])), 0, dtype=(float)))
        
         for t, tile0 in enumerate(tiles0):
             # Shift back to previuos keypoints
@@ -154,21 +160,16 @@ def track_matches(pairs, maskBB, prevs, opt):
                 logic = rect[0] < pt[0] < rect[2] and rect[1] < pt[1] < rect[3]
                 return logic
 
-            # prevTile = {k: v[0].cpu().numpy() for k, v in prev.items()}
-
             # Subract coordinates bounding box
-            # prev = torch.load(last_data_path)
-            # prev = prevs[cam]
-            prev = {k: v[0].cpu().numpy() for k, v in prevs[cam].items()}
-            kpts0 = prev['keypoints0'] - \
-                np.array(maskBB[0][0:2]).astype('float32')
-
+            # prev = {k: v[0].cpu().numpy() for k, v in prevs[cam].items()}
+            kpts0 = prev['keypoints0'] - np.array(maskBB[0][0:2]).astype('float32')
+            
+            # Keep only kpts in current tile
             ptsInTile = np.zeros(len(kpts0), dtype=(bool))
             for i, kk in enumerate(kpts0):
                 ptsInTile[i] = rectContains(limits0[t], kk)
                 ptsInTileIdx = np.where(ptsInTile == True)
-            kpts0 = kpts0[ptsInTile] - \
-                np.array(limits0[t][0:2]).astype('float32')
+            kpts0 = kpts0[ptsInTile] - np.array(limits0[t][0:2]).astype('float32')
 
             # Build Prev tensor
             prevTile = {'keypoints0': [], 'scores0': [], 'descriptors0': []}
@@ -203,44 +204,28 @@ def track_matches(pairs, maskBB, prevs, opt):
             valid = matches0 > -1
             mkpts0 = kpts0[valid]
             mkpts1 = kpts1[matches0[valid]]
-            descriptors1 = descriptors1[:, matches0[valid]]
-            scores1 = scores1[matches0[valid]]
+            # descriptors1 = descriptors1[:, matches0[valid]]
+            # scores1 = scores1[matches0[valid]]
             mconf = conf[valid]
 
             for i, pt in enumerate(kpts0):
                 if predTile['matches0'][i] > -1:
                     wasMatched[cam][ptsInTileIdx[0][i]] = 1
-                    kpts0_full[cam][ptsInTileIdx[0][i], :] = pt + \
-                        np.array(limits0[t][0:2]).astype('float32')
-                    kpts1_full[cam][ptsInTileIdx[0][i], :] = kpts1[predTile['matches0']
-                        [i]] + np.array(limits1[t][0:2]).astype('float32')
+                    kpts0_full[cam][ptsInTileIdx[0][i], :] = pt + np.array(limits0[t][0:2]).astype('float32')
+                    kpts1_full[cam][ptsInTileIdx[0][i], :] = kpts1[predTile['matches0'][i]] + np.array(limits1[t][0:2]).astype('float32')      
+                 
+                    descriptors1_full[cam][:, ptsInTileIdx[0][i]] = descriptors1[:, predTile['matches0'][i]]            
+                    scores1_full[cam][ptsInTileIdx[0][i]] = scores1[predTile['matches0'][i]]                
                     # mconf_full[cam][ptsInTileIdx[0][i], :] = predTile['matches0']
                     #     [i]] + np.array(limits1[t][0:2]).astype('float32')
-            # TO DO: TRACCIARE ANCHE I DESCRITTORI!!
-
-            if t < 1:
-            #     # kpts0_full = kpts0.copy()
-            #     # ptsInTileIdx_full = ptsInTileIdx[0].copy()
-            #     # kpts1_full = kpts1.copy()
-            #     # matches0_full = matches0.copy()
-            #     mkpts0_full = mkpts0.copy()
-            #     mkpts1_full = mkpts1.copy()
-            #     descriptors1_full = descriptors1.copy()
-            #     scores1_full = scores1.copy()
+                   
+                    #TO DO: Keep track of the matching scores
+                    
+            if t < 1:         
                 mconf_full = mconf.copy()
             else:
-            #     # kpts0_full = np.append(kpts0_full, kpts0, axis=0)
-            #     # ptsInTileIdx_full = np.append(ptsInTileIdx_full, ptsInTileIdx[0], axis=0)
-            #     # kpts1_full = np.append(kpts1_full, kpts1, axis=0)
-            #     # matches0_full = np.append(matches0_full, matches0, axis=0)
-            #     mkpts0_full = np.append(
-            #         mkpts0_full, mkpts0 + np.array(limits0[t][0:2]).astype('float32'), axis=0)
-            #     mkpts1_full = np.append(
-            #         mkpts1_full, mkpts1 + np.array(limits1[t][0:2]).astype('float32'), axis=0)
-            #     scores1_full = np.append(scores1_full, scores1, axis=0)
                 mconf_full = np.append(mconf_full, mconf, axis=0)
-            #     descriptors1_full = np.append(
-            #         descriptors1_full, descriptors1, axis=1)
+
 
             if do_viz_tile:
                 # Visualize the matches.
@@ -307,8 +292,10 @@ def track_matches(pairs, maskBB, prevs, opt):
 
             timer.update('viz_match')
 
-
+        
         timer.print('Finished pair {:5} of {:5}'.format(cam+1, len(pairs)))
+        
+        # torch.cuda.empty_cache()
 
 
     # %%
@@ -317,21 +304,31 @@ def track_matches(pairs, maskBB, prevs, opt):
     validTracked= [m == 2 for m in wasMatched[0] + wasMatched[1]]
     mkpts1_cam0 = kpts1_full[0][validTracked]
     mkpts1_cam1 = kpts1_full[1][validTracked]
+    descr1_cam0  = descriptors1_full[0][:, validTracked]
+    descr1_cam1  = descriptors1_full[1][:, validTracked]
+    scores1_cam0 = scores1_full[0][validTracked]
+    scores1_cam1 = scores1_full[1][validTracked]
 
-
-    # Restore original image coordinates (not cropped) and run PyDegensac
-    # maskBB  np.array([[600, 1900, 4700, 1700], [800, 1800, 4700, 1700]]).astype('float32')
+    # Restore original image coordinates (not cropped) 
     mkpts1_cam0= mkpts1_cam0 + maskBB[0][0:2].astype('float32')
     mkpts1_cam1= mkpts1_cam1 + maskBB[1][0:2].astype('float32')
 
-    F, inlMask= pydegensac.findFundamentalMatrix(mkpts1_cam0, mkpts1_cam1, px_th=3, conf=0.9,
-                                                  max_iters=100000, laf_consistensy_coef=-1.0, error_type='sampson',
-                                                  symmetric_error_check=True, enable_degeneracy_check=True)
-    print('pydegensac found {} inliers ({:.2f}%)'.format(int(deepcopy(inlMask).astype(np.float32).sum()),
-                    int(deepcopy(inlMask).astype(np.float32).sum())*100 / len(mkpts1_cam0)))
-    mkpts1_cam0= mkpts1_cam0[inlMask]
-    mkpts1_cam1= mkpts1_cam1[inlMask]
-    timer.update('PyDegensac')
+    # Run PyDegensac
+    # F, inlMask= pydegensac.findFundamentalMatrix(mkpts1_cam0, mkpts1_cam1, px_th=3, conf=0.9,
+    #                                               max_iters=100000, laf_consistensy_coef=-1.0, error_type='sampson',
+    #                                               symmetric_error_check=True, enable_degeneracy_check=True)
+    # print('pydegensac found {} inliers ({:.2f}%)'.format(int(deepcopy(inlMask).astype(np.float32).sum()),
+    #                 int(deepcopy(inlMask).astype(np.float32).sum())*100 / len(mkpts1_cam0)))
+    
+    # # Reject false matching
+    # mkpts1_cam0= mkpts1_cam0[inlMask]
+    # mkpts1_cam1= mkpts1_cam1[inlMask]
+    # descr1_cam0  = descr1_cam0[:, inlMask]
+    # descr1_cam1  = descr1_cam1[:, inlMask]
+    # scores1_cam0 = scores1_cam0[inlMask]
+    # scores1_cam1 = scores1_cam1[inlMask]
+    
+    # timer.update('PyDegensac')
 
     # Viz point mached on both the images
     name0= pairs[0][1]
@@ -378,6 +375,11 @@ def track_matches(pairs, maskBB, prevs, opt):
                 'match_confidence': []}
     np.savez(str(matches_path), **out_matches)
     
+    
     # Free cuda memory and return variables
     torch.cuda.empty_cache()
-    return out_matches
+    
+    tracked_cam0 = {'keypoints1': mkpts1_cam0, 'descriptors1': descr1_cam0, 'scores1': scores1_cam0}
+    tracked_cam1 = {'keypoints1': mkpts1_cam1, 'descriptors1': descr1_cam1, 'scores1': scores1_cam1}
+
+    return tracked_cam0, tracked_cam1
