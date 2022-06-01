@@ -7,33 +7,17 @@
 import numpy as np
 import os
 import cv2 
-# import torch
-# import argparse
-# import random
-# import time
 import  pydegensac
-# from pathlib import Path
 from copy import deepcopy
 import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('Qt5Agg')
 import matplotlib.cm as cm
-# import json
 
 from utils.utils import read_img
 from utils.match_pairs import match_pair
 from utils.track_matches import track_matches
 from utils.sg.utils import make_matching_plot
-
-# from models.matching import Matching
-# from models.utils import (compute_pose_error, compute_epipolar_error,
-#                           estimate_pose, make_matching_plot,
-#                           error_colormap, AverageTimer, pose_auc, read_image,
-#                           rotate_intrinsics, rotate_pose_inplane,
-#                           scale_intrinsics, frame2tensor,
-#                           vizTileRes)
-# # from  models.tiles import (subdivideImage, subdivideImage2, 
-#                            appendPred, applyMatchesOffset)
 
     
 #%%  Parameters (to be put in parser)
@@ -50,28 +34,14 @@ if __name__ == '__main__':
     numCams         = 2
     camNames        = ['p2', 'p3']
     maskBB          = [[600,1900,5300, 3600], [800,1800,5500,3500]]             # Bounding box for processing the images from the two cameras
-    # maskBB          = [[400,1700,5500, 3800], [600,1600,5700,3700]]             # Bounding box for processing the images from the two cameras
-
-    #- ON-OFF switches
-    # undistimgs      = True
-    # enhanceimgs     = True
-    # printFigs       = False
-    # useTiles        = False
-    # warpImages      = False
     
     
 #%%  Load data
     print('Loading data:...')
 
     cameras         = []                                                            # List for storing cameras information (as dicts)
-    # images          = {'imds': [], 'exif': []}                                    # Dict for storing image datastore strctures
     images          = []                                                            # List for storing image paths
-    # im              = []                                                            # List for storing image pairs
-    
     features        = []                                                            # Dict for storing all the valid matched features at all epochs
-    # sparsePts       = []                               # Dict for storing point clouds at all epochs
-    
-    # fMats = []
         
     #- images
     for jj, cam in enumerate(camNames):
@@ -100,10 +70,7 @@ if __name__ == '__main__':
 #%% Process epoch 
 
 epoches2process = [0,1,2,3] #1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
-# numEpoch2track  = 1;
 
-# epoch = 0
-# if epoch == 0:
 for epoch in epoches2process:
     print(f'Processing epoch {epoch}...')
 
@@ -127,7 +94,7 @@ for epoch in epoches2process:
                    'match_threshold': 0.2, 
                  
                    'viz':  True,
-                   'viz_extension': 'png',   # choices=['png', 'pdf'],
+                   'viz_extension': 'png', 
                    'fast_viz': True,
                    'opencv_display' : False, 
                    'show_keypoints': False, 
@@ -178,7 +145,7 @@ for epoch in epoches2process:
                         'match_threshold': 0.4, 
                       
                         'viz':  True,
-                        'viz_extension': 'png',   # choices=['png', 'pdf'],
+                        'viz_extension': 'png',  
                         'fast_viz': True,
                         'opencv_display' : False, 
                         'show_keypoints': False, 
