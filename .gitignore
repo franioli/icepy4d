@@ -4,3 +4,4 @@ data/calib/calib_fullOpenCVmodel.txt
 data/calib/_old/
 res/
 utils/_old
+.spyproject/

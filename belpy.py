@@ -14,10 +14,10 @@ import cv2
 # import  pydegensac
 # from pathlib import Path
 # from copy import deepcopy
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Qt5Agg')
 # import matplotlib.cm as cm
-# import matplotlib
-# matplotlib.use('Qt5Agg')
 # import json
 
 # from utils.utils import read_img
@@ -97,7 +97,10 @@ if __name__ == '__main__':
         dist = data[10:15].astype(float)
         cameras.insert(jj, {'K': K, 'dist': dist})
        
-    # im, _ = read_img(images[0][0], True, [-1], crop)
+    # im = cv2.imread(images[0][0], 1)
+    # cv2.imshow('aa', im)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
     # plt.imshow(cv2.cvtColor(im, cv2.COLOR_BGR2RGB))
     # plt.show()
         
