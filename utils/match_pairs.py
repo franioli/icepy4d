@@ -228,4 +228,5 @@ def match_pair(pair, maskBB, opt):
 
     # Free cuda memory and return variables
     torch.cuda.empty_cache()
+    
     return out_matches, [descriptors0, descriptors1], [scores0, scores1], [prev0, prev1]
