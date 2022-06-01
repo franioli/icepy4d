@@ -93,14 +93,7 @@ if __name__ == '__main__':
         K = data[0:9].astype(float).reshape(3, 3, order='C')
         dist = data[10:15].astype(float)
         cameras.insert(jj, {'K': K, 'dist': dist})
-       
-    # im = cv2.imread(images[0][0], 1)
-    # cv2.imshow('aa', im)
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
-    # plt.imshow(cv2.cvtColor(im, cv2.COLOR_BGR2RGB))
-    # plt.show()
-     
+           
     # Remove some variables
     del d, data, K, dist, path, f, i, jj
     
@@ -200,14 +193,13 @@ for epoch in epoches2process:
                         'colDivisor': 4,
                            }   
         
-        prevPts_cam0 = {'keypoints0': features[epoch-1]['mkpts0'], 
-                       'descriptors0': features[epoch-1]['descr0'],
-                       'scores0': features[epoch-1]['scores0']}
-        
-        prevPts_cam1 = {'keypoints0': features[epoch-1]['mkpts1'], 
-                       'descriptors0': features[epoch-1]['descr1'], 
-                       'scores0': features[epoch-1]['scores1']}
-        tracked_cam0, tracked_cam1 = track_matches(pairs, maskBB, [prevPts_cam0, prevPts_cam1], opt_tracking)
+        prevs = [{'keypoints0': np.float32(features[epoch-1]['mkpts0']), 
+                  'descriptors0': np.float32(features[epoch-1]['descr0']),
+                  'scores0': np.float32(features[epoch-1]['scores0']) }, 
+                 {'keypoints0': np.float32(features[epoch-1]['mkpts1']), 
+                  'descriptors0': np.float32(features[epoch-1]['descr1']), 
+                  'scores0': np.float32(features[epoch-1]['scores1'])  }  ]
+        tracked_cam0, tracked_cam1 = track_matches(pairs, maskBB, prevs, opt_tracking)
         # TO DO: tenere traccia anche dei descriptors and scores dei punti traccati!
         
         # Store all matches in features structure
