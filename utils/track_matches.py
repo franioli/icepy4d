@@ -135,7 +135,6 @@ def track_matches(pairs, maskBB, prevs, opt):
                 return logic
 
             # Subract coordinates bounding box
-            # prev = {k: v[0].cpu().numpy() for k, v in prevs[cam].items()}
             kpts0 = prev['keypoints0'] - np.array(maskBB[0][0:2]).astype('float32')
             
             # Keep only kpts in current tile
@@ -178,8 +177,6 @@ def track_matches(pairs, maskBB, prevs, opt):
             valid = matches0 > -1
             mkpts0 = kpts0[valid]
             mkpts1 = kpts1[matches0[valid]]
-            # descriptors1 = descriptors1[:, matches0[valid]]
-            # scores1 = scores1[matches0[valid]]
             mconf = conf[valid]
 
             for i, pt in enumerate(kpts0):
@@ -191,8 +188,7 @@ def track_matches(pairs, maskBB, prevs, opt):
                     descriptors1_full[cam][:, ptsInTileIdx[0][i]] = descriptors1[:, predTile['matches0'][i]]            
                     scores1_full[cam][ptsInTileIdx[0][i]] = scores1[predTile['matches0'][i]]                
                     # mconf_full[cam][ptsInTileIdx[0][i], :] = predTile['matches0']
-                    #     [i]] + np.array(limits1[t][0:2]).astype('float32')
-                   
+                    #     [i]] + np.array(limits1[t][0:2]).astype('float32') 
                     #TO DO: Keep track of the matching scores
                     
             if t < 1:         
@@ -301,7 +297,6 @@ def track_matches(pairs, maskBB, prevs, opt):
     # descr1_cam1  = descr1_cam1[:, inlMask]
     # scores1_cam0 = scores1_cam0[inlMask]
     # scores1_cam1 = scores1_cam1[inlMask]
-    
     # timer.update('PyDegensac')
 
     # Viz point mached on both the images
