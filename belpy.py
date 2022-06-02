@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import cv2 
 import  pydegensac
+import pickle
 from copy import deepcopy
 import matplotlib.pyplot as plt
 import matplotlib
@@ -70,7 +71,7 @@ if __name__ == '__main__':
     
 #%% Process epoch 
 
-epoches2process = [0] #,1,2,3] #1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
+epoches2process = [0,1,2] #1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
 
 for epoch in epoches2process:
     print(f'Processing epoch {epoch}...')
@@ -111,9 +112,9 @@ for epoch in epoches2process:
                    'overlap': 300,            
                    }
     matchedPts, matchedDescriptors, matchedPtsScores, _ = match_pair(pair, maskBB, opt_matching)
-    
+        
+    # Store matches in features structure
     if epoch == 0:
-        # Store matches in features structure
         features = [{   'mkpts0': matchedPts['mkpts0'], 
                         'mkpts1': matchedPts['mkpts1'],
                         # 'mconf': matchedPts['match_confidence'],
@@ -179,7 +180,8 @@ for epoch in epoches2process:
                           'scores0': np.concatenate((matchedPtsScores[0], tracked_cam0['scores1']), axis=0 ), 
                           'scores1': np.concatenate((matchedPtsScores[1], tracked_cam1['scores1']), axis=0 ), 
                          })
-                         
+        
+        # Run Pydegensac to estimate F matrix and reject outliers                         
         F, inlMask= pydegensac.findFundamentalMatrix(features[epoch]['mkpts0'], features[epoch]['mkpts1'], px_th=3, conf=0.9,
                                                       max_iters=100000, laf_consistensy_coef=-1.0, error_type='sampson',
                                                       symmetric_error_check=True, enable_degeneracy_check=True)
@@ -194,7 +196,15 @@ for epoch in epoches2process:
         np.savetxt(os.path.join(epochdir, stem1+'_matchedPts.txt'), 
                    features[epoch]['mkpts1'] , fmt='%i', delimiter=' ', newline='\n',                   
                    header='x,y') 
-        np.savez(os.path.join(epochdir, stem0+'_'+stem1+'_features.npz'),
-                              features)
+        # with open(os.path.join(epochdir, stem0+'_'+stem1+'_features.npy'), 'wb') as f:
+        #     np.save(f, features)
+        with open(os.path.join(epochdir, stem0+'_'+stem1+'_features.pickle'), 'wb') as f:
+            pickle.dump(features, f, protocol=pickle.HIGHEST_PROTOCOL)
+                
         
- #%% 3D reconstruction
+#%% 3D reconstruction     
+
+# pth = 'res/epoch_0/IMG_0520_IMG_2131_features.pickle'
+# with open(pth, 'rb') as f:
+#     a = pickle.load(f)
+
