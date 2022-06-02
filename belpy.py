@@ -6,6 +6,7 @@
 
 import numpy as np
 import os
+from pathlib import Path
 import cv2 
 import  pydegensac
 from copy import deepcopy
@@ -69,7 +70,7 @@ if __name__ == '__main__':
     
 #%% Process epoch 
 
-epoches2process = [0,1,2,3] #1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
+epoches2process = [0] #,1,2,3] #1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
 
 for epoch in epoches2process:
     print(f'Processing epoch {epoch}...')
@@ -185,4 +186,15 @@ for epoch in epoches2process:
         print('Matches at epoch {}: pydegensac found {} inliers ({:.2f}%)'.format(epoch, int(deepcopy(inlMask).astype(np.float32).sum()),
                         int(deepcopy(inlMask).astype(np.float32).sum())*100 / len(features[epoch]['mkpts0'])))
         
-    
+        # Write matched points to disk   
+        stem0, stem1 = Path(images[0][epoch]).stem, Path(images[1][epoch]).stem
+        np.savetxt(os.path.join(epochdir, stem0+'_matchedPts.txt'), 
+                   features[epoch]['mkpts0'] , fmt='%i', delimiter=',', newline='\n',
+                   header='x,y') 
+        np.savetxt(os.path.join(epochdir, stem1+'_matchedPts.txt'), 
+                   features[epoch]['mkpts1'] , fmt='%i', delimiter=' ', newline='\n',                   
+                   header='x,y') 
+        np.savez(os.path.join(epochdir, stem0+'_'+stem1+'_features.npz'),
+                              features)
+        
+ #%% 3D reconstruction
