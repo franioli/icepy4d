@@ -1,5 +1,6 @@
 .spyproject/
-.ipynb_checkpoints
+.ipynb_checkpoints/
+*.ipynb_checkpoints/
 data/img/p2/
 data/img/p3/
 data/calib/calib_fullOpenCVmodel.txt
