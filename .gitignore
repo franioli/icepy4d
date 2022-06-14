@@ -1,10 +1,12 @@
+.spyproject/
+.ipynb_checkpoints
 data/img/p2/
 data/img/p3/
 data/calib/calib_fullOpenCVmodel.txt
-data/calib/_old/
+data/calib/calib_fullOpenCVmodel_matlab.txt
+data/calib/bk/
 res/
-utils/_old
-.spyproject/
-sfm
-sgm
+utils/_old/
+sfm/
+sgm/
 
