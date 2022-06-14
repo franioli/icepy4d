@@ -265,8 +265,6 @@ def track_matches(pairs, maskBB, prevs, opt):
         
         timer.print('Finished pair {:5} of {:5}'.format(cam+1, len(pairs)))
         
-        # torch.cuda.empty_cache()
-
 
     # %%
 
@@ -289,7 +287,6 @@ def track_matches(pairs, maskBB, prevs, opt):
     #                                               symmetric_error_check=True, enable_degeneracy_check=True)
     # print('pydegensac found {} inliers ({:.2f}%)'.format(int(deepcopy(inlMask).astype(np.float32).sum()),
     #                 int(deepcopy(inlMask).astype(np.float32).sum())*100 / len(mkpts1_cam0)))
-    
     # # Reject false matching
     # mkpts1_cam0= mkpts1_cam0[inlMask]
     # mkpts1_cam1= mkpts1_cam1[inlMask]
