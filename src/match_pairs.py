@@ -7,14 +7,14 @@ import  pydegensac
 from copy import deepcopy
 import cv2 
 
-from utils.sg.matching import Matching
-from utils.sg.utils import (compute_pose_error, compute_epipolar_error,
+from src.sg.matching import Matching
+from src.sg.utils import (compute_pose_error, compute_epipolar_error,
                           estimate_pose, make_matching_plot,
                           error_colormap, AverageTimer, pose_auc, read_image,
                           rotate_intrinsics, rotate_pose_inplane,
                           scale_intrinsics, frame2tensor,
                           vizTileRes)
-from  utils.utils import generateTiles
+from  src.io import generateTiles
 torch.set_grad_enabled(False)
 
 def match_pair(pair, maskBB, opt):

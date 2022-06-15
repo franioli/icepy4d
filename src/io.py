@@ -16,7 +16,7 @@ matplotlib.use('Agg')
 #     ----------
 #     *args : str
 #       Read calibration text file, with Full OpenCV parameters in a row.
-#     """
+#     """[CVPR 2022] Learning Graph Regularisation for Guided Super-Resolution 
 
 #     def __init__(self, *args):
         
@@ -93,7 +93,7 @@ def read_image(path, device, color, resize, crop, resize_float):
         image = cv2.resize(image, (w_new, h_new)).astype('float32')
 
     if crop:
-       image = image[ crop[1]:crop[3],crop[0]:crop[2] ]
+        image = image[ crop[1]:crop[3],crop[0]:crop[2] ]
 
     inp = frame2tensor(image, device)
     return image, inp, scales
@@ -114,7 +114,7 @@ def read_img(path, color, resize, crop):
     image = cv2.resize(image, (w_new, h_new))
     
     if crop:
-       image = image[ crop[1]:crop[3],crop[0]:crop[2] ]
+        image = image[ crop[1]:crop[3],crop[0]:crop[2] ]
 
     return image, scales
 
@@ -159,45 +159,3 @@ def generateTiles(image, rowDivisor=2, colDivisor=2, overlap = 200, viz=False, o
     return tiles, limits
 
     
-# --- TIMING ---
-class AverageTimer:
-    """ Class to help manage printing simple timing of code execution. """
-
-    def __init__(self, smoothing=0.3, newline=False):
-        self.smoothing = smoothing
-        self.newline = newline
-        self.times = OrderedDict()
-        self.will_print = OrderedDict()
-        self.reset()
-
-    def reset(self):
-        now = time.time()
-        self.start = now
-        self.last_time = now
-        for name in self.will_print:
-            self.will_print[name] = False
-
-    def update(self, name='default'):
-        now = time.time()
-        dt = now - self.last_time
-        if name in self.times:
-            dt = self.smoothing * dt + (1 - self.smoothing) * self.times[name]
-        self.times[name] = dt
-        self.will_print[name] = True
-        self.last_time = now
-
-    def print(self, text='Timer'):
-        total = 0.
-        print('[{}]'.format(text), end=' ')
-        for key in self.times:
-            val = self.times[key]
-            if self.will_print[key]:
-                print('%s=%.3f' % (key, val), end=' ')
-                total += val
-        print('total=%.3f sec {%.1f FPS}' % (total, 1./total), end=' ')
-        if self.newline:
-            print(flush=True)
-        else:
-            print(end='\r', flush=True)
-        self.reset()  
-               

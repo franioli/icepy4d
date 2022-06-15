@@ -133,3 +133,4 @@ def pose_auc(errors, thresholds):
         e = np.r_[errors[:last_index], t]
         aucs.append(np.trapz(r, x=e)/t)
     return aucs
+
