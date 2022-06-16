@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import scipy as sp
+from src.geometry import (P_from_KRT, project_points)
 
 def normalize_and_und_points(pts, K, dist=None):
     pts = cv2.undistortPoints(pts.T, K, dist)
@@ -42,7 +43,7 @@ def interpolate_point_colors(pointxyz, image, K, R, t, dist=None, winsz=1):
     numPts = len(pointxyz)
     col = np.zeros((numPts,3))
     h,w,_ = image.shape
-    P = P_from_KRT(K, R, T)
+    P = P_from_KRT(K, R, t)
     m = project_points(pointxyz, P, K, dist)
     image = image.astype(np.float32) / 255.
     
