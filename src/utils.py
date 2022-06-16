@@ -20,52 +20,45 @@ def undistort_image(image, K, dist, downsample=1, out_path=None):
         cv2.imwrite(out_name, und)
     return und, K_scaled
 
-def interpolate_point_colors(pointsXYZ, image, K, R, t, dist=None, winsz=1, do_viz=False):
+def interpolate_point_colors(pointxyz, image, K, R, t, dist=None, winsz=1):
     ''''
     Interpolate color of a 3D sparse point cloud, given an oriented image
       Inputs:  
-       - 3xN matrix with 3d world points coordinates
+       - Nx3 matrix with 3d world points coordinates
        - image
        - camera interior and exterior orientation matrixes: K, R, t
        - distortion vector according to OpenCV
-    Output: 3xN colour matrix 
+    Output: Nx3 colour matrix, as float numbers (normalized in [0,1])
     '''
     
     assert K is not None, 'invalid camera matrix' 
     assert R is not None, 'invalid rotation matrix' 
     assert t is not None, 'invalid translation vector' 
+    assert image.ndim == 3, 'invalid input image. Image has not 3 channel'
 
     if K is not None and dist is not None:
-        image = undistort_image(image, K, dist)
+        image = cv2.undistort(image, K, dist, None, K)
     
-    numPts = len(pointsXYZ)
-    col = np.zeros((3,numPts))
-    h,w = image.shape
-    m,_ = cv2.projectPoints(pointsXYZ, cv2.Rodrigues(R), t, K, dist)
-
+    numPts = len(pointxyz)
+    col = np.zeros((numPts,3))
+    h,w,_ = image.shape
+    P = P_from_KRT(K, R, T)
+    m = project_points(pointxyz, P, K, dist)
+    image = image.astype(np.float32) / 255.
+    
     for k in range(0,numPts):
-        kint = np.round(m[:,k])
-        i = [a for a in range(kint[1]-winsz,kint[1]+winsz)]
-        j = [b for b in range(kint[0]-winsz,kint[0]+winsz)]
-        if i > w or j > h:
+        kint = np.round(m[k,0:2]).astype(int)
+        i = np.array([a for a in range(kint[1]-winsz,kint[1]+winsz+1)])
+        j = np.array([a for a in range(kint[0]-winsz,kint[0]+winsz+1)])
+        if i.min()<0 or  i.max()>w or j.min()<0 or j.max()>h:
             continue
         ii, jj = np.meshgrid(i,j)
+        ii, jj = ii.flatten(), jj.flatten()
         for rgb in range(0,3):
-            colNum  = image[i,j,rgb].astype(float64).flatten
-
-#         for  rgb = 1:3
-#             colNum  = double(im(i(:),j(:),rgb));
-#             fcol    = scatteredInterpolant(jj(:),ii(:),colNum(:), 'linear');
-#             col(rgb,k) = fcol(m(1,k), m(2,k));
-   
-#     col = uint8(col);
-
-#     if do_viz == true
-#         figure; imshow(im); hold on;  axis on; 
-#         scatter(m(1,:), m(2,:), 20, double(col(:, :))'/255,  'filled' , 'MarkerEdgeColor', 	[0 0 0])
-
-    
-
+            colPatch = image[i[0]:i[-1]+1,j[0]:j[-1]+1,rgb]
+            fcol = sp.interpolate.interp2d(i, j, colPatch, kind='linear')  
+            col[k,rgb] = fcol(m[k,0], m[k,1])
+    return col
 
 ## Visualization
 def draw_epip_lines(img0, img1, lines, pts0, pts1, fast_viz=True):
