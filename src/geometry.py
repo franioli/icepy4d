@@ -64,36 +64,17 @@ def X0_from_P(P):
     return X0
 
 
-# def TriangulateTwoViews(img1pts, img2pts, P1, P2, K1, K2): 
-#     '''
-#     usage example: points3d = TriangulateTwoViews(features[0]['mkpts0'], features[0]['mkpts1'],
-#                                               cameras[0]['P'], cameras[1]['P'],
-#                                              cameras[0]['K'], cameras[1]['K'])
-#     '''
-#     img1ptsHom = cv2.convertPointsToHomogeneous(img1pts)[:,0,:]
-#     img2ptsHom = cv2.convertPointsToHomogeneous(img2pts)[:,0,:]
-
-#     img1ptsNorm = (np.linalg.inv(K1).dot(img1ptsHom.T)).T
-#     img2ptsNorm = (np.linalg.inv(K2).dot(img2ptsHom.T)).T
-
-#     img1ptsNorm = cv2.convertPointsFromHomogeneous(img1ptsNorm)[:,0,:]
-#     img2ptsNorm = cv2.convertPointsFromHomogeneous(img2ptsNorm)[:,0,:]
-
-#     pts4d = cv2.triangulatePoints(P1, P2, img1ptsNorm.T,img2ptsNorm.T)
-#     pts3d = cv2.convertPointsFromHomogeneous(pts4d.T)[:,0,:]
-
-#     return pts3d                
-
-
-def undistort_image(image, K, dist, downsample, out_name):
+def project_points(points3d, P, K=None, dist=None):
     '''
-    Undistort image with OpenCV
+    Project 3D points (Nx3 array) to image coordinates, given the projection matrix P (4x3 matrix)
+    If K matric and dist vector are given, the function computes undistorted image projections (otherwise, zero distortions are assumed)
     '''
-    h, w, _ = image.shape
-    h_new, w_new = h*downsample, w*downsample
-    K_scaled, roi = cv2.getOptimalNewCameraMatrix(K, dist, (w, h), 1, (int(w_new), int(h_new)))
-    und = cv2.undistort(image, K, dist, None, K_scaled)
-    x, y, w, h = roi
-    und = und[y:y+h, x:x+w]                      
-    cv2.imwrite(out_name, und)
-    return und, K_scaled
+    points3d = cv2.convertPointsToHomogeneous(points3d)[:,0,:]
+    m = np.matmul(P, points3d.T)
+    m = m[0:2,:] / m[2,:]; 
+    m = m.astype(float).T
+    
+    if dist is not None and K is not None:
+        m = cv2.undistortPoints(m, K, dist, None, K)[:,0,:]
+        
+    return m.astype(float)
