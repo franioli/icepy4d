@@ -1,7 +1,13 @@
 import cv2
 import numpy as np
-import scipy as sp
+from scipy.interpolate import (interp2d, griddata)
 from src.geometry import (P_from_KRT, project_points)
+from PIL import Image
+# import matplotlib
+# %matplotlib widget
+import matplotlib.pyplot as plt
+
+# from src.classes.dsm import DSM
 
 def normalize_and_und_points(pts, K, dist=None):
     pts = cv2.undistortPoints(pts.T, K, dist)
@@ -57,9 +63,61 @@ def interpolate_point_colors(pointxyz, image, K, R, t, dist=None, winsz=1):
         ii, jj = ii.flatten(), jj.flatten()
         for rgb in range(0,3):
             colPatch = image[i[0]:i[-1]+1,j[0]:j[-1]+1,rgb]
-            fcol = sp.interpolate.interp2d(i, j, colPatch, kind='linear')  
+            fcol = interp2d(i, j, colPatch, kind='linear')  
             col[k,rgb] = fcol(m[k,0], m[k,1])
     return col
+
+## DSM
+
+# DSM CLASS. TODO: improve class and move to a python class file        
+class DSM:
+    def __init__(self, xx, yy, zz, res):
+        # xx, yy = np.meshgrid(x,y)
+        self.x = xx
+        self.y = yy
+        self.z = zz
+        self.res = res    
+        
+def build_dsm(points3d, dsm_step=1, xlim=None, ylim=None, save_path=None, do_viz=0):
+    assert np.any(np.array(points3d.shape) == 3), "Invalid size of input points"
+    if points3d.shape[0] == points3d.shape[1]:
+        print("Warning: input vector 3 points. Unable to check validity of point dimensions.")        
+    if points3d.shape[0] == 3:
+        points3d = points3d.T
+    x, y, z = points3d[:,0], points3d[:,1], points3d[:,2]
+    if xlim is None:
+        xlim = [np.floor(x.min()), np.ceil(x.max())]
+    if ylim is None:
+        ylim = [np.floor(y.min()), np.ceil(y.max())]
+    
+    # Interpolate dsm
+    xq = np.arange(xlim[0], xlim[1], dsm_step)
+    yq = np.arange(ylim[0], ylim[1], dsm_step)
+    xx, yy = np.meshgrid(xq,yq)
+    z_range = [np.floor(z.min()), np.ceil(z.max())]
+    zz = griddata((x,y) , z, (xx, yy))
+    dsm = DSM(xx, yy, zz, dsm_step)
+
+    # plot dsm 
+    if do_viz:
+        ax = plt.figure()
+        im = plt.contourf(xx, yy, dsm.z)
+        scatter = plt.scatter(x, y, 1, c='k', alpha=0.5, marker='.')
+        plt.gca().invert_yaxis()
+        cbar = plt.colorbar(im)
+        cbar.set_label("z")
+        plt.xlabel("x")
+        plt.ylabel("y")
+        plt.show()
+        plt.savefig('dsm_approx_plt.png', bbox_inches='tight')
+
+    # Save dsm as tif
+    if save_path is not None:
+        dsm_ras = Image.fromarray(dsm.z)
+        dsm_ras.save(save_path)        
+    
+    return dsm
+
 
 ## Visualization
 def draw_epip_lines(img0, img1, lines, pts0, pts1, fast_viz=True):
@@ -106,5 +164,3 @@ def make_matching_plot(image0, image1, pts0, pts1, pts_col=(0,0,255), point_size
                    lineType=cv2.LINE_AA)
     if path is not None: 
         cv2.imwrite(path, out)
-        
-        
