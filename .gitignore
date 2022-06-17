@@ -6,7 +6,7 @@ data/calib/calib_fullOpenCVmodel.txt
 data/calib/calib_fullOpenCVmodel_matlab.txt
 data/calib/bk/
 res/
-utils/_old/
 sfm/
 sgm/
-
+src/_old/
+_old/
