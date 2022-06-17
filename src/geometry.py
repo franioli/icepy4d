@@ -68,6 +68,7 @@ def project_points(points3d, P, K=None, dist=None):
     '''
     Project 3D points (Nx3 array) to image coordinates, given the projection matrix P (4x3 matrix)
     If K matric and dist vector are given, the function computes undistorted image projections (otherwise, zero distortions are assumed)
+    Returns: 2D projected points (Nx2 array) in image coordinates
     '''
     points3d = cv2.convertPointsToHomogeneous(points3d)[:,0,:]
     m = np.matmul(P, points3d.T)
