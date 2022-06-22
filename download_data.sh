@@ -2,11 +2,9 @@
 
 function download_data() {
     url="https://labmgf.dica.polimi.it/pujob/francesco-git/"
-   
-    fname="img.tar.gz" 
-    
+    fname="img.tar.gz"
     wget --no-check-certificate --show-progress "$url$fname"
-    tar -xzvf "$model_file"
+    tar -xzvf "$fname"
     rm "$fname"
     cd ../
 }
