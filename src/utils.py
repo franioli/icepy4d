@@ -24,7 +24,7 @@ def undistort_image(image, K, dist, downsample=1, out_path=None):
     x, y, w, h = roi
     und = und[y:y+h, x:x+w]  
     if out_path is not None:
-        cv2.imwrite(out_name, und)
+        cv2.imwrite(out_path, und)
     return und, K_scaled
 
 def interpolate_point_colors(pointxyz, image, K, R, t, dist=None, winsz=1):
