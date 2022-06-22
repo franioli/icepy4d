@@ -1,0 +1,30 @@
+{
+    "output_dir": "./",
+
+    "resize": [-1],
+    "resize_float": true,
+    "equalize_hist": false,
+
+    "nms_radius": 4 ,
+    "keypoint_threshold": 0.0001,
+    "max_keypoints": 8192,
+
+    "superglue": "outdoor",
+    "sinkhorn_iterations": 100,
+    "match_threshold": 0.2,
+
+    "viz":  true,
+    "viz_extension": "png",
+    "fast_viz": true,
+    "opencv_display" : false,
+    "show_keypoints": false,
+
+    "cache": false,
+    "force_cpu": false,
+
+    "useTile": true,
+    "writeTile2Disk": false,
+    "do_viz_tile": false,
+    "rowDivisor": 2,
+    "colDivisor": 4
+}   
