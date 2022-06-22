@@ -4,3 +4,6 @@
 [submodule "src/thirdParts/hloc"]
 	path = thirdParts/hloc
 	url = https://github.com/cvg/Hierarchical-Localization.git
+[submodule "src/thirdParts/PSMNet"]
+	path = src/thirdParts/PSMNet
+	url = git@github.com:franioli/PSMNet.git
