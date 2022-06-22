@@ -1,0 +1,30 @@
+  opt_matching ={'output_dir': epochdir, 
+
+                       'resize': [-1],
+                       'resize_float': True,
+                       'equalize_hist': False,
+
+                       'nms_radius': 3,  # default 3 
+                       'keypoint_threshold': 0.0001, 
+                       'max_keypoints': 8192, #4096, # Use 8192 for returning more matches
+
+                       'superglue': 'outdoor',
+                       'sinkhorn_iterations': 100,
+                       'match_threshold': 0.4, 
+
+                       'viz':  True,
+                       'viz_extension': 'png', 
+                       'fast_viz': True,
+                       'opencv_display' : False, 
+                       'show_keypoints': False, 
+
+                       'cache': False,
+                       'force_cpu': False,
+
+                       'useTile': True, 
+                       'writeTile2Disk': False,
+                       'do_viz_tile': True,
+                       'rowDivisor': 3,
+                       'colDivisor': 4,
+                       'overlap': 300,            
+                       }
