@@ -27,7 +27,7 @@ def undistort_image(image, K, dist, downsample=1, out_path=None):
         cv2.imwrite(out_path, und)
     return und, K_scaled
 
-def interpolate_point_colors(pointxyz, image, K, R, t, dist=None, winsz=1):
+def interpolate_point_colors(pointxyz, image, P, K=None, dist=None, winsz=1):
     ''''
     Interpolate color of a 3D sparse point cloud, given an oriented image
       Inputs:  
@@ -38,9 +38,7 @@ def interpolate_point_colors(pointxyz, image, K, R, t, dist=None, winsz=1):
     Output: Nx3 colour matrix, as float numbers (normalized in [0,1])
     '''
     
-    assert K is not None, 'invalid camera matrix' 
-    assert R is not None, 'invalid rotation matrix' 
-    assert t is not None, 'invalid translation vector' 
+    assert P is not None, 'invalid projection matrix' 
     assert image.ndim == 3, 'invalid input image. Image has not 3 channel'
 
     if K is not None and dist is not None:
@@ -49,22 +47,21 @@ def interpolate_point_colors(pointxyz, image, K, R, t, dist=None, winsz=1):
     numPts = len(pointxyz)
     col = np.zeros((numPts,3))
     h,w,_ = image.shape
-    P = P_from_KRT(K, R, t)
-    m = project_points(pointxyz, P, K, dist)
+    projections = project_points(pointxyz, P, K, dist)
     image = image.astype(np.float32) / 255.
     
-    for k in range(0,numPts):
-        kint = np.round(m[k,0:2]).astype(int)
+    for k, m in enumerate(projections):
+        kint = np.round(m).astype(int)
         i = np.array([a for a in range(kint[1]-winsz,kint[1]+winsz+1)])
         j = np.array([a for a in range(kint[0]-winsz,kint[0]+winsz+1)])
-        if i.min()<0 or  i.max()>w or j.min()<0 or j.max()>h:
+        if i.min()<0 or i.max()>h or j.min()<0 or j.max()>w:
             continue
         ii, jj = np.meshgrid(i,j)
         ii, jj = ii.flatten(), jj.flatten()
         for rgb in range(0,3):
             colPatch = image[i[0]:i[-1]+1,j[0]:j[-1]+1,rgb]
             fcol = interp2d(i, j, colPatch, kind='linear')  
-            col[k,rgb] = fcol(m[k,0], m[k,1])
+            col[k,rgb] = fcol(m[0], m[1])
     return col
 
 ## DSM
