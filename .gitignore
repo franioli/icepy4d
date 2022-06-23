@@ -10,3 +10,4 @@ sfm/
 sgm/
 
 _old/
+*__pycache__
