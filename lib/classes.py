@@ -4,11 +4,12 @@ import cv2
 
 from lib.geometry import (P_from_KRT, X0_from_P)
 
+#--- Camera ---#
 class Camera:
-    """ Class to help manage Cameras. """
+    ''' Class to help manage Cameras. '''
 
     def __init__(self, K=None, R=None, t=None, dist=None):
-        """ Initialize pinhole camera model """
+        ''' Initialize pinhole camera model '''
         #TODO: add checks on inputs
         # If not None, convert inputs to np array
         if K is not None:
@@ -27,14 +28,14 @@ class Camera:
         self.dist = dist # Distortion vector in OpenCV format
   
     def reset_EO(self):
-        ''' Reset camera EO as to make camera reference system parallel to world reference system'''
+        ''' Reset camera EO as to make camera reference system parallel to world reference system '''
         self.R = np.identity(3)
         self.t = np.zeros((3,)).reshape(3,1)
         self.P = P_from_KRT(self.K, self.R, self.t)
         self.X0 = X0_from_P(self.P)
         
     def camera_center(self):        
-        """ Compute and return the camera center. """
+        ''' Compute and return the camera center. '''
         if self.X0 is not None:
             return self.X0
         else:
@@ -42,10 +43,10 @@ class Camera:
             return self.X0
     
     def compose_P(self):
-        """
+        '''
         Compose and return the 4x3 P matrix from 3x3 K matrix, 3x3 R matrix and 3x1 t vector, as:
             K[ R | t ]
-        """
+        '''
         if (self.K is None):
             print("Invalid calibration matrix. Unable to compute P.")
             self.P = None 
@@ -66,7 +67,7 @@ class Camera:
         return self.P
         
     def factor_P(self):
-        """  Factorize the camera matrix into K,R,t as P = K[R|t]. """
+        '''  Factorize the camera matrix into K,R,t as P = K[R|t]. '''
         
         # factor first 3*3 part
         K,R = linalg.rq(self.P[:,:3])
@@ -82,7 +83,43 @@ class Camera:
         
         return self.K, self.R, self.t
     
+  
+#--- Images ---#
+class Imageds:
+    '''
+    Class to help manage Image datasets 
     
+    Parameters
+    ----------
+    *args : str
+      Read calibration text file, with Full OpenCV parameters in a row.
+    '''
+
+    def __init__(self):
+        '''Initialise the camera calibration object '''
+
+        print('class not defined yet...')
+
+
+#--- Features ---#
+    class Features:
+        ''' Class to store features, descriptors and scores '''
+        def __init__(self):
+            print('class not defined yet...')
+    
+#--- DSM ---#  
+class DSM:
+    ''' Class to store and manage DSM. '''
+    def __init__(self, x, y, z, res):
+        xx, yy = np.meshgrid(x,y)
+        self.x = xx
+        self.y = yy
+        self.z = z
+        self.res = res    
+        
+    # def generate_tif(self, ):
+            
+  
 
 if __name__ == '__main__':
    
