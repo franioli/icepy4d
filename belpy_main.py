@@ -9,14 +9,14 @@ import matplotlib.cm as cm
 import open3d as o3d
 import pydegensac
 
-from src.match_pairs import match_pair
-from src.track_matches import track_matches
+from lib.match_pairs import match_pair
+from lib.track_matches import track_matches
 # from src.sg.utils import make_matching_plot
 
-from src.io import read_img
-from src.geometry import (estimate_pose, P_from_KRT, X0_from_P, project_points)
-from src.utils import (normalize_and_und_points, draw_epip_lines, make_matching_plot, undistort_image, interpolate_point_colors, build_dsm)
-from src.thirdParts.triangulation import (linear_LS_triangulation, iterative_LS_triangulation)
+from lib.io import read_img
+from lib.geometry import (estimate_pose, P_from_KRT, X0_from_P, project_points)
+from lib.utils import (normalize_and_und_points, draw_epip_lines, make_matching_plot, undistort_image, interpolate_point_colors, build_dsm)
+from lib.thirdParts.triangulation import (linear_LS_triangulation, iterative_LS_triangulation)
 
 #---  Parameters  ---#
 # TODO: put parameters in parser or in json file
@@ -73,7 +73,7 @@ del d, data, K, dist, path, f, i, jj
 print('Data loaded')
 
 #%% Perform matching and tracking
-find_matches = 0
+find_matches = 1
 if find_matches:
     epoches2process = [0] # #1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
     
@@ -88,7 +88,7 @@ if find_matches:
         opt_matching['output_dir'] = epochdir
         pair = [images[0][epoch], images[1][epoch]]
         maskBB = np.array(maskBB).astype('int')
-        matchedPts, matchedDescriptors, matchedPtsScores, _ = match_pair(pair, maskBB, opt_matching)
+        matchedPts, matchedDescriptors, matchedPtsScores = match_pair(pair, maskBB, opt_matching)
 
         # Store matches in features structure
         if epoch == 0:
@@ -273,7 +273,7 @@ img0 = cv2.imread(images[0][0], flags=cv2.IMREAD_COLOR)
 img1 = cv2.imread(images[1][0], flags=cv2.IMREAD_COLOR)
 h, w, _ = img0.shape
 
-#--- RRectify calibrated ---#
+#--- Rectify calibrated ---#
 R1,R2,P1,P2,Q = cv2.stereoRectify(cameras[0]['K'], cameras[0]['dist'], cameras[1]['K'], cameras[1]['dist'],\
              (h,w), cameras[1]['R'], cameras[1]['t'])
     
@@ -303,6 +303,7 @@ cv2.imwrite(path0, img0_rectified)
 cv2.imwrite(path1, img1_rectified)
 
 if fast_viz: 
+    print()
 else:
     fig = plt.figure()
     ax1 = fig.add_subplot(1,2,1)
