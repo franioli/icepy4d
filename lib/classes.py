@@ -102,10 +102,10 @@ class Imageds:
 
 
 #--- Features ---#
-    class Features:
-        ''' Class to store features, descriptors and scores '''
-        def __init__(self):
-            print('class not defined yet...')
+class Features:
+    ''' Class to store features, descriptors and scores '''
+    def __init__(self):
+        print('class not defined yet...')
     
 #--- DSM ---#  
 class DSM:

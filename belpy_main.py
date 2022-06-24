@@ -41,7 +41,7 @@ camNames = ['p2', 'p3']
 # maskBB = [[600,1900,5300, 3600], [800,1800,5500,3500]]             # Bounding box for processing the images from the two cameras
 maskBB = [[400,1500,5500,4000], [600,1400,5700,3900]]             # Bounding box for processing the images from the two cameras
 
-#  Load data
+#  Inizialize Lists
 cameras = []  # List for storing cameras information (as dicts)
 images = []   # List for storing image paths
 features = []  # Dict for storing all the valid matched features at all epochs
@@ -68,7 +68,7 @@ for jj, cam in enumerate(camNames):
         data = np.loadtxt(f)
     K = data[0:9].astype(float).reshape(3, 3, order='C')
     dist = data[9:13].astype(float)
-    cameras.insert(jj, {'K': K, 'dist': dist})
+    cameras.insert(jj, Camera(K=K, dist=dist))
 
 # Remove some variables
 del d, data, K, dist, path, f, i, jj
@@ -76,7 +76,7 @@ del d, data, K, dist, path, f, i, jj
 print('Data loaded')
 
 #%% Perform matching and tracking
-find_matches = 1
+find_matches = 0
 if find_matches:
     epoches2process = [0] # #1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
     
@@ -171,40 +171,39 @@ else:
 
 #--- Realtive Pose with Essential Matrix ---#
 pts0, pts1 = features[0]['mkpts0'], features[0]['mkpts1']
-rel_pose = estimate_pose(pts0, pts1, cameras[0]['K'],  cameras[1]['K'], thresh=1, conf=0.99999)
+rel_pose = estimate_pose(pts0, pts1, cameras[0].K,  cameras[1].K, thresh=1, conf=0.99999)
 R = rel_pose[0]
 t = rel_pose[1]
 valid = rel_pose[2]
 print('Computing relative pose. Valid points: {}/{}'.format(valid.sum(),len(valid)))
 
 # Build cameras structures
-cameras[0]['R'], cameras[0]['t'] = np.eye(3), np.zeros((3,1))
-cameras[1]['R'], cameras[1]['t'] = R, t.reshape(3,1)
-for jj in range(0,numCams):
-    cameras[jj]['P'] = P_from_KRT(cameras[jj]['K'], cameras[jj]['R'], cameras[jj]['t'])
-    cameras[jj]['X0'] = X0_from_P(cameras[jj]['P'])
+cameras[0].reset_EO()
+cameras[1].R, cameras[1].t = R, t.reshape(3,1)
+cameras[1].compose_P()
+cameras[1].camera_center()
 
 # Scale model by using camera baseline
 X01_meta = np.array([416651.52489669225,5091109.91215075,1858.908434299682])   # IMG_2092
 X02_meta = np.array([416622.27552777925,5091364.507128085,1902.4053286545502]) # IMG_0481
 camWorldBaseline = np.linalg.norm(X01_meta - X02_meta)                         # [m] From Metashape model at epoch t0
-camRelOriBaseline = np.linalg.norm(cameras[0]['X0'] - cameras[1]['X0'])
+camRelOriBaseline = np.linalg.norm(cameras[0].X0 - cameras[1].X0)
 scaleFct = camWorldBaseline / camRelOriBaseline
-cameras[1]['X0'] =  cameras[1]['X0'] * scaleFct
-cameras[1]['t'] = -np.matmul(cameras[1]['R'], cameras[1]['X0'])
-cameras[1]['P'] = P_from_KRT(cameras[1]['K'], cameras[1]['R'], cameras[1]['t'])
+cameras[1].X0 =  cameras[1].X0 * scaleFct
+cameras[1].t = -np.dot(cameras[1].R, cameras[1].X0)
+cameras[1].compose_P()
 
 #--- Triangulate Points ---#
-pts0_und = cv2.undistortPoints(features[0]['mkpts0'], cameras[0]['K'], cameras[0]['dist'], None, cameras[0]['K'])
-pts1_und = cv2.undistortPoints(features[0]['mkpts1'], cameras[1]['K'], cameras[1]['dist'], None, cameras[1]['K'])
-M, status = iterative_LS_triangulation(pts0_und, cameras[0]['P'],  pts1_und, cameras[1]['P'])
+pts0_und = cv2.undistortPoints(features[0]['mkpts0'], cameras[0].K, cameras[0].dist, None, cameras[0].K)
+pts1_und = cv2.undistortPoints(features[0]['mkpts1'], cameras[1].K, cameras[1].dist, None, cameras[1].K)
+M, status = iterative_LS_triangulation(pts0_und, cameras[0].P,  pts1_und, cameras[1].P)
 points3d.insert(epoch, M)
 print(f'Triangulated success: {status.sum()/status.size}')
 
 # Interpolate colors from image 
 jj = 1
 image = cv2.cvtColor(cv2.imread(images[jj][0], flags=cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
-points3d_cols =  interpolate_point_colors(points3d[0], image, cameras[jj]['P'], cameras[jj]['K'], cameras[jj]['dist'])
+points3d_cols =  interpolate_point_colors(points3d[0], image, cameras[jj].P, cameras[jj].K, cameras[jj].dist)
 
 # Visualize and export sparse point cloud
 do_viz = True
@@ -239,7 +238,7 @@ def generate_ortophoto(image, dsm, P, res=1):
     valid_cell = np.invert(np.isnan(xyz[:,2]))
     
     cols = np.full((ncell,3),0)
-    cols[valid_cell,:] = interpolate_point_colors(xyz[valid_cell,:], image, cameras['P'], cameras['K'], cameras['dist'])
+    cols[valid_cell,:] = interpolate_point_colors(xyz[valid_cell,:], image, cameras.P, cameras.K, cameras.dist)
     ortophoto = np.zeros((dsm_shape[0],dsm_shape[1],3))
     ortophoto[:,:,0] = cols[:,0].reshape(dsm_shape[0], dsm_shape[1])
     ortophoto[:,:,1] = cols[:,1].reshape(dsm_shape[0], dsm_shape[1])
@@ -277,8 +276,8 @@ img1 = cv2.imread(images[1][0], flags=cv2.IMREAD_COLOR)
 h, w, _ = img0.shape
 
 #--- Rectify calibrated ---#
-R1,R2,P1,P2,Q = cv2.stereoRectify(cameras[0]['K'], cameras[0]['dist'], cameras[1]['K'], cameras[1]['dist'],\
-             (h,w), cameras[1]['R'], cameras[1]['t'])
+R1,R2,P1,P2,Q = cv2.stereoRectify(cameras[0].K, cameras[0].dist, cameras[1].K, cameras[1].dist,\
+             (h,w), cameras[1].R, cameras[1].t)
     
     
 #--- Recify Uncalibrated ---#
@@ -286,8 +285,8 @@ R1,R2,P1,P2,Q = cv2.stereoRectify(cameras[0]['K'], cameras[0]['dist'], cameras[1
 # undistort images
 name0 = str(sgm_path / 'und' / (stem0 + "_undistorted.jpg"))
 name1 = str(sgm_path / 'und' / (stem1 + "_undistorted.jpg"))
-img0, K0_scaled = undistort_image(img0, cameras[0]['K'],  cameras[0]['dist'], downsample, name0)
-img1, K1_scaled = undistort_image(img1, cameras[1]['K'],  cameras[1]['dist'], downsample, name1)
+img0, K0_scaled = undistort_image(img0, cameras[0].K, cameras[0].dist, downsample, name0)
+img1, K1_scaled = undistort_image(img1, cameras[1].K, cameras[1].dist, downsample, name1)
 
 # Rectify uncalibrated
 pts0, pts1 = features[0]['mkpts1']*downsample, features[0]['mkpts0']*downsample
