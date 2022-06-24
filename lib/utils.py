@@ -5,7 +5,7 @@ from scipy.interpolate import (interp2d, griddata)
 from PIL import Image
 
 from lib.geometry import (P_from_KRT, project_points)
-from lib.classes.dsm import DSM
+from lib.classes import DSM
 
 # from src.classes.dsm import DSM
 
