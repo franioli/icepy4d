@@ -9,7 +9,7 @@ import matplotlib.cm as cm
 import open3d as o3d
 import pydegensac
 
-from lib.classes import 
+from lib.classes import (Camera, DSM, Features, Imageds)
 
 from lib.match_pairs import match_pair
 from lib.track_matches import track_matches
@@ -19,6 +19,7 @@ from lib.io import read_img
 from lib.geometry import (estimate_pose, P_from_KRT, X0_from_P, project_points)
 from lib.utils import (normalize_and_und_points, draw_epip_lines, make_matching_plot, undistort_image, interpolate_point_colors, build_dsm)
 from lib.thirdParts.triangulation import (linear_LS_triangulation, iterative_LS_triangulation)
+
 
 #---  Parameters  ---#
 # TODO: put parameters in parser or in json file
@@ -238,7 +239,7 @@ def generate_ortophoto(image, dsm, P, res=1):
     valid_cell = np.invert(np.isnan(xyz[:,2]))
     
     cols = np.full((ncell,3),0)
-    cols[valid_cell,:] = interpolate_point_colors(xyz[valid_cell,:], image, camera['P'], camera['K'], camera['dist'])
+    cols[valid_cell,:] = interpolate_point_colors(xyz[valid_cell,:], image, cameras['P'], cameras['K'], cameras['dist'])
     ortophoto = np.zeros((dsm_shape[0],dsm_shape[1],3))
     ortophoto[:,:,0] = cols[:,0].reshape(dsm_shape[0], dsm_shape[1])
     ortophoto[:,:,1] = cols[:,1].reshape(dsm_shape[0], dsm_shape[1])
