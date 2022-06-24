@@ -9,6 +9,8 @@ import matplotlib.cm as cm
 import open3d as o3d
 import pydegensac
 
+from lib.classes import 
+
 from lib.match_pairs import match_pair
 from lib.track_matches import track_matches
 # from src.sg.utils import make_matching_plot
