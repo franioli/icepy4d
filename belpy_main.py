@@ -102,6 +102,14 @@ if find_matches:
                             'descr1': matchedDescriptors[1],
                             'scores0': matchedPtsScores[0], 
                             'scores1': matchedPtsScores[1] }] 
+            
+            # features = [{   'mkpts0': matchedPts['mkpts0'], 
+            #                 'mkpts1': matchedPts['mkpts1'],
+            #                 # 'mconf': matchedPts['match_confidence'],
+            #                 'descr0': matchedDescriptors[0], 
+            #                 'descr1': matchedDescriptors[1],
+            #                 'scores0': matchedPtsScores[0], 
+            #                 'scores1': matchedPtsScores[1] }] 
         # TODO: Store match confidence!
 
         #=== Track previous matches at current epoch ===#

@@ -83,6 +83,24 @@ class Camera:
         
         return self.K, self.R, self.t
     
+    def project_points(self, points3d):
+        '''
+        Overhelmed method (see lib.geometry) for projecting 3D to image coordinates.
+        
+        Project 3D points (Nx3 array) to image coordinates, given the projection matrix P (4x3 matrix)
+        If K matric and dist vector are given, the function computes undistorted image projections (otherwise, zero distortions are assumed)
+        Returns: 2D projected points (Nx2 array) in image coordinates
+        '''
+        points3d = cv2.convertPointsToHomogeneous(points3d)[:,0,:]
+        m = np.dot(self.P, points3d.T)
+        m = m[0:2,:] / m[2,:]; 
+        m = m.astype(float).T
+        
+        if self.dist is not None and self.K is not None:
+            m = cv2.undistortPoints(m, self.K, self.dist, None, self.K)[:,0,:]
+            
+        return m.astype(float)
+    
   
 #--- Images ---#
 class Imageds:
@@ -98,14 +116,70 @@ class Imageds:
     def __init__(self):
         '''Initialise the camera calibration object '''
 
-        print('class not defined yet...')
+        print('Class not defined yet...')
 
 
 #--- Features ---#
 class Features:
-    ''' Class to store features, descriptors and scores '''
+    ''' 
+    Class to store matched features, descriptors and scores 
+    Features are stored as numpy arrays.
+        Features.kpts: nx2 array of features location
+        Features.descr: mxn array of descriptors (note that descriptors are stored columnwise)
+        Features.score: nx1 array with feature score    '''
+
     def __init__(self):
-        print('class not defined yet...')
+        self.reset_fetures()
+        
+    def reset_fetures(self):
+        '''
+        Reset Feature instance to None Objects
+        '''
+        self.kpts = None
+        self.descr = None
+        self.score = None        
+    
+    def initialize_fetures(self, nfeatures=1, descr_size=256):
+        '''
+        Inizialize Feature instance to numpy arrays, 
+        optionally for a given number of features and descriptor size (default is 256).
+        '''
+        self.kpts = np.empty((nfeatures,2), dtype=float)
+        self.descr = np.empty((descr_size,nfeatures), dtype=float)
+        self.score = np.empty(nfeatures, dtype=float)
+        
+    def get_keypoints(self):
+        ''' Return keypoints as numpy array '''
+        return self.kpts
+    
+    def get_descriptors(self):
+        ''' Return descriptors as numpy array '''
+        return self.descr
+    
+    def append_features(self, new_features):
+        '''
+        Append new features to Features Class. 
+        Input new_features is a Dict with keys as follows:
+            new_features['kpts']: nx2 array of features location
+            new_features['descr']: mxn array of descriptors (note that descriptors are stored columnwise)
+            new_features['score']: nx1 array with feature score
+        '''
+        # Check dictionary keys: 
+        keys = ['kpts', 'descr', 'score']
+        if any(key not in new_features.keys() for key in keys):
+            print('Invalid input dictionary. Check all keys ["kpts", "descr", "scores"] are present')
+            return self
+        # TODO: check correct shape of inputs.
+            
+        if self.kpts is None :
+            self.kpts = new_features['kpts']
+            self.descr = new_features['descr']
+            self.score = new_features['score']
+        else: 
+            self.kpts = np.append(self.kpts, new_features['kpts'], axis=0)
+            self.descr = np.append(self.descr, new_features['descr'], axis=1)
+            self.score = np.append(self.score, new_features['score'], axis=0)
+
     
 #--- DSM ---#  
 class DSM:
@@ -122,7 +196,20 @@ class DSM:
   
 
 if __name__ == '__main__':
-   
-    K = [[6900.766178626993, 0.0, 3055.9219427396583], [0.0, 6919.0517432373235, 1659.8768050681379], [0.0, 0.0, 1.0]]
-    dist = [-0.07241143420209739, 0.00311945599198001, -0.008597066196675609, 0.002601995972163532, 0.46863386164346776]
-    cam = Camera(K=K, dist=dist)
+    
+    # Test classes
+    # K = [[6900.766178626993, 0.0, 3055.9219427396583], [0.0, 6919.0517432373235, 1659.8768050681379], [0.0, 0.0, 1.0]]
+    # # dist = [-0.07241143420209739, 0.00311945599198001, -0.008597066196675609, 0.002601995972163532, 0.46863386164346776]
+    # # cam = Camera(K=K, dist=dist)
+
+    # feat0 = Features()
+    # nfeatures = 2
+    # new_features = {'kpts': np.empty((nfeatures,2), dtype=float), 
+    #              'descr': np.empty((256,nfeatures), dtype=float),  
+    #              'score': np.empty(nfeatures, dtype=float) }
+    
+    # feat0.append_features(new_features)
+    # feat0.append_features(new_features)
+    # print(feat0.get_keypoints())
+    
+    

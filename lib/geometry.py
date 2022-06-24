@@ -4,6 +4,11 @@ import cv2
 
 
 def estimate_pose(kpts0, kpts1, K0, K1, thresh, conf=0.99999):
+    """
+    Estimate camera pose given matched points and intrinsics matrix.
+    Function taken by the code of SuperGlue, by Sarlin et al., 2020
+    https://github.com/magicleap/SuperGluePretrainedNetwork
+    """
     if len(kpts0) < 5:
         return None
 
@@ -30,6 +35,9 @@ def estimate_pose(kpts0, kpts1, K0, K1, thresh, conf=0.99999):
     return ret
 
 def scale_intrinsics(K, scales):
+    """ 
+    Scale camera intrisics matrix (K) after image downsampling or upsampling.
+    """
     scales = np.diag([1./scales[0], 1./scales[1], 1.])
     return np.dot(scales, K)
 
