@@ -1,5 +1,6 @@
-.spyproject/
-.ipynb_checkpoints/
+*spyproject/
+*ipynb_checkpoints/
+*__pycache__
 data/img/p2/
 data/img/p3/
 data/calib/calib_fullOpenCVmodel.txt
@@ -8,3 +9,4 @@ data/calib/bk/
 res/
 sfm/
 sgm/
+
