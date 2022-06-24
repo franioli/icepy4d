@@ -8,6 +8,3 @@ data/calib/bk/
 res/
 sfm/
 sgm/
-
-_old/
-*__pycache__
