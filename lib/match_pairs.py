@@ -222,21 +222,21 @@ def match_pair(pair, maskBB, opt):
     out_matches = {'mkpts0': mkpts0 , 'mkpts1': mkpts1, 'match_confidence': mconf}        
     np.savez(str(matches_path), **out_matches)
     
-    return out_matches, [descriptors0, descriptors1], [scores0, scores1]
+    return [mkpts0, mkpts1], [descriptors0, descriptors1], [scores0, scores1]
 
-if __name__ == '__main__':
-    import os, json
+# if __name__ == '__main__':
+#     import os, json
     
-    epoch = 0
-    matching_config = 'config/opt_matching.json'
-    maskBB = [[400,1500,5500,4000], [600,1400,5700,3900]]
-    epochdir = os.path.join('res','epoch_'+str(epoch))      
-    with open(matching_config,) as f:
-        opt_matching = json.load(f)
-    opt_matching['output_dir'] = epochdir
-    pair = [images[0][epoch], images[1][epoch]]
-    maskBB = np.array(maskBB).astype('int')
-    matchedPts, matchedDescriptors, matchedPtsScores = match_pair(pair, maskBB, opt_matching)
+#     epoch = 0
+#     matching_config = 'config/opt_matching.json'
+#     maskBB = [[400,1500,5500,4000], [600,1400,5700,3900]]
+#     epochdir = os.path.join('res','epoch_'+str(epoch))      
+#     with open(matching_config,) as f:
+#         opt_matching = json.load(f)
+#     opt_matching['output_dir'] = epochdir
+#     pair = [images[0][epoch], images[1][epoch]]
+#     maskBB = np.array(maskBB).astype('int')
+#     matchedPts, matchedDescriptors, matchedPtsScores = match_pair(pair, maskBB, opt_matching)
 
 
     
