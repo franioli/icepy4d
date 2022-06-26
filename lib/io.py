@@ -1,14 +1,16 @@
 import numpy as np
 import cv2 
-import torch
-import argparse
-import time
-import os, glob
-import matplotlib.pyplot as plt
-import matplotlib
+import os
+# import matplotlib.pyplot as plt
+# import matplotlib
 # matplotlib.use('Agg')
         
-# --- PREPROCESSING ---
+#---  ---#
+def read_camera_cal():
+    #TODO: implemen function for reading calibration data from file (and set it as class method)
+    print('function not implemented yet')
+
+#--- ---#
 def process_resize(w, h, resize):
     assert(len(resize) > 0 and len(resize) <= 2)
     if len(resize) == 1 and resize[0] > -1:
@@ -19,45 +21,15 @@ def process_resize(w, h, resize):
     else:  # len(resize) == 2:
         w_new, h_new = resize[0], resize[1]
 
-    # Issue warning if resolution is too small or too large.
-    if max(w_new, h_new) < 160:
-        print('Warning: input resolution is very small, results may vary')
-    elif max(w_new, h_new) > 2000:
-        print('Warning: input resolution is very large, results may vary')
+    # # Issue warning if resolution is too small or too large.
+    # if max(w_new, h_new) < 160:
+    #     print('Warning: input resolution is very small, results may vary')
+    # elif max(w_new, h_new) > 2000:
+    #     print('Warning: input resolution is very large, results may vary')
 
     return w_new, h_new
 
-
-def frame2tensor(frame, device):
-    return torch.from_numpy(frame/255.).float()[None, None].to(device)
-
-
-def read_image(path, device, color, resize, crop, resize_float):
-    if color:
-        flag = cv2.IMREAD_COLOR
-    else:
-        flag = cv2.IMREAD_GRAYSCALE
-    image = cv2.imread(str(path), flag)
-    
-    if image is None:
-        return None, None, None
-    w, h = image.shape[1], image.shape[0]
-    w_new, h_new = process_resize(w, h, resize)
-    scales = (float(w) / float(w_new), float(h) / float(h_new))
-
-    if resize_float:
-        image = cv2.resize(image.astype('float32'), (w_new, h_new))
-    else:
-        image = cv2.resize(image, (w_new, h_new)).astype('float32')
-
-    if crop:
-        image = image[ crop[1]:crop[3],crop[0]:crop[2] ]
-
-    inp = frame2tensor(image, device)
-    return image, inp, scales
-
-
-def read_img(path, color, resize, crop):
+def read_img(path, color=True, resize=[-1], crop=None):
     if color:
         flag = cv2.IMREAD_COLOR
     else:
@@ -66,6 +38,7 @@ def read_img(path, color, resize, crop):
     
     if image is None:
         return None, None
+    
     w, h = image.shape[1], image.shape[0]
     w_new, h_new = process_resize(w, h, resize)
     scales = (float(w) / float(w_new), float(h) / float(h_new))
@@ -86,6 +59,7 @@ def generateTiles(image, rowDivisor=2, colDivisor=2, overlap = 200, viz=False, o
     DX  = round(W/colDivisor/10)*10;
     dim = (rowDivisor,colDivisor)
     
+    #TODO: implement checks on image dimension
     # Check image dimensions
     # if not W % colDivisor == 0:
     #     print('Number of columns non divisible by the ColDivisor. Removing last column.')
