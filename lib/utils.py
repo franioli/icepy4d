@@ -63,16 +63,6 @@ def interpolate_point_colors(pointxyz, image, P, K=None, dist=None, winsz=1):
             fcol = interp2d(i, j, colPatch, kind='linear')  
             col[k,rgb] = fcol(m[0], m[1])
     return col
-
-## DSM
-# # DSM CLASS. TODO: improve class and move to a python class file        
-# class DSM:
-#     def __init__(self, xx, yy, zz, res):
-#         # xx, yy = np.meshgrid(x,y)
-#         self.x = xx
-#         self.y = yy
-#         self.z = zz
-#         self.res = res    
         
 def build_dsm(points3d, dsm_step=1, xlim=None, ylim=None, save_path=None, do_viz=0):
     assert np.any(np.array(points3d.shape) == 3), "Invalid size of input points"

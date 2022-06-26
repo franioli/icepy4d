@@ -62,11 +62,6 @@ def match_pair(pair, maskBB, opt):
     viz_path = output_dir / '{}_{}_matches.{}'.format(stem0, stem1, opt['viz_extension'])
  
 
-    # Load the image pair.
-    # If a rotation integer is provided (e.g. from EXIF data), use it: ! Not working
-    # if len(pair) >= 5:
-    #     rot0, rot1 = int(pair[2]), int(pair[3])
-    # else:
     rot0, rot1 = 0, 0
     image0, inp0, scales0 = read_image(
         name0, device, opt['resize'], rot0, opt['resize_float'], maskBB[0], opt['equalize_hist'])
@@ -92,7 +87,6 @@ def match_pair(pair, maskBB, opt):
     overlap = opt['overlap']
     
     if useTile:
-        timerTile = AverageTimer(newline=True)
 
         # Subdivide image in tiles and run a loop            
         tiles0, limits0 = generateTiles(image0, rowDivisor=rowDivisor, colDivisor=colDivisor, overlap = overlap, 
@@ -102,6 +96,7 @@ def match_pair(pair, maskBB, opt):
         print(f'Images subdivided in {rowDivisor}x{colDivisor} tiles')                                     
         timer.update('create_tiles')
         
+        timerTile = AverageTimer(newline=True)
         for t0, tile0 in enumerate(tiles0):
             # for t1, tile1 in enumerate(tiles1): 
             # Perform the matching.
@@ -175,7 +170,6 @@ def match_pair(pair, maskBB, opt):
     out_matches = {'mkpts0': mkpts0 , 'mkpts1': mkpts1, 'match_confidence': mconf}        
     np.savez(str(matches_path), **out_matches)
 
-    
     # Write tensors to disk
     prev0 = {}
     prev0['keypoints0'] = [torch.from_numpy(mkpts0).to(device)]
@@ -223,4 +217,29 @@ def match_pair(pair, maskBB, opt):
     # Free cuda memory and return variables
     torch.cuda.empty_cache()
     
+    
+    # Build output dict
+    out_matches = {'mkpts0': mkpts0 , 'mkpts1': mkpts1, 'match_confidence': mconf}        
+    np.savez(str(matches_path), **out_matches)
+    
     return out_matches, [descriptors0, descriptors1], [scores0, scores1]
+
+if __name__ == '__main__':
+    import os, json
+    
+    epoch = 0
+    matching_config = 'config/opt_matching.json'
+    maskBB = [[400,1500,5500,4000], [600,1400,5700,3900]]
+    epochdir = os.path.join('res','epoch_'+str(epoch))      
+    with open(matching_config,) as f:
+        opt_matching = json.load(f)
+    opt_matching['output_dir'] = epochdir
+    pair = [images[0][epoch], images[1][epoch]]
+    maskBB = np.array(maskBB).astype('int')
+    matchedPts, matchedDescriptors, matchedPtsScores = match_pair(pair, maskBB, opt_matching)
+
+
+    
+    
+    
+        

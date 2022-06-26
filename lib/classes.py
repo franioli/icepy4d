@@ -1,12 +1,24 @@
 import numpy as np
 from scipy import linalg
 import cv2 
+import os
 
-from lib.geometry import (P_from_KRT, X0_from_P)
+
+# from lib.geometry import (P_from_KRT, X0_from_P)
+from geometry import (P_from_KRT, X0_from_P)
 
 #--- Camera ---#
 class Camera:
     ''' Class to help manage Cameras. '''
+    
+    # def __init__(self):
+    #     '''Initialise the camera calibration object '''
+    # Parameters
+    # ----------
+    # *args : str
+    #   Read calibration text file, with Full OpenCV parameters in a row.
+    #     print('Class not defined yet...')
+    # TODO: implement method for reading calibration data from file
 
     def __init__(self, K=None, R=None, t=None, dist=None):
         ''' Initialize pinhole camera model '''
@@ -102,23 +114,6 @@ class Camera:
         return m.astype(float)
     
   
-#--- Images ---#
-class Imageds:
-    '''
-    Class to help manage Image datasets 
-    
-    Parameters
-    ----------
-    *args : str
-      Read calibration text file, with Full OpenCV parameters in a row.
-    '''
-
-    def __init__(self):
-        '''Initialise the camera calibration object '''
-
-        print('Class not defined yet...')
-
-
 #--- Features ---#
 class Features:
     ''' 
@@ -195,9 +190,104 @@ class DSM:
             
   
 
-if __name__ == '__main__':
+#--- Images ---#
+class Imageds:
+    '''
+    Class to help manage Image datasets 
     
-    # Test classes
+    '''
+    def __init__(self, path=None):
+        if not hasattr(self, 'files'):          
+            self.reset_imageds()
+        if path is not None:
+            self.get_image_list(path)
+            print('a')
+
+    def __len__(self):
+        ''' Get number of images in the datastore '''
+        return len(self.files)
+        
+    def reset_imageds(self):
+        ''' Initialize image datastore '''
+        self.files = []
+        self.folder = []
+        self.ext = []
+        self.label = []
+        # self.size = []
+        # self.shot_date = []
+        # self.shot_time = []
+    
+    def get_image_list(self, path):
+        # TODO: add option for including subfolders
+        if not os.path.exists(path):
+            print('Error: invalid input path.')
+            return
+        d = os.listdir(path)
+        d.sort()
+        self.files = d
+        self.folder = [path] * len(d)
+ 
+    def __contains__(self, name):
+        return name in self.files
+  
+    def __getitem__(self, idx, **args):
+        ''' 
+        Read and return the image at position idx in the image datastore
+        '''
+        # TODO: add possibility to chose reading between col or grayscale, scale image, crop etc...
+        img = read_img2(os.path.join(self.folder[idx], self.files[idx]))
+        return img
+    
+    # def __iter__(self):
+    #     return self._data.values().__iter__()
+    
+    # def __getattr__(self, name):
+    #     return self._data[name]
+    
+    
+def read_img2(path, color=True, resize=[-1], crop=None):
+    #TODO: move to io.py lib and check all input/output variables when fct is called!
+    '''
+    '''
+    if color:
+        flag = cv2.IMREAD_COLOR
+    else:
+        flag = cv2.IMREAD_GRAYSCALE
+    image = cv2.imread(str(path), flag)
+    
+    if image is None:
+        if len(resize) == 1 and resize[0] == -1:
+            return None
+        else:
+            return None, None
+    
+    w, h = image.shape[1], image.shape[0]
+    w_new, h_new = process_resize(w, h, resize)
+    scales = (float(w) / float(w_new), float(h) / float(h_new))
+    image = cv2.resize(image, (w_new, h_new))
+    if crop:
+        image = image[ crop[1]:crop[3],crop[0]:crop[2] ]
+
+    if len(resize) == 1 and resize[0] == -1 :
+        return image
+    else:
+        return image, scales
+
+def process_resize(w, h, resize):
+    assert(len(resize) > 0 and len(resize) <= 2)
+    if len(resize) == 1 and resize[0] > -1:
+        scale = resize[0] / max(h, w)
+        w_new, h_new = int(round(w*scale)), int(round(h*scale))
+    elif len(resize) == 1 and resize[0] == -1:
+        w_new, h_new = w, h
+    else:  # len(resize) == 2:
+        w_new, h_new = resize[0], resize[1]
+    return w_new, h_new
+ 
+        
+if __name__ == '__main__':
+    '''Test classes '''
+    
     # K = [[6900.766178626993, 0.0, 3055.9219427396583], [0.0, 6919.0517432373235, 1659.8768050681379], [0.0, 0.0, 1.0]]
     # # dist = [-0.07241143420209739, 0.00311945599198001, -0.008597066196675609, 0.002601995972163532, 0.46863386164346776]
     # # cam = Camera(K=K, dist=dist)
@@ -212,4 +302,15 @@ if __name__ == '__main__':
     # feat0.append_features(new_features)
     # print(feat0.get_keypoints())
     
+    images = Imageds('/home/francesco/belpy/data/img/p2')
+    print('images:\n', images.files)
+    print(f'Images in db: {len(images)}')
+    
+    if 'IMG_0520.tif' in images:
+        print('Image is present')
+
+    img = images[5]    
+    
+    
+
     
