@@ -2,10 +2,10 @@ import numpy as np
 from scipy import linalg
 import cv2 
 import os
+from pathlib import Path
 
-
-# from lib.geometry import (P_from_KRT, X0_from_P)
-from geometry import (P_from_KRT, X0_from_P)
+from lib.geometry import (P_from_KRT, X0_from_P)
+# from geometry import (P_from_KRT, X0_from_P)
 
 #--- Camera ---#
 class Camera:
@@ -197,16 +197,28 @@ class Imageds:
     
     '''
     def __init__(self, path=None):
+        #TODO: implement labels in datastore
         if not hasattr(self, 'files'):          
             self.reset_imageds()
         if path is not None:
             self.get_image_list(path)
-            print('a')
 
     def __len__(self):
         ''' Get number of images in the datastore '''
         return len(self.files)
         
+    def __contains__(self, name):
+        ''' Check if an image is in the datastore, given the image name'''
+        return name in self.files
+  
+    def __getitem__(self, idx, **args):
+        ''' Read and return the image at position idx in the image datastore '''
+        # TODO: add possibility to chose reading between col or grayscale, scale image, crop etc...
+        img = read_img2(os.path.join(self.folder[idx], self.files[idx]))
+        if img is not None:
+            print(f'Loaded image {self.files[idx]}')
+        return img
+    
     def reset_imageds(self):
         ''' Initialize image datastore '''
         self.files = []
@@ -226,27 +238,28 @@ class Imageds:
         d.sort()
         self.files = d
         self.folder = [path] * len(d)
- 
-    def __contains__(self, name):
-        return name in self.files
-  
-    def __getitem__(self, idx, **args):
-        ''' 
-        Read and return the image at position idx in the image datastore
-        '''
-        # TODO: add possibility to chose reading between col or grayscale, scale image, crop etc...
-        img = read_img2(os.path.join(self.folder[idx], self.files[idx]))
-        return img
     
+    def get_image_name(self, idx):
+        ''' Return image name at position idx in datastore '''
+        return self.files[idx]
+    
+    def get_image_path(self, idx):
+        ''' Return full path of the image at position idx in datastore '''
+        return (os.path.join(self.folder[idx], self.files[idx]))
+    
+    def get_image_stem(self, idx):
+        ''' Return name without extension (stem) of the image at position idx in datastore '''
+        return Path(self.files[idx]).stem
+    
+    # TODO: Define iterable
     # def __iter__(self):
-    #     return self._data.values().__iter__()
-    
+    # def __next__(self):
+        
     # def __getattr__(self, name):
     #     return self._data[name]
     
-    
+#TODO: move to io.py lib and check all input/output variables when fct is called!
 def read_img2(path, color=True, resize=[-1], crop=None):
-    #TODO: move to io.py lib and check all input/output variables when fct is called!
     '''
     '''
     if color:
@@ -309,8 +322,5 @@ if __name__ == '__main__':
     if 'IMG_0520.tif' in images:
         print('Image is present')
 
-    img = images[5]    
-    
-    
-
+    img = images[5] 
     
