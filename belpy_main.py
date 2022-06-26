@@ -50,15 +50,10 @@ points3d = [] # List for storing 3D points
 
 #- images
 for jj, cam in enumerate(camNames):
-    d  = os.listdir(os.path.join(rootDirPath, imFld, cam))
-    for i, f in enumerate(d):
-        d[i] = os.path.join(rootDirPath, imFld, cam, f)
-    d.sort()
-    if jj > 0 and len(d) is not len(images[jj-1]):
+    images.append(Imageds(os.path.join(rootDirPath, imFld, cam)))  
+    if len(images[jj]) is not len(images[jj-1]):
         print('Error: different number of images per camera')
-    else:
-        images.insert(jj, d)
-# TODO: change order of epoches and cameras to make everything consistent!
+        # exit(1)
         
 #- Cameras structures
 # TO DO: implement camera class!
@@ -71,7 +66,7 @@ for jj, cam in enumerate(camNames):
     cameras.insert(jj, Camera(K=K, dist=dist))
 
 # Remove some variables
-del d, data, K, dist, path, f, i, jj
+# del d, data, K, dist, path, f, i, jj
 
 print('Data loaded')
 
@@ -89,7 +84,7 @@ if find_matches:
         with open(matching_config,) as f:
             opt_matching = json.load(f)
         opt_matching['output_dir'] = epochdir
-        pair = [images[0][epoch], images[1][epoch]]
+        pair = [images[0].get_image_path(epoch), images[1].get_image_path(epoch)]
         maskBB = np.array(maskBB).astype('int')
         matchedPts, matchedDescriptors, matchedPtsScores = match_pair(pair, maskBB, opt_matching)
 
@@ -120,8 +115,8 @@ if find_matches:
             with open(tracking_config,) as f:
                 opt_tracking = json.load(f)
             opt_tracking['output_dir'] = trackoutdir
-            pairs = [ [ images[0][epoch-1], images[0][epoch] ], 
-                      [ images[1][epoch-1], images[1][epoch] ] ] 
+            pairs = [ [ images[0].get_image_path(epoch-1), images[0].get_image_path(epoch)], 
+                      [ images[1].get_image_path(epoch-1), images[1].get_image_path(epoch)] ] 
             maskBB = np.array(maskBB).astype('int')
                             
             prevs = [{'keypoints0': np.float32(features[epoch-1]['mkpts0']), 
@@ -154,7 +149,7 @@ if find_matches:
                             inlMask.sum()*100 / len(features[epoch]['mkpts0'])))
 
         # Write matched points to disk   
-        stem0, stem1 = Path(images[0][epoch]).stem, Path(images[1][epoch]).stem
+        stem0, stem1 = images[0].get_image_stem(epoch), images[1].get_image_stem(epoch)
         np.savetxt(os.path.join(epochdir, stem0+'_matchedPts.txt'), 
                    features[epoch]['mkpts0'] , fmt='%i', delimiter=',', newline='\n',
                    header='x,y') 
@@ -210,7 +205,7 @@ print(f'Triangulated success: {status.sum()/status.size}')
 
 # Interpolate colors from image 
 jj = 1
-image = cv2.cvtColor(cv2.imread(images[jj][0], flags=cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
+image = cv2.cvtColor(images[jj][0], cv2.COLOR_BGR2RGB)
 points3d_cols =  interpolate_point_colors(points3d[0], image, cameras[jj].P, cameras[jj].K, cameras[jj].dist)
 
 # Visualize and export sparse point cloud
@@ -271,16 +266,14 @@ sgm_path = Path('sgm')
 downsample = 0.25
 fast_viz = True
 
-stem0 = Path(images[0][0]).stem
-stem1 = Path(images[1][0]).stem
+stem0, stem1 = images[0].get_image_stem(epoch), images[1].get_image_stem(epoch)
 
 pts0, pts1 = features[0]['mkpts0'], features[0]['mkpts1']
 F, inlMask = pydegensac.findFundamentalMatrix(pts0, pts1, px_th=1, conf=0.99999,
                                               max_iters=100000, laf_consistensy_coef=-1.0, error_type='sampson',
                                               symmetric_error_check=True, enable_degeneracy_check=True)
 
-img0 = cv2.imread(images[0][0], flags=cv2.IMREAD_COLOR)
-img1 = cv2.imread(images[1][0], flags=cv2.IMREAD_COLOR)
+img0, img1 = images[0][0], images[1][0]
 h, w, _ = img0.shape
 
 #--- Rectify calibrated ---#
@@ -328,8 +321,7 @@ else:
 
 
 #--- Find epilines corresponding to points in right image (second image) and drawing its lines on left image ---#
-img0 = cv2.imread(images[0][0], flags=cv2.IMREAD_COLOR)
-img1 = cv2.imread(images[1][0], flags=cv2.IMREAD_COLOR)
+img0, img1 = images[0][0], images[1][0]
 
 lines0 = cv2.computeCorrespondEpilines(pts1.reshape(-1,1,2), 2, F)
 lines0 = lines0.reshape(-1,3)
@@ -353,8 +345,8 @@ pts0_rect = cv2.perspectiveTransform(np.float32(pts0).reshape(-1,1,2), H0).resha
 pts1_rect = cv2.perspectiveTransform(np.float32(pts1).reshape(-1,1,2), H1).reshape(-1,2)
 
 # img0_rect_kpts = img0.copy()
-img0 = cv2.imread(images[0][0], flags=cv2.IMREAD_GRAYSCALE)
-img1 = cv2.imread(images[1][0], flags=cv2.IMREAD_GRAYSCALE)
+img0 = cv2.cvtColor(images[0][0], cv2.COLOR_BGR2GRAY)
+img1 = cv2.cvtColor(images[1][0], cv2.COLOR_BGR2GRAY)
 pts0, pts1 = features[0]['mkpts0'], features[0]['mkpts1']
 img0_kpts = cv2.drawKeypoints(img0,cv2.KeyPoint.convert(pts0),img0,(),flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
 img1_kpts = cv2.drawKeypoints(img1,cv2.KeyPoint.convert(pts1),img1,(0,0,255),flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
