@@ -118,13 +118,17 @@ class Camera:
 class Features:
     ''' 
     Class to store matched features, descriptors and scores 
-    Features are stored as numpy arrays.
+    Features are stored as numpy arrays: 
         Features.kpts: nx2 array of features location
         Features.descr: mxn array of descriptors (note that descriptors are stored columnwise)
         Features.score: nx1 array with feature score    '''
 
     def __init__(self):
         self.reset_fetures()
+        
+    def __len__(self):
+        ''' Get total number of featues stored'''
+        return len(self.kpts)        
         
     def reset_fetures(self):
         '''
@@ -150,6 +154,17 @@ class Features:
     def get_descriptors(self):
         ''' Return descriptors as numpy array '''
         return self.descr
+    
+    def get_scores(self):
+        ''' Return scores as numpy array '''
+        return self.score
+    
+    def get_features_as_dict(self):
+        ''' Return a dictionary with keypoints, descriptors and scores, organized for SuperGlue'''
+        out = { 'keypoints0': self.get_keypoints(), 
+                'descriptors0': self.get_descriptors(),
+                'scores0': self.get_scores() }
+        return out
     
     def append_features(self, new_features):
         '''
@@ -301,10 +316,6 @@ def process_resize(w, h, resize):
 if __name__ == '__main__':
     '''Test classes '''
     
-    # K = [[6900.766178626993, 0.0, 3055.9219427396583], [0.0, 6919.0517432373235, 1659.8768050681379], [0.0, 0.0, 1.0]]
-    # # dist = [-0.07241143420209739, 0.00311945599198001, -0.008597066196675609, 0.002601995972163532, 0.46863386164346776]
-    # # cam = Camera(K=K, dist=dist)
-
     # feat0 = Features()
     # nfeatures = 2
     # new_features = {'kpts': np.empty((nfeatures,2), dtype=float), 
@@ -314,13 +325,5 @@ if __name__ == '__main__':
     # feat0.append_features(new_features)
     # feat0.append_features(new_features)
     # print(feat0.get_keypoints())
-    
-    images = Imageds('/home/francesco/belpy/data/img/p2')
-    print('images:\n', images.files)
-    print(f'Images in db: {len(images)}')
-    
-    if 'IMG_0520.tif' in images:
-        print('Image is present')
-
-    img = images[5] 
+  
     
