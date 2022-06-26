@@ -71,9 +71,9 @@ del data, K, dist, path, f,  jj
 print('Data loaded')
 
 #%% Perform matching and tracking
-find_matches = 0
+find_matches = 1
 if find_matches:
-    epoches2process = [0] # #1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
+    epoches2process = [0,1] # #1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
     
     for epoch in epoches2process:
         print(f'Processing epoch {epoch}...')
@@ -117,31 +117,37 @@ if find_matches:
             # TODO: Problema nei punti tracciati... vengono rigettati da pydegensac
 
             # Store all matches in features structure
-            features.append({'mkpts0': np.concatenate((matchedPts['mkpts0'], tracked_cam0['keypoints1']), axis=0 ), 
-                             'mkpts1': np.concatenate((matchedPts['mkpts1'], tracked_cam1['keypoints1']), axis=0 ),
-                             # 'mconf': matchedPts['match_confidence'],
-                              'descr0': np.concatenate((matchedDescriptors[0], tracked_cam0['descriptors1']), axis=1 ),
-                              'descr1': np.concatenate((matchedDescriptors[1], tracked_cam1['descriptors1']), axis=1 ),
-                              'scores0': np.concatenate((matchedPtsScores[0], tracked_cam0['scores1']), axis=0 ), 
-                              'scores1': np.concatenate((matchedPtsScores[1], tracked_cam1['scores1']), axis=0 ), 
-                             })
+            features[0][epoch].append_features( {'kpts': tracked_cam0['keypoints1'],
+                                                 'descr': tracked_cam0['descriptors1'] , 
+                                                 'score': tracked_cam0['scores1']} ) 
+            features[1][epoch].append_features( {'kpts': tracked_cam1['keypoints1'],
+                                                 'descr': tracked_cam1['descriptors1'] , 
+                                                 'score': tracked_cam1['scores1']} ) 
+            # features.append({'mkpts0': np.concatenate((matchedPts['mkpts0'], tracked_cam0['keypoints1']), axis=0 ), 
+                             # 'mkpts1': np.concatenate((matchedPts['mkpts1'], tracked_cam1['keypoints1']), axis=0 ),
+                             # # 'mconf': matchedPts['match_confidence'],
+                             #  'descr0': np.concatenate((matchedDescriptors[0], tracked_cam0['descriptors1']), axis=1 ),
+                             #  'descr1': np.concatenate((matchedDescriptors[1], tracked_cam1['descriptors1']), axis=1 ),
+                             #  'scores0': np.concatenate((matchedPtsScores[0], tracked_cam0['scores1']), axis=0 ), 
+                             #  'scores1': np.concatenate((matchedPtsScores[1], tracked_cam1['scores1']), axis=0 ), 
+                             # })
 
             # Run Pydegensac to estimate F matrix and reject outliers                         
-            F, inlMask = pydegensac.findFundamentalMatrix(features[epoch]['mkpts0'], features[epoch]['mkpts1'], px_th=3, conf=0.9,
-                                                          max_iters=100000, laf_consistensy_coef=-1.0, error_type='sampson',
-                                                          symmetric_error_check=True, enable_degeneracy_check=True)
+            F, inlMask = pydegensac.findFundamentalMatrix(features[0][epoch].get_keypoints(), features[1][epoch].get_keypoints(), 
+                                                          px_th=3, conf=0.9, max_iters=100000, laf_consistensy_coef=-1.0, 
+                                                          error_type='sampson', symmetric_error_check=True, enable_degeneracy_check=True)
             F_matrix.append(F)
             print('Matches at epoch {}: pydegensac found {} inliers ({:.2f}%)'.format(epoch, inlMask.sum(),
-                            inlMask.sum()*100 / len(features[epoch]['mkpts0'])))
+                            inlMask.sum()*100 / len(features[0][epoch]) ))
 
         # Write matched points to disk   
         stem0, stem1 = images[0].get_image_stem(epoch), images[1].get_image_stem(epoch)
-        np.savetxt(os.path.join(epochdir, stem0+'_matchedPts.txt'), 
-                   features[epoch]['mkpts0'] , fmt='%i', delimiter=',', newline='\n',
-                   header='x,y') 
-        np.savetxt(os.path.join(epochdir, stem1+'_matchedPts.txt'), 
-                   features[epoch]['mkpts1'] , fmt='%i', delimiter=' ', newline='\n',                   
-                   header='x,y') 
+            # np.savetxt(os.path.join(epochdir, stem0+'_matchedPts.txt'), 
+            #            features[epoch]['mkpts0'] , fmt='%i', delimiter=',', newline='\n',
+            #            header='x,y') 
+            # np.savetxt(os.path.join(epochdir, stem1+'_matchedPts.txt'), 
+            #            features[epoch]['mkpts1'] , fmt='%i', delimiter=' ', newline='\n',                   
+            #            header='x,y') 
         with open(os.path.join(epochdir, stem0+'_'+stem1+'_features.pickle'), 'wb') as f:
             pickle.dump(features, f, protocol=pickle.HIGHEST_PROTOCOL)
 
