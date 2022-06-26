@@ -44,9 +44,9 @@ maskBB = [[400,1500,5500,4000], [600,1400,5700,3900]]             # Bounding box
 #  Inizialize Lists
 cameras = []  # List for storing cameras information (as dicts)
 images = []   # List for storing image paths
-features = []  # Dict for storing all the valid matched features at all epochs
 F_matrix = [] # List for storing fundamental matrixes
 points3d = [] # List for storing 3D points
+features = [[],[]]  # List for storing all the matched features at all epochs
 
 #- images
 for jj, cam in enumerate(camNames):
@@ -66,7 +66,7 @@ for jj, cam in enumerate(camNames):
     cameras.insert(jj, Camera(K=K, dist=dist))
 
 # Remove some variables
-# del d, data, K, dist, path, f, i, jj
+del data, K, dist, path, f,  jj
 
 print('Data loaded')
 
@@ -89,23 +89,16 @@ if find_matches:
         matchedPts, matchedDescriptors, matchedPtsScores = match_pair(pair, maskBB, opt_matching)
 
         # Store matches in features structure
-        if epoch == 0:
-            features = [{   'mkpts0': matchedPts['mkpts0'], 
-                            'mkpts1': matchedPts['mkpts1'],
-                            # 'mconf': matchedPts['match_confidence'],
-                            'descr0': matchedDescriptors[0], 
-                            'descr1': matchedDescriptors[1],
-                            'scores0': matchedPtsScores[0], 
-                            'scores1': matchedPtsScores[1] }] 
-            
-            # features = [{   'mkpts0': matchedPts['mkpts0'], 
-            #                 'mkpts1': matchedPts['mkpts1'],
-            #                 # 'mconf': matchedPts['match_confidence'],
-            #                 'descr0': matchedDescriptors[0], 
-            #                 'descr1': matchedDescriptors[1],
-            #                 'scores0': matchedPtsScores[0], 
-            #                 'scores1': matchedPtsScores[1] }] 
-        # TODO: Store match confidence!
+        for jj in range(numCams):
+            #TODO: add better description
+            ''' 
+            External list are the cameras, internal list are the epoches... 
+            '''
+            features[jj].append(Features())
+            features[jj][epoch].append_features({'kpts': matchedPts[jj],
+                                                'descr': matchedDescriptors[jj], 
+                                                'score': matchedPtsScores[jj]})
+            # TODO: Store match confidence!
 
         #=== Track previous matches at current epoch ===#
         if epoch > 0:
@@ -117,18 +110,11 @@ if find_matches:
             opt_tracking['output_dir'] = trackoutdir
             pairs = [ [ images[0].get_image_path(epoch-1), images[0].get_image_path(epoch)], 
                       [ images[1].get_image_path(epoch-1), images[1].get_image_path(epoch)] ] 
-            maskBB = np.array(maskBB).astype('int')
-                            
-            prevs = [{'keypoints0': np.float32(features[epoch-1]['mkpts0']), 
-                      'descriptors0': np.float32(features[epoch-1]['descr0']),
-                      'scores0': np.float32(features[epoch-1]['scores0']) }, 
-                     {'keypoints0': np.float32(features[epoch-1]['mkpts1']), 
-                      'descriptors0': np.float32(features[epoch-1]['descr1']), 
-                      'scores0': np.float32(features[epoch-1]['scores1'])  }  ]
+            prevs = [features[0][epoch-1].get_features_as_dict(),
+                     features[1][epoch-1].get_features_as_dict()]
             tracked_cam0, tracked_cam1 = track_matches(pairs, maskBB, prevs, opt_tracking)
-            # TO DO: tenere traccia anche dei descriptors and scores dei punti traccati!
-            # TO DO: tenere traccia dell'epoca in cui è stato trovato il match
-            # TO CHECK: Problema nei punti tracciati... vengono rigettati da pydegensac
+            # TODO: tenere traccia dell'epoca in cui è stato trovato il match
+            # TODO: Problema nei punti tracciati... vengono rigettati da pydegensac
 
             # Store all matches in features structure
             features.append({'mkpts0': np.concatenate((matchedPts['mkpts0'], tracked_cam0['keypoints1']), axis=0 ), 
