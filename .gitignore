@@ -9,4 +9,4 @@ data/calib/bk/
 res/
 sfm/
 sgm/
-
+*.old/
