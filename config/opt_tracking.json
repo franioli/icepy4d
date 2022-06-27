@@ -5,18 +5,18 @@
     "resize_float": true,
     "equalize_hist": false,
 
-    "nms_radius": 4 ,
-    "keypoint_threshold": 0.0001,
+    "nms_radius": 3,
+    "keypoint_threshold": 0.00005,
     "max_keypoints": 8192,
 
     "superglue": "outdoor",
     "sinkhorn_iterations": 100,
-    "match_threshold": 0.2,
+    "match_threshold": 0.3,
 
-    "viz":  true,
+    "viz": true,
     "viz_extension": "png",
     "fast_viz": true,
-    "opencv_display" : false,
+    "opencv_display" : false, 
     "show_keypoints": false,
 
     "cache": false,

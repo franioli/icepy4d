@@ -73,7 +73,7 @@ print('Data loaded')
 #%% Perform matching and tracking
 find_matches = 1
 if find_matches:
-    epoches2process = [0,1] # #1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
+    epoches2process = [0,1,2,3,4] # #1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
     
     for epoch in epoches2process:
         print(f'Processing epoch {epoch}...')
@@ -123,18 +123,10 @@ if find_matches:
             features[1][epoch].append_features( {'kpts': tracked_cam1['keypoints1'],
                                                  'descr': tracked_cam1['descriptors1'] , 
                                                  'score': tracked_cam1['scores1']} ) 
-            # features.append({'mkpts0': np.concatenate((matchedPts['mkpts0'], tracked_cam0['keypoints1']), axis=0 ), 
-                             # 'mkpts1': np.concatenate((matchedPts['mkpts1'], tracked_cam1['keypoints1']), axis=0 ),
-                             # # 'mconf': matchedPts['match_confidence'],
-                             #  'descr0': np.concatenate((matchedDescriptors[0], tracked_cam0['descriptors1']), axis=1 ),
-                             #  'descr1': np.concatenate((matchedDescriptors[1], tracked_cam1['descriptors1']), axis=1 ),
-                             #  'scores0': np.concatenate((matchedPtsScores[0], tracked_cam0['scores1']), axis=0 ), 
-                             #  'scores1': np.concatenate((matchedPtsScores[1], tracked_cam1['scores1']), axis=0 ), 
-                             # })
 
             # Run Pydegensac to estimate F matrix and reject outliers                         
             F, inlMask = pydegensac.findFundamentalMatrix(features[0][epoch].get_keypoints(), features[1][epoch].get_keypoints(), 
-                                                          px_th=3, conf=0.9, max_iters=100000, laf_consistensy_coef=-1.0, 
+                                                          px_th=2, conf=0.9, max_iters=100000, laf_consistensy_coef=-1.0, 
                                                           error_type='sampson', symmetric_error_check=True, enable_degeneracy_check=True)
             F_matrix.append(F)
             print('Matches at epoch {}: pydegensac found {} inliers ({:.2f}%)'.format(epoch, inlMask.sum(),
@@ -153,7 +145,7 @@ if find_matches:
 
     print('Matching completed')
 
-elif not features: 
+elif not features[0]: 
     epoch = 0
     matches_path = 'res/epoch_0/IMG_0520_IMG_2131_features.pickle'
     with open(matches_path, 'rb') as f:
@@ -162,53 +154,75 @@ elif not features:
 else:
     print("Features already present, nothing was changed.")
 
+       
+#%%
+# img0 = cv2.cvtColor(images[0][1], cv2.COLOR_BGR2GRAY)
+# img1 = cv2.cvtColor(images[1][1], cv2.COLOR_BGR2GRAY)
+# pts0, pts1 = features[0][1].get_keypoints(), features[1][1].get_keypoints()
+# img0_kpts = cv2.drawKeypoints(img0,cv2.KeyPoint.convert(pts0),img0,(0,0,255),flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+# img1_kpts = cv2.drawKeypoints(img1,cv2.KeyPoint.convert(pts1),img1,(0,0,255),flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+# cv2.imwrite('kpts0.jpg', img0_kpts)
+# cv2.imwrite('kpts1.jpg', img1_kpts)
+
+# pts0, pts1 = tracked_cam0['keypoints1'], tracked_cam1['keypoints1']
+# img0_kpts = cv2.drawKeypoints(img0,cv2.KeyPoint.convert(pts0),img0,(0,255,0),flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+# img1_kpts = cv2.drawKeypoints(img1,cv2.KeyPoint.convert(pts1),img1,(0,255,0),flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+# cv2.imwrite('kpts0_tracked.jpg', img0_kpts)
+# cv2.imwrite('kpts1_tracked.jpg', img1_kpts)
+
+# with open('dummy.pickle', 'wb') as f:
+#         pickle.dump([features, pairs, maskBB, prevs, opt_tracking, images], f, protocol=pickle.HIGHEST_PROTOCOL)
+       
+
 #%% SfM
 
 #--- Realtive Pose with Essential Matrix ---#
-pts0, pts1 = features[0]['mkpts0'], features[0]['mkpts1']
-rel_pose = estimate_pose(pts0, pts1, cameras[0].K,  cameras[1].K, thresh=1, conf=0.99999)
-R = rel_pose[0]
-t = rel_pose[1]
-valid = rel_pose[2]
-print('Computing relative pose. Valid points: {}/{}'.format(valid.sum(),len(valid)))
-
-# Build cameras structures
-cameras[0].reset_EO()
-cameras[1].R, cameras[1].t = R, t.reshape(3,1)
-cameras[1].compose_P()
-cameras[1].camera_center()
-
-# Scale model by using camera baseline
-X01_meta = np.array([416651.52489669225,5091109.91215075,1858.908434299682])   # IMG_2092
-X02_meta = np.array([416622.27552777925,5091364.507128085,1902.4053286545502]) # IMG_0481
-camWorldBaseline = np.linalg.norm(X01_meta - X02_meta)                         # [m] From Metashape model at epoch t0
-camRelOriBaseline = np.linalg.norm(cameras[0].X0 - cameras[1].X0)
-scaleFct = camWorldBaseline / camRelOriBaseline
-cameras[1].X0 =  cameras[1].X0 * scaleFct
-cameras[1].t = -np.dot(cameras[1].R, cameras[1].X0)
-cameras[1].compose_P()
-
-#--- Triangulate Points ---#
-pts0_und = cv2.undistortPoints(features[0]['mkpts0'], cameras[0].K, cameras[0].dist, None, cameras[0].K)
-pts1_und = cv2.undistortPoints(features[0]['mkpts1'], cameras[1].K, cameras[1].dist, None, cameras[1].K)
-M, status = iterative_LS_triangulation(pts0_und, cameras[0].P,  pts1_und, cameras[1].P)
-points3d.insert(epoch, M)
-print(f'Triangulated success: {status.sum()/status.size}')
-
-# Interpolate colors from image 
-jj = 1
-image = cv2.cvtColor(images[jj][0], cv2.COLOR_BGR2RGB)
-points3d_cols =  interpolate_point_colors(points3d[0], image, cameras[jj].P, cameras[jj].K, cameras[jj].dist)
-
-# Visualize and export sparse point cloud
-do_viz = True
-
-pcd = o3d.geometry.PointCloud()
-pcd.points = o3d.utility.Vector3dVector(points3d[epoch])
-pcd.colors = o3d.utility.Vector3dVector(points3d_cols)
-o3d.io.write_point_cloud("res/epoch_0/sparsepts_t"+str(epoch)+".ply", pcd)
-if do_viz:
-    o3d.visualization.draw_geometries([pcd])
+for epoch in epoches2process:
+# epoch = 0
+    pts0, pts1 = features[0][epoch].get_keypoints(), features[1][epoch].get_keypoints()
+    rel_pose = estimate_pose(pts0, pts1, cameras[0].K,  cameras[1].K, thresh=1, conf=0.99999)
+    R = rel_pose[0]
+    t = rel_pose[1]
+    valid = rel_pose[2]
+    print('Computing relative pose. Valid points: {}/{}'.format(valid.sum(),len(valid)))
+    
+    # Build cameras structures
+    cameras[0].reset_EO()
+    cameras[1].R, cameras[1].t = R, t.reshape(3,1)
+    cameras[1].compose_P()
+    cameras[1].camera_center()
+    
+    # Scale model by using camera baseline
+    X01_meta = np.array([416651.52489669225,5091109.91215075,1858.908434299682])   # IMG_2092
+    X02_meta = np.array([416622.27552777925,5091364.507128085,1902.4053286545502]) # IMG_0481
+    camWorldBaseline = np.linalg.norm(X01_meta - X02_meta)                         # [m] From Metashape model at epoch t0
+    camRelOriBaseline = np.linalg.norm(cameras[0].X0 - cameras[1].X0)
+    scaleFct = camWorldBaseline / camRelOriBaseline
+    cameras[1].X0 =  cameras[1].X0 * scaleFct
+    cameras[1].t = -np.dot(cameras[1].R, cameras[1].X0)
+    cameras[1].compose_P()
+    
+    #--- Triangulate Points ---#
+    pts0_und = cv2.undistortPoints(features[0][epoch].get_keypoints(), cameras[0].K, cameras[0].dist, None, cameras[0].K)
+    pts1_und = cv2.undistortPoints(features[1][epoch].get_keypoints(), cameras[1].K, cameras[1].dist, None, cameras[1].K)
+    M, status = iterative_LS_triangulation(pts0_und, cameras[0].P,  pts1_und, cameras[1].P)
+    points3d.insert(epoch, M)
+    print(f'Triangulated success: {status.sum()/status.size}')
+    
+    # Interpolate colors from image 
+    jj = 1
+    image = cv2.cvtColor(images[jj][epoch], cv2.COLOR_BGR2RGB)
+    points3d_cols =  interpolate_point_colors(points3d[0], image, cameras[jj].P, cameras[jj].K, cameras[jj].dist)
+    
+    # Visualize and export sparse point cloud
+    do_viz = True
+    
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(points3d[epoch])
+    pcd.colors = o3d.utility.Vector3dVector(points3d_cols)
+    o3d.io.write_point_cloud("res/epoch_"+str(epoch)+"/sparsepts_t"+str(epoch)+".ply", pcd)
+    if do_viz:
+        o3d.visualization.draw_geometries([pcd])
 
 
 #%% BUILD DSM AND ORTHOPHOTOS
