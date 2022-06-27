@@ -3,6 +3,7 @@ from scipy import linalg
 import cv2 
 import os
 from pathlib import Path
+import pickle
 
 from lib.geometry import (P_from_KRT, X0_from_P)
 # from geometry import (P_from_KRT, X0_from_P)
@@ -112,108 +113,7 @@ class Camera:
             m = cv2.undistortPoints(m, self.K, self.dist, None, self.K)[:,0,:]
             
         return m.astype(float)
-    
-  
-#--- Features ---#
-class Features:
-    ''' 
-    Class to store matched features, descriptors and scores 
-    Features are stored as numpy arrays: 
-        Features.kpts: nx2 array of features location
-        Features.descr: mxn array of descriptors (note that descriptors are stored columnwise)
-        Features.score: nx1 array with feature score    '''
 
-    def __init__(self):
-        self.reset_fetures()
-        
-    def __len__(self):
-        ''' Get total number of featues stored'''
-        return len(self.kpts)        
-        
-    def reset_fetures(self):
-        '''
-        Reset Feature instance to None Objects
-        '''
-        self.kpts = None
-        self.descr = None
-        self.score = None        
-    
-    def initialize_fetures(self, nfeatures=1, descr_size=256):
-        '''
-        Inizialize Feature instance to numpy arrays, 
-        optionally for a given number of features and descriptor size (default is 256).
-        '''
-        self.kpts = np.empty((nfeatures,2), dtype=float)
-        self.descr = np.empty((descr_size,nfeatures), dtype=float)
-        self.score = np.empty(nfeatures, dtype=float)
-        
-    def get_keypoints(self):
-        ''' Return keypoints as numpy array '''
-        return np.float32(self.kpts)
-    
-    def get_descriptors(self):
-        ''' Return descriptors as numpy array '''
-        return np.float32(self.descr)
-    
-    def get_scores(self):
-        ''' Return scores as numpy array '''
-        return np.float32(self.score)
-    
-    def get_features_as_dict(self):
-        ''' Return a dictionary with keypoints, descriptors and scores, organized for SuperGlue'''
-        out = { 'keypoints0': self.get_keypoints(), 
-                'descriptors0': self.get_descriptors(),
-                'scores0': self.get_scores() }
-        return out
-    
-    def append_features(self, new_features):
-        '''
-        Append new features to Features Class. 
-        Input new_features is a Dict with keys as follows:
-            new_features['kpts']: nx2 array of features location
-            new_features['descr']: mxn array of descriptors (note that descriptors are stored columnwise)
-            new_features['score']: nx1 array with feature score
-        '''
-        # Check dictionary keys: 
-        keys = ['kpts', 'descr', 'score']
-        if any(key not in new_features.keys() for key in keys):
-            print('Invalid input dictionary. Check all keys ["kpts", "descr", "scores"] are present')
-            return self
-        # TODO: check correct shape of inputs.
-            
-        if self.kpts is None :
-            self.kpts = new_features['kpts']
-            self.descr = new_features['descr']
-            self.score = new_features['score']
-        else: 
-            self.kpts = np.append(self.kpts, new_features['kpts'], axis=0)
-            self.descr = np.append(self.descr, new_features['descr'], axis=1)
-            self.score = np.append(self.score, new_features['score'], axis=0)
-        
-    def save_as_txt(self, path=None, fmt='%i', delimiter=',', header='x,y'):
-        ''' Save keypoints in a .txt file '''
-        if path is None:
-            print("Error: missing path argument.")
-            return
-        # if not Path(path).:
-        #     print('Error: invalid input path.')
-        #     return
-        np.savetxt(path, self.kpts, fmt=fmt, delimiter=delimiter, newline='\n', header=header) 
-  
-    
-#--- DSM ---#  
-class DSM:
-    ''' Class to store and manage DSM. '''
-    def __init__(self, x, y, z, res):
-        xx, yy = np.meshgrid(x,y)
-        self.x = xx
-        self.y = yy
-        self.z = z
-        self.res = res    
-        
-    # def generate_tif(self, ):
-            
-  
 
 #--- Images ---#
 class Imageds:
@@ -321,6 +221,119 @@ def process_resize(w, h, resize):
     else:  # len(resize) == 2:
         w_new, h_new = resize[0], resize[1]
     return w_new, h_new
+     
+  
+    
+#--- Features ---#
+class Features:
+    ''' 
+    Class to store matched features, descriptors and scores 
+    Features are stored as numpy arrays: 
+        Features.kpts: nx2 array of features location
+        Features.descr: mxn array of descriptors (note that descriptors are stored columnwise)
+        Features.score: nx1 array with feature score    '''
+
+    def __init__(self):
+        self.reset_fetures()
+        
+    def __len__(self):
+        ''' Get total number of featues stored'''
+        return len(self.kpts)        
+        
+    def reset_fetures(self):
+        '''
+        Reset Feature instance to None Objects
+        '''
+        self.kpts = None
+        self.descr = None
+        self.score = None        
+    
+    def initialize_fetures(self, nfeatures=1, descr_size=256):
+        '''
+        Inizialize Feature instance to numpy arrays, 
+        optionally for a given number of features and descriptor size (default is 256).
+        '''
+        self.kpts = np.empty((nfeatures,2), dtype=float)
+        self.descr = np.empty((descr_size,nfeatures), dtype=float)
+        self.score = np.empty(nfeatures, dtype=float)
+        
+    def get_keypoints(self):
+        ''' Return keypoints as numpy array '''
+        return np.float32(self.kpts)
+    
+    def get_descriptors(self):
+        ''' Return descriptors as numpy array '''
+        return np.float32(self.descr)
+    
+    def get_scores(self):
+        ''' Return scores as numpy array '''
+        return np.float32(self.score)
+    
+    def get_features_as_dict(self):
+        ''' Return a dictionary with keypoints, descriptors and scores, organized for SuperGlue'''
+        out = { 'keypoints0': self.get_keypoints(), 
+                'descriptors0': self.get_descriptors(),
+                'scores0': self.get_scores() }
+        return out
+    
+    def append_features(self, new_features):
+        '''
+        Append new features to Features Class. 
+        Input new_features is a Dict with keys as follows:
+            new_features['kpts']: nx2 array of features location
+            new_features['descr']: mxn array of descriptors (note that descriptors are stored columnwise)
+            new_features['score']: nx1 array with feature score
+        '''
+        # Check dictionary keys: 
+        keys = ['kpts', 'descr', 'score']
+        if any(key not in new_features.keys() for key in keys):
+            print('Invalid input dictionary. Check all keys ["kpts", "descr", "scores"] are present')
+            return self
+        # TODO: check correct shape of inputs.
+            
+        if self.kpts is None :
+            self.kpts = new_features['kpts']
+            self.descr = new_features['descr']
+            self.score = new_features['score']
+        else: 
+            self.kpts = np.append(self.kpts, new_features['kpts'], axis=0)
+            self.descr = np.append(self.descr, new_features['descr'], axis=1)
+            self.score = np.append(self.score, new_features['score'], axis=0)
+            
+    def save_as_pickle(self, path=None):
+        ''' Save keypoints in a .txt file '''
+        if path is None:
+            print("Error: missing path argument.")
+            return
+        # if not Path(path).:
+        #     print('Error: invalid input path.')
+        #     return
+        with open(path, 'wb') as f:
+            pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)         
+        
+    def save_as_txt(self, path=None, fmt='%i', delimiter=',', header='x,y'):
+        ''' Save keypoints in a .txt file '''
+        if path is None:
+            print("Error: missing path argument.")
+            return
+        # if not Path(path).:
+        #     print('Error: invalid input path.')
+        #     return
+        np.savetxt(path, self.kpts, fmt=fmt, delimiter=delimiter, newline='\n', header=header) 
+  
+    
+#--- DSM ---#  
+class DSM:
+    ''' Class to store and manage DSM. '''
+    def __init__(self, x, y, z, res):
+        xx, yy = np.meshgrid(x,y)
+        self.x = xx
+        self.y = yy
+        self.z = z
+        self.res = res    
+        
+    # def generate_tif(self, ):
+            
  
         
 if __name__ == '__main__':

@@ -71,7 +71,7 @@ del data, K, dist, path, f,  jj
 print('Data loaded')
 
 #%% Perform matching and tracking
-find_matches = 1
+find_matches = 0
 if find_matches:
     epoches2process = [0,1,2,3,4] # #1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
     
@@ -133,16 +133,11 @@ if find_matches:
                             inlMask.sum()*100 / len(features[0][epoch]) ))
 
         # Write matched points to disk   
-        stem0, stem1 = images[0].get_image_stem(epoch), images[1].get_image_stem(epoch)
-            # np.savetxt(os.path.join(epochdir, stem0+'_matchedPts.txt'), 
-            #            features[epoch]['mkpts0'] , fmt='%i', delimiter=',', newline='\n',
-            #            header='x,y') 
-            # np.savetxt(os.path.join(epochdir, stem1+'_matchedPts.txt'), 
-            #            features[epoch]['mkpts1'] , fmt='%i', delimiter=' ', newline='\n',                   
-            #            header='x,y') 
-        with open(os.path.join(epochdir, stem0+'_'+stem1+'_features.pickle'), 'wb') as f:
+        im_stems = images[0].get_image_stem(epoch), images[1].get_image_stem(epoch)
+        for jj in range(numCams):
+            features[jj][epoch].save_as_txt(os.path.join(epochdir, im_stems[jj]+'_mktps.txt'))
+        with open(os.path.join(epochdir, im_stems[0]+'_'+im_stems[1]+'_features.txt'), 'wb') as f:
             pickle.dump(features, f, protocol=pickle.HIGHEST_PROTOCOL)
-
     print('Matching completed')
 
 elif not features[0]: 
@@ -154,25 +149,6 @@ elif not features[0]:
 else:
     print("Features already present, nothing was changed.")
 
-       
-#%%
-# img0 = cv2.cvtColor(images[0][1], cv2.COLOR_BGR2GRAY)
-# img1 = cv2.cvtColor(images[1][1], cv2.COLOR_BGR2GRAY)
-# pts0, pts1 = features[0][1].get_keypoints(), features[1][1].get_keypoints()
-# img0_kpts = cv2.drawKeypoints(img0,cv2.KeyPoint.convert(pts0),img0,(0,0,255),flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-# img1_kpts = cv2.drawKeypoints(img1,cv2.KeyPoint.convert(pts1),img1,(0,0,255),flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-# cv2.imwrite('kpts0.jpg', img0_kpts)
-# cv2.imwrite('kpts1.jpg', img1_kpts)
-
-# pts0, pts1 = tracked_cam0['keypoints1'], tracked_cam1['keypoints1']
-# img0_kpts = cv2.drawKeypoints(img0,cv2.KeyPoint.convert(pts0),img0,(0,255,0),flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-# img1_kpts = cv2.drawKeypoints(img1,cv2.KeyPoint.convert(pts1),img1,(0,255,0),flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-# cv2.imwrite('kpts0_tracked.jpg', img0_kpts)
-# cv2.imwrite('kpts1_tracked.jpg', img1_kpts)
-
-# with open('dummy.pickle', 'wb') as f:
-#         pickle.dump([features, pairs, maskBB, prevs, opt_tracking, images], f, protocol=pickle.HIGHEST_PROTOCOL)
-       
 
 #%% SfM
 
