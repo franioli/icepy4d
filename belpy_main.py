@@ -161,8 +161,8 @@ for jj, cam in enumerate(camNames):
 del data, f,  jj
 
 # Camera baseline
-X01_meta = np.array([416651.52489669225,5091109.91215075,1858.908434299682])   # IMG_2092
-X02_meta = np.array([416622.27552777925,5091364.507128085,1902.4053286545502]) # IMG_0481
+X01_meta = np.array([416651.5248,5091109.9121,1858.9084])   # IMG_2092
+X02_meta = np.array([416622.2755,5091364.5071,1902.4053]) # IMG_0481
 camWorldBaseline = np.linalg.norm(X01_meta - X02_meta)                         # [m] From Metashape model at epoch t0
 
 #--- Realtive Pose with Essential Matrix ---#
