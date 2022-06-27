@@ -42,7 +42,7 @@ camNames = ['p2', 'p3']
 maskBB = [[400,1500,5500,4000], [600,1400,5700,3900]]             # Bounding box for processing the images from the two cameras
 
 #  Inizialize Lists
-cameras = []  # List for storing cameras information (as dicts)
+cameras = [[],[]]  # List for storing cameras information (as dicts)
 images = []   # List for storing image paths
 F_matrix = [] # List for storing fundamental matrixes
 points3d = [] # List for storing 3D points
@@ -53,27 +53,15 @@ for jj, cam in enumerate(camNames):
     images.append(Imageds(os.path.join(rootDirPath, imFld, cam)))  
     if len(images[jj]) is not len(images[jj-1]):
         print('Error: different number of images per camera')
-        # exit(1)
-        
-#- Cameras structures
-# TO DO: implement camera class!
-for jj, cam in enumerate(camNames):
-    path = (os.path.join(rootDirPath, calibFld, cam+'.txt'))
-    with open(path, 'r') as f:
-        data = np.loadtxt(f)
-    K = data[0:9].astype(float).reshape(3, 3, order='C')
-    dist = data[9:13].astype(float)
-    cameras.insert(jj, Camera(K=K, dist=dist))
-
-# Remove some variables
-del data, K, dist, path, f,  jj
+        # exit(1)# Remove some variables
+        del data, K, dist, path, f,  jj
 
 print('Data loaded')
 
 #%% Perform matching and tracking
 find_matches = 0
 if find_matches:
-    epoches2process = [0,1,2,3,4] # #1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
+    epoches2process = [0,1,2,3,4,5,6,7] # #1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
     
     for epoch in epoches2process:
         print(f'Processing epoch {epoch}...')
@@ -123,6 +111,15 @@ if find_matches:
             features[1][epoch].append_features( {'kpts': tracked_cam1['keypoints1'],
                                                  'descr': tracked_cam1['descriptors1'] , 
                                                  'score': tracked_cam1['scores1']} ) 
+#- Cameras structures
+# TO DO: implement camera class!
+for jj, cam in enumerate(camNames):
+    path = (os.path.join(rootDirPath, calibFld, cam+'.txt'))
+    with open(path, 'r') as f:
+        data = np.loadtxt(f)
+    K = data[0:9].astype(float).reshape(3, 3, order='C')
+    dist = data[9:13].astype(float)
+    cameras[jj].append(Camera(K=K, dist=dist))
 
             # Run Pydegensac to estimate F matrix and reject outliers                         
             F, inlMask = pydegensac.findFundamentalMatrix(features[0][epoch].get_keypoints(), features[1][epoch].get_keypoints(), 
@@ -136,13 +133,13 @@ if find_matches:
         im_stems = images[0].get_image_stem(epoch), images[1].get_image_stem(epoch)
         for jj in range(numCams):
             features[jj][epoch].save_as_txt(os.path.join(epochdir, im_stems[jj]+'_mktps.txt'))
-        with open(os.path.join(epochdir, im_stems[0]+'_'+im_stems[1]+'_features.txt'), 'wb') as f:
+        with open(os.path.join(epochdir, im_stems[0]+'_'+im_stems[1]+'_features.pickle'), 'wb') as f:
             pickle.dump(features, f, protocol=pickle.HIGHEST_PROTOCOL)
     print('Matching completed')
 
 elif not features[0]: 
     epoch = 0
-    last_match_path = 'res/epoch_4/IMG_0530_IMG_2141_features.pickle'
+    last_match_path = 'res/epoch_7/IMG_0541_IMG_2152_features.pickle'
     with open(last_match_path, 'rb') as f:
         features = pickle.load(f)
         print("Loaded previous matches")
@@ -151,52 +148,70 @@ else:
 
 
 #%% SfM
+cameras = [[],[]]  # List for storing cameras information (as dicts)
+points3d = []
+pcd = []
+
+#- Cameras structures
+for jj, cam in enumerate(camNames):
+    with open(os.path.join(rootDirPath, calibFld, cam+'.txt'), 'r') as f:
+        data = np.loadtxt(f)
+    K_calib = data[0:9].astype(float).reshape(3, 3, order='C')
+    dist_calib = data[9:13].astype(float)
+del data, f,  jj
+
+# Camera baseline
+X01_meta = np.array([416651.52489669225,5091109.91215075,1858.908434299682])   # IMG_2092
+X02_meta = np.array([416622.27552777925,5091364.507128085,1902.4053286545502]) # IMG_0481
+camWorldBaseline = np.linalg.norm(X01_meta - X02_meta)                         # [m] From Metashape model at epoch t0
 
 #--- Realtive Pose with Essential Matrix ---#
 for epoch in epoches2process:
 # epoch = 0
+    # Initialize Intrinsics
+    cameras[0].append(Camera(K=K_calib, dist=dist_calib))
+    cameras[1].append(Camera(K=K_calib, dist=dist_calib))
+
     pts0, pts1 = features[0][epoch].get_keypoints(), features[1][epoch].get_keypoints()
-    rel_pose = estimate_pose(pts0, pts1, cameras[0].K,  cameras[1].K, thresh=1, conf=0.99999)
-    R = rel_pose[0]
-    t = rel_pose[1]
-    valid = rel_pose[2]
+    rel_pose = estimate_pose(pts0, pts1, cameras[0][epoch].K,  cameras[1][epoch].K, thresh=0.2, conf=0.99999)
+    R, t, valid = rel_pose[0], rel_pose[1], rel_pose[2]
     print('Computing relative pose. Valid points: {}/{}'.format(valid.sum(),len(valid)))
     
     # Build cameras structures
-    cameras[0].reset_EO()
-    cameras[1].R, cameras[1].t = R, t.reshape(3,1)
-    cameras[1].compose_P()
-    cameras[1].camera_center()
+    cameras[1][epoch].R, cameras[1][epoch].t = R, t.reshape(3,1)
+    cameras[1][epoch].compose_P()
+    cameras[1][epoch].camera_center()
     
     # Scale model by using camera baseline
-    X01_meta = np.array([416651.52489669225,5091109.91215075,1858.908434299682])   # IMG_2092
-    X02_meta = np.array([416622.27552777925,5091364.507128085,1902.4053286545502]) # IMG_0481
-    camWorldBaseline = np.linalg.norm(X01_meta - X02_meta)                         # [m] From Metashape model at epoch t0
-    camRelOriBaseline = np.linalg.norm(cameras[0].X0 - cameras[1].X0)
+    camRelOriBaseline = np.linalg.norm(cameras[0][epoch].X0 - cameras[1][epoch].X0)
     scaleFct = camWorldBaseline / camRelOriBaseline
-    cameras[1].X0 =  cameras[1].X0 * scaleFct
-    cameras[1].t = -np.dot(cameras[1].R, cameras[1].X0)
-    cameras[1].compose_P()
+    cameras[1][epoch].X0 = cameras[1][epoch].X0 * scaleFct
+    cameras[1][epoch].t = -np.dot(cameras[1][epoch].R, cameras[1][epoch].X0)
+    cameras[1][epoch].compose_P()
+    print(f'Epoch {epoch}: camera 1 center:\n {cameras[1][epoch].X0}' )
     
     #--- Triangulate Points ---#
-    pts0_und = cv2.undistortPoints(features[0][epoch].get_keypoints(), cameras[0].K, cameras[0].dist, None, cameras[0].K)
-    pts1_und = cv2.undistortPoints(features[1][epoch].get_keypoints(), cameras[1].K, cameras[1].dist, None, cameras[1].K)
-    M, status = iterative_LS_triangulation(pts0_und, cameras[0].P,  pts1_und, cameras[1].P)
-    points3d.insert(epoch, M)
-    print(f'Triangulated success: {status.sum()/status.size}')
+    pts0_und = cv2.undistortPoints(features[0][epoch].get_keypoints(), cameras[0][epoch].K, 
+                                   cameras[0][epoch].dist, None, cameras[0][epoch].K)
+    pts1_und = cv2.undistortPoints(features[1][epoch].get_keypoints(), cameras[1][epoch].K, 
+                                   cameras[1][epoch].dist, None, cameras[1][epoch].K)
+    M, status = iterative_LS_triangulation(pts0_und, cameras[0][epoch].P,  pts1_und, cameras[1][epoch].P)
+    points3d.append(M)
+    print(f'Point triangulation succeded: {status.sum()/status.size}')
     
     # Interpolate colors from image 
     jj = 1
     image = cv2.cvtColor(images[jj][epoch], cv2.COLOR_BGR2RGB)
-    points3d_cols =  interpolate_point_colors(points3d[0], image, cameras[jj].P, cameras[jj].K, cameras[jj].dist)
-    
+    points3d_cols =  interpolate_point_colors(points3d[epoch], image, cameras[jj][epoch].P, 
+                                              cameras[jj][epoch].K, cameras[jj][epoch].dist)
+    print(f'Color interpolated on image {jj} ')
     # Visualize and export sparse point cloud
-    do_viz = True
+    do_viz = False
     
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(points3d[epoch])
-    pcd.colors = o3d.utility.Vector3dVector(points3d_cols)
-    o3d.io.write_point_cloud("res/epoch_"+str(epoch)+"/sparsepts_t"+str(epoch)+".ply", pcd)
+    pcd.append(o3d.geometry.PointCloud())
+    pcd[epoch].points = o3d.utility.Vector3dVector(points3d[epoch])
+    pcd[epoch].colors = o3d.utility.Vector3dVector(points3d_cols)
+    o3d.io.write_point_cloud("res/pt_clouds/sparse_ptd_t"+str(epoch)+".ply", pcd[epoch])
     if do_viz:
         o3d.visualization.draw_geometries([pcd])
 
