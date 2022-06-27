@@ -11,7 +11,7 @@
     
     "superglue": "outdoor", 
     "sinkhorn_iterations": 100, 
-    "match_threshold": 0.4, 
+    "match_threshold": 0.2, 
     
     "viz": true, 
     "viz_extension": "png", 
