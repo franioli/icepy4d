@@ -16,7 +16,7 @@
     "viz": true,
     "viz_extension": "png",
     "fast_viz": true,
-    "opencv_display" : false, 
+    "opencv_display": false, 
     "show_keypoints": false,
 
     "cache": false,

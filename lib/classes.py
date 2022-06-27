@@ -39,7 +39,11 @@ class Camera:
         self.P = None
         self.X0 = None # camera center
         self.dist = dist # Distortion vector in OpenCV format
-  
+        if R is None and t is None: 
+            self.reset_EO()
+            self.compose_P()
+            self.camera_center()
+            
     def reset_EO(self):
         ''' Reset camera EO as to make camera reference system parallel to world reference system '''
         self.R = np.identity(3)
@@ -49,11 +53,11 @@ class Camera:
         
     def camera_center(self):        
         ''' Compute and return the camera center. '''
-        if self.X0 is not None:
-            return self.X0
-        else:
-            self.X0 = -np.dot(self.R.T,self.t)
-            return self.X0
+        # if self.X0 is not None:
+        #     return self.X0
+        # else:
+        self.X0 = -np.dot(self.R.T,self.t)
+        return self.X0
     
     def compose_P(self):
         '''
