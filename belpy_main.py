@@ -147,8 +147,8 @@ if find_matches:
 
 elif not features[0]: 
     epoch = 0
-    matches_path = 'res/epoch_0/IMG_0520_IMG_2131_features.pickle'
-    with open(matches_path, 'rb') as f:
+    last_match_path = 'res/epoch_4/IMG_0530_IMG_2141_features.pickle'
+    with open(last_match_path, 'rb') as f:
         features = pickle.load(f)
         print("Loaded previous matches")
 else:
