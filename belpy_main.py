@@ -60,9 +60,10 @@ print('Data loaded')
 
 #%% Perform matching and tracking
 find_matches = 0
+epoches2process = [0,1,2,3,4,5,6,7] # #1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
+epoch = 0
+
 if find_matches:
-    epoches2process = [0,1,2,3,4,5,6,7] # #1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
-    
     for epoch in epoches2process:
         print(f'Processing epoch {epoch}...')
 
@@ -102,7 +103,8 @@ if find_matches:
                      features[1][epoch-1].get_features_as_dict()]
             tracked_cam0, tracked_cam1 = track_matches(pairs, maskBB, prevs, opt_tracking)
             # TODO: tenere traccia dell'epoca in cui è stato trovato il match
-            # TODO: Problema nei punti tracciati... vengono rigettati da pydegensac
+            # TODO: Check bounding box in tracking
+            # TODO: clean tracking code
 
             # Store all matches in features structure
             features[0][epoch].append_features( {'kpts': tracked_cam0['keypoints1'],
@@ -110,17 +112,8 @@ if find_matches:
                                                  'score': tracked_cam0['scores1']} ) 
             features[1][epoch].append_features( {'kpts': tracked_cam1['keypoints1'],
                                                  'descr': tracked_cam1['descriptors1'] , 
-                                                 'score': tracked_cam1['scores1']} ) 
-#- Cameras structures
-# TO DO: implement camera class!
-for jj, cam in enumerate(camNames):
-    path = (os.path.join(rootDirPath, calibFld, cam+'.txt'))
-    with open(path, 'r') as f:
-        data = np.loadtxt(f)
-    K = data[0:9].astype(float).reshape(3, 3, order='C')
-    dist = data[9:13].astype(float)
-    cameras[jj].append(Camera(K=K, dist=dist))
-
+                                                 'score': tracked_cam1['scores1']} )
+            
             # Run Pydegensac to estimate F matrix and reject outliers                         
             F, inlMask = pydegensac.findFundamentalMatrix(features[0][epoch].get_keypoints(), features[1][epoch].get_keypoints(), 
                                                           px_th=2, conf=0.9, max_iters=100000, laf_consistensy_coef=-1.0, 
@@ -138,7 +131,6 @@ for jj, cam in enumerate(camNames):
     print('Matching completed')
 
 elif not features[0]: 
-    epoch = 0
     last_match_path = 'res/epoch_7/IMG_0541_IMG_2152_features.pickle'
     with open(last_match_path, 'rb') as f:
         features = pickle.load(f)
