@@ -8,6 +8,9 @@ from lib.sg.utils import (make_matching_plot,AverageTimer, read_image, frame2ten
 from  lib.io import generateTiles
 torch.set_grad_enabled(False)
 
+import matplotlib
+matplotlib.use('Qt5Agg')
+import matplotlib.pyplot as plt
 
 def track_matches(pairs, maskBB, prevs, opt):
  
@@ -62,6 +65,9 @@ def track_matches(pairs, maskBB, prevs, opt):
     scores1_full = []
 
     timer = AverageTimer(newline=True)
+    
+  
+#%% Run tracking     
     for cam, pair in enumerate(pairs):
         name0, name1 = pair[:2]
         stem0, stem1 = Path(name0).stem, Path(name1).stem
@@ -80,14 +86,6 @@ def track_matches(pairs, maskBB, prevs, opt):
             exit(1)
         timer.update('load_image')
     
-        # Load matches from previous epoch
-        # prev = prevs[cam]
-        # for file in os.listdir(opt.prev_epoch_dir):
-        #     # if file.endswith(str(opt.cam_num)+".pt"):
-        #     if file.endswith(str(cam)+".pt"):
-        #         last_data_path = os.path.join(opt.prev_epoch_dir, file)
-        # prev = torch.load(last_data_path)
-
         # Subdivide image in tiles
         do_viz = opt['viz']
         useTile = opt['useTile']
@@ -104,57 +102,56 @@ def track_matches(pairs, maskBB, prevs, opt):
         print(f'Images subdivided in {rowDivisor}x{colDivisor} tiles')                                     
         timer.update('create_tiles')
 
-#%% Run tracking
-     
+        # import pdb
+        # pdb.set_trace()
+          
         # try:
         #     if torch.is_tensor(prevs[cam]['keypoints0'][0]):
         #         prev = {k: v[0].cpu().numpy() for k, v in prevs[cam].items()}   
         #     print('Prev data are tensors: converted to np')
         # except:        
         prev = prevs[cam]
+        
         kpts0_full.append(np.full(np.shape(prev['keypoints0']), -1, dtype=(float)))
         kpts1_full.append(np.full(np.shape(prev['keypoints0']), -1, dtype=(float)))
-        wasMatched.append(np.full( len(prev['keypoints0']), -1, dtype=(float) ))
-        
+        wasMatched.append(np.full( len(prev['keypoints0']), -1, dtype=(float) ))     
         descriptors1_full.append(np.full( np.shape(prev['descriptors0']), -1, dtype=(float) ))
         scores1_full.append(np.full( len(prev['scores0']), -1, dtype=(float) ))
         # mconf_full.append(np.full((len(prev['keypoints0'])), 0, dtype=(float)))
-       
+
+        # TODO: CHECK IT!
+        # Subract coordinates bounding box
+        kpts0 = prev['keypoints0'] - np.array(maskBB[cam][0:2]).astype('float32')
+        
+        # import cv2
+        # ttt = 3
+        # pts0 = kpts0 - np.array(limits0[ttt][0:2]).astype('float32') 
+        # img0 = np.uint8(tiles0[ttt])
+        # img0_kpts = cv2.drawKeypoints(img0,cv2.KeyPoint.convert(pts0),img0,(0,255,0),flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+        # plt.imshow(img0_kpts)
+        # plt.show()        
+        
         for t, tile0 in enumerate(tiles0):
             # Shift back to previuos keypoints
             def rectContains(rect, pt):
                 logic = rect[0] < pt[0] < rect[2] and rect[1] < pt[1] < rect[3]
                 return logic
 
-            # Subract coordinates bounding box
-            kpts0 = prev['keypoints0'] - np.array(maskBB[0][0:2]).astype('float32')
-            
             # Keep only kpts in current tile
-            ptsInTile = np.zeros(len(kpts0), dtype=(bool))
+            ptsInTile = np.zeros(len(kpts0), dtype=(bool)) 
             for i, kk in enumerate(kpts0):
                 ptsInTile[i] = rectContains(limits0[t], kk)
-                ptsInTileIdx = np.where(ptsInTile == True)
-            kpts0 = kpts0[ptsInTile] - np.array(limits0[t][0:2]).astype('float32')
+            ptsInTileIdx = np.where(ptsInTile == True)[0]
+            kpts0_tile = kpts0[ptsInTile] - np.array(limits0[t][0:2]).astype('float32') 
 
             # Build Prev tensor
-            prevTile = {'keypoints0': [], 'scores0': [], 'descriptors0': []}
-            prevTile['keypoints0'] = kpts0
-            prevTile['scores0'] = prev['scores0'][ptsInTile]
-            prevTile['descriptors0'] = prev['descriptors0'][:, ptsInTile]
-            # a = prevTile['keypoints0'].astype(int)
-            # a_ = tiles0[t].copy()/255.
-            # a_ = cv2.cvtColor(a_ , cv2.COLOR_GRAY2RGB);
-            # for aa in a:
-            #     a_ = cv2.drawMarker(a_, tuple(aa), (0, 255, 255))
-            # cv2.imshow('test',a_)
-            # cv2.waitKey()
-            # cv2.destroyAllWindows()
-
+            prevTile = {'keypoints0': kpts0_tile, 'scores0': prev['scores0'][ptsInTile], 
+                        'descriptors0': prev['descriptors0'][:, ptsInTile]}
+    
             # Perform the matching.
             inp0 = frame2tensor(tiles0[t], device)
             inp1 = frame2tensor(tiles1[t], device)
-            prevTile = {k: [torch.from_numpy(v).to(device)]
-                                             for k, v in prevTile.items()}
+            prevTile = {k: [torch.from_numpy(v).to(device)]  for k, v in prevTile.items()}
             prevTile['image0'] = inp0
             predTile = matching({**prevTile, 'image1': inp1})
             predTile = {k: v[0].cpu().numpy() for k, v in predTile.items()}
@@ -167,22 +164,32 @@ def track_matches(pairs, maskBB, prevs, opt):
             matches0 = predTile['matches0']
             conf = predTile['matching_scores0']
             valid = matches0 > -1
-            mkpts0 = kpts0[valid]
+            mkpts0 = kpts0_tile[valid]
             mkpts1 = kpts1[matches0[valid]]
             mconf = conf[valid]
+            
+            # pts0 = mkpts0
+            # img0 = np.uint8(tiles0[t])
+            # img0_kpts = cv2.drawKeypoints(img0,cv2.KeyPoint.convert(pts0),img0,(0,255,0),flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+            # plt.imshow(img0_kpts)
+            # plt.show()  
 
-            for i, pt in enumerate(kpts0):
+            for i, pt in enumerate(kpts0_tile):
                 if predTile['matches0'][i] > -1:
-                    wasMatched[cam][ptsInTileIdx[0][i]] = 1
-                    kpts0_full[cam][ptsInTileIdx[0][i], :] = pt + np.array(limits0[t][0:2]).astype('float32')
-                    kpts1_full[cam][ptsInTileIdx[0][i], :] = kpts1[predTile['matches0'][i]] + np.array(limits1[t][0:2]).astype('float32')      
-                 
-                    descriptors1_full[cam][:, ptsInTileIdx[0][i]] = descriptors1[:, predTile['matches0'][i]]            
-                    scores1_full[cam][ptsInTileIdx[0][i]] = scores1[predTile['matches0'][i]]                
+                    wasMatched[cam][ptsInTileIdx[i]] = 1
+                    kpts0_full[cam][ptsInTileIdx[i], :] = pt + np.array(limits0[t][0:2]).astype('float32')
+                    kpts1_full[cam][ptsInTileIdx[i], :] = kpts1[predTile['matches0'][i],:] + np.array(limits1[t][0:2]).astype('float32')      
+                    descriptors1_full[cam][:, ptsInTileIdx[i]] = descriptors1[:, predTile['matches0'][i]]            
+                    scores1_full[cam][ptsInTileIdx[i]] = scores1[predTile['matches0'][i]]                
                     # mconf_full[cam][ptsInTileIdx[0][i], :] = predTile['matches0']
                     #     [i]] + np.array(limits1[t][0:2]).astype('float32') 
                     #TO DO: Keep track of the matching scores
                     
+            # pts0 =  kpts1_full[0][ptsInTileIdx, :] + maskBB[1][0:2].astype('float32')
+            # img0 = cv2.cvtColor(images[0][1], cv2.COLOR_BGR2GRAY)
+            # img0_kpts = cv2.drawKeypoints(img0,cv2.KeyPoint.convert(pts0),img0,(0,255,0),flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+            # cv2.imwrite('dummy_out.jpg', img0_kpts)
+
             if t < 1:         
                 mconf_full = mconf.copy()
             else:
@@ -261,7 +268,7 @@ def track_matches(pairs, maskBB, prevs, opt):
     # %%
 
     # Retrieve points that were matched in both the images
-    validTracked= [m == 2 for m in wasMatched[0] + wasMatched[1]]
+    validTracked = [m == 2 for m in wasMatched[0] + wasMatched[1]]
     mkpts1_cam0 = kpts1_full[0][validTracked]
     mkpts1_cam1 = kpts1_full[1][validTracked]
     descr1_cam0  = descriptors1_full[0][:, validTracked]
@@ -270,8 +277,13 @@ def track_matches(pairs, maskBB, prevs, opt):
     scores1_cam1 = scores1_full[1][validTracked]
 
     # Restore original image coordinates (not cropped) 
-    mkpts1_cam0= mkpts1_cam0 + maskBB[0][0:2].astype('float32')
-    mkpts1_cam1= mkpts1_cam1 + maskBB[1][0:2].astype('float32')
+    mkpts1_cam0 = mkpts1_cam0 + np.array(maskBB[1][0:2]).astype('float32')
+    mkpts1_cam1 = mkpts1_cam1 + np.array(maskBB[1][0:2]).astype('float32')
+
+    # pts0 =  mkpts1_cam1
+    # img0 = cv2.cvtColor(images[1][1], cv2.COLOR_BGR2GRAY)
+    # img0_kpts = cv2.drawKeypoints(img0,cv2.KeyPoint.convert(pts0),img0,(0,255,0),flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+    # cv2.imwrite('dummy_out.jpg', img0_kpts)
 
     # Run PyDegensac
     # F, inlMask= pydegensac.findFundamentalMatrix(mkpts1_cam0, mkpts1_cam1, px_th=3, conf=0.9,
@@ -297,7 +309,7 @@ def track_matches(pairs, maskBB, prevs, opt):
     image0, _, _ = read_image(
          name0, device, opt['resize'], rot0, opt['resize_float'], maskBB[0], opt['equalize_hist'])
     image1, _, _ = read_image(
-         name1, device, opt['resize'], rot0, opt['resize_float'], maskBB[0], opt['equalize_hist'])
+         name1, device, opt['resize'], rot0, opt['resize_float'], maskBB[1], opt['equalize_hist'])
 
     if do_viz:
         # Visualize the matches.
@@ -321,8 +333,8 @@ def track_matches(pairs, maskBB, prevs, opt):
 
         make_matching_plot(
             image0, image1, mkpts1_cam0 - \
-                maskBB[0][0:2], mkpts1_cam1-maskBB[1][0:2],
-            mkpts1_cam0-maskBB[0][0:2], mkpts1_cam1-maskBB[1][0:2], color,
+                maskBB[1][0:2], mkpts1_cam1-maskBB[1][0:2],
+            mkpts1_cam0-maskBB[1][0:2], mkpts1_cam1-maskBB[1][0:2], color,
             text, viz_path, opt['show_keypoints'],
             opt['fast_viz'], opt['opencv_display'], 'Matches', small_text)
 
@@ -341,3 +353,17 @@ def track_matches(pairs, maskBB, prevs, opt):
     tracked_cam1 = {'keypoints1': mkpts1_cam1, 'descriptors1': descr1_cam1, 'scores1': scores1_cam1}
 
     return tracked_cam0, tracked_cam1
+
+
+if __name__ == '__main__':
+    import pickle
+    with open('dummy.pickle', 'rb') as f:
+        tmp = pickle.load(f)
+    
+    features = tmp[0]
+    pairs = tmp[1]
+    maskBB = tmp[2]
+    prevs = tmp[3] 
+    opt = tmp[4]
+    
+    tracked_cam0, tracked_cam1 = track_matches(pairs, maskBB, prevs, opt)

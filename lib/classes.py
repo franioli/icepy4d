@@ -149,15 +149,15 @@ class Features:
         
     def get_keypoints(self):
         ''' Return keypoints as numpy array '''
-        return self.kpts
+        return np.float32(self.kpts)
     
     def get_descriptors(self):
         ''' Return descriptors as numpy array '''
-        return self.descr
+        return np.float32(self.descr)
     
     def get_scores(self):
         ''' Return scores as numpy array '''
-        return self.score
+        return np.float32(self.score)
     
     def get_features_as_dict(self):
         ''' Return a dictionary with keypoints, descriptors and scores, organized for SuperGlue'''
@@ -189,7 +189,17 @@ class Features:
             self.kpts = np.append(self.kpts, new_features['kpts'], axis=0)
             self.descr = np.append(self.descr, new_features['descr'], axis=1)
             self.score = np.append(self.score, new_features['score'], axis=0)
-
+        
+    def save_as_txt(self, path=None, fmt='%i', delimiter=',', header='x,y'):
+        ''' Save keypoints in a .txt file '''
+        if path is None:
+            print("Error: missing path argument.")
+            return
+        # if not Path(path).:
+        #     print('Error: invalid input path.')
+        #     return
+        np.savetxt(path, self.kpts, fmt=fmt, delimiter=delimiter, newline='\n', header=header) 
+  
     
 #--- DSM ---#  
 class DSM:
