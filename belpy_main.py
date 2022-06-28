@@ -63,6 +63,7 @@ find_matches = 0
 epoches2process = [0,1,2,3,4,5,6,7] # #1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
 epoch = 0
 
+
 if find_matches:
     for epoch in epoches2process:
         print(f'Processing epoch {epoch}...')
@@ -143,13 +144,15 @@ else:
 cameras = [[],[]]  # List for storing cameras information (as dicts)
 points3d = []
 pcd = []
+do_viz = False
 
+K_calib, dist_calib = [],[]
 #- Cameras structures
 for jj, cam in enumerate(camNames):
     with open(os.path.join(rootDirPath, calibFld, cam+'.txt'), 'r') as f:
         data = np.loadtxt(f)
-    K_calib = data[0:9].astype(float).reshape(3, 3, order='C')
-    dist_calib = data[9:13].astype(float)
+    K_calib.append(data[0:9].astype(float).reshape(3, 3, order='C'))
+    dist_calib.append(data[9:13].astype(float))
 del data, f,  jj
 
 # Camera baseline
@@ -157,15 +160,18 @@ X01_meta = np.array([416651.5248,5091109.9121,1858.9084])   # IMG_2092
 X02_meta = np.array([416622.2755,5091364.5071,1902.4053]) # IMG_0481
 camWorldBaseline = np.linalg.norm(X01_meta - X02_meta)                         # [m] From Metashape model at epoch t0
 
+img0 = images[0][0]
+h, w, _ = img0.shape
+
 #--- Realtive Pose with Essential Matrix ---#
 for epoch in epoches2process:
 # epoch = 0
     # Initialize Intrinsics
-    cameras[0].append(Camera(K=K_calib, dist=dist_calib))
-    cameras[1].append(Camera(K=K_calib, dist=dist_calib))
+    cameras[0].append(Camera(K=K_calib[0], dist=dist_calib[0]))
+    cameras[1].append(Camera(K=K_calib[1], dist=dist_calib[1]))
 
     pts0, pts1 = features[0][epoch].get_keypoints(), features[1][epoch].get_keypoints()
-    rel_pose = estimate_pose(pts0, pts1, cameras[0][epoch].K,  cameras[1][epoch].K, thresh=0.2, conf=0.99999)
+    rel_pose = estimate_pose(pts0, pts1, cameras[0][epoch].K,  cameras[1][epoch].K, thresh=1, conf=0.9999)
     R, t, valid = rel_pose[0], rel_pose[1], rel_pose[2]
     print('Computing relative pose. Valid points: {}/{}'.format(valid.sum(),len(valid)))
     
@@ -180,7 +186,7 @@ for epoch in epoches2process:
     cameras[1][epoch].X0 = cameras[1][epoch].X0 * scaleFct
     cameras[1][epoch].t = -np.dot(cameras[1][epoch].R, cameras[1][epoch].X0)
     cameras[1][epoch].compose_P()
-    print(f'Epoch {epoch}: camera 1 center:\n {cameras[1][epoch].X0}' )
+    # print(f'Epoch {epoch}: camera 1 center:\n {cameras[1][epoch].X0}' )
     
     #--- Triangulate Points ---#
     pts0_und = cv2.undistortPoints(features[0][epoch].get_keypoints(), cameras[0][epoch].K, 
@@ -197,9 +203,8 @@ for epoch in epoches2process:
     points3d_cols =  interpolate_point_colors(points3d[epoch], image, cameras[jj][epoch].P, 
                                               cameras[jj][epoch].K, cameras[jj][epoch].dist)
     print(f'Color interpolated on image {jj} ')
+ 
     # Visualize and export sparse point cloud
-    do_viz = False
-    
     pcd.append(o3d.geometry.PointCloud())
     pcd[epoch].points = o3d.utility.Vector3dVector(points3d[epoch])
     pcd[epoch].colors = o3d.utility.Vector3dVector(points3d_cols)
@@ -251,25 +256,43 @@ def generate_ortophoto(image, dsm, P, res=1):
 #%% DENSE MATCHING
 
 # Init
+epoch = 0
 sgm_path = Path('sgm')
 downsample = 0.25
 fast_viz = True
 
 stem0, stem1 = images[0].get_image_stem(epoch), images[1].get_image_stem(epoch)
 
-pts0, pts1 = features[0]['mkpts0'], features[0]['mkpts1']
+pts0, pts1 = features[0][epoch].get_keypoints(), features[1][epoch].get_keypoints()
 F, inlMask = pydegensac.findFundamentalMatrix(pts0, pts1, px_th=1, conf=0.99999,
                                               max_iters=100000, laf_consistensy_coef=-1.0, error_type='sampson',
                                               symmetric_error_check=True, enable_degeneracy_check=True)
-
 img0, img1 = images[0][0], images[1][0]
 h, w, _ = img0.shape
 
 #--- Rectify calibrated ---#
-R1,R2,P1,P2,Q = cv2.stereoRectify(cameras[0].K, cameras[0].dist, cameras[1].K, cameras[1].dist,\
-             (h,w), cameras[1].R, cameras[1].t)
+rectOut = cv2.stereoRectify(cameras[0][epoch].K, cameras[0][epoch].dist, 
+                            cameras[1][epoch].K, cameras[1][epoch].dist, 
+                            (h,w), cameras[1][epoch].R, cameras[1][epoch].t)
+# R1,R2,P1,P2,Q,validRoi0,validRoi1 
+R0, R1 = rectOut[0], rectOut[1]
+P0, P1 = rectOut[2], rectOut[3]
+Q = rectOut[4]
     
-    
+img0_rectified = cv2.warpPerspective(img0, R0, (w,h))
+img1_rectified = cv2.warpPerspective(img1, R1, (w,h))
+
+# write images to disk
+path0 = str(sgm_path / (stem0 + "_rectified.jpg"))
+path1 = str(sgm_path / (stem1 + "_rectified.jpg"))
+cv2.imwrite(path0, img0_rectified)
+cv2.imwrite(path1, img1_rectified)
+
+
+#--- Run PSMNet to compute disparity ---#
+
+
+#%%
 #--- Recify Uncalibrated ---#
 
 # undistort images
@@ -305,7 +328,6 @@ else:
     plt.show()
     
     
-#--- Run PSMNet to compute disparity ---#
 
 
 
