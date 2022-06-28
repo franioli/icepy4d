@@ -1,9 +1,10 @@
 from pathlib import Path
 import numpy as np
 import cv2
+import pydegensac
+# import scipy.linalg as alg
 
-
-def estimate_pose(kpts0, kpts1, K0, K1, thresh, conf=0.99999):
+def estimate_pose(kpts0, kpts1, K0, K1, thresh, conf=0.9999):
     """
     Estimate camera pose given matched points and intrinsics matrix.
     Function taken by the code of SuperGlue, by Sarlin et al., 2020
@@ -12,26 +13,50 @@ def estimate_pose(kpts0, kpts1, K0, K1, thresh, conf=0.99999):
     if len(kpts0) < 5:
         return None
 
-    f_mean = np.mean([K0[0, 0], K1[1, 1], K0[0, 0], K1[1, 1]])
-    norm_thresh = thresh / f_mean
+    # f_mean = np.mean([K0[0, 0], K1[1, 1], K0[0, 0], K1[1, 1]])
+    # norm_thresh = thresh / f_mean
 
-    kpts0 = (kpts0 - K0[[0, 1], [2, 2]][None]) / K0[[0, 1], [0, 1]][None]
-    kpts1 = (kpts1 - K1[[0, 1], [2, 2]][None]) / K1[[0, 1], [0, 1]][None]
+    # kpts0 = (kpts0 - K0[[0, 1], [2, 2]][None]) / K0[[0, 1], [0, 1]][None]
+    # kpts1 = (kpts1 - K1[[0, 1], [2, 2]][None]) / K1[[0, 1], [0, 1]][None]
 
-    E, mask = cv2.findEssentialMat(
-        kpts0, kpts1, np.eye(3), threshold=norm_thresh, prob=conf,
-        method=cv2.RANSAC)
+    # E, mask = cv2.findEssentialMat(
+    #     kpts0, kpts1, np.eye(3), threshold=norm_thresh, prob=conf,
+    #     method=cv2.RANSAC)
 
-    assert E is not None
+    # assert E is not None
+    
+    # best_num_inliers = 0
+    # ret = None
+    # for _E in np.split(E, len(E) / 3):
+    #     n, R, t, _ = cv2.recoverPose(
+    #         _E, nkpts0, nkpts1, np.eye(3), 1e9, mask=mask)
+    #     if n > best_num_inliers:
+    #         best_num_inliers = n
+    #         ret = (R, t[:, 0], mask.ravel() > 0)
+    # return ret
+    
+    
+    F, mask = pydegensac.findFundamentalMatrix( kpts0, kpts1, px_th=thresh, conf=conf, 
+                                                max_iters=10000, laf_consistensy_coef=-1.0, 
+                                                error_type='sampson', symmetric_error_check=True, 
+                                                enable_degeneracy_check=True)
+    E = np.dot(K1.T, np.dot(F, K0))
 
-    best_num_inliers = 0
-    ret = None
-    for _E in np.split(E, len(E) / 3):
-        n, R, t, _ = cv2.recoverPose(
-            _E, kpts0, kpts1, np.eye(3), 1e9, mask=mask)
-        if n > best_num_inliers:
-            best_num_inliers = n
-            ret = (R, t[:, 0], mask.ravel() > 0)
+    kpts0 = cv2.convertPointsToHomogeneous(kpts0)[:,0,:].T
+    kpts1 = cv2.convertPointsToHomogeneous(kpts1)[:,0,:].T
+    nkpts0 = np.dot(np.linalg.inv(K0), kpts0)
+    nkpts0 /= nkpts0[2,:]
+    nkpts0 = nkpts0[0:2,:].T
+    nkpts1 = np.dot(np.linalg.inv(K1), kpts1)    
+    nkpts1 /= nkpts1[2,:]
+    nkpts1 = nkpts1[0:2,:].T
+
+    nkpts0 = nkpts0[mask,:]
+    nkpts1 = nkpts1[mask,:]  
+
+    n, R, t, _  = cv2.recoverPose(E, nkpts0, nkpts1, np.eye(3), 1e9)
+    ret = (R, t[:, 0], mask)
+    
     return ret
 
 def scale_intrinsics(K, scales):
