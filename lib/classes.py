@@ -52,11 +52,14 @@ class Camera:
         self.X0 = X0_from_P(self.P)
         
     def camera_center(self):        
-        ''' Compute and return the camera center. '''
+        ''' 
+        Compute and return the camera center as
+        C = [ - inv(KR) * Kt ] = [ -inv(P[1:3]) * P[4] ]
+        '''
         # if self.X0 is not None:
         #     return self.X0
         # else:
-        self.X0 = -np.dot(self.R.T,self.t)
+        self.X0 = -np.dot(np.linalg.inv(self.P[:,0:3]), self.P[:,3].reshape(3,1) )
         return self.X0
     
     def compose_P(self):
@@ -117,6 +120,17 @@ class Camera:
             m = cv2.undistortPoints(m, self.K, self.dist, None, self.K)[:,0,:]
             
         return m.astype(float)
+    
+    def euler_from_R(self):
+        '''
+        Compute Euler angles from rotation matrix
+        -------      
+        Returns:  [omega, phi, kappa]
+        '''
+        omega = np.arctan2(self.R[2,1], self.R[2,2]) 
+        phi = np.arctan2(-self.R[2,0], np.sqrt(self.R[2,1]**2+self.R[2,2]**2)); 
+        kappa = np.arctan2(self.R[1,0], self.R[0,0]); 
+        return [omega, phi, kappa]
 
 
 #--- Images ---#
