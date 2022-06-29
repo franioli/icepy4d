@@ -10,16 +10,13 @@ import open3d as o3d
 import pydegensac
 
 from lib.classes import (Camera, DSM, Features, Imageds)
-
 from lib.match_pairs import match_pair
 from lib.track_matches import track_matches
-# from src.sg.utils import make_matching_plot
-
 from lib.io import read_img
 from lib.geometry import (estimate_pose, P_from_KRT, X0_from_P, project_points)
-from lib.utils import (normalize_and_und_points, draw_epip_lines, make_matching_plot, undistort_image, interpolate_point_colors, build_dsm)
+from lib.utils import (undistort_image, interpolate_point_colors, build_dsm)
+from lib.visualization import (draw_epip_lines, make_matching_plot)
 from lib.thirdParts.triangulation import (linear_LS_triangulation, iterative_LS_triangulation)
-
 
 #---  Parameters  ---#
 # TODO: put parameters in parser or in json file
@@ -141,10 +138,14 @@ else:
 
 
 #%% SfM
+'''
+Note t
+'''
 cameras = [[],[]]  # List for storing cameras information (as dicts)
 points3d = []
 pcd = []
 do_viz = False
+rotate_ptc = False
 
 K_calib, dist_calib = [],[]
 #- Cameras structures
@@ -169,30 +170,43 @@ for epoch in epoches2process:
     # Initialize Intrinsics
     cameras[0].append(Camera(K=K_calib[0], dist=dist_calib[0]))
     cameras[1].append(Camera(K=K_calib[1], dist=dist_calib[1]))
-
-    pts0, pts1 = features[0][epoch].get_keypoints(), features[1][epoch].get_keypoints()
-    rel_pose = estimate_pose(pts0, pts1, cameras[0][epoch].K,  cameras[1][epoch].K, thresh=1, conf=0.9999)
-    R, t, valid = rel_pose[0], rel_pose[1], rel_pose[2]
-    print('Computing relative pose. Valid points: {}/{}'.format(valid.sum(),len(valid)))
-    
-    # Build cameras structures
-    cameras[1][epoch].R, cameras[1][epoch].t = R, t.reshape(3,1)
-    cameras[1][epoch].compose_P()
-    cameras[1][epoch].camera_center()
-    
-    # Scale model by using camera baseline
-    camRelOriBaseline = np.linalg.norm(cameras[0][epoch].X0 - cameras[1][epoch].X0)
-    scaleFct = camWorldBaseline / camRelOriBaseline
-    cameras[1][epoch].X0 = cameras[1][epoch].X0 * scaleFct
-    cameras[1][epoch].t = -np.dot(cameras[1][epoch].R, cameras[1][epoch].X0)
-    cameras[1][epoch].compose_P()
-    # print(f'Epoch {epoch}: camera 1 center:\n {cameras[1][epoch].X0}' )
-    
+   
+    # FIX SECOND CAMERA TO EO OF FIRST EPOCH!!
+    #TODO: leave second camera free to move and estimate rototranslation  of RS
+    if epoch == 0:
+        
+        # Estimate Relativa Orientation
+        pts0, pts1 = features[0][epoch].get_keypoints(), features[1][epoch].get_keypoints()
+        rel_pose = estimate_pose(pts0, pts1, cameras[0][epoch].K,  cameras[1][epoch].K, thresh=1, conf=0.9999)
+        R, t, valid = rel_pose[0], rel_pose[1], rel_pose[2]
+        print('Computing relative pose. Valid points: {}/{}'.format(valid.sum(),len(valid)))
+        
+        # Update cameras structures
+        cameras[1][epoch].R, cameras[1][epoch].t = R, t.reshape(3,1)
+        cameras[1][epoch].compose_P()
+        cameras[1][epoch].camera_center()
+            
+        # Scale model by using camera baseline
+        camRelOriBaseline = np.linalg.norm(cameras[0][epoch].X0 - cameras[1][epoch].X0)
+        scaleFct = camWorldBaseline / camRelOriBaseline
+        
+        # Update Camera EO
+        cameras[1][epoch].X0 = cameras[1][epoch].X0 * scaleFct
+        cameras[1][epoch].t = -np.dot(cameras[1][epoch].R, cameras[1][epoch].X0)
+        cameras[1][epoch].compose_P()
+        
+    else:
+        
+        cameras[1][epoch].R = cameras[1][0].R
+        cameras[1][epoch].t = cameras[1][0].t
+        cameras[1][epoch].X0 = cameras[1][0].X0
+        cameras[1][epoch].P = cameras[1][0].P
+        
     #--- Triangulate Points ---#
     pts0_und = cv2.undistortPoints(features[0][epoch].get_keypoints(), cameras[0][epoch].K, 
-                                   cameras[0][epoch].dist, None, cameras[0][epoch].K)
+                                   cameras[0][epoch].dist, None, cameras[0][epoch].K)[:,0,:]
     pts1_und = cv2.undistortPoints(features[1][epoch].get_keypoints(), cameras[1][epoch].K, 
-                                   cameras[1][epoch].dist, None, cameras[1][epoch].K)
+                                   cameras[1][epoch].dist, None, cameras[1][epoch].K)[:,0,:]
     M, status = iterative_LS_triangulation(pts0_und, cameras[0][epoch].P,  pts1_und, cameras[1][epoch].P)
     points3d.append(M)
     print(f'Point triangulation succeded: {status.sum()/status.size}')
@@ -208,10 +222,26 @@ for epoch in epoches2process:
     pcd.append(o3d.geometry.PointCloud())
     pcd[epoch].points = o3d.utility.Vector3dVector(points3d[epoch])
     pcd[epoch].colors = o3d.utility.Vector3dVector(points3d_cols)
+    
+    # Save point cloud to disk
     o3d.io.write_point_cloud("res/pt_clouds/sparse_ptd_t"+str(epoch)+".ply", pcd[epoch])
+    
+    if rotate_ptc:
+        ang =np.pi
+        Rx = o3d.geometry.Geometry3D.get_rotation_matrix_from_axis_angle(np.array([1., 0., 0.], dtype='float64')*ang)
+        pcd[epoch].rotate(Rx)
+        
     if do_viz:
-        o3d.visualization.draw_geometries([pcd])
+        win_name = f'Sparse point cloud - Epoch: {epoch} - Num pts: {len(np.asarray(pcd[epoch].points))}'
+        o3d.visualization.draw_geometries([pcd[epoch]], window_name=win_name, 
+                                          width=1280, height=720, 
+                                          left=300, top=200)
+    
 
+# Visualize all points clouds together
+o3d.visualization.draw_geometries(pcd, window_name='All epoches ', 
+                                    width=1280, height=720, 
+                                    left=300, top=200)
 
 #%% BUILD DSM AND ORTHOPHOTOS
 
@@ -267,7 +297,7 @@ pts0, pts1 = features[0][epoch].get_keypoints(), features[1][epoch].get_keypoint
 F, inlMask = pydegensac.findFundamentalMatrix(pts0, pts1, px_th=1, conf=0.99999,
                                               max_iters=100000, laf_consistensy_coef=-1.0, error_type='sampson',
                                               symmetric_error_check=True, enable_degeneracy_check=True)
-img0, img1 = images[0][0], images[1][0]
+img0, img1 = images[0][epoch], images[1][epoch]
 h, w, _ = img0.shape
 
 #--- Rectify calibrated ---#
@@ -295,18 +325,25 @@ cv2.imwrite(path1, img1_rectified)
 #%%
 #--- Recify Uncalibrated ---#
 
-# undistort images
+# Udistort images
+img0, img1 = images[1][epoch], images[0][epoch]
 name0 = str(sgm_path / 'und' / (stem0 + "_undistorted.jpg"))
 name1 = str(sgm_path / 'und' / (stem1 + "_undistorted.jpg"))
-img0, K0_scaled = undistort_image(img0, cameras[0].K, cameras[0].dist, downsample, name0)
-img1, K1_scaled = undistort_image(img1, cameras[1].K, cameras[1].dist, downsample, name1)
+img0, K0_scaled = undistort_image(img0, cameras[0][epoch].K, cameras[0][epoch].dist, downsample, name0)
+img1, K1_scaled = undistort_image(img1, cameras[1][epoch].K, cameras[1][epoch].dist, downsample, name1)
+h, w, _ = img0.shape
 
-# Rectify uncalibrated
-pts0, pts1 = features[0]['mkpts1']*downsample, features[0]['mkpts0']*downsample
+# Undistot points and compute F matrx
+pts0 = features[0][epoch].get_keypoints()*downsample
+pts1 = features[1][epoch].get_keypoints()*downsample
+pts0 = cv2.undistortPoints(pts0, cameras[0][epoch].K, cameras[0][epoch].dist, None, cameras[0][epoch].K)
+pts1 = cv2.undistortPoints(pts1, cameras[1][epoch].K, cameras[1][epoch].dist, None, cameras[1][epoch].K)
 F, inlMask = pydegensac.findFundamentalMatrix(pts0, pts1, px_th=1, conf=0.99999,
                                               max_iters=100000, laf_consistensy_coef=-1.0, error_type='sampson',
                                               symmetric_error_check=True, enable_degeneracy_check=True)
 print('Pydegensac: {} inliers ({:.2f}%)'.format(inlMask.sum(), inlMask.sum()*100 / len(pts0)))
+
+# Rectify uncalibrated
 success, H1, H0 = cv2.stereoRectifyUncalibrated(pts0, pts1 , F, (w,h))
 img0_rectified = cv2.warpPerspective(img0, H0, (w,h))
 img1_rectified = cv2.warpPerspective(img1, H1, (w,h))
@@ -328,7 +365,7 @@ else:
     plt.show()
     
     
-
+#%%
 
 
 #--- Find epilines corresponding to points in right image (second image) and drawing its lines on left image ---#
