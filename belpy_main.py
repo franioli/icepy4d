@@ -1,11 +1,11 @@
 import numpy as np
 import os
 from pathlib import Path
-import cv2 
+import cv2
 import pickle
-import json 
+import json
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
+from matplotlib import cm
 import open3d as o3d
 import pydegensac
 
@@ -21,6 +21,7 @@ from lib.thirdParts.triangulation import (linear_LS_triangulation, iterative_LS_
 #---  Parameters  ---#
 # TODO: put parameters in parser or in json file
 
+#TODO: use Pathlib instead of strings and os
 rootDirPath = '.'
 
 #- Folders and paths
@@ -47,12 +48,10 @@ features = [[],[]]  # List for storing all the matched features at all epochs
 
 #- images
 for jj, cam in enumerate(camNames):
-    images.append(Imageds(os.path.join(rootDirPath, imFld, cam)))  
+    images.append(Imageds(os.path.join(rootDirPath, imFld, cam)))
     if len(images[jj]) is not len(images[jj-1]):
         print('Error: different number of images per camera')
-        # exit(1)# Remove some variables
-        del data, K, dist, path, f,  jj
-
+        # exit(1)        
 print('Data loaded')
 
 #%% Perform matching and tracking
@@ -66,7 +65,7 @@ if find_matches:
         print(f'Processing epoch {epoch}...')
 
         #=== Find Matches at current epoch ===#
-        print('Run Superglue to find matches at epoch {}'.format(epoch))    
+        print(f'Run Superglue to find matches at epoch {epoch}')    
         epochdir = os.path.join('res','epoch_'+str(epoch))      
         with open(matching_config,) as f:
             opt_matching = json.load(f)
@@ -89,7 +88,7 @@ if find_matches:
 
         #=== Track previous matches at current epoch ===#
         if epoch > 0:
-            print('Track points from epoch {} to epoch {}'.format(epoch-1, epoch))
+            print(f'Track points from epoch {epoch-1} to epoch {epoch}')
             
             trackoutdir = os.path.join('res','epoch_'+str(epoch), 'from_t'+str(epoch-1))
             with open(tracking_config,) as f:
@@ -141,12 +140,168 @@ else:
 '''
 Note t
 '''
-cameras = [[],[]]  # List for storing cameras information (as dicts)
+from lib.thirdParts.transformations import affine_matrix_from_points
+
+#TODO: Keep only important variables, overwrite the others in loop.
+cameras = [[],[]]
 points3d = []
+points3d_coreg = []
 pcd = []
+tform = []
+pcd_coreg = []
+
 do_viz = False
 rotate_ptc = False
 
+# Read target image coordinates and initialize data
+target_imcoord_path = Path(rootDirPath) / 'data/target_images.txt' 
+with open(target_imcoord_path, 'r') as f:
+    data = np.loadtxt(f, delimiter=',' )
+target_imcoords = [] 
+target_imcoords.append(data[:,0:2].astype('float32'))
+target_imcoords.append(data[:,2:4].astype('float32'))
+targets_3d = []
+
+# Read Calibration data to build camera structures
+K_calib, dist_calib = [],[]
+#- Cameras structures
+for jj, cam in enumerate(camNames):
+    with open(os.path.join(rootDirPath, calibFld, cam+'.txt'), 'r') as f:
+        data = np.loadtxt(f)
+    K_calib.append(data[0:9].astype(float).reshape(3, 3, order='C'))
+    dist_calib.append(data[9:13].astype(float))
+del data, f,  jj
+
+# Camera baseline
+X01_meta = np.array([416651.5248,5091109.9121,1858.9084])   # IMG_2092
+X02_meta = np.array([416622.2755,5091364.5071,1902.4053]) # IMG_0481
+camWorldBaseline = np.linalg.norm(X01_meta - X02_meta)                         # [m] From Metashape model at epoch t0
+
+img0 = images[0][0]
+h, w, _ = img0.shape
+
+#--- Realtive Pose with Essential Matrix ---#
+for epoch in epoches2process:
+# epoch = 0
+    # Initialize Intrinsics
+    cameras[0].append(Camera(K=K_calib[0], dist=dist_calib[0]))
+    cameras[1].append(Camera(K=K_calib[1], dist=dist_calib[1]))
+   
+    # FIX SECOND CAMERA TO EO OF FIRST EPOCH!!
+    #TODO: leave second camera free to move and estimate rototranslation  of RS
+    # if epoch == 0:
+        
+    # Estimate Relativa Orientation
+    pts0, pts1 = features[0][epoch].get_keypoints(), features[1][epoch].get_keypoints()
+    rel_pose = estimate_pose(pts0, pts1, cameras[0][epoch].K,  cameras[1][epoch].K, thresh=1, conf=0.9999)
+    R, t, valid = rel_pose[0], rel_pose[1], rel_pose[2]
+    print('Computing relative pose. Valid points: {}/{}'.format(valid.sum(),len(valid)))
+    
+    # Update cameras structures
+    cameras[1][epoch].R, cameras[1][epoch].t = R, t.reshape(3,1)
+    cameras[1][epoch].compose_P()
+    cameras[1][epoch].camera_center()
+        
+    # Scale model by using camera baseline
+    camRelOriBaseline = np.linalg.norm(cameras[0][epoch].X0 - cameras[1][epoch].X0)
+    scaleFct = camWorldBaseline / camRelOriBaseline
+    
+    # Update Camera EO
+    cameras[1][epoch].X0 = cameras[1][epoch].X0 * scaleFct
+    cameras[1][epoch].t = -np.dot(cameras[1][epoch].R, cameras[1][epoch].X0)
+    cameras[1][epoch].compose_P()
+    
+    # Triangulate targets
+    pts0_und = cv2.undistortPoints(target_imcoords[0][epoch], cameras[0][epoch].K, 
+                                   cameras[0][epoch].dist, None, cameras[0][epoch].K)[:,0,:]
+    pts1_und = cv2.undistortPoints(target_imcoords[1][epoch], cameras[1][epoch].K, 
+                                   cameras[1][epoch].dist, None, cameras[1][epoch].K)[:,0,:]
+    M, status = iterative_LS_triangulation(pts0_und, cameras[0][epoch].P,  pts1_und, cameras[1][epoch].P)
+    targets_3d.append(M)
+    
+    # Estimate rigid body transformation between first epoch RS and current epoch RS    
+    v0 = np.concatenate((cameras[0][0].X0, cameras[1][0].X0, targets_3d[0].reshape(3,1)), axis = 1)
+    v1 = np.concatenate((cameras[0][epoch].X0, cameras[1][epoch].X0, targets_3d[epoch].reshape(3,1)), axis = 1)
+    tform.append(affine_matrix_from_points(v1, v0, shear=False, scale=False, usesvd=True))
+    
+    # else:
+        
+    #     cameras[1][epoch].R = cameras[1][0].R
+    #     cameras[1][epoch].t = cameras[1][0].t
+    #     cameras[1][epoch].X0 = cameras[1][0].X0
+    #     cameras[1][epoch].P = cameras[1][0].P
+        
+    #--- Triangulate Points ---#
+    #TODO: put in a separate function which include undistortion and then triangulation
+    pts0_und = cv2.undistortPoints(features[0][epoch].get_keypoints(), cameras[0][epoch].K, 
+                                   cameras[0][epoch].dist, None, cameras[0][epoch].K)[:,0,:]
+    pts1_und = cv2.undistortPoints(features[1][epoch].get_keypoints(), cameras[1][epoch].K, 
+                                   cameras[1][epoch].dist, None, cameras[1][epoch].K)[:,0,:]
+    M, status = iterative_LS_triangulation(pts0_und, cameras[0][epoch].P,  pts1_und, cameras[1][epoch].P)
+    points3d.append(M)
+    print(f'Point triangulation succeded: {status.sum()/status.size}')
+
+    # Interpolate colors from image 
+    jj = 1
+    image = cv2.cvtColor(images[jj][epoch], cv2.COLOR_BGR2RGB) 
+    #TODO: include color conversion in function interpolate_point_colors
+    points3d_cols =  interpolate_point_colors(points3d[epoch], image, cameras[jj][epoch].P, 
+                                              cameras[jj][epoch].K, cameras[jj][epoch].dist)
+    print(f'Color interpolated on image {jj} ')
+        
+    # Apply rigid body transformation to triangulated points
+    pts = np.concatenate( (M.T, np.ones((1,len(M)), 'float32')), axis=0)
+    pts = np.dot(tform[epoch], pts) 
+    points3d_coreg.append(pts[0:3,:].T)
+    #TODO: add misc functions for converting between homogeneous and inomogeneous coordinates...
+ 
+    # Create point cloud and save .ply to disk
+    pcd.append(o3d.geometry.PointCloud())
+    pcd[epoch].points = o3d.utility.Vector3dVector(points3d[epoch])
+    pcd[epoch].colors = o3d.utility.Vector3dVector(points3d_cols)
+    o3d.io.write_point_cloud(f"res/pt_clouds/sparse_pts_t{epoch}.ply", pcd[epoch])
+            
+    # Create coregistered point cloud and save .ply to disk
+    pcd_coreg.append(o3d.geometry.PointCloud())
+    pcd_coreg[epoch].points = o3d.utility.Vector3dVector(points3d_coreg[epoch])
+    pcd_coreg[epoch].colors = o3d.utility.Vector3dVector(points3d_cols)
+    o3d.io.write_point_cloud(f"res/pt_clouds/coreg/sparse_pts_t{epoch}.ply", pcd_coreg[epoch])  
+        
+    if rotate_ptc:
+        ang =np.pi
+        Rx = o3d.geometry.Geometry3D.get_rotation_matrix_from_axis_angle(np.array([1., 0., 0.], dtype='float64')*ang)
+        pcd[epoch].rotate(Rx)
+        
+    if do_viz:
+        win_name = f'Sparse point cloud - Epoch: {epoch} - Num pts: {len(np.asarray(pcd[epoch].points))}'
+        o3d.visualization.draw_geometries([pcd[epoch]], window_name=win_name, 
+                                          width=1280, height=720, 
+                                          left=300, top=200)       
+        
+# Visualize all points clouds together
+o3d.visualization.draw_geometries(pcd, window_name='All epoches ', 
+                                    width=1280, height=720, 
+                                    left=300, top=200)
+
+# Visualize all points clouds together
+o3d.visualization.draw_geometries(pcd_coreg, window_name='All epoches ', 
+                                    width=1280, height=720, 
+                                    left=300, top=200)
+
+#%% SfM - 02
+'''
+FIXED EO of the second camera
+'''
+
+cameras = [[],[]]
+points3d = []
+pcd = []
+
+do_viz = False
+rotate_ptc = False
+
+
+# Read Calibration data to build camera structures
 K_calib, dist_calib = [],[]
 #- Cameras structures
 for jj, cam in enumerate(camNames):
@@ -203,6 +358,7 @@ for epoch in epoches2process:
         cameras[1][epoch].P = cameras[1][0].P
         
     #--- Triangulate Points ---#
+    #TODO: put in a separate function which include undistortion and then triangulation
     pts0_und = cv2.undistortPoints(features[0][epoch].get_keypoints(), cameras[0][epoch].K, 
                                    cameras[0][epoch].dist, None, cameras[0][epoch].K)[:,0,:]
     pts1_und = cv2.undistortPoints(features[1][epoch].get_keypoints(), cameras[1][epoch].K, 
@@ -210,22 +366,22 @@ for epoch in epoches2process:
     M, status = iterative_LS_triangulation(pts0_und, cameras[0][epoch].P,  pts1_und, cameras[1][epoch].P)
     points3d.append(M)
     print(f'Point triangulation succeded: {status.sum()/status.size}')
-    
+
     # Interpolate colors from image 
     jj = 1
-    image = cv2.cvtColor(images[jj][epoch], cv2.COLOR_BGR2RGB)
+    image = cv2.cvtColor(images[jj][epoch], cv2.COLOR_BGR2RGB) 
+    #TODO: include color conversion in function interpolate_point_colors
     points3d_cols =  interpolate_point_colors(points3d[epoch], image, cameras[jj][epoch].P, 
                                               cameras[jj][epoch].K, cameras[jj][epoch].dist)
     print(f'Color interpolated on image {jj} ')
- 
-    # Visualize and export sparse point cloud
+
+    # Create point cloud and save .ply to disk
     pcd.append(o3d.geometry.PointCloud())
     pcd[epoch].points = o3d.utility.Vector3dVector(points3d[epoch])
     pcd[epoch].colors = o3d.utility.Vector3dVector(points3d_cols)
-    
-    # Save point cloud to disk
-    o3d.io.write_point_cloud("res/pt_clouds/sparse_ptd_t"+str(epoch)+".ply", pcd[epoch])
-    
+    o3d.io.write_point_cloud(f"res/pt_clouds/fixedEO/sparse_pts_t{epoch}.ply", pcd[epoch])
+            
+        
     if rotate_ptc:
         ang =np.pi
         Rx = o3d.geometry.Geometry3D.get_rotation_matrix_from_axis_angle(np.array([1., 0., 0.], dtype='float64')*ang)
@@ -235,13 +391,60 @@ for epoch in epoches2process:
         win_name = f'Sparse point cloud - Epoch: {epoch} - Num pts: {len(np.asarray(pcd[epoch].points))}'
         o3d.visualization.draw_geometries([pcd[epoch]], window_name=win_name, 
                                           width=1280, height=720, 
-                                          left=300, top=200)
-    
-
+                                          left=300, top=200)       
+        
 # Visualize all points clouds together
 o3d.visualization.draw_geometries(pcd, window_name='All epoches ', 
                                     width=1280, height=720, 
                                     left=300, top=200)
+
+#%%
+# Estimate rototranslation between RS
+from lib.thirdParts.transformations import affine_matrix_from_points
+
+# Read target image coordinates and initialize data
+target_imcoord_path = Path(rootDirPath) / 'data/target_images.txt' 
+with open(target_imcoord_path, 'r') as f:
+    data = np.loadtxt(f, delimiter=',' )
+target_imcoords = [] 
+target_imcoords.append(data[:,0:2].astype('float32'))
+target_imcoords.append(data[:,2:4].astype('float32'))
+targets_3d = []
+tform = []
+pcd_coreg = []
+
+#---  Estimate 3D rigid body transormation for each epoch ---#
+for epoch in epoches2process:
+    pts0_und = cv2.undistortPoints(target_imcoords[0][epoch], cameras[0][epoch].K, 
+                                   cameras[0][epoch].dist, None, cameras[0][epoch].K)[:,0,:]
+    pts1_und = cv2.undistortPoints(target_imcoords[1][epoch], cameras[1][epoch].K, 
+                                   cameras[1][epoch].dist, None, cameras[1][epoch].K)[:,0,:]
+    M, status = iterative_LS_triangulation(pts0_und, cameras[0][epoch].P,  pts1_und, cameras[1][epoch].P)
+    targets_3d.append(M)
+    
+    v0 = np.concatenate((cameras[0][0].X0, cameras[1][0].X0, targets_3d[0].reshape(3,1)), axis = 1)
+    v1 = np.concatenate((cameras[0][epoch].X0, cameras[1][epoch].X0, targets_3d[epoch].reshape(3,1)), axis = 1)
+        
+    tform.append(affine_matrix_from_points(v0, v1, shear=False, scale=False, usesvd=False))
+    
+    pts = np.asarray(pcd[epoch].points).T
+    pts = np.concatenate( (pts, np.ones((1, pts.shape[1]), 'float32')), axis=0)
+    #TODO: add misc functions for converting between homogeneous and inomogeneous coordinates...
+    pts_transf = np.dot(tform[epoch], pts) 
+    pts_transf = pts_transf[0:3,:].T
+    
+    # Build new point clouds
+    pcd_coreg.append(o3d.geometry.PointCloud())
+    pcd_coreg[epoch].points = o3d.utility.Vector3dVector(pts_transf)
+    pcd_coreg[epoch].colors = o3d.utility.Vector3dVector(points3d_cols)
+    
+    # Save point cloud to disk
+    o3d.io.write_point_cloud(f"res/pt_clouds/coreg/sparse_pts_t{epoch}.ply", pcd_coreg[epoch])
+    
+# Visualize all points clouds together
+o3d.visualization.draw_geometries(pcd_coreg, window_name='All epoches ', 
+                                    width=1280, height=720, 
+                                    left=300, top=200)    
 
 #%% BUILD DSM AND ORTHOPHOTOS
 
