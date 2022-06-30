@@ -21,7 +21,7 @@ class Camera:
     #     print('Class not defined yet...')
     # TODO: implement method for reading calibration data from file
 
-    def __init__(self, K=None, R=None, t=None, dist=None):
+    def __init__(self, K=None, R=None, t=None, dist=None, calib_path=None):
         ''' Initialize pinhole camera model '''
         #TODO: add checks on inputs
         # If not None, convert inputs to np array
@@ -32,13 +32,20 @@ class Camera:
         if t is not None:
             t = np.array(t)       
         if dist is not None:
-            dist = np.array(dist)                
+            dist = np.array(dist)   
+        #TODO: add assertion to check that only K and dist OR calib_path is provided.
+             
         self.K = K # calibration matrix
         self.R = R # rotation
         self.t = t # translation
         self.P = None
         self.X0 = None # camera center
         self.dist = dist # Distortion vector in OpenCV format
+        
+        # If calib_path is provided, read camera calibration from file 
+        if calib_path is not None:
+            self.read_calibration_from_file(calib_path)
+        
         if R is None and t is None: 
             self.reset_EO()
             self.compose_P()
@@ -131,6 +138,30 @@ class Camera:
         phi = np.arctan2(-self.R[2,0], np.sqrt(self.R[2,1]**2+self.R[2,2]**2)); 
         kappa = np.arctan2(self.R[1,0], self.R[0,0]); 
         return [omega, phi, kappa]
+    
+    def read_calibration_from_file(self, path):
+        '''
+        Read camera internal orientation from file, save in camera class
+        and return them.
+        The file must contain the full K matrix and distortion vector, 
+        according to OpenCV standards, and organized in one line, as follow:
+        fx 0. cx 0. fy cy 0. 0. 1. k1, k2, p1, p2, [k3, [k4, k5, k6
+        Values must be float (include the . after integers) and divided by a 
+        white space. 
+        -------      
+        Returns:  K, dist
+        '''
+        path = Path(path)
+        if not path.exists():
+            print('Error: calibration filed does not exist.')
+            return None, None       
+        with open(path, 'r') as f:
+            data = np.loadtxt(f)
+            K = data[0:9].astype(float).reshape(3, 3, order='C')
+            dist = data[9:13].astype(float)
+        self.K = K
+        self.dist = dist
+        return K, dist
 
 
 #--- Images ---#
@@ -340,6 +371,103 @@ class Features:
         np.savetxt(path, self.kpts, fmt=fmt, delimiter=delimiter, newline='\n', header=header) 
   
     
+# Targets  
+class Targets:
+    ''' 
+    Class to store Target information, including image coordinates and object coordinates
+    Targets are stored as numpy arrays: 
+        Targets.im_coor: [nx2] List of array of containing xy coordinates of the 
+                        target projections on each image
+        Targets.obj_coor: nx3 array of XYZ object coordinates (it can be empty)
+    '''
+    def __init__(self, cam_id=None, im_coord_path=None):
+        self.reset_targets()
+        
+        # If cam_id and im_coord_path are rpovided, read image coordinates from file
+        if im_coord_path is not None and cam_id is not None:
+            if type(cam_id) == list and type(im_coord_path) == list:
+                if len(cam_id) != len(im_coord_path):
+                    print('Error: diffent number of elements in cameras id \
+                          and paths provided.')
+                    return
+                for cam, path in zip(cam_id, im_coord_path):
+                    self.read_im_coord_from_txt(cam, path)
+            else:
+                self.read_im_coord_from_txt(cam_id, im_coord_path)
+        
+    def __len__(self):
+        ''' Get total number of featues stored'''
+        return len(self.im_coor)        
+        
+    def reset_targets(self):
+        '''
+        Reset Target instance to empy list and None objects
+        '''
+        self.im_coor = []
+        self.obj_coor = None
+    
+    def get_im_coord(self, cam_id=None):
+        ''' 
+        Return image coordinates as numpy array 
+        If numeric camera id (integer) is provided, the function returns the
+        image coordinates in that camera, otherwise the list with the projections
+        on all the cameras is returned.
+        '''
+        if cam_id is None:
+            return np.float32(self.im_coor)
+        else:
+            return np.float32(self.im_coor[cam_id])
+    
+    def get_obj_coord(self):
+        ''' Return objject coordinates as numpy array '''
+        return np.float32(self.obj_coor)
+    
+    def append_features(self, new_features):
+        print('method not implemented yet')
+        
+    def append_obj_cord(self, new_obj_coor):
+        #TODO: add check on dimension and add description
+        if self.obj_coor is None:
+            self.obj_coor = new_obj_coor
+        else:
+            self.obj_coor = np.append(self.obj_coor, new_obj_coor, axis=0)
+            
+    def read_im_coord_from_txt(self, camera_id=None, path=None, fmt='%i', delimiter=',', header='x,y'):
+        ''' 
+        Read image target image coordinates from .txt file, organized as follows:
+            - One line per target
+            - first x coordinate, then y coordinate
+            - Coordinates separated by a delimiter (default ',')          
+            e.g. 
+            #x,y
+            1000,2000
+            2000,3000
+        '''
+        if camera_id is None:
+            print('Error: missing camera id. Impossible to assign the target\
+                  coordinates to the correct camera')
+            return
+        if path is None:
+            print("Error: missing path argument.")
+            return
+        path = Path(path)
+        if not path.exists():
+            print('Error: Input path does not exist.') 
+            return
+        with open(path, 'r') as f:
+            data = np.loadtxt(f, delimiter=',' )
+        self.im_coor.insert(camera_id,data)
+        
+    def save_as_txt(self, path=None, fmt='%i', delimiter=',', header='x,y'):
+        ''' Save keypoints in a .txt file '''
+        if path is None:
+            print("Error: missing path argument.")
+            return
+        # if not Path(path).:
+        #     print('Error: invalid input path.')
+        #     return
+        np.savetxt(path, self.kpts, fmt=fmt, delimiter=delimiter, newline='\n', header=header) 
+      
 #--- DSM ---#  
 class DSM:
     ''' Class to store and manage DSM. '''
@@ -366,5 +494,9 @@ if __name__ == '__main__':
     # feat0.append_features(new_features)
     # feat0.append_features(new_features)
     # print(feat0.get_keypoints())
-  
     
+    # paths = [Path('../data/target_image_p2.txt'), Path('../data/target_image_p3.txt')] 
+    # targets = Targets(cam_id=[0,1],  im_coord_path=paths)
+    
+
+    # im = images[0][0]
