@@ -260,12 +260,12 @@ for epoch in epoches2process:
                                           width=1280, height=720, 
                                           left=300, top=200)       
         
-# Visualize all points clouds together
-o3d.visualization.draw_geometries(pcd, window_name='All epoches ', 
-                                    width=1280, height=720, 
-                                    left=300, top=200)
+# # Visualize all points clouds together
+# o3d.visualization.draw_geometries(pcd, window_name='All epoches ', 
+#                                     width=1280, height=720, 
+#                                     left=300, top=200)
 
-# Visualize all points clouds together
+# Visualize all points clouds together, after coregistration
 o3d.visualization.draw_geometries(pcd_coreg, window_name='All epoches ', 
                                     width=1280, height=720, 
                                     left=300, top=200)
