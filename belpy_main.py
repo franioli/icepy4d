@@ -9,7 +9,7 @@ from matplotlib import cm
 import open3d as o3d
 import pydegensac
 
-from lib.classes import (Camera, DSM, Features, Imageds)
+from lib.classes import (Camera, DSM, Features, Imageds, Targets)
 from lib.match_pairs import match_pair
 from lib.track_matches import track_matches
 from lib.io import read_img
@@ -138,7 +138,7 @@ else:
 
 #%% SfM
 '''
-Note t
+Note 
 '''
 from lib.thirdParts.transformations import affine_matrix_from_points
 
@@ -153,25 +153,16 @@ pcd_coreg = []
 do_viz = False
 rotate_ptc = False
 
-# Read target image coordinates and initialize data
-target_imcoord_path = Path(rootDirPath) / 'data/target_images.txt' 
-with open(target_imcoord_path, 'r') as f:
-    data = np.loadtxt(f, delimiter=',' )
-target_imcoords = [] 
-target_imcoords.append(data[:,0:2].astype('float32'))
-target_imcoords.append(data[:,2:4].astype('float32'))
-targets_3d = []
+# Read target image coordinates
+target_paths = [Path('data/target_image_p2.txt'), Path('data/target_image_p3.txt')] 
+targets = Targets(cam_id=[0,1],  im_coord_path=target_paths)
 
-# Read Calibration data to build camera structures
-K_calib, dist_calib = [],[]
-#- Cameras structures
+# Build reference camera structures with only known interior orientation
+ref_cams = []
 for jj, cam in enumerate(camNames):
-    with open(os.path.join(rootDirPath, calibFld, cam+'.txt'), 'r') as f:
-        data = np.loadtxt(f)
-    K_calib.append(data[0:9].astype(float).reshape(3, 3, order='C'))
-    dist_calib.append(data[9:13].astype(float))
-del data, f,  jj
-
+    calib_path = os.path.join(rootDirPath, calibFld, cam+'.txt')
+    ref_cams.append(Camera(calib_path = calib_path))
+    
 # Camera baseline
 X01_meta = np.array([416651.5248,5091109.9121,1858.9084])   # IMG_2092
 X02_meta = np.array([416622.2755,5091364.5071,1902.4053]) # IMG_0481
@@ -184,13 +175,9 @@ h, w, _ = img0.shape
 for epoch in epoches2process:
 # epoch = 0
     # Initialize Intrinsics
-    cameras[0].append(Camera(K=K_calib[0], dist=dist_calib[0]))
-    cameras[1].append(Camera(K=K_calib[1], dist=dist_calib[1]))
-   
-    # FIX SECOND CAMERA TO EO OF FIRST EPOCH!!
-    #TODO: leave second camera free to move and estimate rototranslation  of RS
-    # if epoch == 0:
-        
+    cameras[0].append(Camera(K=ref_cams[0].K, dist=ref_cams[0].dist))
+    cameras[1].append(Camera(K=ref_cams[1].K, dist=ref_cams[1].dist))
+          
     # Estimate Relativa Orientation
     pts0, pts1 = features[0][epoch].get_keypoints(), features[1][epoch].get_keypoints()
     rel_pose = estimate_pose(pts0, pts1, cameras[0][epoch].K,  cameras[1][epoch].K, thresh=1, conf=0.9999)
@@ -212,25 +199,20 @@ for epoch in epoches2process:
     cameras[1][epoch].compose_P()
     
     # Triangulate targets
-    pts0_und = cv2.undistortPoints(target_imcoords[0][epoch], cameras[0][epoch].K, 
+    pts0_und = cv2.undistortPoints(targets.get_im_coord(0)[epoch], cameras[0][epoch].K, 
                                    cameras[0][epoch].dist, None, cameras[0][epoch].K)[:,0,:]
-    pts1_und = cv2.undistortPoints(target_imcoords[1][epoch], cameras[1][epoch].K, 
+    pts1_und = cv2.undistortPoints(targets.get_im_coord(1)[epoch], cameras[1][epoch].K, 
                                    cameras[1][epoch].dist, None, cameras[1][epoch].K)[:,0,:]
     M, status = iterative_LS_triangulation(pts0_und, cameras[0][epoch].P,  pts1_und, cameras[1][epoch].P)
-    targets_3d.append(M)
-    
+    targets.append_obj_cord(M)
+
     # Estimate rigid body transformation between first epoch RS and current epoch RS    
-    v0 = np.concatenate((cameras[0][0].X0, cameras[1][0].X0, targets_3d[0].reshape(3,1)), axis = 1)
-    v1 = np.concatenate((cameras[0][epoch].X0, cameras[1][epoch].X0, targets_3d[epoch].reshape(3,1)), axis = 1)
+    v0 = np.concatenate((cameras[0][0].X0, cameras[1][0].X0, 
+                         targets.get_obj_coord()[0].reshape(3,1)), axis = 1)
+    v1 = np.concatenate((cameras[0][epoch].X0, cameras[1][epoch].X0, 
+                         targets.get_obj_coord()[epoch].reshape(3,1)), axis = 1)
     tform.append(affine_matrix_from_points(v1, v0, shear=False, scale=False, usesvd=True))
     
-    # else:
-        
-    #     cameras[1][epoch].R = cameras[1][0].R
-    #     cameras[1][epoch].t = cameras[1][0].t
-    #     cameras[1][epoch].X0 = cameras[1][0].X0
-    #     cameras[1][epoch].P = cameras[1][0].P
-        
     #--- Triangulate Points ---#
     #TODO: put in a separate function which include undistortion and then triangulation
     pts0_und = cv2.undistortPoints(features[0][epoch].get_keypoints(), cameras[0][epoch].K, 
@@ -300,16 +282,12 @@ pcd = []
 do_viz = False
 rotate_ptc = False
 
-
-# Read Calibration data to build camera structures
-K_calib, dist_calib = [],[]
-#- Cameras structures
+# Build reference camera structures
+ref_cams = []
 for jj, cam in enumerate(camNames):
-    with open(os.path.join(rootDirPath, calibFld, cam+'.txt'), 'r') as f:
-        data = np.loadtxt(f)
-    K_calib.append(data[0:9].astype(float).reshape(3, 3, order='C'))
-    dist_calib.append(data[9:13].astype(float))
-del data, f,  jj
+    calib_path = os.path.join(rootDirPath, calibFld, cam+'.txt')
+    ref_cams.append(Camera(calib_path = calib_path))
+    
 
 # Camera baseline
 X01_meta = np.array([416651.5248,5091109.9121,1858.9084])   # IMG_2092
@@ -323,8 +301,8 @@ h, w, _ = img0.shape
 for epoch in epoches2process:
 # epoch = 0
     # Initialize Intrinsics
-    cameras[0].append(Camera(K=K_calib[0], dist=dist_calib[0]))
-    cameras[1].append(Camera(K=K_calib[1], dist=dist_calib[1]))
+    cameras[0].append(Camera(K=ref_cams[0].K, dist=ref_cams[0]).dist)
+    cameras[1].append(Camera(K=ref_cams[1].K, dist=ref_cams[1]).dist)
    
     # FIX SECOND CAMERA TO EO OF FIRST EPOCH!!
     #TODO: leave second camera free to move and estimate rototranslation  of RS
