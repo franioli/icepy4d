@@ -1,8 +1,9 @@
 from pathlib import Path
 import os
 import numpy as np
+import open3d as o3d
 
-
+#--- File system ---#
 def create_directory(path):
     """
     Creates a directory, if it does not exist.
@@ -12,6 +13,7 @@ def create_directory(path):
         path.mkdir()
     return path
 
+#--- MAT ---#
 def convert_to_homogeneous(x):
     '''
     Convert 2xn or 3xn vector of n points in euclidean coordinates 
@@ -23,7 +25,7 @@ def convert_to_homogeneous(x):
         print('Error: wrong number of dimension of the input vector.\
               A number of dimensions (rows) of 2 or 3 is required.') 
         return None
-    x1 = np.concatenate((x, np.ones((1,npts))), axis=0)
+    x1 = np.concatenate((x, np.ones((1,npts), 'float32')), axis=0)
     return x1 
     
 def convert_from_homogeneous(x):
@@ -34,11 +36,11 @@ def convert_from_homogeneous(x):
     '''
     x = np.array(x)
     ndim, npts = x.shape
-    if  ndim!= 3 or ndim !=4:
+    if  ndim!= 3 and ndim !=4:
         print('Error: wrong number of dimension of the input vector.\
               A number of dimensions (rows) of 2 or 3 is required.') 
         return None
-    x1 = x[:ndim,:] / x[ndim,:]; 
+    x1 = x[:ndim-1,:] / x[ndim-1,:]
     return x1 
 
 def skew_symmetric(x):
@@ -46,3 +48,27 @@ def skew_symmetric(x):
     Return skew symmetric matrix from input matrix x
     '''
     return np.array([[0, -x[2], x[1]], [x[2], 0, -x[0]], [-x[1], x[0], 0]])
+
+#--- Point Clouds ---# 
+def create_point_cloud(points3d, points_col=None, path=None, *scalar_fied):
+    '''
+    Function to create a point cloud object by using Open3D library.
+    Input:  (nx3, float32) array of points 3D.
+            (nx3, float32) array of color of each point. 
+                Colors are defined in [0,1] range as float numbers. 
+            Path were to save the point cloud to disk in ply format. 
+                If path is None, the point cloud is not saved to disk.
+            Scalar fields: to be implemented.
+            #TODO: implement scalar fields.
+    Return: Open3D point cloud object
+    '''
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(points3d)
+    pcd.colors = o3d.utility.Vector3dVector(points_col)
+    if path is not None:
+        path = Path(path)
+        create_directory(path.parent) 
+        o3d.io.write_point_cloud(str(path), pcd)  
+    return pcd
+
+

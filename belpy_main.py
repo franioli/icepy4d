@@ -41,7 +41,8 @@ from lib.geometry import (estimate_pose, P_from_KRT, X0_from_P, project_points)
 from lib.utils import (undistort_image, interpolate_point_colors, build_dsm)
 from lib.visualization import (draw_epip_lines, make_matching_plot)
 from lib.thirdParts.triangulation import (linear_LS_triangulation, iterative_LS_triangulation)
-from lib.misc import *
+from lib.misc import (create_directory, create_point_cloud,
+                      convert_to_homogeneous, convert_from_homogeneous)
 
 #---  Parameters  ---#
 # TODO: put parameters in parser or in json file
@@ -257,25 +258,17 @@ for epoch in epoches2process:
     print(f'Color interpolated on image {jj} ')
         
     # Apply rigid body transformation to triangulated points
-    pts = np.concatenate( (M.T, np.ones((1,len(M)), 'float32')), axis=0)
-    pts = np.dot(tform[epoch], pts) 
-    points3d_coreg.append(pts[0:3,:].T)
-    #TODO: add misc functions for converting between homogeneous and inomogeneous coordinates...
+    pts = np.dot(tform[epoch], convert_to_homogeneous(M.T)) 
+    points3d_coreg.append(convert_from_homogeneous(pts).T)
  
     # Create point cloud and save .ply to disk
-    pt_cloud_path = create_directory('res/pt_clouds')
-    pcd.append(o3d.geometry.PointCloud())
-    pcd[epoch].points = o3d.utility.Vector3dVector(points3d[epoch])
-    pcd[epoch].colors = o3d.utility.Vector3dVector(points3d_cols)
-    o3d.io.write_point_cloud(pt_cloud_path / f"sparse_pts_t{epoch}.ply", pcd[epoch])
+    pcd.append(create_point_cloud(points3d[epoch], points3d_cols, 
+                                  path=f'res/pt_clouds/sparse_pts_t{epoch}.ply'))
             
     # Create coregistered point cloud and save .ply to disk
-    pt_cloud_path =  create_directory('res/pt_clouds/coreg') 
-    pcd_coreg.append(o3d.geometry.PointCloud())
-    pcd_coreg[epoch].points = o3d.utility.Vector3dVector(points3d_coreg[epoch])
-    pcd_coreg[epoch].colors = o3d.utility.Vector3dVector(points3d_cols)
-    o3d.io.write_point_cloud(pt_cloud_path / f"sparse_pts_t{epoch}.ply", pcd_coreg[epoch])  
-        
+    pcd_coreg.append(create_point_cloud(points3d_coreg[epoch], points3d_cols, 
+                                        path=f'res/pt_clouds/coreg/sparse_pts_t{epoch}.ply'))
+      
     if rotate_ptc:
         ang =np.pi
         Rx = o3d.geometry.Geometry3D.get_rotation_matrix_from_axis_angle(np.array([1., 0., 0.], dtype='float64')*ang)
