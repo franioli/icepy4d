@@ -40,9 +40,11 @@ from lib.io import read_img
 from lib.geometry import (estimate_pose, P_from_KRT, X0_from_P, project_points)
 from lib.utils import (undistort_image, interpolate_point_colors, build_dsm)
 from lib.visualization import (draw_epip_lines, make_matching_plot)
-from lib.thirdParts.triangulation import (linear_LS_triangulation, iterative_LS_triangulation)
 from lib.misc import (create_directory, create_point_cloud,
                       convert_to_homogeneous, convert_from_homogeneous)
+from lib.thirdParts.triangulation import (linear_LS_triangulation, iterative_LS_triangulation)
+from lib.thirdParts.transformations import affine_matrix_from_points
+
 
 #---  Parameters  ---#
 # TODO: put parameters in parser or in json file
@@ -66,11 +68,11 @@ camNames = ['p2', 'p3']
 maskBB = [[400,1500,5500,4000], [600,1400,5700,3900]]             # Bounding box for processing the images from the two cameras
 
 #  Inizialize Lists
-cameras = [[],[]]  # List for storing cameras information (as dicts)
+cameras =  [[] for x in range(numCams)]  # List for storing cameras information 
 images = []   # List for storing image paths
 F_matrix = [] # List for storing fundamental matrixes
 points3d = [] # List for storing 3D points
-features = [[],[]]  # List for storing all the matched features at all epochs
+features = [[] for x in range(numCams)]  # List for storing all the matched features at all epochs
 
 #- images
 for jj, cam in enumerate(camNames):
@@ -166,12 +168,9 @@ else:
 '''
 Note 
 '''
-from lib.thirdParts.transformations import affine_matrix_from_points
 
 #TODO: Keep only important variables, overwrite the others in loop.
-cameras = [[],[]]
-points3d = []
-points3d_coreg = []
+cameras = [[] for x in range(numCams)]
 pcd = []
 tform = []
 pcd_coreg = []
@@ -245,32 +244,31 @@ for epoch in epoches2process:
                                    cameras[0][epoch].dist, None, cameras[0][epoch].K)[:,0,:]
     pts1_und = cv2.undistortPoints(features[1][epoch].get_keypoints(), cameras[1][epoch].K, 
                                    cameras[1][epoch].dist, None, cameras[1][epoch].K)[:,0,:]
-    M, status = iterative_LS_triangulation(pts0_und, cameras[0][epoch].P,  pts1_und, cameras[1][epoch].P)
-    points3d.append(M)
+    points3d, status = iterative_LS_triangulation(pts0_und, cameras[0][epoch].P,  pts1_und, cameras[1][epoch].P)
     print(f'Point triangulation succeded: {status.sum()/status.size}')
 
     # Interpolate colors from image 
     jj = 1
     image = cv2.cvtColor(images[jj][epoch], cv2.COLOR_BGR2RGB) 
     #TODO: include color conversion in function interpolate_point_colors
-    points3d_cols =  interpolate_point_colors(points3d[epoch], image, cameras[jj][epoch].P, 
+    points3d_cols =  interpolate_point_colors(points3d, image, cameras[jj][epoch].P, 
                                               cameras[jj][epoch].K, cameras[jj][epoch].dist)
     print(f'Color interpolated on image {jj} ')
         
     # Apply rigid body transformation to triangulated points
-    pts = np.dot(tform[epoch], convert_to_homogeneous(M.T)) 
-    points3d_coreg.append(convert_from_homogeneous(pts).T)
+    pts = np.dot(tform[epoch], convert_to_homogeneous(points3d.T)) 
+    points3d_coreg = convert_from_homogeneous(pts).T
  
     # Create point cloud and save .ply to disk
-    pcd.append(create_point_cloud(points3d[epoch], points3d_cols, 
+    pcd.append(create_point_cloud(points3d, points3d_cols, 
                                   path=f'res/pt_clouds/sparse_pts_t{epoch}.ply'))
             
     # Create coregistered point cloud and save .ply to disk
-    pcd_coreg.append(create_point_cloud(points3d_coreg[epoch], points3d_cols, 
+    pcd_coreg.append(create_point_cloud(points3d_coreg, points3d_cols, 
                                         path=f'res/pt_clouds/coreg/sparse_pts_t{epoch}.ply'))
       
     if rotate_ptc:
-        ang =np.pi
+        ang = np.pi
         Rx = o3d.geometry.Geometry3D.get_rotation_matrix_from_axis_angle(np.array([1., 0., 0.], dtype='float64')*ang)
         pcd[epoch].rotate(Rx)
         
@@ -280,11 +278,6 @@ for epoch in epoches2process:
                                           width=1280, height=720, 
                                           left=300, top=200)       
         
-# # Visualize all points clouds together
-# o3d.visualization.draw_geometries(pcd, window_name='All epoches ', 
-#                                     width=1280, height=720, 
-#                                     left=300, top=200)
-
 # Visualize all points clouds together, after coregistration
 o3d.visualization.draw_geometries(pcd_coreg, window_name='All epoches ', 
                                     width=1280, height=720, 
