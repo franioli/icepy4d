@@ -64,7 +64,8 @@ def create_point_cloud(points3d, points_col=None, path=None, *scalar_fied):
     '''
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(points3d)
-    pcd.colors = o3d.utility.Vector3dVector(points_col)
+    if points_col is not None:
+        pcd.colors = o3d.utility.Vector3dVector(points_col)
     if path is not None:
         path = Path(path)
         create_directory(path.parent) 
