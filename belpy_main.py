@@ -1,3 +1,27 @@
+'''
+MIT License
+
+Copyright (c) 2022 Francesco Ioli
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+'''
+
 import numpy as np
 import os
 from pathlib import Path
@@ -17,6 +41,7 @@ from lib.geometry import (estimate_pose, P_from_KRT, X0_from_P, project_points)
 from lib.utils import (undistort_image, interpolate_point_colors, build_dsm)
 from lib.visualization import (draw_epip_lines, make_matching_plot)
 from lib.thirdParts.triangulation import (linear_LS_triangulation, iterative_LS_triangulation)
+from lib.misc import *
 
 #---  Parameters  ---#
 # TODO: put parameters in parser or in json file
@@ -238,16 +263,18 @@ for epoch in epoches2process:
     #TODO: add misc functions for converting between homogeneous and inomogeneous coordinates...
  
     # Create point cloud and save .ply to disk
+    pt_cloud_path = create_directory('res/pt_clouds')
     pcd.append(o3d.geometry.PointCloud())
     pcd[epoch].points = o3d.utility.Vector3dVector(points3d[epoch])
     pcd[epoch].colors = o3d.utility.Vector3dVector(points3d_cols)
-    o3d.io.write_point_cloud(f"res/pt_clouds/sparse_pts_t{epoch}.ply", pcd[epoch])
+    o3d.io.write_point_cloud(pt_cloud_path / f"sparse_pts_t{epoch}.ply", pcd[epoch])
             
     # Create coregistered point cloud and save .ply to disk
+    pt_cloud_path =  create_directory('res/pt_clouds/coreg') 
     pcd_coreg.append(o3d.geometry.PointCloud())
     pcd_coreg[epoch].points = o3d.utility.Vector3dVector(points3d_coreg[epoch])
     pcd_coreg[epoch].colors = o3d.utility.Vector3dVector(points3d_cols)
-    o3d.io.write_point_cloud(f"res/pt_clouds/coreg/sparse_pts_t{epoch}.ply", pcd_coreg[epoch])  
+    o3d.io.write_point_cloud(pt_cloud_path / f"sparse_pts_t{epoch}.ply", pcd_coreg[epoch])  
         
     if rotate_ptc:
         ang =np.pi
@@ -376,62 +403,15 @@ o3d.visualization.draw_geometries(pcd, window_name='All epoches ',
                                     width=1280, height=720, 
                                     left=300, top=200)
 
-#%%
-# Estimate rototranslation between RS
-from lib.thirdParts.transformations import affine_matrix_from_points
-
-# Read target image coordinates and initialize data
-target_imcoord_path = Path(rootDirPath) / 'data/target_images.txt' 
-with open(target_imcoord_path, 'r') as f:
-    data = np.loadtxt(f, delimiter=',' )
-target_imcoords = [] 
-target_imcoords.append(data[:,0:2].astype('float32'))
-target_imcoords.append(data[:,2:4].astype('float32'))
-targets_3d = []
-tform = []
-pcd_coreg = []
-
-#---  Estimate 3D rigid body transormation for each epoch ---#
-for epoch in epoches2process:
-    pts0_und = cv2.undistortPoints(target_imcoords[0][epoch], cameras[0][epoch].K, 
-                                   cameras[0][epoch].dist, None, cameras[0][epoch].K)[:,0,:]
-    pts1_und = cv2.undistortPoints(target_imcoords[1][epoch], cameras[1][epoch].K, 
-                                   cameras[1][epoch].dist, None, cameras[1][epoch].K)[:,0,:]
-    M, status = iterative_LS_triangulation(pts0_und, cameras[0][epoch].P,  pts1_und, cameras[1][epoch].P)
-    targets_3d.append(M)
-    
-    v0 = np.concatenate((cameras[0][0].X0, cameras[1][0].X0, targets_3d[0].reshape(3,1)), axis = 1)
-    v1 = np.concatenate((cameras[0][epoch].X0, cameras[1][epoch].X0, targets_3d[epoch].reshape(3,1)), axis = 1)
-        
-    tform.append(affine_matrix_from_points(v0, v1, shear=False, scale=False, usesvd=False))
-    
-    pts = np.asarray(pcd[epoch].points).T
-    pts = np.concatenate( (pts, np.ones((1, pts.shape[1]), 'float32')), axis=0)
-    #TODO: add misc functions for converting between homogeneous and inomogeneous coordinates...
-    pts_transf = np.dot(tform[epoch], pts) 
-    pts_transf = pts_transf[0:3,:].T
-    
-    # Build new point clouds
-    pcd_coreg.append(o3d.geometry.PointCloud())
-    pcd_coreg[epoch].points = o3d.utility.Vector3dVector(pts_transf)
-    pcd_coreg[epoch].colors = o3d.utility.Vector3dVector(points3d_cols)
-    
-    # Save point cloud to disk
-    o3d.io.write_point_cloud(f"res/pt_clouds/coreg/sparse_pts_t{epoch}.ply", pcd_coreg[epoch])
-    
-# Visualize all points clouds together
-o3d.visualization.draw_geometries(pcd_coreg, window_name='All epoches ', 
-                                    width=1280, height=720, 
-                                    left=300, top=200)    
 
 #%% BUILD DSM AND ORTHOPHOTOS
 
 ## Build approximate DSM
 dsm = build_dsm(points3d[epoch], dsm_step=0.1, save_path="sfm/dsm_approx.tif")
 
-# Generate Ortophotos
-from src.geometry import (P_from_KRT, project_points)
 
+
+# Generate Ortophotos
 def generate_ortophoto(image, dsm, P, res=1):
     xx = dsm.x
     yy = dsm.y

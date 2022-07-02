@@ -5,7 +5,7 @@ from scipy.interpolate import (interp2d, griddata)
 from PIL import Image
 
 from lib.geometry import project_points
-from lib.classes import DSM
+# from lib.classes import DSM
 
 def normalize_and_und_points(pts, K=None, dist=None):
     #TODO: Remove function and create better one...
@@ -62,6 +62,16 @@ def interpolate_point_colors(pointxyz, image, P, K=None, dist=None, winsz=1):
             fcol = interp2d(i, j, colPatch, kind='linear')  
             col[k,rgb] = fcol(m[0], m[1])
     return col
+        
+
+class DSM:
+    ''' Class to store and manage DSM. '''
+    def __init__(self, x, y, z, res):
+        xx, yy = np.meshgrid(x,y)
+        self.x = xx
+        self.y = yy
+        self.z = z
+        self.res = res    
         
 def build_dsm(points3d, dsm_step=1, xlim=None, ylim=None, save_path=None, do_viz=0):
     assert np.any(np.array(points3d.shape) == 3), "Invalid size of input points"
