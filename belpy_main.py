@@ -67,14 +67,24 @@ camNames = ['p2', 'p3']
 # maskBB = [[600,1900,5300, 3600], [800,1800,5500,3500]]             # Bounding box for processing the images from the two cameras
 maskBB = [[400,1500,5500,4000], [600,1400,5700,3900]]             # Bounding box for processing the images from the two cameras
 
+# Epoches to process
+# It can be 'all' for processing all the epochs or a list with the epoches to be processed
+epoches2process = [0,1,2,3,4,5,6,7] # 
+
+# On-Off switches
+find_matches = False
+
+
+#--- Perform matching and tracking ---# 
+
 #  Inizialize Lists
-cameras =  [[] for x in range(numCams)]  # List for storing cameras information 
+cameras =  [[] for x in range(numCams)]  # List for storing cameras objects 
 images = []   # List for storing image paths
 F_matrix = [] # List for storing fundamental matrixes
 points3d = [] # List for storing 3D points
 features = [[] for x in range(numCams)]  # List for storing all the matched features at all epochs
 
-#- images
+#- Create Image Datastore objects
 for jj, cam in enumerate(camNames):
     images.append(Imageds(os.path.join(rootDirPath, imFld, cam)))
     if len(images[jj]) is not len(images[jj-1]):
@@ -82,14 +92,13 @@ for jj, cam in enumerate(camNames):
         # exit(1)        
 print('Data loaded')
 
-
-#--- Perform matching and tracking ---# 
-find_matches = 0
-epoches2process = [0,1,2,3,4,5,6,7] # #1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]
-epoch = 0
-
-
+# epoch = 0
 if find_matches:
+    if epoches2process == 'all':
+        epoches2process = [x for x in range(len(images[0]))]
+    if epoches2process is None:
+        print('Invalid input of epoches to process')
+        exit(1)
     for epoch in epoches2process:
         print(f'Processing epoch {epoch}...')
 
@@ -169,6 +178,10 @@ else:
 '''
 Notes 
 '''
+#TODO: put parameters, swithches and pre-processing all togheter at the beginning.
+    
+# Parameters
+target_paths = [Path('data/target_image_p2.txt'), Path('data/target_image_p3.txt')] 
 
 # On-Off switches
 do_viz = False
@@ -179,33 +192,32 @@ do_coregistration = False    # If set to false, fix the camera EO as the first e
 cameras = [[] for x in range(numCams)]
 pcd = []
 tform = []
+img0 = images[0][0]
+h, w, _ = img0.shape
 
-# Read target image coordinates
-target_paths = [Path('data/target_image_p2.txt'), Path('data/target_image_p3.txt')] 
-targets = Targets(cam_id=[0,1],  im_coord_path=target_paths)
-
-# Build reference camera structures with only known interior orientation
+# Build reference camera objects with only known interior orientation
 ref_cams = []
 for jj, cam in enumerate(camNames):
     calib_path = os.path.join(rootDirPath, calibFld, cam+'.txt')
     ref_cams.append(Camera(calib_path = calib_path))
-    
+   
+# Read target image coordinates
+targets = Targets(cam_id=[0,1],  im_coord_path=target_paths)
+
 # Camera baseline
+# TODO: put in a json file for general configuration
 X01_meta = np.array([416651.5248,5091109.9121,1858.9084])   # IMG_2092
 X02_meta = np.array([416622.2755,5091364.5071,1902.4053])   # IMG_0481
 camWorldBaseline = np.linalg.norm(X01_meta - X02_meta)      # [m] From Metashape model in July
 
-img0 = images[0][0]
-h, w, _ = img0.shape
-
-#--- Realtive Pose with Essential Matrix ---#
+#--- SfM ---#
 for epoch in epoches2process:
 # epoch = 0
     # Initialize Intrinsics
     cameras[0].append(Camera(K=ref_cams[0].K, dist=ref_cams[0].dist))
     cameras[1].append(Camera(K=ref_cams[1].K, dist=ref_cams[1].dist))
           
-    # Estimate Relativa Orientation
+    # Estimate Realtive Pose with Essential Matrix
     pts0, pts1 = features[0][epoch].get_keypoints(), features[1][epoch].get_keypoints()
     rel_pose = estimate_pose(pts0, pts1, cameras[0][epoch].K,  cameras[1][epoch].K, thresh=1, conf=0.9999)
     R, t, valid = rel_pose[0], rel_pose[1], rel_pose[2]
@@ -240,13 +252,14 @@ for epoch in epoches2process:
         v1 = np.concatenate((cameras[0][epoch].X0, cameras[1][epoch].X0, 
                              targets.get_obj_coord()[epoch].reshape(3,1)), axis = 1)
         tform.append(affine_matrix_from_points(v1, v0, shear=False, scale=False, usesvd=True))
+        
     elif epoch > 0:
         # Fix the EO of both the cameras as those estimated in the first epoch
         cameras[0][epoch] =  cameras[0][0]
         cameras[1][epoch] =  cameras[1][0]
     
     #--- Triangulate Points ---#
-    #TODO: put in a separate function which include undistortion and then triangulation
+    #TODO: put in a separate function which includes undistortion and then triangulation
     pts0_und = cv2.undistortPoints(features[0][epoch].get_keypoints(), cameras[0][epoch].K, 
                                    cameras[0][epoch].dist, None, cameras[0][epoch].K)[:,0,:]
     pts1_und = cv2.undistortPoints(features[1][epoch].get_keypoints(), cameras[1][epoch].K, 
@@ -286,6 +299,11 @@ for epoch in epoches2process:
 o3d.visualization.draw_geometries(pcd, window_name='All epoches ', 
                                     width=1280, height=720, 
                                     left=300, top=200)
+
+
+#%% DSM (rasterio)
+
+
 
 #%% BUILD DSM AND ORTHOPHOTOS
 
