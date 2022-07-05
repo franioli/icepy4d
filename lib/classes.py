@@ -245,6 +245,7 @@ class Imageds:
         # self.shot_time = []
     
     def get_image_list(self, path):
+        #TODO: change name in read image list
         # TODO: add option for including subfolders
         if not os.path.exists(path):
             print('Error: invalid input path.')
@@ -447,7 +448,7 @@ class Targets:
         self.im_coor = []
         self.obj_coor = None
     
-    def get_im_coord(self, cam_id=None):
+    def get_im_coord(self, cam_id=None, epoch=None):
         ''' 
         Return image coordinates as numpy array 
         If numeric camera id (integer) is provided, the function returns the
@@ -457,7 +458,10 @@ class Targets:
         if cam_id is None:
             return np.float32(self.im_coor)
         else:
-            return np.float32(self.im_coor[cam_id])
+            if epoch is None:
+                return np.float32(self.im_coor[cam_id])
+            elif epoch < len(self):
+                return np.float32(self.im_coor[cam_id][epoch])
     
     def get_obj_coord(self):
         ''' Return objject coordinates as numpy array '''
@@ -509,19 +513,16 @@ class Targets:
         #     return
         np.savetxt(path, self.kpts, fmt=fmt, delimiter=delimiter, newline='\n', header=header) 
       
-#--- DSM ---#  
-class DSM:
-    ''' Class to store and manage DSM. '''
-    def __init__(self, x, y, z, res):
-        xx, yy = np.meshgrid(x,y)
-        self.x = xx
-        self.y = yy
-        self.z = z
-        self.res = res    
-        
-
-    # def generate_tif(self, ):
-            
+# #--- DSM ---#  
+# class DSM:
+#     ''' Class to store and manage DSM. '''
+#     def __init__(self, x, y, z, res):
+#         xx, yy = np.meshgrid(x,y)
+#         self.x = xx
+#         self.y = yy
+#         self.z = z
+#         self.res = res    
+                    
  
         
 if __name__ == '__main__':
