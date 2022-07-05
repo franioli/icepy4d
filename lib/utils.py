@@ -18,6 +18,7 @@ def normalize_and_und_points(pts, K=None, dist=None):
     return pts
 
 def undistort_image(image, K, dist, downsample=1, out_path=None):
+    #TODO: Remove function and create better one...
     '''
     Undistort image with OpenCV
     '''
@@ -31,7 +32,7 @@ def undistort_image(image, K, dist, downsample=1, out_path=None):
         cv2.imwrite(out_path, und)
     return und, K_scaled
 
-def interpolate_point_colors(pointxyz, image, P, K=None, dist=None, winsz=1):
+def interpolate_point_colors_old(pointxyz, image, P, K=None, dist=None, winsz=1):
     ''''
     Interpolate color of a 3D sparse point cloud, given an oriented image
       Inputs:  
@@ -64,6 +65,8 @@ def interpolate_point_colors(pointxyz, image, P, K=None, dist=None, winsz=1):
         j = np.array([a for a in range(kint[0]-winsz,kint[0]+winsz+1)])
         if i.min()<0 or i.max()>h or j.min()<0 or j.max()>w:
             continue
+        
+        
         ii, jj = np.meshgrid(i,j)
         ii, jj = ii.flatten(), jj.flatten()
         for rgb in range(0,3):
@@ -71,9 +74,82 @@ def interpolate_point_colors(pointxyz, image, P, K=None, dist=None, winsz=1):
             fcol = interp2d(i, j, colPatch, kind='linear')  
             col[k,rgb] = fcol(m[0], m[1])
     return col
-        
+  
+    
+def interpolate_point_colors(pointxyz, image, P, K=None, dist=None, winsz=1):
+    ''''
+    Interpolate color of a 3D sparse point cloud, given an oriented image
+      Inputs:  
+       - Nx3 matrix with 3d world points coordinates
+       - image as np.array in RGB channels 
+           NB: if the image was impotred with OpenCV, it must be converted 
+           from BRG color space to RGB
+               cv2.cvtColor(image_und, cv2.COLOR_BGR2RGB)
+       - camera interior and exterior orientation matrixes: K, R, t
+       - distortion vector according to OpenCV
+    Output: Nx3 colour matrix, as float numbers (normalized in [0,1])
+    '''       
+    assert P is not None, 'invalid projection matrix' 
+    assert image.ndim == 3, 'invalid input image. Image has not 3 channel'
+
+    if K is not None and dist is not None:
+        image = cv2.undistort(image, K, dist, None, K)
+    
+    numPts = len(pointxyz)
+    col = np.zeros((numPts,3))
+    h,w,_ = image.shape
+    projections = project_points(pointxyz, P, K, dist)
+    image = image.astype(np.float32) / 255.
+    
+    for ch in range(image.shape[2]):
+        col[:,ch] = bilinear_interpolate(image[:,:,0], 
+                                         projections[:,0], 
+                                         projections[:,1],
+                                         )
+    return col
 
 
+def bilinear_interpolate(im, x, y):
+    ''' Perform bilinear interpolation given a 2D array (single channel image) 
+    and x, y arrays of unstructured query points
+    Parameters
+    ----------
+    im : float32
+        Single channel image.
+    x : float32
+        array of x coordinates of query points.
+    y : float32
+        array of y coordinates of query points.
+
+    Returns: nx1 array of the interpolated color
+    -------
+    '''
+    x = np.asarray(x)
+    y = np.asarray(y)
+
+    x0 = np.floor(x).astype(int)
+    x1 = x0 + 1
+    y0 = np.floor(y).astype(int)
+    y1 = y0 + 1
+
+    x0 = np.clip(x0, 0, im.shape[1]-1);
+    x1 = np.clip(x1, 0, im.shape[1]-1);
+    y0 = np.clip(y0, 0, im.shape[0]-1);
+    y1 = np.clip(y1, 0, im.shape[0]-1);
+
+    Ia = im[ y0, x0 ]
+    Ib = im[ y1, x0 ]
+    Ic = im[ y0, x1 ]
+    Id = im[ y1, x1 ]
+
+    wa = (x1-x) * (y1-y)
+    wb = (x1-x) * (y-y0)
+    wc = (x-x0) * (y1-y)
+    wd = (x-x0) * (y-y0)
+
+    return wa*Ia + wb*Ib + wc*Ic + wd*Id
+    
+  
 #---- DSM ---##
 class DSM:
     #TODO: define new better class
