@@ -76,6 +76,7 @@ def interpolate_point_colors(pointxyz, image, P, K=None, dist=None, winsz=1):
 
 #---- DSM ---##
 class DSM:
+    #TODO: define new better class
     ''' Class to store and manage DSM. '''
     def __init__(self, xx, yy, zz, res):
         # xx, yy = np.meshgrid(x,y)
@@ -87,7 +88,7 @@ class DSM:
 def round_to_val(a, round_val):
     return np.round( np.array(a, dtype='float32') / round_val) * round_val
 
-def build_dsm_02(points3d, dsm_step=1, xlim=None, ylim=None, 
+def build_dsm(points3d, dsm_step=1, xlim=None, ylim=None, 
                  interp_method='linear',
                  save_path=None, make_dsm_plot=False
                  ):
@@ -167,10 +168,6 @@ def build_dsm_02(points3d, dsm_step=1, xlim=None, ylim=None,
             plt.savefig(save_fld.joinpath(save_stem+'_plot.png'), bbox_inches='tight')
 
     # Save dsm as GeoTIff
-    # if save_path is not None:
-    #     dsm_img = Image.fromarray(dsm_grid.T)
-    #     dsm_img.save(save_path)  
-        
     rater_origin = [grid_x[0,0], grid_y[0,0]]
     transform = Affine.translation(rater_origin[0], rater_origin[1]) \
                                    * Affine.scale(dsm_step, dsm_step)
@@ -192,43 +189,49 @@ def build_dsm_02(points3d, dsm_step=1, xlim=None, ylim=None,
     
     return dsm
 
-        
-def build_dsm_old(points3d, dsm_step=1, xlim=None, ylim=None, save_path=None, do_viz=0):
-    assert np.any(np.array(points3d.shape) == 3), "Invalid size of input points"
-    if points3d.shape[0] == points3d.shape[1]:
-        print("Warning: input vector 3 points. Unable to check validity of point dimensions.")        
-    if points3d.shape[0] == 3:
-        points3d = points3d.T
-    x, y, z = points3d[:,0], points3d[:,1], points3d[:,2]
-    if xlim is None:
-        xlim = [np.floor(x.min()), np.ceil(x.max())]
-    if ylim is None:
-        ylim = [np.floor(y.min()), np.ceil(y.max())]
+def generate_ortophoto(image, dsm, camera, res=None, save_path=None):
+    xx = dsm.x
+    yy = dsm.y
+    zz = dsm.z
     
-    # Interpolate dsm
-    xq = np.arange(xlim[0], xlim[1], dsm_step)
-    yq = np.arange(ylim[0], ylim[1], dsm_step)
-    xx, yy = np.meshgrid(xq,yq)
-    z_range = [np.floor(z.min()), np.ceil(z.max())]
-    zz = griddata((x,y) , z, (xx, yy))
-    dsm = DSM(xx, yy, zz, dsm_step)
-
-    # plot dsm 
-    if do_viz:
-        ax = plt.figure()
-        im = plt.contourf(xx, yy, dsm.z)
-        scatter = plt.scatter(x, y, 1, c='k', alpha=0.5, marker='.')
-        plt.gca().invert_yaxis()
-        cbar = plt.colorbar(im)
-        cbar.set_label("z")
-        plt.xlabel("x")
-        plt.ylabel("y")
-        plt.show()
-        plt.savefig('dsm_approx_plt.png', bbox_inches='tight')
-
-    # Save dsm as tif
+    if res is None:
+        res = dsm.res
+    
+    dsm_shape = dsm.x.shape
+    ncell = dsm_shape[0]*dsm_shape[1]
+    xyz = np.zeros((ncell,3))
+    xyz[:,0] = xx.flatten() + res/2
+    xyz[:,1] = yy.flatten() + res/2
+    xyz[:,2] = zz.flatten()
+    valid_cell = np.invert(np.isnan(xyz[:,2]))
+    
+    cols = np.full((ncell,3), 0., 'float32')
+    cols[valid_cell,:] = interpolate_point_colors(xyz[valid_cell,:], 
+                                                  image, camera.P, 
+                                                  camera.K, camera.dist
+                                                  )
+    ortophoto = np.zeros((dsm_shape[0],dsm_shape[1],3))
+    ortophoto[:,:,0] = cols[:,0].reshape(dsm_shape[0], dsm_shape[1])
+    ortophoto[:,:,1] = cols[:,1].reshape(dsm_shape[0], dsm_shape[1])
+    ortophoto[:,:,2] = cols[:,2].reshape(dsm_shape[0], dsm_shape[1])
+    ortophoto = np.uint8(ortophoto*255)
+    
+    # Save dsm as GeoTIff
     if save_path is not None:
-        dsm_ras = Image.fromarray(dsm.z)
-        dsm_ras.save(save_path)        
+        rater_origin = [xx[0,0], yy[0,0]]
+        transform = Affine.translation(rater_origin[0], rater_origin[1]) \
+                                       * Affine.scale(res, res)
+        with rasterio.open(
+                            save_path, 'w',
+                            driver='GTiff', 
+                            height=ortophoto.shape[0],
+                            width=ortophoto.shape[1], 
+                            count=3,
+                            dtype='uint8',
+                            # crs="EPSG:32632",
+                            transform=transform,
+                            ) as dst:
+            dst.write(np.moveaxis(ortophoto, -1, 0))
     
-    return dsm
+    return ortophoto
+

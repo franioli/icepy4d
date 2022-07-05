@@ -38,7 +38,7 @@ from lib.track_matches import track_matches
 from lib.io import read_img
 from lib.geometry import estimate_pose
 from lib.utils import (undistort_image, interpolate_point_colors, 
-                       build_dsm_02, DSM,
+                       build_dsm, DSM, generate_ortophoto,
                        )
 from lib.visualization import (draw_epip_lines, make_matching_plot)
 from lib.point_clouds import (create_point_cloud, display_pc_inliers)
@@ -334,52 +334,25 @@ o3d.visualization.draw_geometries(pcd, window_name='All epoches',
 #     cv2.destroyAllWindows()
 
 
-#%% DSM (rasterio)
-res = 0.1
+#%% DSM 
+res = 0.2
 dsms = []
 for epoch in epoches_to_process:
-    dsms.append(build_dsm_02(np.asarray(pcd[epoch].points), 
+    dsms.append(build_dsm(np.asarray(pcd[epoch].points), 
                             dsm_step=res, 
                             make_dsm_plot=False, 
                             save_path=f'sfm/dsm_approx_epoch_{epoch}.tif'
                             ))
 print('DSM generated for all the epoches')
+#TODO: implement better DSM class
 
-
-# Generate Ortophotos
-def generate_ortophoto(image, dsm, camera, res=None):
-    xx = dsm.x
-    yy = dsm.y
-    zz = dsm.z
-    
-    if res is None:
-        res = dsm.res
-    
-    dsm_shape = dsm.x.shape
-    ncell = dsm_shape[0]*dsm_shape[1]
-    xyz = np.zeros((ncell,3))
-    xyz[:,0] = xx.flatten() + res/2
-    xyz[:,1] = yy.flatten() + res/2
-    xyz[:,2] = zz.flatten()
-    valid_cell = np.invert(np.isnan(xyz[:,2]))
-    
-    cols = np.full((ncell,3), 0., 'float32')
-    cols[valid_cell,:] = interpolate_point_colors(xyz[valid_cell,:], 
-                                                  image, camera.P, 
-                                                  camera.K, camera.dist
-                                                  )
-    ortophoto = np.zeros((dsm_shape[0],dsm_shape[1],3))
-    ortophoto[:,:,0] = cols[:,0].reshape(dsm_shape[0], dsm_shape[1])
-    ortophoto[:,:,1] = cols[:,1].reshape(dsm_shape[0], dsm_shape[1])
-    ortophoto[:,:,2] = cols[:,2].reshape(dsm_shape[0], dsm_shape[1])
-    ortophoto = np.uint8(ortophoto*255)
-    
-    return ortophoto
-
-    
-img0 = cv2.cvtColor(images[0][0], cv2.COLOR_BGR2RGB) 
-ortofoto = generate_ortophoto(img0, dsms[0], cameras[0][0])
-
+# Generate Ortophotos 
+jj = 0
+epoch = 0
+ortofoto = generate_ortophoto(cv2.cvtColor(images[jj][epoch], cv2.COLOR_BGR2RGB),
+                              dsms[epoch], cameras[jj][epoch],
+                              save_path=f'sfm/ortofoto_approx_cam_{jj}_epc_{epoch}.tif',
+                              )
 fig, ax = plt.subplots()
 ax.imshow(ortofoto)
 
