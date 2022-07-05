@@ -58,6 +58,37 @@ def estimate_pose(kpts0, kpts1, K0, K1, thresh, conf=0.9999):
     ret = (R, t[:, 0], mask)
     
     return ret
+    
+def triangulate_nviews(P, ip):
+    """
+    Triangulate a point visible in n camera views.
+    P is a list of camera projection matrices.
+    ip is a list of homogenised image points. eg [ [x, y, 1], [x, y, 1] ], OR,
+    ip is a 2d array - shape nx3 - [ [x, y, 1], [x, y, 1] ]
+    len of ip must be the same as le~n of P
+    """
+    if not len(ip) == len(P):
+        raise ValueError('Number of points and number of cameras not equal.')
+    n = len(P)
+    M = np.zeros([3*n, 4+n])
+    for i, (x, p) in enumerate(zip(ip, P)):
+        M[3*i:3*i+3, :4] = p
+        M[3*i:3*i+3, 4+i] = -x
+    V = np.linalg.svd(M)[-1]
+    X = V[-1, :4]
+    return X / X[3]
+
+def triangulate_points(P1, P2, x1, x2):
+    """
+    Two-view triangulation of points in
+    x1,x2np.array([[274.128, 624.409]]) (nx3 homog. coordinates).
+    Similar to openCV triangulatePoints.
+    """
+    if not len(x2) == len(x1):
+        raise ValueError("Number of points don't match.")
+    X = [triangulate_nviews([P1, P2], [x[0], x[1]]) for x in zip(x1, x2)]
+    return np.array(X)
+        
 
 def scale_intrinsics(K, scales):
     """ 
