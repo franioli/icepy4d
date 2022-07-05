@@ -29,22 +29,24 @@ import cv2
 import pickle
 import json
 import matplotlib.pyplot as plt
-from matplotlib import cm
 import open3d as o3d
 import pydegensac
 
-from lib.classes import (Camera, DSM, Features, Imageds, Targets)
+from lib.classes import (Camera, Imageds, Features, Targets)
 from lib.match_pairs import match_pair
 from lib.track_matches import track_matches
 from lib.io import read_img
-from lib.geometry import (estimate_pose, P_from_KRT, X0_from_P, project_points)
-from lib.utils import (undistort_image, interpolate_point_colors, build_dsm)
+from lib.geometry import estimate_pose
+from lib.utils import (undistort_image, interpolate_point_colors, 
+                       build_dsm_02, DSM,
+                       )
 from lib.visualization import (draw_epip_lines, make_matching_plot)
-from lib.misc import (create_directory, create_point_cloud,
-                      convert_to_homogeneous, convert_from_homogeneous)
+from lib.point_clouds import (create_point_cloud, display_pc_inliers)
+from lib.misc import (convert_to_homogeneous, 
+                      convert_from_homogeneous,
+                      )
 from lib.thirdParts.triangulation import (linear_LS_triangulation, iterative_LS_triangulation)
 from lib.thirdParts.transformations import affine_matrix_from_points
-
 
 #---  Parameters  ---#
 # TODO: put parameters in parser or in json file
@@ -63,9 +65,9 @@ tracking_config = 'config/opt_tracking.json'
 numCams = 2
 camNames = ['p2', 'p3']
 
-#- Image cropping boundaries
-# maskBB = [[600,1900,5300, 3600], [800,1800,5500,3500]]             # Bounding box for processing the images from the two cameras
-maskBB = [[400,1500,5500,4000], [600,1400,5700,3900]]             # Bounding box for processing the images from the two cameras
+#- Bounding box for processing the images from the two cameras
+# maskBB = [[600,1900,5300, 3600], [800,1800,5500,3500]] 
+maskBB = [[400,1500,5500,4000], [600,1400,5700,3900]]
 
 # Epoches to process
 # It can be 'all' for processing all the epochs or a list with the epoches to be processed
@@ -78,11 +80,11 @@ find_matches = False
 #--- Perform matching and tracking ---# 
 
 #  Inizialize Lists
-cameras =  [[] for x in range(numCams)]  # List for storing cameras objects 
+cameras =  [[] for x in range(numCams)] # List for storing cameras objects 
 images = []   # List for storing image paths
 F_matrix = [] # List for storing fundamental matrixes
 points3d = [] # List for storing 3D points
-features = [[] for x in range(numCams)]  # List for storing all the matched features at all epochs
+features = [[] for x in range(numCams)] # List for storing all the matched features at all epochs
 
 #- Create Image Datastore objects
 for jj, cam in enumerate(camNames):
@@ -91,6 +93,7 @@ for jj, cam in enumerate(camNames):
         print('Error: different number of images per camera')
         # exit(1)        
 print('Data loaded')
+
 
 # epoch = 0
 if find_matches:
@@ -188,6 +191,7 @@ target_paths = [Path('data/target_image_p2.txt'), Path('data/target_image_p3.txt
 do_viz = False
 rotate_ptc = False
 do_coregistration = False    # If set to false, fix the camera EO as the first epoch
+do_SOR_filter = True
 
 # Iizialize variables
 cameras = [[] for x in range(numCams)]
@@ -281,68 +285,105 @@ for epoch in epoches_to_process:
         points3d = convert_from_homogeneous(pts).T
         
     # Create point cloud and save .ply to disk
-    pcd.append(create_point_cloud(points3d, points3d_cols, 
-                                  path=f'res/pt_clouds/sparse_pts_t{epoch}.ply'))
-               
+    pcd_epc = create_point_cloud(points3d, points3d_cols, 
+                                  path=f'res/pt_clouds/sparse_pts_t{epoch}.ply')
+    
+    # Filter outliers in point cloud with SOR filter
+    if do_SOR_filter:
+        cl, ind = pcd_epc.remove_statistical_outlier(nb_neighbors=10, std_ratio=3.0)
+        if do_viz:
+            display_pc_inliers(pcd_epc, ind)
+        pcd_epc =  pcd_epc.select_by_index(ind)   
+        print("Point cloud filtered by Statistical Oulier Removal")
+            
+    # Perform rotation of 180deg around X axis   
     if rotate_ptc:
         ang = np.pi
-        Rx = o3d.geometry.Geometry3D.get_rotation_matrix_from_axis_angle(np.array([1., 0., 0.], dtype='float64')*ang)
-        pcd[epoch].rotate(Rx)
-        
+        Rx = o3d.geometry.Geometry3D.get_rotation_matrix_from_axis_angle(np.array([1., 0., 0.], 
+                                                                                  dtype='float64')*ang)
+        pcd_epc.rotate(Rx)
+    
+    # Visualize point cloud    
     if do_viz:
         win_name = f'Sparse point cloud - Epoch: {epoch} - Num pts: {len(np.asarray(pcd[epoch].points))}'
-        o3d.visualization.draw_geometries([pcd[epoch]], window_name=win_name, 
+        o3d.visualization.draw_geometries([pcd_epc], window_name=win_name, 
                                           width=1280, height=720, 
-                                          left=300, top=200)       
+                                          left=300, top=200)    
+    # Store point cloud in Point Cloud List     
+    pcd.append(pcd_epc)
         
 # Visualize all points clouds together
-o3d.visualization.draw_geometries(pcd, window_name='All epoches ', 
+o3d.visualization.draw_geometries(pcd, window_name='All epoches', 
                                     width=1280, height=720, 
                                     left=300, top=200)
 
 
+#%% tmp
+
+# cam = 0
+# for i in range(len(images[0])):
+#     xy = targets.get_im_coord(cam)[i]
+#     # x2,y2 = targets.get_im_coord(2,i)
+#     img = images[cam][i]
+#     cv2.namedWindow(f'cam {cam}, epoch {i}', cv2.WINDOW_NORMAL)
+#     color=(0,255,0)
+#     point_size=2
+#     img_target = cv2.drawMarker(img,tuple(xy.astype(int)),color,cv2.MARKER_CROSS,1)
+#     cv2.imshow(f'cam {cam}, epoch {i}', img_target) 
+#     cv2.waitKey()
+#     cv2.destroyAllWindows()
+
+
 #%% DSM (rasterio)
-
-
-
-#%% BUILD DSM AND ORTHOPHOTOS
-
-## Build approximate DSM
-dsm = build_dsm(points3d[epoch], dsm_step=0.1, save_path="sfm/dsm_approx.tif")
-
+res = 0.1
+dsms = []
+for epoch in epoches_to_process:
+    dsms.append(build_dsm_02(np.asarray(pcd[epoch].points), 
+                            dsm_step=res, 
+                            make_dsm_plot=False, 
+                            save_path=f'sfm/dsm_approx_epoch_{epoch}.tif'
+                            ))
+print('DSM generated for all the epoches')
 
 
 # Generate Ortophotos
-def generate_ortophoto(image, dsm, P, res=1):
+def generate_ortophoto(image, dsm, camera, res=None):
     xx = dsm.x
     yy = dsm.y
     zz = dsm.z
     
+    if res is None:
+        res = dsm.res
+    
     dsm_shape = dsm.x.shape
     ncell = dsm_shape[0]*dsm_shape[1]
     xyz = np.zeros((ncell,3))
-    xyz[:,0] = xx.flatten()
-    xyz[:,1] = yy.flatten()
+    xyz[:,0] = xx.flatten() + res/2
+    xyz[:,1] = yy.flatten() + res/2
     xyz[:,2] = zz.flatten()
     valid_cell = np.invert(np.isnan(xyz[:,2]))
     
-    cols = np.full((ncell,3),0)
-    cols[valid_cell,:] = interpolate_point_colors(xyz[valid_cell,:], image, cameras.P, cameras.K, cameras.dist)
+    cols = np.full((ncell,3), 0., 'float32')
+    cols[valid_cell,:] = interpolate_point_colors(xyz[valid_cell,:], 
+                                                  image, camera.P, 
+                                                  camera.K, camera.dist
+                                                  )
     ortophoto = np.zeros((dsm_shape[0],dsm_shape[1],3))
     ortophoto[:,:,0] = cols[:,0].reshape(dsm_shape[0], dsm_shape[1])
     ortophoto[:,:,1] = cols[:,1].reshape(dsm_shape[0], dsm_shape[1])
     ortophoto[:,:,2] = cols[:,2].reshape(dsm_shape[0], dsm_shape[1])
     ortophoto = np.uint8(ortophoto*255)
     
-    # for a, b, c in zip(xx.flatten(), yy.flatten(), zz.flatten()):
-    #     xyz.append([a, b, c]) 
-    # ortophoto = cols[:,0].reshape(dsm_shape[0], dsm_shape[1],3)
-    # ortophoto = np.uint8(ortophoto*255)
+    return ortophoto
 
-    return xyz, cols, ortophoto
+    
+img0 = cv2.cvtColor(images[0][0], cv2.COLOR_BGR2RGB) 
+ortofoto = generate_ortophoto(img0, dsms[0], cameras[0][0])
 
-    # ortophoto = None
-    # return ortophoto
+fig, ax = plt.subplots()
+ax.imshow(ortofoto)
+
+#%% 
 
 
 #%% DENSE MATCHING

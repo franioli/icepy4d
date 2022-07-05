@@ -46,3 +46,12 @@ def make_matching_plot(image0, image1, pts0, pts1, pts_col=(0,0,255), point_size
                    lineType=cv2.LINE_AA)
     if path is not None: 
         cv2.imwrite(path, out)
+        
+# Darw features
+# img0 = images[1][0]
+# pt0 = features[1][epoch].get_keypoints()
+# # pts_col = tuple(np.random.randint(0,255,3).tolist())
+# pts_col=(0,255,0)
+# point_size=2
+# # img0_features = cv2.drawMarker(img0,tuple(pt0.astype(int)),color,cv2.MARKER_CROSS,3)
+# for (x0, y0) in pt0.astype(int):
