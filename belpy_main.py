@@ -317,7 +317,6 @@ o3d.visualization.draw_geometries(pcd, window_name='All epoches',
                                     width=1280, height=720, 
                                     left=300, top=200)
 
-
 #%% tmp
 
 # cam = 0
@@ -335,7 +334,7 @@ o3d.visualization.draw_geometries(pcd, window_name='All epoches',
 
 
 #%% DSM 
-res = 0.2
+res = 0.03
 dsms = []
 for epoch in epoches_to_process:
     dsms.append(build_dsm(np.asarray(pcd[epoch].points), 
@@ -349,12 +348,14 @@ print('DSM generated for all the epoches')
 # Generate Ortophotos 
 jj = 0
 epoch = 0
-ortofoto = generate_ortophoto(cv2.cvtColor(images[jj][epoch], cv2.COLOR_BGR2RGB),
-                              dsms[epoch], cameras[jj][epoch],
-                              save_path=f'sfm/ortofoto_approx_cam_{jj}_epc_{epoch}.tif',
-                              )
+ortofoto = []
+for jj in range(numCams):
+    ortofoto.append(generate_ortophoto(cv2.cvtColor(images[jj][epoch], cv2.COLOR_BGR2RGB),
+                                      dsms[epoch], cameras[jj][epoch],
+                                      save_path=f'sfm/ortofoto_approx_cam_{jj}_epc_{epoch}.tif',
+                                      ))
 fig, ax = plt.subplots()
-ax.imshow(ortofoto)
+ax.imshow(ortofoto[1])
 
 #%% 
 
