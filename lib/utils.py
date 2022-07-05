@@ -1,7 +1,12 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
+import rasterio
+
+from rasterio.transform import Affine
 from scipy.interpolate import (interp2d, griddata)
+from pathlib import Path 
 from PIL import Image
 
 from lib.geometry import project_points
@@ -31,12 +36,16 @@ def interpolate_point_colors(pointxyz, image, P, K=None, dist=None, winsz=1):
     Interpolate color of a 3D sparse point cloud, given an oriented image
       Inputs:  
        - Nx3 matrix with 3d world points coordinates
-       - image
+       - image as np.array in RGB channels 
+           NB: if the image was impotred with OpenCV, it must be converted 
+           from BRG color space to RGB
+               cv2.cvtColor(image_und, cv2.COLOR_BGR2RGB)
        - camera interior and exterior orientation matrixes: K, R, t
        - distortion vector according to OpenCV
     Output: Nx3 colour matrix, as float numbers (normalized in [0,1])
     '''
-    
+    # TODO: improve velocity of the function removing the cicles...
+        
     assert P is not None, 'invalid projection matrix' 
     assert image.ndim == 3, 'invalid input image. Image has not 3 channel'
 
@@ -64,16 +73,127 @@ def interpolate_point_colors(pointxyz, image, P, K=None, dist=None, winsz=1):
     return col
         
 
+
+#---- DSM ---##
 class DSM:
     ''' Class to store and manage DSM. '''
-    def __init__(self, x, y, z, res):
-        xx, yy = np.meshgrid(x,y)
+    def __init__(self, xx, yy, zz, res):
+        # xx, yy = np.meshgrid(x,y)
         self.x = xx
         self.y = yy
-        self.z = z
+        self.z = zz
         self.res = res    
         
-def build_dsm(points3d, dsm_step=1, xlim=None, ylim=None, save_path=None, do_viz=0):
+def round_to_val(a, round_val):
+    return np.round( np.array(a, dtype='float32') / round_val) * round_val
+
+def build_dsm_02(points3d, dsm_step=1, xlim=None, ylim=None, 
+                 interp_method='linear',
+                 save_path=None, make_dsm_plot=False
+                 ):
+    #TODO: Use Numpy binning instead of pandas grouping.
+    
+    # Check dimensions of input array
+    assert np.any(np.array(points3d.shape) == 3), "Invalid size of input points"
+    if points3d.shape[0] == points3d.shape[1]:
+        print("Warning: input vector has just 3 points. Unable to check validity of point dimensions.")        
+    if points3d.shape[0] == 3:
+        points3d = points3d.T
+    
+    if save_path is not None:
+        save_path = Path(save_path)
+        save_fld = save_path.parent
+        save_stem = save_path.stem
+        
+    # retrieve points and limits
+    x, y, z = points3d[:,0], points3d[:,1], points3d[:,2]
+    if xlim is None:
+        xlim = [np.floor(x.min()), np.ceil(x.max())]
+    if ylim is None:
+        ylim = [np.floor(y.min()), np.ceil(y.max())]
+        
+    n_pts = len(x) 
+    d_round = np.empty( [n_pts, 3] )
+    d_round[:,0] = round_to_val(points3d[:,0], dsm_step)
+    d_round[:,1] = round_to_val(points3d[:,1], dsm_step)
+    d_round[:,2] = points3d[:,2]
+
+    # sorting data
+    ind = np.lexsort( (d_round[:,1], d_round[:,2]) )
+    d_sort = d_round[ind]
+
+    # making dataframes and grouping stuff
+    df_cols = ['x_round', 'y_round', 'z']
+    df = pd.DataFrame(d_sort, columns=df_cols)
+    group_xy = df.groupby(['x_round', 'y_round'])
+    group_mean = group_xy.mean()
+    # group_mean.to_csv('your_binned_data.csv')
+    binned_df =  group_mean.index.to_frame()
+    binned_df['z'] = group_mean
+    
+    # Move again to numpy array for interpolation
+    binned_arr = binned_df.to_numpy()
+    x = binned_arr[:,0].astype('float32')
+    y = binned_arr[:,1].astype('float32')
+    z = binned_arr[:,2].astype('float32') 
+    
+    # Interpolate dsm
+    # import pdb; pdb.set_trace()
+    xq = np.arange(xlim[0], xlim[1], dsm_step)
+    yq = np.arange(ylim[0], ylim[1], dsm_step)
+    grid_x, grid_y = np.meshgrid(xq,yq)
+    dsm_grid = griddata((x, y), z, (grid_x, grid_y), method=interp_method)
+    
+    # plot dsm 
+    if make_dsm_plot:
+        fig, ax = plt.subplots()
+        dsm_plt = ax.contourf(grid_x, grid_y, dsm_grid)
+        scatter = ax.scatter(points3d[:,0], points3d[:,1], 
+                             s=10, c=points3d[:,2], 
+                             marker='o',  cmap='viridis',
+                             alpha=0.5, edgecolors='k',
+                             )
+        ax.axis('equal')
+        ax.invert_yaxis()
+        # fig.colorbar(dsm_plt, cax=ax, orientation='vertical')
+        cbar = plt.colorbar(dsm_plt, ax=ax)
+        cbar.set_label("z")
+        ax.set_xlabel('x')
+        ax.set_ylabel("y")
+        ax.set_title('DSM interpolated from point cloud on plane X-Y')
+        fig.tight_layout()
+        # plt.show()
+        if save_path is not None:
+            plt.savefig(save_fld.joinpath(save_stem+'_plot.png'), bbox_inches='tight')
+
+    # Save dsm as GeoTIff
+    # if save_path is not None:
+    #     dsm_img = Image.fromarray(dsm_grid.T)
+    #     dsm_img.save(save_path)  
+        
+    rater_origin = [grid_x[0,0], grid_y[0,0]]
+    transform = Affine.translation(rater_origin[0], rater_origin[1]) \
+                                   * Affine.scale(dsm_step, dsm_step)
+    with rasterio.open(
+                        save_path, 'w',
+                        driver='GTiff', 
+                        height=dsm_grid.shape[0],
+                        width=dsm_grid.shape[1], 
+                        count=1,
+                        dtype='float32',
+                        # crs="EPSG:32632",
+                        transform=transform,
+                        ) as dst:
+        dst.write(dsm_grid, 1)
+        
+    # Return a DSM object
+    
+    dsm = DSM(grid_x, grid_y, dsm_grid, dsm_step)
+    
+    return dsm
+
+        
+def build_dsm_old(points3d, dsm_step=1, xlim=None, ylim=None, save_path=None, do_viz=0):
     assert np.any(np.array(points3d.shape) == 3), "Invalid size of input points"
     if points3d.shape[0] == points3d.shape[1]:
         print("Warning: input vector 3 points. Unable to check validity of point dimensions.")        
