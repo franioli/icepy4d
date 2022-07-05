@@ -69,7 +69,7 @@ maskBB = [[400,1500,5500,4000], [600,1400,5700,3900]]             # Bounding box
 
 # Epoches to process
 # It can be 'all' for processing all the epochs or a list with the epoches to be processed
-epoches2process = [0,1,2,3,4,5,6,7] # 
+epoches_to_process = [0,1,2,3,4,5,6,7] # 
 
 # On-Off switches
 find_matches = False
@@ -94,12 +94,12 @@ print('Data loaded')
 
 # epoch = 0
 if find_matches:
-    if epoches2process == 'all':
-        epoches2process = [x for x in range(len(images[0]))]
-    if epoches2process is None:
+    if epoches_to_process == 'all':
+        epoches_to_process = [x for x in range(len(images[0]))]
+    if epoches_to_process is None:
         print('Invalid input of epoches to process')
         exit(1)
-    for epoch in epoches2process:
+    for epoch in epoches_to_process:
         print(f'Processing epoch {epoch}...')
 
         #=== Find Matches at current epoch ===#
@@ -174,6 +174,7 @@ else:
     print("Features already present, nothing was changed.")
 
 
+
 #%% SfM
 '''
 Notes 
@@ -211,7 +212,7 @@ X02_meta = np.array([416622.2755,5091364.5071,1902.4053])   # IMG_0481
 camWorldBaseline = np.linalg.norm(X01_meta - X02_meta)      # [m] From Metashape model in July
 
 #--- SfM ---#
-for epoch in epoches2process:
+for epoch in epoches_to_process:
 # epoch = 0
     # Initialize Intrinsics
     cameras[0].append(Camera(K=ref_cams[0].K, dist=ref_cams[0].dist))
@@ -234,8 +235,7 @@ for epoch in epoches2process:
     
     # Update Camera EO
     cameras[1][epoch].X0 = cameras[1][epoch].X0 * scaleFct
-    cameras[1][epoch].t = -np.dot(cameras[1][epoch].R, cameras[1][epoch].X0)
-    cameras[1][epoch].compose_P()
+    cameras[1][epoch].t_from_R_and_X0()
     
     if do_coregistration:
         # Triangulate targets
@@ -347,6 +347,7 @@ def generate_ortophoto(image, dsm, P, res=1):
 
 #%% DENSE MATCHING
 
+
 # Init
 epoch = 0
 sgm_path = Path('sgm')
@@ -354,31 +355,70 @@ downsample = 0.25
 fast_viz = True
 
 stem0, stem1 = images[0].get_image_stem(epoch), images[1].get_image_stem(epoch)
-
-pts0, pts1 = features[0][epoch].get_keypoints(), features[1][epoch].get_keypoints()
-F, inlMask = pydegensac.findFundamentalMatrix(pts0, pts1, px_th=1, conf=0.99999,
-                                              max_iters=100000, laf_consistensy_coef=-1.0, error_type='sampson',
-                                              symmetric_error_check=True, enable_degeneracy_check=True)
 img0, img1 = images[0][epoch], images[1][epoch]
 h, w, _ = img0.shape
 
+# pts0, pts1 = features[0][epoch].get_keypoints(), features[1][epoch].get_keypoints()
+# F, inlMask = pydegensac.findFundamentalMatrix(pts0, pts1, px_th=1, conf=0.99999,
+#                                               max_iters=100000, laf_consistensy_coef=-1.0, error_type='sampson',
+#                                               symmetric_error_check=True, enable_degeneracy_check=True)
+
+
 #--- Rectify calibrated ---#
-rectOut = cv2.stereoRectify(cameras[0][epoch].K, cameras[0][epoch].dist, 
-                            cameras[1][epoch].K, cameras[1][epoch].dist, 
-                            (h,w), cameras[1][epoch].R, cameras[1][epoch].t)
+left_cam = cameras[1][epoch]
+right_cam = cameras[0][epoch]
+left_img = images[1][epoch]
+rigth_img = images[0][epoch]
+
+
+#       
+rectOut = cv2.stereoRectify(left_cam.K, left_cam.dist, 
+                            right_cam.K, right_cam.dist, 
+                            (w,h), left_cam.R, left_cam.t, 
+                            # (w,h), left_cam.R.T, -left_cam.t,                             
+                            # (w,h), right_cam.R.T, -right_cam.t,                             
+                            flags=cv2.CALIB_ZERO_DISPARITY,
+                            )
 # R1,R2,P1,P2,Q,validRoi0,validRoi1 
 R0, R1 = rectOut[0], rectOut[1]
 P0, P1 = rectOut[2], rectOut[3]
 Q = rectOut[4]
-    
-img0_rectified = cv2.warpPerspective(img0, R0, (w,h))
-img1_rectified = cv2.warpPerspective(img1, R1, (w,h))
 
-# write images to disk
-path0 = str(sgm_path / (stem0 + "_rectified.jpg"))
-path1 = str(sgm_path / (stem1 + "_rectified.jpg"))
-cv2.imwrite(path0, img0_rectified)
-cv2.imwrite(path1, img1_rectified)
+# r1, r2, p1, p2, q, roi1, roi2 = cv2.stereoRectify(k_left, d_left, k_right, d_right,
+#                                                   (img_height, img_width),
+#                                                   R,T,flags=cv2.CALIB_ZERO_DISPARITY)
+
+map0x, map0y = cv2.initUndistortRectifyMap(cameraMatrix=left_cam.K, 
+                                           distCoeffs=left_cam.dist,
+                                           R=R0,
+                                           newCameraMatrix=P0,
+                                           size=(w,h),
+                                           m1type=cv2.CV_32FC1
+                                           )
+map1x, map1y = cv2.initUndistortRectifyMap(cameraMatrix=right_cam.K, 
+                                           distCoeffs=right_cam.dist,
+                                           R=R1,
+                                           newCameraMatrix=P1,
+                                           size=(w,h),
+                                           m1type=cv2.CV_32FC1
+                                           )
+img0_rect = cv2.remap(left_img, map0x, map0y, cv2.INTER_LINEAR,cv2.BORDER_CONSTANT)
+img1_rect = cv2.remap(rigth_img, map1x, map1y, cv2.INTER_LINEAR,cv2.BORDER_CONSTANT)
+cv2.imwrite(str(sgm_path / (stem0 + "_rectified.jpg")), img0_rect)
+cv2.imwrite(str(sgm_path / (stem1 + "_rectified.jpg")), img1_rect)
+
+
+# cv2.imshow('img0 rect', img0_rect)
+# cv2.waitKey()
+# cv2.destroyAllWindows()
+    
+# img0_rectified = cv2.warpPerspective(img0, R0, (w,h))
+# img1_rectified = cv2.warpPerspective(img1, R1, (w,h))
+
+# # write images to disk
+
+# cv2.imwrite(path0, img0_rectified)
+# cv2.imwrite(path1, img1_rectified)
 
 
 #--- Run PSMNet to compute disparity ---#

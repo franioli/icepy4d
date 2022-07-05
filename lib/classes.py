@@ -37,15 +37,6 @@ from lib.geometry import (P_from_KRT, X0_from_P)
 #--- Camera ---#
 class Camera:
     ''' Class to help manage Cameras. '''
-    
-    # def __init__(self):
-    #     '''Initialise the camera calibration object '''
-    # Parameters
-    # ----------
-    # *args : str
-    #   Read calibration text file, with Full OpenCV parameters in a row.
-    #     print('Class not defined yet...')
-    # TODO: implement method for reading calibration data from file
 
     def __init__(self, K=None, R=None, t=None, dist=None, calib_path=None):
         ''' Initialize pinhole camera model '''
@@ -87,13 +78,25 @@ class Camera:
     def camera_center(self):        
         ''' 
         Compute and return the camera center as
-        C = [ - inv(KR) * Kt ] = [ -inv(P[1:3]) * P[4] ]
+        X0 = [ - inv(KR) * Kt ] = [ -inv(P[1:3]) * P[4] ]
         '''
         # if self.X0 is not None:
         #     return self.X0
         # else:
         self.X0 = -np.dot(np.linalg.inv(self.P[:,0:3]), self.P[:,3].reshape(3,1) )
         return self.X0
+        
+    def t_from_R_and_X0(self):        
+        ''' 
+        Compute and return the camera translation vector t, given the camera 
+        centre and the roation matrix X, as
+        t = [ -R * X0 ] 
+        The relation is derived from the formula of the camera centre
+        X0 = [ - inv(KR) * Kt ]
+        '''
+        self.t = -np.dot(self.R, self.X0)
+        self.compose_P()
+        return self.t        
     
     def compose_P(self):
         '''
@@ -184,7 +187,19 @@ class Camera:
         with open(path, 'r') as f:
             data = np.loadtxt(f)
             K = data[0:9].astype(float).reshape(3, 3, order='C')
-            dist = data[9:13].astype(float)
+            if len(data) == 13:
+                print('Using OPENCV camera model.')
+                dist = data[9:13].astype(float)
+            elif len(data) == 14:
+                print('Using OPENCV camera model + k3')
+                dist = data[9:14].astype(float)
+            elif len(data) == 17:
+                print('Using FULL OPENCV camera model')
+                dist = data[9:17].astype(float)    
+            else:
+                print('invalid intrinsics data.')
+                return None, None
+            # TODO: implement other camera models and estimate K from exif.
         self.K = K
         self.dist = dist
         return K, dist
@@ -504,8 +519,7 @@ class DSM:
         self.z = z
         self.res = res    
         
-    
-        
+
     # def generate_tif(self, ):
             
  
@@ -513,18 +527,3 @@ class DSM:
 if __name__ == '__main__':
     '''Test classes '''
     
-    # feat0 = Features()
-    # nfeatures = 2
-    # new_features = {'kpts': np.empty((nfeatures,2), dtype=float), 
-    #              'descr': np.empty((256,nfeatures), dtype=float),  
-    #              'score': np.empty(nfeatures, dtype=float) }
-    
-    # feat0.append_features(new_features)
-    # feat0.append_features(new_features)
-    # print(feat0.get_keypoints())
-    
-    # paths = [Path('../data/target_image_p2.txt'), Path('../data/target_image_p3.txt')] 
-    # targets = Targets(cam_id=[0,1],  im_coord_path=paths)
-    
-
-    # im = images[0][0]
