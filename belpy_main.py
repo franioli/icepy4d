@@ -42,7 +42,7 @@ from lib.utils import (undistort_image, undistort_points,
                        interpolate_point_colors, 
                        build_dsm, DSM, generate_ortophoto,
                        )
-from lib.visualization import (draw_epip_lines, make_matching_plot)
+from lib.visualization import (draw_epip_lines, make_matching_plot, make_camera_pyramid)
 from lib.point_clouds import (create_point_cloud, display_pc_inliers, write_ply)
 from lib.misc import (convert_to_homogeneous, 
                       convert_from_homogeneous,
@@ -210,7 +210,7 @@ target_paths = [Path('data/target_image_p2.txt'), Path('data/target_image_p3.txt
 do_viz = False
 do_coregistration = False    # If set to false, fix the camera EO as the first epoch
 do_SOR_filter = True
-rotate_RS = True
+rotate_RS = False
 
 # Iizialize variables
 cameras = dict.fromkeys(cam_names)
@@ -356,43 +356,37 @@ o3d.visualization.draw_geometries(pcd, window_name='All epoches',
                                     width=1280, height=720, 
                                     left=300, top=200)
 
-# voxelization
-print('voxelization')
+
+#%% Viz point cloud with cameras
+cam_syms = []
+for cam in cam_names:
+    cam_syms.append(make_camera_pyramid(cameras[cam][epoch], focal_len_scaled=30))
+o3d.visualization.draw_geometries([pcd[epoch], cam_syms[0], cam_syms[1]])
+
+
+#%%
+
+# Perform rotation of 180deg around X axis   
 epoch = 0
-voxel_grid = o3d.geometry.VoxelGrid.create_from_point_cloud(pcd[epoch],
-                                                            voxel_size=0.1)
-o3d.visualization.draw_geometries([voxel_grid], 
-                                  window_name='Voxelization', 
-                                width=1280, height=720, 
-                                left=300, top=200)
-
-# cam_extrinsics = np.eye(4)
-# visualizer = CameraPoseVisualizer([-50, 50], [-50, 50], [0, 100])
-# visualizer.extrinsic2pyramid(np.eye(4), 'c', 10)
-
-  
-# # Perform rotation of 180deg around X axis   
-# epoch = 0
-# if rotate_RS:
-#     ang = np.pi
-#     Rx = o3d.geometry.Geometry3D.get_rotation_matrix_from_axis_angle(np.array([1., 0., 0.], 
-#                                                                               dtype='float64')*ang)
-#     # Rotate point clouds
-#     pcd[epoch].rotate(Rx)
+if rotate_RS:
+    ang = np.pi
+    Rx = o3d.geometry.Geometry3D.get_rotation_matrix_from_axis_angle(np.array([1., 0., 0.], 
+                                                                              dtype='float64')*ang)
+    # Rotate point clouds
+    pcd[epoch].rotate(Rx)
     
-#     # Rotatate Cameras and update projection matrixes
-#     for cam in cam_names:
-#         cameras[cam][epoch].R = np.dot(Rx, cameras[cam][epoch].R)
-#         cameras[cam][epoch].t = np.dot(Rx, cameras[cam][epoch].t)
-#         cameras[cam][epoch].compose_P()
-#         cameras[cam][epoch].camera_center() 
-#     print('Reference system rotated by 180 degrees around X axis')
-
-# o3d.visualization.draw_geometries([pcd[epoch]], window_name='Rotated point cloud', 
-#                                     width=1280, height=720, 
-#                                     left=300, top=200)
-# cam_extrinsics = np.eye(4)
-
+    # Rotatate Cameras and update projection matrixes
+    for cam in cam_names:
+        cameras[cam][epoch].R = np.dot(Rx, cameras[cam][epoch].R)
+        cameras[cam][epoch].t = np.dot(Rx, cameras[cam][epoch].t)
+        cameras[cam][epoch].compose_P()
+        cameras[cam][epoch].camera_center() 
+    print('Reference system rotated by 180 degrees around X axis')
+    
+cam_syms = []
+for cam in cam_names:
+    cam_syms.append(make_camera_pyramid(cameras[cam][epoch], focal_len_scaled=30))
+o3d.visualization.draw_geometries([pcd[epoch], cam_syms[0], cam_syms[1]])
 
 
 
