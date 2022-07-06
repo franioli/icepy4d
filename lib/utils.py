@@ -12,8 +12,9 @@ from PIL import Image
 from lib.geometry import project_points
 from lib.classes import Camera
 
+
 def undistort_points(pts, camera: Camera):
-    ''' Wrapper around cv2.undistortPoints to simplify function calling
+    ''' Wrapper around OpenCV cv2.undistortPoints to simplify function calling
     Parameters
     ----------
     pts : nx2 array of float32
@@ -30,15 +31,36 @@ def undistort_points(pts, camera: Camera):
                                   None, camera.K)[:,0,:]                           
     return pts_und.astype('float32')
 
-def normalize_and_und_points(pts, K=None, dist=None):
-    ''' Deprecated '''
-    #TODO: Remove function and create better one...
-    pts = cv2.undistortPoints(pts, K, dist)
-    return pts
 
-def undistort_image(image, K, dist, downsample=1, out_path=None):
-    #TODO: Remove function and create better one...
+def undistort_image(image, camera: Camera, out_path=None):
+    ''' Wrapper around OpenCV cv2.undistort function for simply undistorting an image
+    Parameters
+    ----------
+    image : 2D numpy array
+        Image.
+    camera : Camera object
+        Camera object containing K and dist arrays.
+    out_path : Path or str, optional
+        Path for writing the undistorted image to disk. 
+        The default is None (image is not written to disk)
+        
+    Returns
+    -------
+    image_und : 2D numpy array
+        Undistorted image.
+
     '''
+    image_und = cv2.undistort(image, camera.K, camera.dist, 
+                              None, camera.K
+                              )
+    if out_path is not None:
+        cv2.imwrite(out_path, image_und)
+        
+    return image_und
+
+def undistort_image_new_cam_matrix(image, K, dist, downsample=1, out_path=None):
+    #TODO: Remove function and create better one...
+    ''' Deprecated
     Undistort image with OpenCV
     '''
     h, w, _ = image.shape
@@ -55,8 +77,6 @@ def undistort_image(image, K, dist, downsample=1, out_path=None):
     # K, dist = cameras[cam][0].K, cameras[cam][0].dist
     # image_und = cv2.undistort(image, K, dist, None, K)
     # cv2.imwrite(images[cam].get_image_stem(0)+'_undistorted.tif', image_und)
-
-# cameras[cam][0].K
     
 def interpolate_point_colors(pointxyz, image, P, K=None, dist=None, winsz=1):
     ''''
@@ -67,8 +87,8 @@ def interpolate_point_colors(pointxyz, image, P, K=None, dist=None, winsz=1):
            NB: if the image was impotred with OpenCV, it must be converted 
            from BGR color space to RGB
                cv2.cvtColor(image_und, cv2.COLOR_BGR2RGB)
-       - camera interior and exterior orientation matrixes: K, R, t
-       - distortion vector according to OpenCV
+       - Camera interior and exterior orientation matrixes: K, R, t
+       - Distortion vector according to OpenCV
     Output: Nx3 colour matrix, as float numbers (normalized in [0,1])
     '''       
     assert P is not None, 'invalid projection matrix' 
@@ -132,8 +152,8 @@ def bilinear_interpolate(im, x, y):
     return wa*Ia + wb*Ib + wc*Ic + wd*Id
     
 
-def interpolate_point_colors_old(pointxyz, image, P, K=None, dist=None, winsz=1):
-    ''''
+def interpolate_point_colors_interp2d(pointxyz, image, P, K=None, dist=None, winsz=1):
+    '''' Deprecated (too slow)
     Interpolate color of a 3D sparse point cloud, given an oriented image
       Inputs:  
        - Nx3 matrix with 3d world points coordinates
