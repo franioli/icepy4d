@@ -20,12 +20,24 @@ def create_point_cloud(points3d, points_col=None, path=None, *scalar_fied):
     if points_col is not None:
         pcd.colors = o3d.utility.Vector3dVector(points_col)
     if path is not None:
-        path = Path(path)
-        create_directory(path.parent) 
-        o3d.io.write_point_cloud(str(path), pcd)  
+        write_ply(pcd, path)
     return pcd
 
+def write_ply(pcd, path):
+    ''' Write point cloud to disk as .ply
 
+    Parameters
+    ----------
+    pcd : O3D point cloud
+    out_path : Path or str of output ply
+
+    Returns: None
+    '''
+    path = Path(path)
+    create_directory(path.parent) 
+    o3d.io.write_point_cloud(str(path), pcd)  
+    
+    
 def display_pc_inliers(cloud, ind):
     ''' Display a O3D point cloud, separating inliers from outliers 
     (e.g. after a SOR filter)

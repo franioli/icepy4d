@@ -43,12 +43,14 @@ from lib.utils import (undistort_image, undistort_points,
                        build_dsm, DSM, generate_ortophoto,
                        )
 from lib.visualization import (draw_epip_lines, make_matching_plot)
-from lib.point_clouds import (create_point_cloud, display_pc_inliers)
+from lib.point_clouds import (create_point_cloud, display_pc_inliers, write_ply)
 from lib.misc import (convert_to_homogeneous, 
                       convert_from_homogeneous,
                       )
+
 from lib.thirdParts.triangulation import (linear_LS_triangulation, iterative_LS_triangulation)
 from lib.thirdParts.transformations import affine_matrix_from_points
+from lib.thirdParts.camera_pose_visualizer import CameraPoseVisualizer
 
 #---  Parameters  ---#
 # TODO: put parameters in parser or in json file
@@ -195,7 +197,7 @@ else:
 
 
 
-#%% SfM
+## SfM ## 
 '''
 Notes 
 '''
@@ -206,9 +208,9 @@ target_paths = [Path('data/target_image_p2.txt'), Path('data/target_image_p3.txt
 
 # On-Off switches
 do_viz = False
-rotate_ptc = True
 do_coregistration = False    # If set to false, fix the camera EO as the first epoch
 do_SOR_filter = True
+rotate_RS = True
 
 # Iizialize variables
 cameras = dict.fromkeys(cam_names)
@@ -240,21 +242,21 @@ for epoch in epoches_to_process:
     
     # Initialize Intrinsics
     #TODO: replace append with insert or a more robust data structure...
-    cameras[cam0].append(Camera(K=ref_cams[cam0].K, dist=ref_cams[cam0].dist))
-    cameras[cam1].append(Camera(K=ref_cams[cam1].K, dist=ref_cams[cam1].dist))
+    for cam in cam_names: 
+        cameras[cam].append(Camera(K=ref_cams[cam].K, dist=ref_cams[cam].dist))
           
     # Estimate Realtive Pose with Essential Matrix
     pts0, pts1 = features[cam0][epoch].get_keypoints(), features[cam1][epoch].get_keypoints()
-    rel_pose = estimate_pose(pts0, pts1, 
-                             cameras[cam1][epoch].K,  
+    R, t, valid = estimate_pose(pts0, pts1, 
+                             cameras[cam0][epoch].K,  
                              cameras[cam1][epoch].K, 
                              thresh=1, conf=0.9999,
                              )
-    R, t, valid = rel_pose[0], rel_pose[1], rel_pose[2]
     print('Computing relative pose. Valid points: {}/{}'.format(valid.sum(),len(valid)))
     
     # Update cameras structures
-    cameras[cam1][epoch].R, cameras[cam1][epoch].t = R, t.reshape(3,1)
+    cameras[cam1][epoch].R = R
+    cameras[cam1][epoch].t = t.reshape(3,1)
     cameras[cam1][epoch].compose_P()
     cameras[cam1][epoch].camera_center()
         
@@ -293,8 +295,8 @@ for epoch in epoches_to_process:
         
     elif epoch > 0:
         # Fix the EO of both the cameras as those estimated in the first epoch
-        cameras[cam0][epoch] =  cameras[cam0][0]
-        cameras[cam1][epoch] =  cameras[cam1][0]
+        for cam in cam_names:
+            cameras[cam][epoch] =  cameras[cam][0]
     
     #--- Triangulate Points ---#
     #TODO: test differences between using LS iterative or linear with SVD
@@ -327,8 +329,7 @@ for epoch in epoches_to_process:
         points3d = convert_from_homogeneous(pts).T
         
     # Create point cloud and save .ply to disk
-    pcd_epc = create_point_cloud(points3d, points3d_cols, 
-                                  path=f'res/pt_clouds/sparse_pts_t{epoch}.ply')
+    pcd_epc = create_point_cloud(points3d, points3d_cols)
     
     # Filter outliers in point cloud with SOR filter
     if do_SOR_filter:
@@ -337,13 +338,6 @@ for epoch in epoches_to_process:
             display_pc_inliers(pcd_epc, ind)
         pcd_epc =  pcd_epc.select_by_index(ind)   
         print("Point cloud filtered by Statistical Oulier Removal")
-            
-    # Perform rotation of 180deg around X axis   
-    if rotate_ptc:
-        ang = np.pi
-        Rx = o3d.geometry.Geometry3D.get_rotation_matrix_from_axis_angle(np.array([1., 0., 0.], 
-                                                                                  dtype='float64')*ang)
-        pcd_epc.rotate(Rx)
     
     # Visualize point cloud    
     if do_viz:
@@ -351,7 +345,8 @@ for epoch in epoches_to_process:
         o3d.visualization.draw_geometries([pcd_epc], window_name=win_name, 
                                           width=1280, height=720, 
                                           left=300, top=200)    
-    # Store point cloud in Point Cloud List     
+    # Write point cloud to disk and store it in Point Cloud List     
+    write_ply(pcd_epc, f'res/pt_clouds/sparse_pts_t{epoch}.ply')
     pcd.append(pcd_epc)
     
     print('Done.')
@@ -360,6 +355,45 @@ for epoch in epoches_to_process:
 o3d.visualization.draw_geometries(pcd, window_name='All epoches', 
                                     width=1280, height=720, 
                                     left=300, top=200)
+
+# voxelization
+print('voxelization')
+epoch = 0
+voxel_grid = o3d.geometry.VoxelGrid.create_from_point_cloud(pcd[epoch],
+                                                            voxel_size=0.1)
+o3d.visualization.draw_geometries([voxel_grid], 
+                                  window_name='Voxelization', 
+                                width=1280, height=720, 
+                                left=300, top=200)
+
+# cam_extrinsics = np.eye(4)
+# visualizer = CameraPoseVisualizer([-50, 50], [-50, 50], [0, 100])
+# visualizer.extrinsic2pyramid(np.eye(4), 'c', 10)
+
+  
+# # Perform rotation of 180deg around X axis   
+# epoch = 0
+# if rotate_RS:
+#     ang = np.pi
+#     Rx = o3d.geometry.Geometry3D.get_rotation_matrix_from_axis_angle(np.array([1., 0., 0.], 
+#                                                                               dtype='float64')*ang)
+#     # Rotate point clouds
+#     pcd[epoch].rotate(Rx)
+    
+#     # Rotatate Cameras and update projection matrixes
+#     for cam in cam_names:
+#         cameras[cam][epoch].R = np.dot(Rx, cameras[cam][epoch].R)
+#         cameras[cam][epoch].t = np.dot(Rx, cameras[cam][epoch].t)
+#         cameras[cam][epoch].compose_P()
+#         cameras[cam][epoch].camera_center() 
+#     print('Reference system rotated by 180 degrees around X axis')
+
+# o3d.visualization.draw_geometries([pcd[epoch]], window_name='Rotated point cloud', 
+#                                     width=1280, height=720, 
+#                                     left=300, top=200)
+# cam_extrinsics = np.eye(4)
+
+
 
 
 #%% DSM 
