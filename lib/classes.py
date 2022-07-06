@@ -487,6 +487,9 @@ class Targets:
             #x,y
             1000,2000
             2000,3000
+            
+            NB: added -1 in the image coordinates to take into account 
+            matlab-python different image coordinates
         '''
         if camera_id is None:
             print('Error: missing camera id. Impossible to assign the target\
@@ -501,6 +504,7 @@ class Targets:
             return
         with open(path, 'r') as f:
             data = np.loadtxt(f, delimiter=',' )
+            data = data - 1
         self.im_coor.insert(camera_id,data)
         
     def save_as_txt(self, path=None, fmt='%i', delimiter=',', header='x,y'):
