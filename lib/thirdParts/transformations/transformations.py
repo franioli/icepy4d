@@ -1976,40 +1976,40 @@ def is_same_quaternion(q0, q1):
     return numpy.allclose(q0, q1) or numpy.allclose(q0, -q1)
 
 
-def _import_module(name, package=None, warn=True, postfix='_py', ignore='_'):
-    """Try import all public attributes from module into global namespace.
+# def _import_module(name, package=None, warn=True, postfix='_py', ignore='_'):
+#     """Try import all public attributes from module into global namespace.
 
-    Existing attributes with name clashes are renamed with prefix.
-    Attributes starting with underscore are ignored by default.
+#     Existing attributes with name clashes are renamed with prefix.
+#     Attributes starting with underscore are ignored by default.
 
-    Return True on successful import.
+#     Return True on successful import.
 
-    """
-    import warnings
-    from importlib import import_module
+#     """
+#     import warnings
+#     from importlib import import_module
 
-    try:
-        if not package:
-            module = import_module(name)
-        else:
-            module = import_module('.' + name, package=package)
-    except ImportError as exc:
-        if warn:
-            warnings.warn(str(exc))
-    else:
-        for attr in dir(module):
-            if ignore and attr.startswith(ignore):
-                continue
-            if postfix:
-                if attr in globals():
-                    globals()[attr + postfix] = globals()[attr]
-                elif warn:
-                    warnings.warn('no Python implementation of ' + attr)
-            globals()[attr] = getattr(module, attr)
-        return True
+#     try:
+#         if not package:
+#             module = import_module(name)
+#         else:
+#             module = import_module('.' + name, package=package)
+#     except ImportError as exc:
+#         if warn:
+#             warnings.warn(str(exc))
+#     else:
+#         for attr in dir(module):
+#             if ignore and attr.startswith(ignore):
+#                 continue
+#             if postfix:
+#                 if attr in globals():
+#                     globals()[attr + postfix] = globals()[attr]
+#                 elif warn:
+#                     warnings.warn('no Python implementation of ' + attr)
+#             globals()[attr] = getattr(module, attr)
+#         return True
 
 
-_import_module('_transformations', __package__)
+# _import_module('_transformations', __package__)
 
 
 if __name__ == '__main__':
