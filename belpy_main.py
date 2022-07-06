@@ -319,18 +319,54 @@ o3d.visualization.draw_geometries(pcd, window_name='All epoches',
 
 #%% tmp
 
+# # Plot with OpenCV
 # cam = 0
-# for i in range(len(images[0])):
-#     xy = targets.get_im_coord(cam)[i]
-#     # x2,y2 = targets.get_im_coord(2,i)
-#     img = images[cam][i]
-#     cv2.namedWindow(f'cam {cam}, epoch {i}', cv2.WINDOW_NORMAL)
-#     color=(0,255,0)
-#     point_size=2
-#     img_target = cv2.drawMarker(img,tuple(xy.astype(int)),color,cv2.MARKER_CROSS,1)
-#     cv2.imshow(f'cam {cam}, epoch {i}', img_target) 
-#     cv2.waitKey()
-#     cv2.destroyAllWindows()
+# i = 0
+# xy = targets.get_im_coord(cam)[i]
+# img = images[cam][i]
+# cv2.namedWindow(f'cam {cam}, epoch {i}', cv2.WINDOW_NORMAL)
+# color=(0,255,0)
+# point_size=2
+# img_target = cv2.drawMarker(img,tuple(xy.astype(int)),color,cv2.MARKER_CROSS,1)
+# cv2.imshow(f'cam {cam}, epoch {i}', img_target) 
+# cv2.waitKey()
+# cv2.destroyAllWindows()
+
+# #  Plot with matplotlib
+# cam = 1
+# i = 0
+# _plot_style = dict(markersize=5, markeredgewidth=2,
+#                    markerfacecolor='none', markeredgecolor='r',
+#                    marker='x', linestyle='none')
+# xy = targets.get_im_coord(cam)[i]
+# img = cv2.cvtColor(images[cam][i], cv2.COLOR_BGR2RGB)
+# fig, ax = plt.subplots()
+# ax.imshow(img) 
+# ax.plot(xy[0], xy[1], **_plot_style)
+    
+
+x = np.arange(-10,10)
+y = x**2
+
+fig = plt.figure()
+ax = fig.add_subplot(111)
+ax.plot(x,y)
+
+coords = []
+
+def onclick(event):
+    global ix, iy
+    ix, iy = event.xdata, event.ydata
+    print(f'x = {ix}, y = {iy}')
+
+    global coords
+    coords.append((ix, iy))
+
+    if len(coords) == 2:
+        fig.canvas.mpl_disconnect(cid)
+
+    return coords
+cid = fig.canvas.mpl_connect('button_press_event', onclick)
 
 
 #%% DSM 
@@ -346,7 +382,6 @@ print('DSM generated for all the epoches')
 #TODO: implement better DSM class
 
 # Generate Ortophotos 
-jj = 0
 epoch = 0
 ortofoto = []
 for jj in range(numCams):
@@ -357,8 +392,16 @@ for jj in range(numCams):
 fig, ax = plt.subplots()
 ax.imshow(ortofoto[1])
 
-#%% 
 
+
+#%% 
+# cam = 1
+# image = images[cam][0]
+# K, dist = cameras[cam][0].K, cameras[cam][0].dist
+# image_und = cv2.undistort(image, K, dist, None, K)
+# cv2.imwrite(images[cam].get_image_stem(0)+'_undistorted.tif', image_und)
+
+# cameras[cam][0].K
 
 #%% DENSE MATCHING
 
