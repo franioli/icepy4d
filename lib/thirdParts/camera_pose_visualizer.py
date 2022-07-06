@@ -11,8 +11,9 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 class CameraPoseVisualizer:
     def __init__(self, xlim, ylim, zlim):
-        self.fig = plt.figure(figsize=(18, 7))
-        self.ax = self.fig.gca(projection='3d')
+        # self.fig = plt.figure(figsize=(18, 7))
+        # self.ax = self.fig.gca(projection='3d')
+        self.ax = plt.gca()
         self.ax.set_aspect("auto")
         self.ax.set_xlim(xlim)
         self.ax.set_ylim(ylim)
@@ -36,7 +37,8 @@ class CameraPoseVisualizer:
                             [vertex_transformed[1, :-1], vertex_transformed[2, :-1], vertex_transformed[3, :-1], vertex_transformed[4, :-1]]]
         self.ax.add_collection3d(
             Poly3DCollection(meshes, facecolors=color, linewidths=0.3, edgecolors=color, alpha=0.35))
-
+        
+        
     def customize_legend(self, list_label):
         list_handle = []
         for idx, label in enumerate(list_label):

@@ -1,6 +1,9 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+import open3d as o3d
+
+from lib.classes import Camera
 
 def draw_epip_lines(img0, img1, lines, pts0, pts1, fast_viz=True):
     ''' img0 - image on which we draw the epilines for the points in img2
@@ -46,7 +49,85 @@ def make_matching_plot(image0, image1, pts0, pts1, pts_col=(0,0,255), point_size
                    lineType=cv2.LINE_AA)
     if path is not None: 
         cv2.imwrite(path, out)
-        
+ 
+# TODO: decide where to put these functions for camera viz
+def make_camera_pyramid(camera: Camera, 
+                        color=[1., 0., 0.], 
+                        focal_len_scaled=5, 
+                        aspect_ratio=0.3
+                        ):
+    '''
+
+    Parameters
+    ----------
+    camera : Camera
+        DESCRIPTION.
+    color : TYPE, optional
+        DESCRIPTION. The default is 'r'.
+    focal_len_scaled : TYPE, optional
+        DESCRIPTION. The default is 5.
+    aspect_ratio : TYPE, optional
+        DESCRIPTION. The default is 0.3.
+
+    Returns
+    -------
+    o3d_line : TYPE
+        DESCRIPTION.
+
+    '''
+    # Build extrinsics matrix
+    extrinsic = np.eye(4)
+    extrinsic[0:3, 0:3] = camera.R.T 
+    extrinsic[0:3, 3:4] = camera.X0
+    vertexes = extrinsic2pyramid(extrinsic, focal_len_scaled, aspect_ratio)
+
+    # Build Open3D camera object
+    vertex_pcd = o3d.geometry.PointCloud() 
+    vertex_pcd.points = o3d.utility.Vector3dVector()
+    
+    lines = [[0, 1], [0, 2], [0, 3], [0,4],
+             [1,2], [2,3], [3,4], [4,1]] 
+    color = np.array(color, dtype='float32')
+    colors = [color for i in range(len(lines))] 
+    
+    cam_view_obj = o3d.geometry.LineSet()
+    cam_view_obj.lines = o3d.utility.Vector2iVector(lines)
+    cam_view_obj.colors = o3d.utility.Vector3dVector(colors)
+    cam_view_obj.points = o3d.utility.Vector3dVector(vertexes)  
+     
+    return cam_view_obj
+     
+def extrinsic2pyramid(extrinsic, focal_len_scaled=5, aspect_ratio=0.3):
+    #TODO: add description
+    '''Function  taken from https://github.com/demul/extrinsic2pyramid
+
+    Parameters
+    ----------
+    extrinsic : TYPE
+        DESCRIPTION.
+    color : TYPE, optional
+        DESCRIPTION. The default is 'r'.
+    focal_len_scaled : TYPE, optional
+        DESCRIPTION. The default is 5.
+    aspect_ratio : TYPE, optional
+        DESCRIPTION. The default is 0.3.
+
+    Returns
+    -------
+    None.
+
+    '''
+    vertex_std = np.array([[0, 0, 0, 1],
+                           [focal_len_scaled * aspect_ratio, -focal_len_scaled * aspect_ratio, focal_len_scaled, 1],
+                           [focal_len_scaled * aspect_ratio, focal_len_scaled * aspect_ratio, focal_len_scaled, 1],
+                           [-focal_len_scaled * aspect_ratio, focal_len_scaled * aspect_ratio, focal_len_scaled, 1],
+                           [-focal_len_scaled * aspect_ratio, -focal_len_scaled * aspect_ratio, focal_len_scaled, 1]],  
+                          dtype=np.float32)
+    vertex_transformed = vertex_std @ extrinsic.T
+    
+    return vertex_transformed[:,0:3]
+    
+
 # Darw features
 # img0 = images[1][0]
 # pt0 = features[1][epoch].get_keypoints()
