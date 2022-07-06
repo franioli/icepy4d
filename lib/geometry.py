@@ -78,7 +78,7 @@ def triangulate_nviews(P, ip):
     X = V[-1, :4]
     return X / X[3]
 
-def triangulate_points(P1, P2, x1, x2):
+def triangulate_points_linear(P1, P2, x1, x2):
     """
     Two-view triangulation of points in
     x1,x2np.array([[274.128, 624.409]]) (nx3 homog. coordinates).
