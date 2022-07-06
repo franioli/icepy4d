@@ -78,7 +78,7 @@ def make_camera_pyramid(camera: Camera,
     # Build extrinsics matrix
     extrinsic = np.eye(4)
     extrinsic[0:3, 0:3] = camera.R.T 
-    extrinsic[0:3, 3:4] = camera.X0
+    extrinsic[0:3, 3:4] = -np.dot(camera.R.T, camera.X0)
     vertexes = extrinsic2pyramid(extrinsic, focal_len_scaled, aspect_ratio)
 
     # Build Open3D camera object
