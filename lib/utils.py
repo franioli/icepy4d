@@ -31,6 +31,13 @@ def undistort_image(image, K, dist, downsample=1, out_path=None):
     if out_path is not None:
         cv2.imwrite(out_path, und)
     return und, K_scaled
+    # cam = 1
+    # image = images[cam][0]
+    # K, dist = cameras[cam][0].K, cameras[cam][0].dist
+    # image_und = cv2.undistort(image, K, dist, None, K)
+    # cv2.imwrite(images[cam].get_image_stem(0)+'_undistorted.tif', image_und)
+
+# cameras[cam][0].K
     
 def interpolate_point_colors(pointxyz, image, P, K=None, dist=None, winsz=1):
     ''''

@@ -55,3 +55,57 @@ def make_matching_plot(image0, image1, pts0, pts1, pts_col=(0,0,255), point_size
 # point_size=2
 # # img0_features = cv2.drawMarker(img0,tuple(pt0.astype(int)),color,cv2.MARKER_CROSS,3)
 # for (x0, y0) in pt0.astype(int):
+    
+    
+    
+
+# # Plot with OpenCV
+# cam = 0
+# i = 0
+# xy = targets.get_im_coord(cam)[i]
+# img = images[cam][i]
+# cv2.namedWindow(f'cam {cam}, epoch {i}', cv2.WINDOW_NORMAL)
+# color=(0,255,0)
+# point_size=2
+# img_target = cv2.drawMarker(img,tuple(xy.astype(int)),color,cv2.MARKER_CROSS,1)
+# cv2.imshow(f'cam {cam}, epoch {i}', img_target) 
+# cv2.waitKey()
+# cv2.destroyAllWindows()
+
+# #  Plot with matplotlib
+# cam = 1
+# i = 0
+# _plot_style = dict(markersize=5, markeredgewidth=2,
+#                    markerfacecolor='none', markeredgecolor='r',
+#                    marker='x', linestyle='none')
+# xy = targets.get_im_coord(cam)[i]
+# img = cv2.cvtColor(images[cam][i], cv2.COLOR_BGR2RGB)
+# fig, ax = plt.subplots()
+# ax.imshow(img) 
+# ax.plot(xy[0], xy[1], **_plot_style)
+    
+
+# x = np.arange(-10,10)
+# y = x**2
+
+# fig = plt.figure()
+# ax = fig.add_subplot(111)
+# ax.plot(x,y)
+
+# coords = []
+
+# def onclick(event):
+#     global ix, iy
+#     ix, iy = event.xdata, event.ydata
+#     print(f'x = {ix}, y = {iy}')
+
+#     global coords
+#     coords.append((ix, iy))
+
+#     if len(coords) == 2:
+#         fig.canvas.mpl_disconnect(cid)
+
+#     return coords
+# cid = fig.canvas.mpl_connect('button_press_event', onclick)
+
+    
