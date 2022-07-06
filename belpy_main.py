@@ -283,6 +283,7 @@ for epoch in epoches_to_process:
         targets.append_obj_cord(M)
     
         # Estimate rigid body transformation between first epoch RS and current epoch RS 
+        # TODO: make a Wrapper for this
         v0 = np.concatenate((cameras[cam0][0].X0, 
                              cameras[cam1][0].X0, 
                              targets.get_obj_coord()[0].reshape(3,1),
