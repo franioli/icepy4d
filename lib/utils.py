@@ -10,9 +10,28 @@ from pathlib import Path
 from PIL import Image
 
 from lib.geometry import project_points
-# from lib.classes import DSM
+from lib.classes import Camera
+
+def undistort_points(pts, camera: Camera):
+    ''' Wrapper around cv2.undistortPoints to simplify function calling
+    Parameters
+    ----------
+    pts : nx2 array of float32
+        Array of distorted image points.
+    camera : Camera object
+        Camera object containing K and dist arrays.
+
+    Returns
+    -------
+    pts : nx2 array of float32
+        Array of undistorted image points.
+    '''
+    pts_und = cv2.undistortPoints(pts, camera.K, camera.dist, 
+                                  None, camera.K)[:,0,:]                           
+    return pts_und.astype('float32')
 
 def normalize_and_und_points(pts, K=None, dist=None):
+    ''' Deprecated '''
     #TODO: Remove function and create better one...
     pts = cv2.undistortPoints(pts, K, dist)
     return pts
@@ -46,7 +65,7 @@ def interpolate_point_colors(pointxyz, image, P, K=None, dist=None, winsz=1):
        - Nx3 matrix with 3d world points coordinates
        - image as np.array in RGB channels 
            NB: if the image was impotred with OpenCV, it must be converted 
-           from BRG color space to RGB
+           from BGR color space to RGB
                cv2.cvtColor(image_und, cv2.COLOR_BGR2RGB)
        - camera interior and exterior orientation matrixes: K, R, t
        - distortion vector according to OpenCV
