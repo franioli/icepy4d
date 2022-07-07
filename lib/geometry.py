@@ -119,13 +119,13 @@ def make_P_homogeneous(P):
     P_hom[0:3, 0:3] = P
     return P_hom
 
-def X0_from_P(P):
+def C_from_P(P):
     """
     Compute camera perspective centre from 3x4 P matrix, as:
-        X0 = - inv(KR) * Kt 
+        C = - inv(KR) * Kt 
     """
-    X0 = -np.matmul(np.linalg.inv(P[:,0:3]),P[:,3]).reshape(3,1)
-    return X0
+    C = -np.matmul(np.linalg.inv(P[:,0:3]),P[:,3]).reshape(3,1)
+    return C
 
 
 def project_points(points3d, P, K=None, dist=None):
