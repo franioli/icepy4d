@@ -359,6 +359,7 @@ o3d.visualization.draw_geometries(pcd, window_name='All epoches',
 
 
 #%% Viz point cloud with cameras
+#TODO: make wrapper around point cloud plot with cameras
 cam_syms = []
 for cam in cam_names:
     cam_syms.append(make_camera_pyramid(cameras[cam][epoch], focal_len_scaled=30))
@@ -389,8 +390,8 @@ for cam in cam_names:
     cam_syms.append(make_camera_pyramid(cameras[cam][epoch], focal_len_scaled=30))
 o3d.visualization.draw_geometries([pcd[epoch], cam_syms[0], cam_syms[1]])
 
-
-
+from 
+cop
 #%% DSM 
 res = 0.03
 dsms = []
