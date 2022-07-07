@@ -128,6 +128,8 @@ def extrinsic2pyramid(extrinsic, focal_len_scaled=5, aspect_ratio=0.3):
     return vertex_transformed[:,0:3]
     
 
+
+
 # Darw features
 # img0 = images[1][0]
 # pt0 = features[1][epoch].get_keypoints()
