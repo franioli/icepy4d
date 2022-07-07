@@ -38,7 +38,11 @@ from lib.geometry import (P_from_KRT,
 class Camera:
     ''' Class to help manage Cameras. '''
 
-    def __init__(self, K=None, R=None, t=None, dist=None, calib_path=None):
+    def __init__(self, width=None, heigth=None, 
+                 K=None, dist=None,
+                 R=None, t=None, 
+                 calib_path=None
+                 ):
         ''' Initialize pinhole camera model '''
         #TODO: add checks on inputs
         # If not None, convert inputs to np array
@@ -51,7 +55,9 @@ class Camera:
         if dist is not None:
             dist = np.array(dist)   
         #TODO: add assertion to check that only K and dist OR calib_path is provided.
-             
+        
+        self.width = width
+        self.heigth = heigth
         self.K = K # calibration matrix
         self.dist = dist # Distortion vector in OpenCV format
         self.R = R # rotation
