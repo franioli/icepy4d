@@ -31,8 +31,8 @@ import os
 from pathlib import Path
 import pickle
 
-from lib.geometry import (P_from_KRT, X0_from_P)
-# from geometry import (P_from_KRT, X0_from_P)
+from lib.geometry import (P_from_KRT, C_from_P)
+# from geometry import (P_from_KRT, C_from_P)
 
 #--- Camera ---#
 class Camera:
@@ -53,11 +53,13 @@ class Camera:
         #TODO: add assertion to check that only K and dist OR calib_path is provided.
              
         self.K = K # calibration matrix
+        self.dist = dist # Distortion vector in OpenCV format
         self.R = R # rotation
         self.t = t # translation
         self.P = None
-        self.X0 = None # camera center
-        self.dist = dist # Distortion vector in OpenCV format
+        self.C = None # camera center
+        self.pose = None
+        self.extrinsics = None
         
         # If calib_path is provided, read camera calibration from file 
         if calib_path is not None:
@@ -66,35 +68,116 @@ class Camera:
         if R is None and t is None: 
             self.reset_EO()
             self.compose_P()
-            self.camera_center()
+            self.C_from_P()
             
     def reset_EO(self):
         ''' Reset camera EO as to make camera reference system parallel to world reference system '''
         self.R = np.identity(3)
         self.t = np.zeros((3,)).reshape(3,1)
         self.P = P_from_KRT(self.K, self.R, self.t)
-        self.X0 = X0_from_P(self.P)
-        
-    def camera_center(self):        
+        self.C_from_P()
+        # self.C = C_from_P(self.P)
+   
+    
+    def build_block_matrix(self, mat):
+        # TODO: add description
         ''' 
-        Compute and return the camera center as
-        X0 = [ - inv(KR) * Kt ] = [ -inv(P[1:3]) * P[4] ]
+    
         '''
-        # if self.X0 is not None:
-        #     return self.X0
-        # else:
-        self.X0 = -np.dot(np.linalg.inv(self.P[:,0:3]), self.P[:,3].reshape(3,1) )
-        return self.X0
+        if mat.shape[1] == 3:
+            block = np.block([[mat, np.zeros((3,1))], 
+                              [np.zeros((1,3)), 1]]
+                              )
+        elif mat.shape[1] == 1:
+            block = np.block([[np.eye(3), mat], 
+                              [np.zeros((1,3)), 1]]
+                              )     
+        else:
+            print('Error: unknown input matrix dimensions.')
+            return None
+            
+      
+        return block
+    
+    def Rt_to_extrinsics(self):        
+        ''' 
+        [ R | t ]    [ I | t ]   [ R | 0 ]
+        | --|-- |  = | --|-- | * | --|-- |  
+        [ 0 | 1 ]    [ 0 | 1 ]   [ 0 | 1 ]
+        '''       
+        # t = np.block([[np.eye(3), self.t], 
+        #               [np.zeros((1,3)), 1]]
+        #              )
+        # R = np.block([[self.R, np.zeros((3,1))],
+        #               [np.zeros((1,3)), 1]]
+        #              )
+        R_block = self.build_block_matrix(self.R)
+        t_block = self.build_block_matrix(self.t)
         
-    def t_from_R_and_X0(self):        
+        self.extrinsics = np.dot(t_block, R_block)
+        
+        return self.extrinsics
+        
+    
+    def extrinsics_to_pose(self):        
+        ''' 
+        '''
+        if self.extrinsics is None:
+            self.Rt_to_extrinsics()
+        
+        R = self.extrinsics[0:3,0:3]
+        t = self.extrinsics[0:3,3:4]
+        
+        Rc = R.T
+        C = -np.dot(Rc, t)       
+        
+        Rc_block = self.build_block_matrix(Rc)
+        C_block = self.build_block_matrix(C)
+
+        self.pose = np.dot(C_block, Rc_block)
+
+        return self.pose
+        
+    def pose_to_extrinsics(self):        
+        ''' 
+       
+        '''
+        if self.pose is None:
+            print('Camera pose not available. Compute it first.' )
+            return None
+        else: 
+            Rc = self.pose[0:3,0:3]
+            C = self.pose[0:3,3:4]
+            
+            R = Rc.T
+            t = -np.dot(R, C)
+            
+            t_block = self.build_block_matrix(t)
+            R_block = self.build_block_matrix(R)
+            self.extrinsics = np.dot(t_block, R_block)
+            
+            return self.extrinsics
+     
+    def C_from_P(self):        
+        ''' 
+        Compute and return the camera center from projection matrix P, as
+        C = [ - inv(KR) * Kt ] = [ -inv(P[1:3]) * P[4] ]
+        '''
+        # if self.C is not None:
+        #     return self.C
+        # else:
+        self.C = -np.dot(np.linalg.inv(self.P[:,0:3]), self.P[:,3].reshape(3,1) )
+        return self.C
+        
+    def t_from_RC(self):        
         ''' 
         Compute and return the camera translation vector t, given the camera 
         centre and the roation matrix X, as
-        t = [ -R * X0 ] 
+        t = [ -R * C ] 
         The relation is derived from the formula of the camera centre
-        X0 = [ - inv(KR) * Kt ]
+        C = [ - inv(KR) * Kt ]
         '''
-        self.t = -np.dot(self.R, self.X0)
+        self.t = -np.dot(self.R, self.C)
         self.compose_P()
         return self.t        
     
