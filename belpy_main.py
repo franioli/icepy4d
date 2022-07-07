@@ -427,27 +427,41 @@ o3d.visualization.draw_geometries([pcd[epoch], cam_syms[0], cam_syms[1]])
 
 
 #%% DSM 
+print('DSM and orthophoto generation started')
 res = 0.03
 dsms = []
+ortofoto = dict.fromkeys(cam_names)
+ortofoto[cam0], ortofoto[cam1] = [], []
+
 for epoch in epoches_to_process:
+    print(f'Epoch {epoch}')
     dsms.append(build_dsm(np.asarray(pcd[epoch].points), 
                             dsm_step=res, 
                             make_dsm_plot=False, 
                             save_path=f'sfm/dsm_approx_epoch_{epoch}.tif'
                             ))
-print('DSM generated for all the epoches')
+    print('DSM built.')
+    for cam in cam_names:
+        ortofoto[cam].append(generate_ortophoto(cv2.cvtColor(images[cam][epoch], cv2.COLOR_BGR2RGB),
+                                                dsms[epoch], cameras[cam][epoch],
+                                                save_path=f'sfm/ortofoto_approx_cam_{cam}_epc_{epoch}.tif',
+                                                ))
+    print('Orthophotos built.')
+    
+    
+# print('DSM generated for all the epoches')
 #TODO: implement better DSM class
 
 # Generate Ortophotos 
-epoch = 0
-ortofoto = []
-for cam in cam_names:
-    ortofoto.append(generate_ortophoto(cv2.cvtColor(images[cam][epoch], cv2.COLOR_BGR2RGB),
-                                      dsms[epoch], cameras[cam][epoch],
-                                      save_path=f'sfm/ortofoto_approx_cam_{cam}_epc_{epoch}.tif',
-                                      ))
-fig, ax = plt.subplots()
-ax.imshow(ortofoto[1])
+# epoch = 0
+# ortofoto = []
+# for cam in cam_names:
+#     ortofoto.append(generate_ortophoto(cv2.cvtColor(images[cam][epoch], cv2.COLOR_BGR2RGB),
+#                                       dsms[epoch], cameras[cam][epoch],
+#                                       save_path=f'sfm/ortofoto_approx_cam_{cam}_epc_{epoch}.tif',
+#                                       ))
+# fig, ax = plt.subplots()
+# ax.imshow(ortofoto[1])
 
 
 #%% DENSE MATCHING
