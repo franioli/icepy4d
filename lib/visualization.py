@@ -75,11 +75,11 @@ def make_camera_pyramid(camera: Camera,
         DESCRIPTION.
 
     '''
-    # Build extrinsics matrix
-    extrinsic = np.eye(4)
-    extrinsic[0:3, 0:3] = camera.R.T 
-    extrinsic[0:3, 3:4] = -np.dot(camera.R.T, camera.X0)
-    vertexes = extrinsic2pyramid(extrinsic, focal_len_scaled, aspect_ratio)
+    # Check if camera pose is available, otherwise build it.
+    if camera.pose is None:
+        camera.Rt_to_extrinsics()
+        camera.extrinsics_to_pose()
+    vertexes = pose2pyramid(camera.pose, focal_len_scaled, aspect_ratio)
 
     # Build Open3D camera object
     vertex_pcd = o3d.geometry.PointCloud() 
@@ -96,10 +96,15 @@ def make_camera_pyramid(camera: Camera,
     cam_view_obj.points = o3d.utility.Vector3dVector(vertexes)  
      
     return cam_view_obj
+
+# def extrinsics_from_pose(camera: Camera): 
+    
+    # extrinsics = np.dot(camera.R 
+    
      
-def extrinsic2pyramid(extrinsic, focal_len_scaled=5, aspect_ratio=0.3):
+def pose2pyramid(camera_pose, focal_len_scaled=5, aspect_ratio=0.3):
     #TODO: add description
-    '''Function  taken from https://github.com/demul/extrinsic2pyramid
+    '''Function inspired from https://github.com/demul/extrinsic2pyramid
 
     Parameters
     ----------
@@ -123,7 +128,7 @@ def extrinsic2pyramid(extrinsic, focal_len_scaled=5, aspect_ratio=0.3):
                            [-focal_len_scaled * aspect_ratio, focal_len_scaled * aspect_ratio, focal_len_scaled, 1],
                            [-focal_len_scaled * aspect_ratio, -focal_len_scaled * aspect_ratio, focal_len_scaled, 1]],  
                           dtype=np.float32)
-    vertex_transformed = vertex_std @ extrinsic.T
+    vertex_transformed = vertex_std @ camera_pose.T
     
     return vertex_transformed[:,0:3]
     

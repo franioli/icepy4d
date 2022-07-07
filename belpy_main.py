@@ -78,7 +78,7 @@ find_matches = False
 
 # Epoches to process
 # It can be 'all' for processing all the epochs or a list with the epoches to be processed
-epoches_to_process = [x for x in range(13)] #'all' # 
+epoches_to_process =  [0] #[x for x in range(8)] #'all' # 
 
 #--- Perform matching and tracking ---# 
 
@@ -95,7 +95,7 @@ points3d = [] # List for storing 3D points
 for jj, cam in enumerate(cam_names):
     images[cam] = Imageds(os.path.join(rootDirPath, imFld, cam))
 
-# Check that number of images is the same for each camera
+# Check that number of images is the same for every camera
 if len(images[cam1]) is not len(images[cam0]):
     print('Error: different number of images per camera')
     raise SystemExit(0)
@@ -118,7 +118,7 @@ if find_matches:
 
         #=== Find Matches at current epoch ===#
         print(f'Run Superglue to find matches at epoch {epoch}')    
-        epochdir = os.path.join('res','epoch_'+str(epoch))      
+        epochdir = os.path.join('res',f'epoch_{epoch}')      
         with open(matching_config,) as f:
             opt_matching = json.load(f)
         opt_matching['output_dir'] = epochdir
@@ -142,7 +142,7 @@ if find_matches:
         if epoch > 0:
             print(f'Track points from epoch {epoch-1} to epoch {epoch}')
             
-            trackoutdir = os.path.join('res','epoch_'+str(epoch), 'from_t'+str(epoch-1))
+            trackoutdir = os.path.join('res',f'epoch_{epoch}', f'from_t{epoch-1}')
             with open(tracking_config,) as f:
                 opt_tracking = json.load(f)
             opt_tracking['output_dir'] = trackoutdir
@@ -185,10 +185,13 @@ if find_matches:
             features[cam][epoch].save_as_txt(os.path.join(epochdir, im_stems[jj]+'_mktps.txt'))
         with open(os.path.join(epochdir, im_stems[0]+'_'+im_stems[1]+'_features.pickle'), 'wb') as f:
             pickle.dump(features, f, protocol=pickle.HIGHEST_PROTOCOL)
+        with open(os.path.join('res/last_epoch_feattures.pickle'), 'wb') as f:
+            pickle.dump(features, f, protocol=pickle.HIGHEST_PROTOCOL)
     print('Matching completed')
 
 elif not features[cam0]: 
-    last_match_path = 'res/epoch_13/IMG_0552_IMG_2163_features.pickle'
+    # last_match_path = 'res/epoch_13/IMG_0552_IMG_2163_features.pickle' 
+    last_match_path =  'res/last_epoch/last_epoch_features.pickle'
     with open(last_match_path, 'rb') as f:
         features = pickle.load(f)
         print("Loaded previous matches")
@@ -231,9 +234,9 @@ targets = Targets(cam_id=[0,1],  im_coord_path=target_paths)
 
 # Camera baseline
 # TODO: put in a json file for general configuration
-X01_meta = np.array([416651.5248,5091109.9121,1858.9084])   # IMG_2092
-X02_meta = np.array([416622.2755,5091364.5071,1902.4053])   # IMG_0481
-camWorldBaseline = np.linalg.norm(X01_meta - X02_meta)      # [m] From Metashape model in July
+C1_meta = np.array([416651.5248,5091109.9121,1858.9084])   # IMG_2092
+C2_meta = np.array([416622.2755,5091364.5071,1902.4053])   # IMG_0481
+camWorldBaseline = np.linalg.norm(C1_meta - C2_meta)      # [m] From Metashape model in July
 
 #--- SfM ---#
 for epoch in epoches_to_process:
@@ -258,15 +261,15 @@ for epoch in epoches_to_process:
     cameras[cam1][epoch].R = R
     cameras[cam1][epoch].t = t.reshape(3,1)
     cameras[cam1][epoch].compose_P()
-    cameras[cam1][epoch].camera_center()
+    cameras[cam1][epoch].C_from_P()
         
     # Scale model by using camera baseline
-    camRelOriBaseline = np.linalg.norm(cameras[cam0][epoch].X0 - cameras[cam1][epoch].X0)
+    camRelOriBaseline = np.linalg.norm(cameras[cam0][epoch].C - cameras[cam1][epoch].C)
     scaleFct = camWorldBaseline / camRelOriBaseline
     
     # Update Camera EO
-    cameras[cam1][epoch].X0 = cameras[cam1][epoch].X0 * scaleFct
-    cameras[cam1][epoch].t_from_R_and_X0()
+    cameras[cam1][epoch].C = cameras[cam1][epoch].C * scaleFct
+    cameras[cam1][epoch].t_from_RC()
     
     if do_coregistration:
         # Triangulate targets
@@ -284,12 +287,12 @@ for epoch in epoches_to_process:
     
         # Estimate rigid body transformation between first epoch RS and current epoch RS 
         # TODO: make a Wrapper for this
-        v0 = np.concatenate((cameras[cam0][0].X0, 
-                             cameras[cam1][0].X0, 
+        v0 = np.concatenate((cameras[cam0][0].C, 
+                             cameras[cam1][0].C, 
                              targets.get_obj_coord()[0].reshape(3,1),
                              ), axis = 1)
-        v1 = np.concatenate((cameras[cam0][epoch].X0,
-                             cameras[cam1][epoch].X0, 
+        v1 = np.concatenate((cameras[cam0][epoch].C,
+                             cameras[cam1][epoch].C, 
                              targets.get_obj_coord()[epoch].reshape(3,1),
                              ), axis = 1)
         tform.append(affine_matrix_from_points(v1, v0, shear=False, scale=False, usesvd=True))
@@ -342,8 +345,11 @@ for epoch in epoches_to_process:
     
     # Visualize point cloud    
     if do_viz:
-        win_name = f'Sparse point cloud - Epoch: {epoch} - Num pts: {len(np.asarray(pcd[epoch].points))}'
-        o3d.visualization.draw_geometries([pcd_epc], window_name=win_name, 
+        cam_syms = []
+        for cam in cam_names:
+            cam_syms.append(make_camera_pyramid(cameras[cam][epoch], focal_len_scaled=30))
+        win_name = f'Sparse point cloud - Epoch: {epoch} - Num pts: {len(np.asarray(pcd_epc.points))}'
+        o3d.visualization.draw_geometries([pcd_epc,  cam_syms[0], cam_syms[1]], window_name=win_name, 
                                           width=1280, height=720, 
                                           left=300, top=200)    
     # Write point cloud to disk and store it in Point Cloud List     
@@ -360,9 +366,14 @@ o3d.visualization.draw_geometries(pcd, window_name='All epoches',
 
 #%% Viz point cloud with cameras
 #TODO: make wrapper around point cloud plot with cameras
+epoch = 0
 cam_syms = []
-for cam in cam_names:
-    cam_syms.append(make_camera_pyramid(cameras[cam][epoch], focal_len_scaled=30))
+cam_colors = [[1,0,0],[0,0,1]]
+for i, cam in enumerate(cam_names):
+    cam_syms.append(make_camera_pyramid(cameras[cam][epoch], 
+                                        cam_colors[i],
+                                        focal_len_scaled=30,
+                                        ) )
 o3d.visualization.draw_geometries([pcd[epoch], cam_syms[0], cam_syms[1]])
 
 
@@ -382,7 +393,7 @@ if rotate_RS:
         cameras[cam][epoch].R = np.dot(Rx, cameras[cam][epoch].R)
         cameras[cam][epoch].t = np.dot(Rx, cameras[cam][epoch].t)
         cameras[cam][epoch].compose_P()
-        cameras[cam][epoch].camera_center() 
+        cameras[cam][epoch].C_from_P() 
     print('Reference system rotated by 180 degrees around X axis')
     
 cam_syms = []
@@ -390,8 +401,7 @@ for cam in cam_names:
     cam_syms.append(make_camera_pyramid(cameras[cam][epoch], focal_len_scaled=30))
 o3d.visualization.draw_geometries([pcd[epoch], cam_syms[0], cam_syms[1]])
 
-from 
-cop
+
 #%% DSM 
 res = 0.03
 dsms = []
