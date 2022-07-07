@@ -11,7 +11,7 @@ from PIL import Image
 
 from lib.geometry import project_points
 from lib.classes import Camera
-
+from lib.misc import create_directory
 
 def undistort_points(pts, camera: Camera):
     ''' Wrapper around OpenCV cv2.undistortPoints to simplify function calling
@@ -292,7 +292,7 @@ def build_dsm(points3d, dsm_step=1, xlim=None, ylim=None,
     # Save dsm as GeoTIff
     rater_origin = [grid_x[0,0], grid_y[0,0]]
     transform = Affine.translation(rater_origin[0], rater_origin[1]) \
-                                   * Affine.scale(dsm_step, dsm_step)
+                                   * Affine.scale(dsm_step, -dsm_step)
     with rasterio.open(
                         save_path, 'w',
                         driver='GTiff', 
@@ -316,6 +316,8 @@ def generate_ortophoto(image, dsm, camera, res=None, save_path=None):
     yy = dsm.y
     zz = dsm.z
     
+    import pdb; pdb.set_trace()
+
     if res is None:
         res = dsm.res
     
@@ -337,14 +339,14 @@ def generate_ortophoto(image, dsm, camera, res=None, save_path=None):
     ortophoto[:,:,1] = cols[:,1].reshape(dsm_shape[0], dsm_shape[1])
     ortophoto[:,:,2] = cols[:,2].reshape(dsm_shape[0], dsm_shape[1])
     ortophoto = np.uint8(ortophoto*255)
-    
-    # import pdb; pdb.set_trace()
-    
+        
     # Save dsm as GeoTIff
     if save_path is not None:
+        save_path = Path(save_path)
+        create_directory(save_path.parent)
         rater_origin = [xx[0,0], yy[0,0]]
         transform = Affine.translation(rater_origin[0], rater_origin[1]) \
-                                       * Affine.scale(res, res)
+                                       * Affine.scale(res, -res)
         with rasterio.open(
                             save_path, 'w',
                             driver='GTiff', 

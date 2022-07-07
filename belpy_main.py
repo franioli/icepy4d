@@ -46,6 +46,7 @@ from lib.visualization import (draw_epip_lines, make_matching_plot, make_camera_
 from lib.point_clouds import (create_point_cloud, display_pc_inliers, write_ply)
 from lib.misc import (convert_to_homogeneous, 
                       convert_from_homogeneous,
+                      create_directory,
                       )
 
 from lib.thirdParts.triangulation import (linear_LS_triangulation, iterative_LS_triangulation)
@@ -54,9 +55,7 @@ from lib.thirdParts.camera_pose_visualizer import CameraPoseVisualizer
 
 #---  Parameters  ---#
 # TODO: put parameters in parser or in json file
-
-#TODO: use Pathlib instead of strings and os
-rootDirPath = '.'
+# TODO: use Pathlib instead of strings and os
 
 #- Folders and paths
 imFld = 'data/img'
@@ -64,6 +63,7 @@ imExt = '.tif'
 calibFld = 'data/calib'
 matching_config = 'config/opt_matching.json'
 tracking_config = 'config/opt_tracking.json'
+res_folder = 'res' 
 
 #- CAMERAS
 numCams = 2
@@ -78,7 +78,7 @@ find_matches = False
 
 # Epoches to process
 # It can be 'all' for processing all the epochs or a list with the epoches to be processed
-epoches_to_process =  [x for x in range(8)] #'all' # 
+epoches_to_process = [x for x in range(5)] # 'all' # 
 
 #--- Perform matching and tracking ---# 
 
@@ -93,7 +93,7 @@ points3d = [] # List for storing 3D points
 
 #- Create Image Datastore objects
 for jj, cam in enumerate(cam_names):
-    images[cam] = Imageds(os.path.join(rootDirPath, imFld, cam))
+    images[cam] = Imageds(Path(imFld) / cam)
 
 # Check that number of images is the same for every camera
 if len(images[cam1]) is not len(images[cam0]):
@@ -118,7 +118,7 @@ if find_matches:
 
         #=== Find Matches at current epoch ===#
         print(f'Run Superglue to find matches at epoch {epoch}')    
-        epochdir = os.path.join('res',f'epoch_{epoch}')      
+        epochdir = Path(res_folder) / f'epoch_{epoch}'     
         with open(matching_config,) as f:
             opt_matching = json.load(f)
         opt_matching['output_dir'] = epochdir
@@ -142,7 +142,7 @@ if find_matches:
         if epoch > 0:
             print(f'Track points from epoch {epoch-1} to epoch {epoch}')
             
-            trackoutdir = os.path.join('res',f'epoch_{epoch}', f'from_t{epoch-1}')
+            trackoutdir = epochdir / f'from_t{epoch-1}'
             with open(tracking_config,) as f:
                 opt_tracking = json.load(f)
             opt_tracking['output_dir'] = trackoutdir
@@ -182,15 +182,15 @@ if find_matches:
         # Write matched points to disk   
         im_stems = images[cam0].get_image_stem(epoch), images[cam1].get_image_stem(epoch)
         for jj, cam in enumerate(cam_names):
-            features[cam][epoch].save_as_txt(os.path.join(epochdir, im_stems[jj]+'_mktps.txt'))
-        with open(os.path.join(epochdir, im_stems[0]+'_'+im_stems[1]+'_features.pickle'), 'wb') as f:
+            features[cam][epoch].save_as_txt(epochdir / f'{im_stems[jj]}_mktps.txt')
+        with open(epochdir / f'{im_stems[0]}_{im_stems[1]}_features.pickle', 'wb') as f:
             pickle.dump(features, f, protocol=pickle.HIGHEST_PROTOCOL)
-        with open(os.path.join('res/last_epoch_feattures.pickle'), 'wb') as f:
+        last_match_path = create_directory('res/last_epoch')
+        with open(last_match_path / 'last_epoch_features.pickle', 'wb') as f:
             pickle.dump(features, f, protocol=pickle.HIGHEST_PROTOCOL)
     print('Matching completed')
 
 elif not features[cam0]: 
-    # last_match_path = 'res/epoch_13/IMG_0552_IMG_2163_features.pickle' 
     last_match_path =  'res/last_epoch/last_epoch_features.pickle'
     with open(last_match_path, 'rb') as f:
         features = pickle.load(f)
@@ -226,8 +226,8 @@ h, w, _ = img0.shape
 # Build reference camera objects with only known interior orientation
 ref_cams = dict.fromkeys(cam_names) 
 for jj, cam in enumerate(cam_names):
-    calib_path = os.path.join(rootDirPath, calibFld, cam+'.txt')
-    ref_cams[cam] = Camera(calib_path = calib_path)
+    ref_cams[cam] = Camera(width=6000, heigth=400,
+        calib_path = Path(calibFld) / f'{cam}.txt')
    
 # Read target image coordinates
 targets = Targets(cam_id=[0,1],  im_coord_path=target_paths)
@@ -246,7 +246,11 @@ for epoch in epoches_to_process:
     # Initialize Intrinsics
     #TODO: replace append with insert or a more robust data structure...
     for cam in cam_names: 
-        cameras[cam].append(Camera(K=ref_cams[cam].K, dist=ref_cams[cam].dist))
+        cameras[cam].append(Camera(width=ref_cams[cam].width, 
+                                   heigth=ref_cams[cam].heigth,
+                                   K=ref_cams[cam].K, 
+                                   dist=ref_cams[cam].dist,
+                                   ))
           
     # Estimate Realtive Pose with Essential Matrix
     pts0, pts1 = features[cam0][epoch].get_keypoints(), features[cam1][epoch].get_keypoints()
@@ -304,12 +308,14 @@ for epoch in epoches_to_process:
                              targets.get_obj_coord()[epoch].reshape(3,1),
                              ), axis = 1)
         tform.append(affine_matrix_from_points(v1, v0, shear=False, scale=False, usesvd=True))
+        print('Point cloud coregistered based on {len(v0)} points.')
         
     elif epoch > 0:
         # Fix the EO of both the cameras as those estimated in the first epoch
         for cam in cam_names:
             cameras[cam][epoch] =  cameras[cam][0]
-    
+        print('Camera exterior orientation fixed to that of the master cameras.')
+            
     #--- Triangulate Points ---#
     #TODO: test differences between using LS iterative or linear with SVD
     #TODO: put in a separate function which includes undistortion and then triangulation
@@ -322,7 +328,7 @@ for epoch in epoches_to_process:
     points3d, status = iterative_LS_triangulation(pts0_und, cameras[cam0][epoch].P,  
                                                   pts1_und, cameras[cam1][epoch].P,
                                                   )
-    print(f'Point triangulation succeded: {status.sum()/status.size}')
+    print(f'Point triangulation succeded: {status.sum()/status.size}.')
 
     # Interpolate colors from image 
     jj = 1
@@ -371,10 +377,30 @@ for epoch in epoches_to_process:
     print('Done.')
         
 # Visualize all points clouds together
-o3d.visualization.draw_geometries(pcd, window_name='All epoches', 
-                                    width=1280, height=720, 
-                                    left=300, top=200)
+o3d.visualization.draw_geometries([pcd[0]], 
+                                   window_name='All epoches', 
+                                   width=1280, height=720, 
+                                   left=300, top=200,
+                                  )
 
+
+#%% 
+# vis = o3d.visualization.VisualizerWithKeyCallback()
+# vis.create_window()
+# vis.get_render_option().background_color = np.asarray([0.4, 0.4, 0.4])
+# view_ctl = vis.get_view_control()
+# vis.add_geometry(pcd[0])
+
+# Rx = o3d.geometry.Geometry3D.get_rotation_matrix_from_axis_angle(np.array([1., 0., 0.], 
+#                                                                           dtype='float64')*np.pi)
+# T = np.eye(4)
+# T[0:3,0:3] = Rx 
+# pose = T @ cameras[cam0][0].pose
+# cam = view_ctl.convert_to_pinhole_camera_parameters()
+# cam.extrinsic = pose # where T is your matrix
+# view_ctl.convert_from_pinhole_camera_parameters(cam)
+# vis.run()
+# vis.destroy_window()
 
 #%% Viz point cloud with cameras
 #TODO: make wrapper around point cloud plot with cameras
@@ -386,44 +412,56 @@ o3d.visualization.draw_geometries(pcd, window_name='All epoches',
 #                                         cam_colors[i],
 #                                         focal_len_scaled=30,
 #                                         ) )
+# # o3d.visualization.draw_geometries([pcd[epoch], cam_syms[0], cam_syms[1]])
+
+
+# viewer = o3d.visualization.Visualizer()
+# viewer.create_window()
+# viewer.add_geometry(pcd[epoch])
+# # for geometry in geometries:
+# #     viewer.add_geometry(geometry)
+# opt = viewer.get_render_option()
+# opt.show_coordinate_frame = True
+# opt.background_color = np.asarray([0.2, 0.2, 0.2])
+# viewer.run()
+# viewer.destroy_window()
+
+#%% Rotating RS
+# epoch = 0
+# c0, c1 = cameras[cam0][epoch], cameras[cam1][epoch]
+
+# # Perform rotation of 180deg around X axis   
+# if rotate_RS:
+#     ang = np.pi
+#     Rx = o3d.geometry.Geometry3D.get_rotation_matrix_from_axis_angle(np.array([1., 0., 0.], 
+#                                                                               dtype='float64')*ang)
+#     # Rotate point clouds
+#     pcd[epoch].rotate(Rx)
+    
+#     # Rotatate Cameras and update projection matrixes
+#     T = np.eye(4)
+#     T[0:3,0:3] = Rx 
+#     c0.extrinsics = T @ c0.extrinsics
+#     c0.update_camera_from_extrinsics()
+#     c1.extrinsics = T @ c1.extrinsics
+#     c1.update_camera_from_extrinsics()
+    
+#     # for cam in cam_names:
+#         # cameras[cam][epoch].R = np.dot(Rx, cameras[cam][epoch].R)
+#         # cameras[cam][epoch].t = np.dot(Rx, cameras[cam][epoch].t)
+#         # cameras[cam][epoch].compose_P()
+#         # cameras[cam][epoch].C_from_P() 
+#     print('Reference system rotated by 180 degrees around X axis')
+    
+# cam_syms = []
+# cam_colors = [[1,0,0],[0,0,1]]
+# for i, cam in enumerate(cam_names):
+#     cam_syms.append(make_camera_pyramid(cameras[cam][epoch],
+#                                         color=cam_colors[i],
+#                                         focal_len_scaled=30,
+#                                         ))
 # o3d.visualization.draw_geometries([pcd[epoch], cam_syms[0], cam_syms[1]])
 
-
-#%%
-epoch = 0
-c0, c1 = cameras[cam0][epoch], cameras[cam1][epoch]
-
-# Perform rotation of 180deg around X axis   
-if rotate_RS:
-    ang = np.pi
-    Rx = o3d.geometry.Geometry3D.get_rotation_matrix_from_axis_angle(np.array([1., 0., 0.], 
-                                                                              dtype='float64')*ang)
-    # Rotate point clouds
-    pcd[epoch].rotate(Rx)
-    
-    # Rotatate Cameras and update projection matrixes
-    T = np.eye(4)
-    T[0:3,0:3] = Rx 
-    c0.extrinsics = T @ c0.extrinsics
-    c0.update_camera_from_extrinsics()
-    c1.extrinsics = T @ c1.extrinsics
-    c1.update_camera_from_extrinsics()
-    
-    # for cam in cam_names:
-        # cameras[cam][epoch].R = np.dot(Rx, cameras[cam][epoch].R)
-        # cameras[cam][epoch].t = np.dot(Rx, cameras[cam][epoch].t)
-        # cameras[cam][epoch].compose_P()
-        # cameras[cam][epoch].C_from_P() 
-    print('Reference system rotated by 180 degrees around X axis')
-    
-cam_syms = []
-cam_colors = [[1,0,0],[0,0,1]]
-for i, cam in enumerate(cam_names):
-    cam_syms.append(make_camera_pyramid(cameras[cam][epoch],
-                                        color=cam_colors[i],
-                                        focal_len_scaled=30,
-                                        ))
-o3d.visualization.draw_geometries([pcd[epoch], cam_syms[0], cam_syms[1]])
 
 
 #%% DSM 
@@ -438,13 +476,14 @@ for epoch in epoches_to_process:
     dsms.append(build_dsm(np.asarray(pcd[epoch].points), 
                             dsm_step=res, 
                             make_dsm_plot=False, 
-                            save_path=f'sfm/dsm_approx_epoch_{epoch}.tif'
+                            save_path=f'res/dsm/dsm_app_epoch_{epoch}.tif'
                             ))
     print('DSM built.')
     for cam in cam_names:
+        fout_name = f'res/ortofoto/ortofoto_app_cam_{cam}_epc_{epoch}.tif'
         ortofoto[cam].append(generate_ortophoto(cv2.cvtColor(images[cam][epoch], cv2.COLOR_BGR2RGB),
                                                 dsms[epoch], cameras[cam][epoch],
-                                                save_path=f'sfm/ortofoto_approx_cam_{cam}_epc_{epoch}.tif',
+                                                save_path=fout_name,
                                                 ))
     print('Orthophotos built.')
     
