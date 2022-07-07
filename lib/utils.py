@@ -104,10 +104,11 @@ def interpolate_point_colors(pointxyz, image, P, K=None, dist=None, winsz=1):
     image = image.astype(np.float32) / 255.
     
     for ch in range(image.shape[2]):
-        col[:,ch] = bilinear_interpolate(image[:,:,0], 
+        col[:,ch] = bilinear_interpolate(image[:,:,ch], 
                                          projections[:,0], 
                                          projections[:,1],
                                          )
+    # import pdb; pdb.set_trace()
     return col
 
 
@@ -153,7 +154,7 @@ def bilinear_interpolate(im, x, y):
     
 
 def interpolate_point_colors_interp2d(pointxyz, image, P, K=None, dist=None, winsz=1):
-    '''' Deprecated (too slow)
+    '''' Deprecated function (too slow)
     Interpolate color of a 3D sparse point cloud, given an oriented image
       Inputs:  
        - Nx3 matrix with 3d world points coordinates
@@ -336,6 +337,8 @@ def generate_ortophoto(image, dsm, camera, res=None, save_path=None):
     ortophoto[:,:,1] = cols[:,1].reshape(dsm_shape[0], dsm_shape[1])
     ortophoto[:,:,2] = cols[:,2].reshape(dsm_shape[0], dsm_shape[1])
     ortophoto = np.uint8(ortophoto*255)
+    
+    # import pdb; pdb.set_trace()
     
     # Save dsm as GeoTIff
     if save_path is not None:

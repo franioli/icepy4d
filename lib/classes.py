@@ -21,17 +21,17 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '''
-
-import numpy as np
-
-import numpy as np
-from scipy import linalg
-import cv2 
 import os
-from pathlib import Path
+import cv2 
 import pickle
+import numpy as np
 
-from lib.geometry import (P_from_KRT, C_from_P)
+from scipy import linalg
+from pathlib import Path
+
+from lib.geometry import (P_from_KRT, 
+                          # C_from_P
+                          )
 # from geometry import (P_from_KRT, C_from_P)
 
 #--- Camera ---#
@@ -67,38 +67,20 @@ class Camera:
         
         if R is None and t is None: 
             self.reset_EO()
-            self.compose_P()
-            self.C_from_P()
+            # self.compose_P()
+            # self.C_from_P()
             
     def reset_EO(self):
         ''' Reset camera EO as to make camera reference system parallel to world reference system '''
-        self.R = np.identity(3)
-        self.t = np.zeros((3,)).reshape(3,1)
-        self.P = P_from_KRT(self.K, self.R, self.t)
+        self.extrinsics = np.eye(4)
+        self.update_camera_from_extrinsics()
+        self.extrinsics_to_pose()
         self.C_from_P()
-        # self.C = C_from_P(self.P)
-   
-    
-    def build_block_matrix(self, mat):
-        # TODO: add description
-        ''' 
-    
-        '''
-        if mat.shape[1] == 3:
-            block = np.block([[mat, np.zeros((3,1))], 
-                              [np.zeros((1,3)), 1]]
-                              )
-        elif mat.shape[1] == 1:
-            block = np.block([[np.eye(3), mat], 
-                              [np.zeros((1,3)), 1]]
-                              )     
-        else:
-            print('Error: unknown input matrix dimensions.')
-            return None
-            
+        # self.R = np.identity(3)
+        # self.t = np.zeros((3,)).reshape(3,1)
+        # self.P = P_from_KRT(self.K, self.R, self.t)
+        # self.C_from_P()
       
-        return block
-    
     def Rt_to_extrinsics(self):        
         ''' 
         [ R | t ]    [ I | t ]   [ R | 0 ]
@@ -118,7 +100,6 @@ class Camera:
         
         return self.extrinsics
         
-    
     def extrinsics_to_pose(self):        
         ''' 
         '''
@@ -155,9 +136,28 @@ class Camera:
             t_block = self.build_block_matrix(t)
             R_block = self.build_block_matrix(R)
             self.extrinsics = np.dot(t_block, R_block)
+            self.update_camera_from_extrinsics()
             
             return self.extrinsics
-     
+    
+    def update_camera_from_extrinsics(self):        
+        ''' 
+       
+        '''
+        if self.extrinsics is None:
+            print('Camera extrinsics not available. Compute it first.' )
+            return None
+        else: 
+            self.R = self.extrinsics[0:3,0:3]
+            self.t = self.extrinsics[0:3,3:4]
+            self.P = np.dot(self.K, self.extrinsics[0:3,:])
+            
+    def get_C_from_pose(self):        
+         ''' 
+
+         '''
+         return self.pose[0:3,3:4]
+            
     def C_from_P(self):        
         ''' 
         Compute and return the camera center from projection matrix P, as
@@ -170,7 +170,7 @@ class Camera:
         return self.C
         
     def t_from_RC(self):        
-        ''' 
+        ''' Deprecrated function. Use extrinsics_to_pose instead.
         Compute and return the camera translation vector t, given the camera 
         centre and the roation matrix X, as
         t = [ -R * C ] 
@@ -206,7 +206,7 @@ class Camera:
         return self.P
         
     def factor_P(self):
-        '''  Factorize the camera matrix into K,R,t as P = K[R|t]. '''
+        ''' Factorize the camera matrix into K,R,t as P = K[R|t]. '''
         
         # factor first 3*3 part
         K,R = linalg.rq(self.P[:,:3])
@@ -239,18 +239,7 @@ class Camera:
             m = cv2.undistortPoints(m, self.K, self.dist, None, self.K)[:,0,:]
             
         return m.astype(float)
-    
-    def euler_from_R(self):
-        '''
-        Compute Euler angles from rotation matrix
-        -------      
-        Returns:  [omega, phi, kappa]
-        '''
-        omega = np.arctan2(self.R[2,1], self.R[2,2]) 
-        phi = np.arctan2(-self.R[2,0], np.sqrt(self.R[2,1]**2+self.R[2,2]**2)); 
-        kappa = np.arctan2(self.R[1,0], self.R[0,0]); 
-        return [omega, phi, kappa]
-    
+       
     def read_calibration_from_file(self, path):
         '''
         Read camera internal orientation from file, save in camera class
@@ -287,6 +276,37 @@ class Camera:
         self.dist = dist
         return K, dist
 
+    def euler_from_R(self):
+        '''
+        Compute Euler angles from rotation matrix
+        -------      
+        Returns:  [omega, phi, kappa]
+        '''
+        omega = np.arctan2(self.R[2,1], self.R[2,2]) 
+        phi = np.arctan2(-self.R[2,0], np.sqrt(self.R[2,1]**2+self.R[2,2]**2)); 
+        kappa = np.arctan2(self.R[1,0], self.R[0,0]); 
+        
+        return [omega, phi, kappa]
+    
+
+    def build_block_matrix(self, mat):
+        # TODO: add description
+        ''' 
+    
+        '''
+        if mat.shape[1] == 3:
+            block = np.block([[mat, np.zeros((3,1))], 
+                              [np.zeros((1,3)), 1]]
+                              )
+        elif mat.shape[1] == 1:
+            block = np.block([[np.eye(3), mat], 
+                              [np.zeros((1,3)), 1]]
+                              )     
+        else:
+            print('Error: unknown input matrix dimensions.')
+            return None
+            
+        return block
 
 #--- Images ---#
 class Imageds:

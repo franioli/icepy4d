@@ -78,7 +78,7 @@ find_matches = False
 
 # Epoches to process
 # It can be 'all' for processing all the epochs or a list with the epoches to be processed
-epoches_to_process =  [0] #[x for x in range(8)] #'all' # 
+epoches_to_process =  [x for x in range(8)] #'all' # 
 
 #--- Perform matching and tracking ---# 
 
@@ -257,19 +257,27 @@ for epoch in epoches_to_process:
                              )
     print('Computing relative pose. Valid points: {}/{}'.format(valid.sum(),len(valid)))
     
-    # Update cameras structures
+    # Update cameras extrinsics
     cameras[cam1][epoch].R = R
     cameras[cam1][epoch].t = t.reshape(3,1)
-    cameras[cam1][epoch].compose_P()
-    cameras[cam1][epoch].C_from_P()
-        
-    # Scale model by using camera baseline
-    camRelOriBaseline = np.linalg.norm(cameras[cam0][epoch].C - cameras[cam1][epoch].C)
-    scaleFct = camWorldBaseline / camRelOriBaseline
+    cameras[cam1][epoch].Rt_to_extrinsics()
+    cameras[cam1][epoch].extrinsics_to_pose()
     
-    # Update Camera EO
-    cameras[cam1][epoch].C = cameras[cam1][epoch].C * scaleFct
-    cameras[cam1][epoch].t_from_RC()
+    # Scale model by using camera baseline
+    camRelOriBaseline = np.linalg.norm(cameras[cam0][epoch].get_C_from_pose() - 
+                                       cameras[cam1][epoch].get_C_from_pose()
+                                       )
+    scale_fct = camWorldBaseline / camRelOriBaseline
+    T = np.eye(4) 
+    T[0:3,0:3] = T[0:3,0:3] * scale_fct
+    
+    # Apply scale to camera extrinsics and update camera proprierties
+    cameras[cam1][epoch].pose[:,3:4] = np.dot(T, cameras[cam1][epoch].pose[:,3:4])
+    cameras[cam1][epoch].pose_to_extrinsics()
+    cameras[cam1][epoch].update_camera_from_extrinsics()
+    
+    #TODO: make wrappers to handle RS transformations 
+    #   (or use external librariesl)
     
     if do_coregistration:
         # Triangulate targets
@@ -346,8 +354,12 @@ for epoch in epoches_to_process:
     # Visualize point cloud    
     if do_viz:
         cam_syms = []
-        for cam in cam_names:
-            cam_syms.append(make_camera_pyramid(cameras[cam][epoch], focal_len_scaled=30))
+        cam_colors = [[1,0,0],[0,0,1]]
+        for i, cam in enumerate(cam_names):
+            cam_syms.append(make_camera_pyramid(cameras[cam][epoch],
+                                                color=cam_colors[i],
+                                                focal_len_scaled=30,
+                                                ))
         win_name = f'Sparse point cloud - Epoch: {epoch} - Num pts: {len(np.asarray(pcd_epc.points))}'
         o3d.visualization.draw_geometries([pcd_epc,  cam_syms[0], cam_syms[1]], window_name=win_name, 
                                           width=1280, height=720, 
@@ -366,21 +378,22 @@ o3d.visualization.draw_geometries(pcd, window_name='All epoches',
 
 #%% Viz point cloud with cameras
 #TODO: make wrapper around point cloud plot with cameras
-epoch = 0
-cam_syms = []
-cam_colors = [[1,0,0],[0,0,1]]
-for i, cam in enumerate(cam_names):
-    cam_syms.append(make_camera_pyramid(cameras[cam][epoch], 
-                                        cam_colors[i],
-                                        focal_len_scaled=30,
-                                        ) )
-o3d.visualization.draw_geometries([pcd[epoch], cam_syms[0], cam_syms[1]])
+# epoch = 0
+# cam_syms = []
+# cam_colors = [[1,0,0],[0,0,1]]
+# for i, cam in enumerate(cam_names):
+#     cam_syms.append(make_camera_pyramid(cameras[cam][epoch], 
+#                                         cam_colors[i],
+#                                         focal_len_scaled=30,
+#                                         ) )
+# o3d.visualization.draw_geometries([pcd[epoch], cam_syms[0], cam_syms[1]])
 
 
 #%%
+epoch = 0
+c0, c1 = cameras[cam0][epoch], cameras[cam1][epoch]
 
 # Perform rotation of 180deg around X axis   
-epoch = 0
 if rotate_RS:
     ang = np.pi
     Rx = o3d.geometry.Geometry3D.get_rotation_matrix_from_axis_angle(np.array([1., 0., 0.], 
@@ -389,16 +402,27 @@ if rotate_RS:
     pcd[epoch].rotate(Rx)
     
     # Rotatate Cameras and update projection matrixes
-    for cam in cam_names:
-        cameras[cam][epoch].R = np.dot(Rx, cameras[cam][epoch].R)
-        cameras[cam][epoch].t = np.dot(Rx, cameras[cam][epoch].t)
-        cameras[cam][epoch].compose_P()
-        cameras[cam][epoch].C_from_P() 
+    T = np.eye(4)
+    T[0:3,0:3] = Rx 
+    c0.extrinsics = T @ c0.extrinsics
+    c0.update_camera_from_extrinsics()
+    c1.extrinsics = T @ c1.extrinsics
+    c1.update_camera_from_extrinsics()
+    
+    # for cam in cam_names:
+        # cameras[cam][epoch].R = np.dot(Rx, cameras[cam][epoch].R)
+        # cameras[cam][epoch].t = np.dot(Rx, cameras[cam][epoch].t)
+        # cameras[cam][epoch].compose_P()
+        # cameras[cam][epoch].C_from_P() 
     print('Reference system rotated by 180 degrees around X axis')
     
 cam_syms = []
-for cam in cam_names:
-    cam_syms.append(make_camera_pyramid(cameras[cam][epoch], focal_len_scaled=30))
+cam_colors = [[1,0,0],[0,0,1]]
+for i, cam in enumerate(cam_names):
+    cam_syms.append(make_camera_pyramid(cameras[cam][epoch],
+                                        color=cam_colors[i],
+                                        focal_len_scaled=30,
+                                        ))
 o3d.visualization.draw_geometries([pcd[epoch], cam_syms[0], cam_syms[1]])
 
 
@@ -417,10 +441,10 @@ print('DSM generated for all the epoches')
 # Generate Ortophotos 
 epoch = 0
 ortofoto = []
-for jj in range(numCams):
-    ortofoto.append(generate_ortophoto(cv2.cvtColor(images[jj][epoch], cv2.COLOR_BGR2RGB),
-                                      dsms[epoch], cameras[jj][epoch],
-                                      save_path=f'sfm/ortofoto_approx_cam_{jj}_epc_{epoch}.tif',
+for cam in cam_names:
+    ortofoto.append(generate_ortophoto(cv2.cvtColor(images[cam][epoch], cv2.COLOR_BGR2RGB),
+                                      dsms[epoch], cameras[cam][epoch],
+                                      save_path=f'sfm/ortofoto_approx_cam_{cam}_epc_{epoch}.tif',
                                       ))
 fig, ax = plt.subplots()
 ax.imshow(ortofoto[1])
