@@ -90,7 +90,7 @@ find_matches = False
 
 # Epoches to process
 # It can be 'all' for processing all the epochs or a list with the epoches to be processed
-epoches_to_process = [x for x in range(3)]  # 'all' #
+epoches_to_process = [x for x in range(5)]  # 'all' #
 
 #--- Perform matching and tracking ---#
 
@@ -100,7 +100,7 @@ epoches_to_process = [x for x in range(3)]  # 'all' #
 cam0, cam1 = cam_names[0], cam_names[1]
 images = dict.fromkeys(cam_names)  # List for storing image paths
 features = dict.fromkeys(cam_names)  # List for storing image paths
-F_matrix = []  # List for storing fundamental matrixes
+f_matrixes = []  # List for storing fundamental matrixes
 points3d = []  # List for storing 3D points
 
 # - Create Image Datastore objects
@@ -191,7 +191,7 @@ if find_matches:
                 symmetric_error_check=True,
                 enable_degeneracy_check=True,
             )
-            F_matrix.append(F)
+            f_matrixes.append(F)
             print('Matches at epoch {}: pydegensac found {} inliers ({:.2f}%)'.format(epoch, inlMask.sum(),
                                                                                       inlMask.sum()*100 / len(features[cam0][epoch])))
 
@@ -282,7 +282,7 @@ for epoch in epoches_to_process:
                                 features[cam1][epoch].get_keypoints(),
                                 cameras[cam0][epoch].K,
                                 cameras[cam1][epoch].K,
-                                thresh=1, conf=0.9999,
+                                thresh=0.5, conf=0.99999,
                                 )
     print('Computing relative pose. Valid points: {}/{}'.format(valid.sum(), len(valid)))
 
@@ -364,7 +364,7 @@ for epoch in epoches_to_process:
     points3d_cols = interpolate_point_colors(points3d, image,
                                              cameras[cam][epoch],
                                              )
-    print(f'Color interpolated on image {jj} ')
+    print(f'Color interpolated on image {jj}')
 
     if do_coregistration:
         # Apply rigid body transformation to triangulated points
@@ -396,6 +396,7 @@ for epoch in epoches_to_process:
         o3d.visualization.draw_geometries([pcd_epc,  cam_syms[0], cam_syms[1]], window_name=win_name,
                                           width=1280, height=720,
                                           left=300, top=200)
+        
     # Write point cloud to disk and store it in Point Cloud List
     write_ply(pcd_epc, f'res/pt_clouds/sparse_pts_t{epoch}.ply')
     pcd.append(pcd_epc)
@@ -428,17 +429,19 @@ for i, cam in enumerate(cam_names):
 # %% DSM
 # TODO: implement better DSM class
 
-
 print('DSM and orthophoto generation started')
 res = 0.03
+xlim = [-90., 70.]
+ylim = [0., 55.]
+
 dsms = []
 ortofoto = dict.fromkeys(cam_names)
 ortofoto[cam0], ortofoto[cam1] = [], []
-
 for epoch in epoches_to_process:
     print(f'Epoch {epoch}')
     dsms.append(build_dsm(np.asarray(pcd[epoch].points),
                           dsm_step=res,
+                          xlim=xlim, ylim=ylim, 
                           make_dsm_plot=False,
                           save_path=f'res/dsm/dsm_app_epoch_{epoch}.tif'
                           ))
@@ -447,12 +450,10 @@ for epoch in epoches_to_process:
         fout_name = f'res/ortofoto/ortofoto_app_cam_{cam}_epc_{epoch}.tif'
         ortofoto[cam].append(generate_ortophoto(cv2.cvtColor(images[cam][epoch], cv2.COLOR_BGR2RGB),
                                                 dsms[epoch], cameras[cam][epoch],
+                                                xlim=xlim, ylim=ylim, 
                                                 save_path=fout_name,
                                                 ))
     print('Orthophotos built.')
-
-# fig, ax = plt.subplots()
-# ax.imshow(ortofoto[1])
 
 
 # %% DENSE MATCHING
@@ -468,18 +469,12 @@ stem0, stem1 = images[cam0].get_image_stem(
 img0, img1 = images[cam0][epoch], images[cam1][epoch]
 h, w, _ = img0.shape
 
-# pts0, pts1 = features[cam0][epoch].get_keypoints(), features[cam1][epoch].get_keypoints()
-# F, inlMask = pydegensac.findFundamentalMatrix(pts0, pts1, px_th=1, conf=0.99999,
-#                                               max_iters=100000, laf_consistensy_coef=-1.0, error_type='sampson',
-#                                               symmetric_error_check=True, enable_degeneracy_check=True)
-
 
 #--- Rectify calibrated ---#
 left_cam = cameras[cam1][epoch]
 right_cam = cameras[cam1][epoch]
 left_img = images[cam1][epoch]
 rigth_img = images[cam0][epoch]
-
 
 #
 rectOut = cv2.stereoRectify(left_cam.K, left_cam.dist,
