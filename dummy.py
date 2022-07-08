@@ -78,3 +78,81 @@
 #                                   front=[-0.4761, -0.4698, -0.7434],
 #                                   lookat=[1.8900, 3.2596, 0.9284],
 #                                   up=[0.2304, -0.8825, 0.4101])
+
+#%% 
+# vis = o3d.visualization.VisualizerWithKeyCallback()
+# vis.create_window()
+# vis.get_render_option().background_color = np.asarray([0.4, 0.4, 0.4])
+# view_ctl = vis.get_view_control()
+# vis.add_geometry(pcd[0])
+
+# Rx = o3d.geometry.Geometry3D.get_rotation_matrix_from_axis_angle(np.array([1., 0., 0.], 
+#                                                                           dtype='float64')*np.pi)
+# T = np.eye(4)
+# T[0:3,0:3] = Rx 
+# pose = T @ cameras[cam0][0].pose
+# cam = view_ctl.convert_to_pinhole_camera_parameters()
+# cam.extrinsic = pose # where T is your matrix
+# view_ctl.convert_from_pinhole_camera_parameters(cam)
+# vis.run()
+# vis.destroy_window()
+
+#%% Viz point cloud with cameras
+#TODO: make wrapper around point cloud plot with cameras
+# epoch = 0
+# cam_syms = []
+# cam_colors = [[1,0,0],[0,0,1]]
+# for i, cam in enumerate(cam_names):
+#     cam_syms.append(make_camera_pyramid(cameras[cam][epoch], 
+#                                         cam_colors[i],
+#                                         focal_len_scaled=30,
+#                                         ) )
+# # o3d.visualization.draw_geometries([pcd[epoch], cam_syms[0], cam_syms[1]])
+
+
+# viewer = o3d.visualization.Visualizer()
+# viewer.create_window()
+# viewer.add_geometry(pcd[epoch])
+# # for geometry in geometries:
+# #     viewer.add_geometry(geometry)
+# opt = viewer.get_render_option()
+# opt.show_coordinate_frame = True
+# opt.background_color = np.asarray([0.2, 0.2, 0.2])
+# viewer.run()
+# viewer.destroy_window()
+
+#%% Rotating RS
+# epoch = 0
+# c0, c1 = cameras[cam0][epoch], cameras[cam1][epoch]
+
+# # Perform rotation of 180deg around X axis   
+# if rotate_RS:
+#     ang = np.pi
+#     Rx = o3d.geometry.Geometry3D.get_rotation_matrix_from_axis_angle(np.array([1., 0., 0.], 
+#                                                                               dtype='float64')*ang)
+#     # Rotate point clouds
+#     pcd[epoch].rotate(Rx)
+    
+#     # Rotatate Cameras and update projection matrixes
+#     T = np.eye(4)
+#     T[0:3,0:3] = Rx 
+#     c0.extrinsics = T @ c0.extrinsics
+#     c0.update_camera_from_extrinsics()
+#     c1.extrinsics = T @ c1.extrinsics
+#     c1.update_camera_from_extrinsics()
+    
+#     # for cam in cam_names:
+#         # cameras[cam][epoch].R = np.dot(Rx, cameras[cam][epoch].R)
+#         # cameras[cam][epoch].t = np.dot(Rx, cameras[cam][epoch].t)
+#         # cameras[cam][epoch].compose_P()
+#         # cameras[cam][epoch].C_from_P() 
+#     print('Reference system rotated by 180 degrees around X axis')
+    
+# cam_syms = []
+# cam_colors = [[1,0,0],[0,0,1]]
+# for i, cam in enumerate(cam_names):
+#     cam_syms.append(make_camera_pyramid(cameras[cam][epoch],
+#                                         color=cam_colors[i],
+#                                         focal_len_scaled=30,
+#                                         ))
+# o3d.visualization.draw_geometries([pcd[epoch], cam_syms[0], cam_syms[1]])
