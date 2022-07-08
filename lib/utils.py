@@ -1,3 +1,27 @@
+'''
+MIT License
+
+Copyright (c) 2022 Francesco Ioli
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+'''
+
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,103 +37,68 @@ from lib.geometry import project_points
 from lib.classes import Camera
 from lib.misc import create_directory
 
-def undistort_points(pts, camera: Camera):
-    ''' Wrapper around OpenCV cv2.undistortPoints to simplify function calling
-    Parameters
-    ----------
-    pts : nx2 array of float32
-        Array of distorted image points.
-    camera : Camera object
-        Camera object containing K and dist arrays.
-
-    Returns
-    -------
-    pts : nx2 array of float32
-        Array of undistorted image points.
-    '''
-    pts_und = cv2.undistortPoints(pts, camera.K, camera.dist, 
-                                  None, camera.K)[:,0,:]                           
-    return pts_und.astype('float32')
-
-
-def undistort_image(image, camera: Camera, out_path=None):
-    ''' Wrapper around OpenCV cv2.undistort function for simply undistorting an image
-    Parameters
-    ----------
-    image : 2D numpy array
-        Image.
-    camera : Camera object
-        Camera object containing K and dist arrays.
-    out_path : Path or str, optional
-        Path for writing the undistorted image to disk. 
-        The default is None (image is not written to disk)
-        
-    Returns
-    -------
-    image_und : 2D numpy array
-        Undistorted image.
-
-    '''
-    image_und = cv2.undistort(image, camera.K, camera.dist, 
-                              None, camera.K
-                              )
-    if out_path is not None:
-        cv2.imwrite(out_path, image_und)
-        
-    return image_und
-
-def undistort_image_new_cam_matrix(image, K, dist, downsample=1, out_path=None):
-    #TODO: Remove function and create better one...
-    ''' Deprecated
-    Undistort image with OpenCV
-    '''
-    h, w, _ = image.shape
-    h_new, w_new = h*downsample, w*downsample
-    K_scaled, roi = cv2.getOptimalNewCameraMatrix(K, dist, (w, h), 1, (int(w_new), int(h_new)))
-    und = cv2.undistort(image, K, dist, None, K_scaled)
-    x, y, w, h = roi
-    und = und[y:y+h, x:x+w]  
-    if out_path is not None:
-        cv2.imwrite(out_path, und)
-    return und, K_scaled
-    # cam = 1
-    # image = images[cam][0]
-    # K, dist = cameras[cam][0].K, cameras[cam][0].dist
-    # image_und = cv2.undistort(image, K, dist, None, K)
-    # cv2.imwrite(images[cam].get_image_stem(0)+'_undistorted.tif', image_und)
-    
-def interpolate_point_colors(pointxyz, image, P, K=None, dist=None, winsz=1):
+def interpolate_point_colors(pointxyz, image, camera: Camera):
     ''''
     Interpolate color of a 3D sparse point cloud, given an oriented image
       Inputs:  
-       - Nx3 matrix with 3d world points coordinates
-       - image as np.array in RGB channels 
-           NB: if the image was impotred with OpenCV, it must be converted 
-           from BGR color space to RGB
-               cv2.cvtColor(image_und, cv2.COLOR_BGR2RGB)
-       - Camera interior and exterior orientation matrixes: K, R, t
-       - Distortion vector according to OpenCV
+        - Nx3 matrix with 3d world points coordinates
+        - image as np.array in RGB channels 
+            NB: if the image was impotred with OpenCV, it must be converted 
+            from BGR color space to RGB
+                cv2.cvtColor(image_und, cv2.COLOR_BGR2RGB)
+        - Camera interior and exterior orientation matrixes: K, R, t
+        - Distortion vector according to OpenCV
     Output: Nx3 colour matrix, as float numbers (normalized in [0,1])
     '''       
-    assert P is not None, 'invalid projection matrix' 
+    # TODO: implement new checks on Camera inputs
+    # assert P is not None, 'invalid projection matrix'
     assert image.ndim == 3, 'invalid input image. Image has not 3 channel'
 
-    if K is not None and dist is not None:
-        image = cv2.undistort(image, K, dist, None, K)
-    
+    # import pdb; pdb.set_trace()    
     numPts = len(pointxyz)
-    col = np.zeros((numPts,3))
-    h,w,_ = image.shape
-    projections = project_points(pointxyz, P, K, dist)
+    projections = project_points(pointxyz, camera)
     image = image.astype(np.float32) / 255.
-    
+
+    col = np.zeros((numPts, 3))
     for ch in range(image.shape[2]):
-        col[:,ch] = bilinear_interpolate(image[:,:,ch], 
-                                         projections[:,0], 
-                                         projections[:,1],
-                                         )
-    # import pdb; pdb.set_trace()
+        col[:, ch] = bilinear_interpolate(image[:, :, ch],
+                                          projections[:, 0],
+                                          projections[:, 1],
+                                          )
     return col
+
+# def interpolate_point_colors(pointxyz, image, P, K=None, dist=None, winsz=1):
+#     ''''
+#     Interpolate color of a 3D sparse point cloud, given an oriented image
+#       Inputs:  
+#        - Nx3 matrix with 3d world points coordinates
+#        - image as np.array in RGB channels 
+#            NB: if the image was impotred with OpenCV, it must be converted 
+#            from BGR color space to RGB
+#                cv2.cvtColor(image_und, cv2.COLOR_BGR2RGB)
+#        - Camera interior and exterior orientation matrixes: K, R, t
+#        - Distortion vector according to OpenCV
+#     Output: Nx3 colour matrix, as float numbers (normalized in [0,1])
+#     '''       
+#     assert P is not None, 'invalid projection matrix' 
+#     assert image.ndim == 3, 'invalid input image. Image has not 3 channel'
+
+#     if K is not None and dist is not None:
+#         image = cv2.undistort(image, K, dist, None, K)
+    
+#     numPts = len(pointxyz)
+#     col = np.zeros((numPts,3))
+#     h,w,_ = image.shape
+#     projections = project_points(pointxyz, P, K, dist)
+#     image = image.astype(np.float32) / 255.
+    
+#     for ch in range(image.shape[2]):
+#         col[:,ch] = bilinear_interpolate(image[:,:,ch], 
+#                                          projections[:,0], 
+#                                          projections[:,1],
+#                                          )
+#     # import pdb; pdb.set_trace()
+#     return col
 
 
 def bilinear_interpolate(im, x, y):
@@ -290,49 +279,60 @@ def build_dsm(points3d, dsm_step=1, xlim=None, ylim=None,
             plt.savefig(save_fld.joinpath(save_stem+'_plot.png'), bbox_inches='tight')
 
     # Save dsm as GeoTIff
-    rater_origin = [grid_x[0,0], grid_y[0,0]]
-    transform = Affine.translation(rater_origin[0], rater_origin[1]) \
-                                   * Affine.scale(dsm_step, -dsm_step)
-    with rasterio.open(
-                        save_path, 'w',
-                        driver='GTiff', 
-                        height=dsm_grid.shape[0],
-                        width=dsm_grid.shape[1], 
-                        count=1,
-                        dtype='float32',
-                        # crs="EPSG:32632",
-                        transform=transform,
-                        ) as dst:
-        dst.write(dsm_grid, 1)
-        
+    if save_path is not None:
+        save_path = Path(save_path)
+        create_directory(save_path.parent)
+        rater_origin = [xlim[0] - dsm_step/2, ylim[0] - dsm_step/2]
+        transform = Affine.translation(rater_origin[0], rater_origin[1]) \
+            * Affine.scale(dsm_step, -dsm_step)
+        mask = np.invert(np.isnan(dsm_grid))
+        rater_origin = [grid_x[0,0], grid_y[0,0]]
+        transform = Affine.translation(rater_origin[0], rater_origin[1]) \
+                                       * Affine.scale(dsm_step, -dsm_step)
+        with rasterio.open(
+                            save_path, 'w',
+                            driver='GTiff', 
+                            height=dsm_grid.shape[0],
+                            width=dsm_grid.shape[1], 
+                            count=1,
+                            dtype='float32',
+                            # crs="EPSG:32632",
+                            transform=transform,
+                            ) as dst:
+            dst.write(dsm_grid, 1)
+            dst.write_mask(mask)
+
     # Return a DSM object
-    
     dsm = DSM(grid_x, grid_y, dsm_grid, dsm_step)
     
     return dsm
 
-def generate_ortophoto(image, dsm, camera, res=None, save_path=None):
+def generate_ortophoto(image, dsm, camera: Camera,  
+                       xlim=None, ylim=None, 
+                       res=None, save_path=None):
     xx = dsm.x
     yy = dsm.y
     zz = dsm.z
-    
-    import pdb; pdb.set_trace()
-
     if res is None:
         res = dsm.res
-    
+   
+    if xlim is None:
+        xlim = [xx[0,0], xx[0,-1]]
+    if ylim is None:
+        ylim = [yy[0,0], yy[-1,0]]
+        
     dsm_shape = dsm.x.shape
     ncell = dsm_shape[0]*dsm_shape[1]
     xyz = np.zeros((ncell,3))
-    xyz[:,0] = xx.flatten() + res/2
-    xyz[:,1] = yy.flatten() + res/2
+    xyz[:,0] = xx.flatten()
+    xyz[:,1] = yy.flatten()
     xyz[:,2] = zz.flatten()
     valid_cell = np.invert(np.isnan(xyz[:,2]))
     
     cols = np.full((ncell,3), 0., 'float32')
     cols[valid_cell,:] = interpolate_point_colors(xyz[valid_cell,:], 
-                                                  image, camera.P, 
-                                                  camera.K, camera.dist
+                                                  image, 
+                                                  camera,
                                                   )
     ortophoto = np.zeros((dsm_shape[0],dsm_shape[1],3))
     ortophoto[:,:,0] = cols[:,0].reshape(dsm_shape[0], dsm_shape[1])
@@ -344,7 +344,7 @@ def generate_ortophoto(image, dsm, camera, res=None, save_path=None):
     if save_path is not None:
         save_path = Path(save_path)
         create_directory(save_path.parent)
-        rater_origin = [xx[0,0], yy[0,0]]
+        rater_origin = [xlim[0] - res/2, ylim[0] - res/2]
         transform = Affine.translation(rater_origin[0], rater_origin[1]) \
                                        * Affine.scale(res, -res)
         with rasterio.open(
