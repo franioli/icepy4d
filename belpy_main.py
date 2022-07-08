@@ -90,7 +90,7 @@ find_matches = False
 
 # Epoches to process
 # It can be 'all' for processing all the epochs or a list with the epoches to be processed
-epoches_to_process = [x for x in range(5)]  # 'all' #
+epoches_to_process = 'all' # [x for x in range(5)]  # 
 
 #--- Perform matching and tracking ---#
 
