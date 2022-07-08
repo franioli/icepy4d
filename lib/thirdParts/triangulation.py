@@ -171,3 +171,62 @@ def iterative_LS_triangulation(u1, P1, u2, P2, tolerance=3.e-5):
         if d2_new <= 0: x_status[xi] -= 2
     
     return x[0:3, :].T.astype(float), x_status
+
+def polynomial_triangulation(u1, P1, u2, P2):
+    """
+    Polynomial (Optimal) triangulation.
+    Uses Linear-Eigen for final triangulation.
+    Relative speed: 0.1
+    
+    (u1, P1) is the reference pair containing normalized image coordinates (x, y) and the corresponding camera matrix.
+    (u2, P2) is the second pair.
+    
+    u1 and u2 are matrices: amount of points equals #rows and should be equal for u1 and u2.
+    
+    The status-vector is based on the assumption that all 3D points have finite coordinates.
+    """
+    
+    P1_full = np.eye(4); P1_full[0:3, :] = P1[0:3, :]    # convert to 4x4
+    P2_full = np.eye(4); P2_full[0:3, :] = P2[0:3, :]    # convert to 4x4
+    P_canon = P2_full.dot(cv2.invert(P1_full)[1])    # find canonical P which satisfies P2 = P_canon * P1
+    
+    # "F = [t]_cross * R" [HZ 9.2.4]; transpose is needed for numpy
+    F = np.cross(P_canon[0:3, 3], P_canon[0:3, 0:3], axisb=0).T
+    
+    # Other way of calculating "F" [HZ (9.2)]
+    #op1 = (P2[0:3, 3:4] - P2[0:3, 0:3] .dot (cv2.invert(P1[0:3, 0:3])[1]) .dot (P1[0:3, 3:4]))
+    #op2 = P2[0:3, 0:4] .dot (cv2.invert(P1_full)[1][0:4, 0:3])
+    #F = np.cross(op1.reshape(-1), op2, axisb=0).T
+    
+    # Project 2D matches to closest pair of epipolar lines
+    u1_new, u2_new = cv2.correctMatches(F, u1.reshape(1, len(u1), 2), u2.reshape(1, len(u1), 2))
+    
+    # For a purely sideways trajectory of 2nd cam, correctMatches() returns NaN for all possible points!
+    if np.isnan(u1_new).all() or np.isnan(u2_new).all():
+        F = cv2.findFundamentalMat(u1, u2, cv2.FM_8POINT)[0]    # so use a noisy version of the fund mat
+        u1_new, u2_new = cv2.correctMatches(F, u1.reshape(1, len(u1), 2), u2.reshape(1, len(u1), 2))
+    
+    # Triangulate using the refined image points
+    return linear_eigen_triangulation(u1_new[0], P1, u2_new[0], P2)    # TODO: replace with linear_LS: better results for points not at Inf
+
+
+def linear_eigen_triangulation(u1, P1, u2, P2, max_coordinate_value=1.e16):
+    """
+    Linear Eigenvalue based (using SVD) triangulation.
+    Wrapper to OpenCV's "triangulatePoints()" function.
+    Relative speed: 1.0
+    
+    (u1, P1) is the reference pair containing normalized image coordinates (x, y) and the corresponding camera matrix.
+    (u2, P2) is the second pair.
+    "max_coordinate_value" is a threshold to decide whether points are at infinity
+    
+    u1 and u2 are matrices: amount of points equals #rows and should be equal for u1 and u2.
+    
+    The status-vector is based on the assumption that all 3D points have finite coordinates.
+    """
+    x = cv2.triangulatePoints(P1[0:3, 0:4], P2[0:3, 0:4], u1.T, u2.T)    # OpenCV's Linear-Eigen triangl
+    
+    x[0:3, :] /= x[3:4, :]    # normalize coordinates
+    x_status = (np.max(abs(x[0:3, :]), axis=0) <= max_coordinate_value)    # NaN or Inf will receive status False
+    
+    return x[0:3, :].T.astype('float32'), x_status
