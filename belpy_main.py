@@ -383,7 +383,6 @@ o3d.visualization.draw_geometries([pcd[0]],
                                    left=300, top=200,
                                   )
 
-
 #%% DSM 
 print('DSM and orthophoto generation started')
 res = 0.03
