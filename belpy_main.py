@@ -357,11 +357,11 @@ for epoch in epoches_to_process:
     print(f'Point triangulation succeded: {status.sum()/status.size}.')
 
     # Interpolate colors from image
-    jj = 1
-    image = cv2.cvtColor(images[cam_names[jj]][epoch], cv2.COLOR_BGR2RGB)
     # TODO: include color conversion in function interpolate_point_colors
+    cam = cam1
+    image = cv2.cvtColor(images[cam][epoch], cv2.COLOR_BGR2RGB)
     points3d_cols = interpolate_point_colors(points3d, image,
-                                             cameras[cam_names[jj]][epoch],
+                                             cameras[cam][epoch],
                                              )
     print(f'Color interpolated on image {jj} ')
 
