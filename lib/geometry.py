@@ -1,8 +1,33 @@
+'''
+MIT License
+
+Copyright (c) 2022 Francesco Ioli
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+'''
+
 from pathlib import Path
 import numpy as np
 import cv2
 import pydegensac
-# import scipy.linalg as alg
+
+from lib.classes import Camera
 
 def estimate_pose(kpts0, kpts1, K0, K1, thresh, conf=0.9999):
     """
@@ -13,50 +38,26 @@ def estimate_pose(kpts0, kpts1, K0, K1, thresh, conf=0.9999):
     if len(kpts0) < 5:
         return None
 
-    # f_mean = np.mean([K0[0, 0], K1[1, 1], K0[0, 0], K1[1, 1]])
-    # norm_thresh = thresh / f_mean
+    f_mean = np.mean([K0[0, 0], K1[1, 1], K0[0, 0], K1[1, 1]])
+    norm_thresh = thresh / f_mean
 
-    # kpts0 = (kpts0 - K0[[0, 1], [2, 2]][None]) / K0[[0, 1], [0, 1]][None]
-    # kpts1 = (kpts1 - K1[[0, 1], [2, 2]][None]) / K1[[0, 1], [0, 1]][None]
+    kpts0 = (kpts0 - K0[[0, 1], [2, 2]][None]) / K0[[0, 1], [0, 1]][None]
+    kpts1 = (kpts1 - K1[[0, 1], [2, 2]][None]) / K1[[0, 1], [0, 1]][None]
 
-    # E, mask = cv2.findEssentialMat(
-    #     kpts0, kpts1, np.eye(3), threshold=norm_thresh, prob=conf,
-    #     method=cv2.RANSAC)
+    E, mask = cv2.findEssentialMat(
+        kpts0, kpts1, np.eye(3), threshold=norm_thresh, prob=conf,
+        method=cv2.RANSAC)
 
-    # assert E is not None
+    assert E is not None
     
-    # best_num_inliers = 0
-    # ret = None
-    # for _E in np.split(E, len(E) / 3):
-    #     n, R, t, _ = cv2.recoverPose(
-    #         _E, nkpts0, nkpts1, np.eye(3), 1e9, mask=mask)
-    #     if n > best_num_inliers:
-    #         best_num_inliers = n
-    #         ret = (R, t[:, 0], mask.ravel() > 0)
-    # return ret
-    
-    
-    F, mask = pydegensac.findFundamentalMatrix( kpts0, kpts1, px_th=thresh, conf=conf, 
-                                                max_iters=10000, laf_consistensy_coef=-1.0, 
-                                                error_type='sampson', symmetric_error_check=True, 
-                                                enable_degeneracy_check=True)
-    E = np.dot(K1.T, np.dot(F, K0))
-
-    kpts0 = cv2.convertPointsToHomogeneous(kpts0)[:,0,:].T
-    kpts1 = cv2.convertPointsToHomogeneous(kpts1)[:,0,:].T
-    nkpts0 = np.dot(np.linalg.inv(K0), kpts0)
-    nkpts0 /= nkpts0[2,:]
-    nkpts0 = nkpts0[0:2,:].T
-    nkpts1 = np.dot(np.linalg.inv(K1), kpts1)    
-    nkpts1 /= nkpts1[2,:]
-    nkpts1 = nkpts1[0:2,:].T
-
-    nkpts0 = nkpts0[mask,:]
-    nkpts1 = nkpts1[mask,:]  
-
-    n, R, t, _  = cv2.recoverPose(E, nkpts0, nkpts1, np.eye(3), 1e9)
-    ret = (R, t[:, 0], mask)
-    
+    best_num_inliers = 0
+    ret = None
+    for _E in np.split(E, len(E) / 3):
+        n, R, t, _ = cv2.recoverPose(
+            _E, kpts0, kpts1, np.eye(3), 1e9, mask=mask)
+        if n > best_num_inliers:
+            best_num_inliers = n
+            ret = (R, t[:, 0], mask.ravel() > 0)
     return ret
     
 def triangulate_nviews(P, ip):
@@ -89,57 +90,105 @@ def triangulate_points_linear(P1, P2, x1, x2):
     X = [triangulate_nviews([P1, P2], [x[0], x[1]]) for x in zip(x1, x2)]
     return np.array(X)
         
+def project_points(points3d, camera: Camera):
+    '''
+    Project 3D points (Nx3 array) to image coordinates, given a Camera object
+    Returns: 2D projected points (Nx2 array) in image coordinates
+    '''
+    rvec, _ = cv2.Rodrigues(camera.R)
+    tvec = camera.t
+    m, jacobian = cv2.projectPoints(np.expand_dims(points3d, 1), 
+                                    rvec, tvec, 
+                                    camera.K, camera.dist,
+                                    )
+    m = m[:,0,:]
+    return m.astype('float32')
 
+
+# def project_points(points3d, P, K=None, dist=None):
+#     ''' Erroneous and substitued with new function
+#     Project 3D points (Nx3 array) to image coordinates, given the projection matrix P (4x3 matrix)
+#     If K matric and dist vector are given, the function computes undistorted image projections (otherwise, zero distortions are assumed)
+#     Returns: 2D projected points (Nx2 array) in image coordinates
+#     '''
+#     points3d = cv2.convertPointsToHomogeneous(points3d)[:,0,:]
+#     m = np.matmul(P, points3d.T)
+#     m = m[0:2,:] / m[2,:]; 
+#     m = m.astype(float).T
+    
+#     if dist is not None and K is not None:
+#         m = cv2.undistortPoints(m, K, dist, None, K)[:,0,:]
+        
+#     return m.astype(float)
+
+def undistort_points(pts, camera: Camera):
+    ''' Wrapper around OpenCV cv2.undistortPoints to simplify function calling
+    Parameters
+    ----------
+    pts : nx2 array of float32
+        Array of distorted image points.
+    camera : Camera object
+        Camera object containing K and dist arrays.
+
+    Returns
+    -------
+    pts : nx2 array of float32
+        Array of undistorted image points.
+    '''
+    pts_und = cv2.undistortPoints(pts, camera.K, camera.dist, 
+                                  None, camera.K)[:,0,:]                           
+    return pts_und.astype('float32')
+
+
+def undistort_image(image, camera: Camera, out_path=None):
+    ''' Wrapper around OpenCV cv2.undistort function for simply undistorting an image
+    Parameters
+    ----------
+    image : 2D numpy array
+        Image.
+    camera : Camera object
+        Camera object containing K and dist arrays.
+    out_path : Path or str, optional
+        Path for writing the undistorted image to disk. 
+        The default is None (image is not written to disk)
+        
+    Returns
+    -------
+    image_und : 2D numpy array
+        Undistorted image.
+
+    '''
+    image_und = cv2.undistort(image, camera.K, camera.dist, 
+                              None, camera.K
+                              )
+    if out_path is not None:
+        cv2.imwrite(out_path, image_und)
+        
+    return image_und
+
+def undistort_image_new_cam_matrix(image, K, dist, downsample=1, out_path=None):
+    #TODO: Remove function and create better one...
+    ''' Deprecated
+    Undistort image with OpenCV
+    '''
+    h, w, _ = image.shape
+    h_new, w_new = h*downsample, w*downsample
+    K_scaled, roi = cv2.getOptimalNewCameraMatrix(K, dist, (w, h), 1, (int(w_new), int(h_new)))
+    und = cv2.undistort(image, K, dist, None, K_scaled)
+    x, y, w, h = roi
+    und = und[y:y+h, x:x+w]  
+    if out_path is not None:
+        cv2.imwrite(out_path, und)
+    return und, K_scaled
+    # cam = 1
+    # image = images[cam][0]
+    # K, dist = cameras[cam][0].K, cameras[cam][0].dist
+    # image_und = cv2.undistort(image, K, dist, None, K)
+    # cv2.imwrite(images[cam].get_image_stem(0)+'_undistorted.tif', image_und)
+    
 def scale_intrinsics(K, scales):
     """ 
     Scale camera intrisics matrix (K) after image downsampling or upsampling.
     """
     scales = np.diag([1./scales[0], 1./scales[1], 1.])
     return np.dot(scales, K)
-
-def P_from_KRT(K, R, t):
-    """
-    Return the 4x3 P matrix from 3x3 K matrix, 3x3 R matrix and 3x1 t vector, as:
-        K[ R | t ]
-    """
-    RT = np.zeros((3,4))
-    RT[:, 0:3] = R
-    RT[:, 3:4] = t
-    P = np.dot(K,RT) 
-    return P
-
-def make_P_homogeneous(P):
-    """
-    Return the 4x4 P matrix from 3x4 P matrix, as:
-        [      P     ]
-        [------------]
-        [ 0  0  0  1 ]
-    """
-    P_hom = np.eye(4)
-    P_hom[0:3, 0:3] = P
-    return P_hom
-
-def C_from_P(P):
-    """
-    Compute camera perspective centre from 3x4 P matrix, as:
-        C = - inv(KR) * Kt 
-    """
-    C = -np.matmul(np.linalg.inv(P[:,0:3]),P[:,3]).reshape(3,1)
-    return C
-
-
-def project_points(points3d, P, K=None, dist=None):
-    '''
-    Project 3D points (Nx3 array) to image coordinates, given the projection matrix P (4x3 matrix)
-    If K matric and dist vector are given, the function computes undistorted image projections (otherwise, zero distortions are assumed)
-    Returns: 2D projected points (Nx2 array) in image coordinates
-    '''
-    points3d = cv2.convertPointsToHomogeneous(points3d)[:,0,:]
-    m = np.matmul(P, points3d.T)
-    m = m[0:2,:] / m[2,:]; 
-    m = m.astype(float).T
-    
-    if dist is not None and K is not None:
-        m = cv2.undistortPoints(m, K, dist, None, K)[:,0,:]
-        
-    return m.astype(float)

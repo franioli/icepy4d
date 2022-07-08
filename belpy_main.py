@@ -37,13 +37,21 @@ from lib.classes import (Camera, Imageds, Features, Targets)
 from lib.match_pairs import match_pair
 from lib.track_matches import track_matches
 from lib.io import read_img
-from lib.geometry import estimate_pose
-from lib.utils import (undistort_image, undistort_points,
-                       interpolate_point_colors,
-                       build_dsm, DSM, generate_ortophoto,
+from lib.geometry import (estimate_pose,
+                          undistort_image,
+                          undistort_points,
+                          project_points,
+                          )
+from lib.utils import (interpolate_point_colors,
+                       build_dsm, 
+                       generate_ortophoto,
+                       DSM,
                        )
-from lib.visualization import (
-    draw_epip_lines, make_matching_plot, make_camera_pyramid)
+from lib.visualization import (make_camera_pyramid,
+                               draw_epip_lines, 
+                               make_matching_plot, 
+                               )
+                               
 from lib.point_clouds import (
     create_point_cloud, display_pc_inliers, write_ply)
 from lib.misc import (convert_to_homogeneous,
@@ -51,8 +59,9 @@ from lib.misc import (convert_to_homogeneous,
                       create_directory,
                       )
 
-from lib.thirdParts.triangulation import (
-    linear_LS_triangulation, iterative_LS_triangulation)
+from lib.thirdParts.triangulation import (linear_LS_triangulation, 
+                                          iterative_LS_triangulation,
+                                          )
 from lib.thirdParts.transformations import affine_matrix_from_points
 from lib.thirdParts.camera_pose_visualizer import CameraPoseVisualizer
 
@@ -81,7 +90,7 @@ find_matches = False
 
 # Epoches to process
 # It can be 'all' for processing all the epochs or a list with the epoches to be processed
-epoches_to_process = [x for x in range(5)]  # 'all' #
+epoches_to_process = [x for x in range(3)]  # 'all' #
 
 #--- Perform matching and tracking ---#
 
@@ -195,12 +204,12 @@ if find_matches:
         with open(epochdir / f'{im_stems[0]}_{im_stems[1]}_features.pickle', 'wb') as f:
             pickle.dump(features, f, protocol=pickle.HIGHEST_PROTOCOL)
         last_match_path = create_directory('res/last_epoch')
-        with open(last_match_path / 'last_epoch_features.pickle', 'wb') as f:
+        with open(last_match_path / 'last_features.pickle', 'wb') as f:
             pickle.dump(features, f, protocol=pickle.HIGHEST_PROTOCOL)
     print('Matching completed')
 
 elif not features[cam0]:
-    last_match_path = 'res/last_epoch/last_epoch_features.pickle'
+    last_match_path = 'res/last_epoch/last_features.pickle'
     with open(last_match_path, 'rb') as f:
         features = pickle.load(f)
         print("Loaded previous matches")
@@ -218,9 +227,15 @@ Notes
 target_paths = [Path('data/target_image_p2.txt'),
                 Path('data/target_image_p3.txt')]
 
+# Coregistration switches
+# TODO: implement these swithces as proprierty of each camera camera Class
+# do_coregistration: If True, try to coregister point clouds based on n points
+do_coregistration = False    
+# fix_both_cameras: if False, estimate EO of cam2 with relative orientation, otherwise keep both cameras fixed.
+fix_both_cameras = False
+
 # On-Off switches
 do_viz = False
-do_coregistration = False    # If set to false, fix the camera EO as the first epoch
 do_SOR_filter = True
 rotate_RS = False
 
@@ -263,9 +278,8 @@ for epoch in epoches_to_process:
                                    ))
 
     # Estimate Realtive Pose with Essential Matrix
-    pts0, pts1 = features[cam0][epoch].get_keypoints(
-    ), features[cam1][epoch].get_keypoints()
-    R, t, valid = estimate_pose(pts0, pts1,
+    R, t, valid = estimate_pose(features[cam0][epoch].get_keypoints(),
+                                features[cam1][epoch].get_keypoints(),
                                 cameras[cam0][epoch].K,
                                 cameras[cam1][epoch].K,
                                 thresh=1, conf=0.9999,
@@ -305,7 +319,7 @@ for epoch in epoches_to_process:
                                     cameras[cam1][epoch]
                                     )
         M, status = iterative_LS_triangulation(pts0_und, cameras[cam0][epoch].P,
-                                               pts1_und, cameras[cam1][epoch].P
+                                               pts1_und, cameras[cam1][epoch].P,
                                                )
         targets.append_obj_cord(M)
 
@@ -348,10 +362,7 @@ for epoch in epoches_to_process:
     image = cv2.cvtColor(images[cam_names[jj]][epoch], cv2.COLOR_BGR2RGB)
     # TODO: include color conversion in function interpolate_point_colors
     points3d_cols = interpolate_point_colors(points3d, image,
-                                             cameras[cam_names[jj]][epoch].P,
-                                             cameras[cam_names[jj]][epoch].K,
-                                             cameras[cam_names[jj]
-                                                     ][epoch].dist,
+                                             cameras[cam_names[jj]][epoch],
                                              )
     print(f'Color interpolated on image {jj} ')
 
@@ -398,7 +409,22 @@ o3d.visualization.draw_geometries([pcd[0]],
                                   left=300, top=200,
                                   )
 
-
+fig, ax = plt.subplots(1,2)
+fig.tight_layout()
+for i, cam in enumerate(cam_names):
+    projections = project_points(points3d,
+                                 cameras[cam][epoch],
+                                 )
+    im = cv2.cvtColor(images[cam][epoch], cv2.COLOR_BGR2RGB)
+    # im = undistort_image(im, cameras[cam][epoch])
+    ax[i].imshow(im)
+    ax[i].scatter(projections[:, 0], projections[:, 1],
+               s=10, c='r', marker='o',  
+               alpha=0.5, edgecolors='k',
+               )   
+    ax[i].set_title(cam)
+    
+    
 # %% DSM
 # TODO: implement better DSM class
 

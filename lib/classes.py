@@ -29,11 +29,6 @@ import numpy as np
 from scipy import linalg
 from pathlib import Path
 
-from lib.geometry import (P_from_KRT, 
-                          # C_from_P
-                          )
-# from geometry import (P_from_KRT, C_from_P)
-
 #--- Camera ---#
 class Camera:
     ''' Class to help manage Cameras. '''
@@ -281,6 +276,18 @@ class Camera:
         self.K = K
         self.dist = dist
         return K, dist
+
+    def get_P_homogeneous(self):
+        """ 
+        Return the 4x4 P matrix from 3x4 P matrix, as:
+            [      P     ]
+            [------------]
+            [ 0  0  0  1 ]
+        """
+        P_hom = np.eye(4)
+        P_hom[0:3, 0:4] = self.P
+        
+        return P_hom
 
     def euler_from_R(self):
         '''
