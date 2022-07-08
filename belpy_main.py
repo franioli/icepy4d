@@ -51,6 +51,7 @@ from lib.visualization import (make_camera_pyramid,
                                draw_epip_lines, 
                                make_matching_plot, 
                                )
+                               
 from lib.point_clouds import (
     create_point_cloud, display_pc_inliers, write_ply)
 from lib.misc import (convert_to_homogeneous,
@@ -424,7 +425,6 @@ for i, cam in enumerate(cam_names):
     ax[i].set_title(cam)
     
     
-   
 # %% DSM
 # TODO: implement better DSM class
 
