@@ -25,6 +25,7 @@ import os
 import cv2 
 import pickle
 import numpy as np
+# import exifread
 
 from scipy import linalg
 from pathlib import Path
