@@ -11,4 +11,6 @@ kornia
 gdown
 pydegensac
 rasterio
-fiona shapely
+#fiona 
+#shapely
+exifread

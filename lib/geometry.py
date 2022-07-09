@@ -32,8 +32,6 @@ from lib.classes import Camera
 def estimate_pose(kpts0, kpts1, K0, K1, thresh, conf=0.9999):
     """
     Estimate camera pose given matched points and intrinsics matrix.
-    Function taken by the code of SuperGlue, by Sarlin et al., 2020
-    https://github.com/magicleap/SuperGluePretrainedNetwork
     """
     if len(kpts0) < 5:
         return None
@@ -60,6 +58,7 @@ def estimate_pose(kpts0, kpts1, K0, K1, thresh, conf=0.9999):
             ret = (R, t[:, 0], mask.ravel() > 0)
     return ret
     
+
 def triangulate_nviews(P, ip):
     """
     Triangulate a point visible in n camera views.
@@ -79,6 +78,7 @@ def triangulate_nviews(P, ip):
     X = V[-1, :4]
     return X / X[3]
 
+
 def triangulate_points_linear(P1, P2, x1, x2):
     """
     Two-view triangulation of points in
@@ -90,6 +90,7 @@ def triangulate_points_linear(P1, P2, x1, x2):
     X = [triangulate_nviews([P1, P2], [x[0], x[1]]) for x in zip(x1, x2)]
     return np.array(X)
         
+
 def project_points(points3d, camera: Camera):
     '''
     Project 3D points (Nx3 array) to image coordinates, given a Camera object
@@ -167,8 +168,7 @@ def undistort_image(image, camera: Camera, out_path=None):
     return image_und
 
 def undistort_image_new_cam_matrix(image, K, dist, downsample=1, out_path=None):
-    #TODO: Remove function and create better one...
-    ''' Deprecated
+    ''' Deprecated, substituted with undistort_image()
     Undistort image with OpenCV
     '''
     h, w, _ = image.shape
