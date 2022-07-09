@@ -67,39 +67,6 @@ def interpolate_point_colors(pointxyz, image, camera: Camera):
                                           )
     return col
 
-# def interpolate_point_colors(pointxyz, image, P, K=None, dist=None, winsz=1):
-#     ''''
-#     Interpolate color of a 3D sparse point cloud, given an oriented image
-#       Inputs:  
-#        - Nx3 matrix with 3d world points coordinates
-#        - image as np.array in RGB channels 
-#            NB: if the image was impotred with OpenCV, it must be converted 
-#            from BGR color space to RGB
-#                cv2.cvtColor(image_und, cv2.COLOR_BGR2RGB)
-#        - Camera interior and exterior orientation matrixes: K, R, t
-#        - Distortion vector according to OpenCV
-#     Output: Nx3 colour matrix, as float numbers (normalized in [0,1])
-#     '''       
-#     assert P is not None, 'invalid projection matrix' 
-#     assert image.ndim == 3, 'invalid input image. Image has not 3 channel'
-
-#     if K is not None and dist is not None:
-#         image = cv2.undistort(image, K, dist, None, K)
-    
-#     numPts = len(pointxyz)
-#     col = np.zeros((numPts,3))
-#     h,w,_ = image.shape
-#     projections = project_points(pointxyz, P, K, dist)
-#     image = image.astype(np.float32) / 255.
-    
-#     for ch in range(image.shape[2]):
-#         col[:,ch] = bilinear_interpolate(image[:,:,ch], 
-#                                          projections[:,0], 
-#                                          projections[:,1],
-#                                          )
-#     # import pdb; pdb.set_trace()
-#     return col
-
 
 def bilinear_interpolate(im, x, y):
     ''' Perform bilinear interpolation given a 2D array (single channel image) 
