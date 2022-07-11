@@ -2,8 +2,7 @@
 *ipynb_checkpoints/
 *__pycache__
 *.old/
-data/img/p2/
-data/img/p3/
+data/img/
 data/calib/calib_fullOpenCVmodel.txt
 data/calib/calib_fullOpenCVmodel_matlab.txt
 data/calib/bk/

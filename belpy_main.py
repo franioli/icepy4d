@@ -79,7 +79,7 @@ res_folder = 'res'
 
 #- CAMERAS
 numCams = 2
-cam_names = ['p2', 'p3']
+cam_names = ['p0', 'p1']
 
 # - Bounding box for processing the images from the two cameras
 # maskBB = [[600,1900,5300, 3600], [800,1800,5500,3500]]
@@ -90,7 +90,7 @@ find_matches = False
 
 # Epoches to process
 # It can be 'all' for processing all the epochs or a list with the epoches to be processed
-epoches_to_process = 'all' # [x for x in range(5)]  # 
+epoches_to_process = [0] #'all' # [x for x in range(5)]  # 
 
 #--- Perform matching and tracking ---#
 
@@ -224,8 +224,8 @@ Notes
 # TODO: put parameters, swithches and pre-processing all togheter at the beginning.
 
 # Parameters
-target_paths = [Path('data/target_image_p2.txt'),
-                Path('data/target_image_p3.txt')]
+target_paths = [Path('data/target_image_p0.txt'),
+                Path('data/target_image_p1.txt')]
 
 # Coregistration switches
 # TODO: implement these swithces as proprierty of each camera camera Class
