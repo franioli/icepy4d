@@ -29,7 +29,11 @@ import pandas as pd
 import rasterio
 
 from rasterio.transform import Affine
-from scipy.interpolate import (interp2d, griddata)
+from scipy.interpolate import (interp2d, 
+                               griddata,
+                               CloughTocher2DInterpolator,
+                               LinearNDInterpolator,
+                               )
 from pathlib import Path 
 from PIL import Image
 
@@ -165,7 +169,7 @@ class DSM:
         self.res = res    
         
 def build_dsm(points3d, dsm_step=1, xlim=None, ylim=None, 
-                 interp_method='linear',
+                 interp_method='linear', fill_value = None,
                  save_path=None, make_dsm_plot=False
                  ):
     #TODO: Use Numpy binning instead of pandas grouping.
@@ -221,8 +225,20 @@ def build_dsm(points3d, dsm_step=1, xlim=None, ylim=None,
     xq = np.arange(xlim[0], xlim[1], dsm_step)
     yq = np.arange(ylim[0], ylim[1], dsm_step)
     grid_x, grid_y = np.meshgrid(xq,yq)
-    dsm_grid = griddata((x, y), z, (grid_x, grid_y), method=interp_method)
     
+    if fill_value == 'mean':
+        fill_value = z.mean()
+    
+    # dsm_grid = griddata((x, y), z, (grid_x, grid_y),
+    #                     method=interp_method,
+    #                     fill_value=fill_value,
+    #                     )
+    # interp = CloughTocher2DInterpolator(list(zip(x, y)), z)
+    interp = LinearNDInterpolator(list(zip(x, y)), z,
+                                  fill_value=fill_value,
+                                  )
+    dsm_grid = interp(grid_x, grid_y)
+
     # plot dsm 
     if make_dsm_plot:
         fig, ax = plt.subplots()
@@ -267,7 +283,21 @@ def build_dsm(points3d, dsm_step=1, xlim=None, ylim=None,
                             transform=transform,
                             ) as dst:
             dst.write(dsm_grid, 1)
-            dst.write_mask(mask)
+            # dst.write_mask(mask)
+            
+        if fill_value is not None:
+            mask = np.invert(np.isnan(dsm_grid))
+            with rasterio.open(
+                                save_path.parent/(save_path.stem+'_msk.tif'), 'w',
+                                driver='GTiff', 
+                                height=dsm_grid.shape[0],
+                                width=dsm_grid.shape[1], 
+                                count=1,
+                                dtype='float32',
+                                # crs="EPSG:32632",
+                                transform=transform,
+                                ) as dst:
+                dst.write(mask, 1)
 
     # Return a DSM object
     dsm = DSM(grid_x, grid_y, dsm_grid, dsm_step)
