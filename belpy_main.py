@@ -59,11 +59,8 @@ from lib.misc import (convert_to_homogeneous,
                       create_directory,
                       )
 
-from lib.thirdParts.triangulation import (linear_LS_triangulation, 
-                                          iterative_LS_triangulation,
-                                          )
+from lib.thirdParts.triangulation import iterative_LS_triangulation
 from lib.thirdParts.transformations import affine_matrix_from_points
-from lib.thirdParts.camera_pose_visualizer import CameraPoseVisualizer
 
 #---  Parameters  ---#
 # TODO: put parameters in parser or in json file
