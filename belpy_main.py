@@ -425,6 +425,39 @@ for i, cam in enumerate(cam_names):
                )   
     ax[i].set_title(cam)
     
+# %% Viz reprojection error (note, it is normalized so far...)
+
+from lib.geometry import compute_reprojection_error  
+import matplotlib.cm as cm
+import matplotlib.colors as Colors
+
+cam = cam0
+epcoh = 0
+projections = project_points(points3d,
+                             cameras[cam][epoch],
+                             )
+observed = features[cam][epoch].get_keypoints()
+reprojection_error, rmse = compute_reprojection_error(observed,
+                                                projections
+                                                )
+err = reprojection_error[:,1]
+im = cv2.cvtColor(images[cam][epoch], cv2.COLOR_BGR2RGB)
+
+viridis = cm.get_cmap('viridis', 8)
+norm = Colors.Normalize(vmin=err.min(), vmax=err.max())
+cmap = viridis(norm(err)) 
+
+fig, ax = plt.subplots()
+fig.tight_layout()
+ax.imshow(im)
+scatter = ax.scatter(projections[:, 0], projections[:, 1],
+           s=10, c=cmap, marker='o',  
+           # alpha=0.5, edgecolors='k',
+           )   
+ax.set_title(cam) 
+cbar = plt.colorbar(scatter, ax=ax)
+cbar.set_label("Reprojection error in y")
+
     
 # %% DSM
 # TODO: implement better DSM class
