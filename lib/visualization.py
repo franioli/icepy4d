@@ -95,11 +95,6 @@ def make_camera_pyramid(camera: Camera,
      
     return cam_view_obj
 
-# def extrinsics_from_pose(camera: Camera): 
-    
-    # extrinsics = np.dot(camera.R 
-    
-     
 def pose2pyramid(camera_pose, focal_len_scaled=5, aspect_ratio=0.3):
     #TODO: add description
     '''Function inspired from https://github.com/demul/extrinsic2pyramid
