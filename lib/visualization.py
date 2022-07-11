@@ -57,22 +57,20 @@ def make_camera_pyramid(camera: Camera,
                         aspect_ratio=0.3
                         ):
     '''
-
     Parameters
     ----------
-    camera : Camera
-        DESCRIPTION.
-    color : TYPE, optional
-        DESCRIPTION. The default is 'r'.
-    focal_len_scaled : TYPE, optional
-        DESCRIPTION. The default is 5.
-    aspect_ratio : TYPE, optional
-        DESCRIPTION. The default is 0.3.
+    camera : Camera object 
+    color : list of float32
+        Color of the pyramid. The default is [1., 0., 0.],
+    focal_len_scaled : float32, optional
+        Scale for visualizing the camera pyramid. The default is 5.
+    aspect_ratio : float32, optional
+        Aspect ration of the pyramid for visualization. The default is 0.3.
 
     Returns
     -------
-    o3d_line : TYPE
-        DESCRIPTION.
+    o3d_line : o3d geometry
+        Open3D geometry object containing the camera pyramid to be plotted.
 
     '''
     # Check if camera pose is available, otherwise build it.
@@ -108,18 +106,16 @@ def pose2pyramid(camera_pose, focal_len_scaled=5, aspect_ratio=0.3):
 
     Parameters
     ----------
-    extrinsic : TYPE
-        DESCRIPTION.
-    color : TYPE, optional
-        DESCRIPTION. The default is 'r'.
-    focal_len_scaled : TYPE, optional
-        DESCRIPTION. The default is 5.
-    aspect_ratio : TYPE, optional
-        DESCRIPTION. The default is 0.3.
-
+    camera_pose : float32 array
+        Camera pose matrix.
+    focal_len_scaled : float32, optional
+        Scale for visualizing the camera pyramid. The default is 5.
+    aspect_ratio : float32, optional
+        Aspect ration of the pyramid for visualization. The default is 0.3.
+        
     Returns
     -------
-    None.
+    vertex_transformed: matrix of the vertexes of the pyramid in the world reference system
 
     '''
     vertex_std = np.array([[0, 0, 0, 1],
@@ -145,8 +141,6 @@ def pose2pyramid(camera_pose, focal_len_scaled=5, aspect_ratio=0.3):
 # for (x0, y0) in pt0.astype(int):
     
     
-    
-
 # # Plot with OpenCV
 # cam = 0
 # i = 0
