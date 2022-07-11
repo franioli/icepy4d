@@ -152,7 +152,7 @@ def match_pair(pair, maskBB, opt):
     mkpts0_full = mkpts0_full + np.array(maskBB[0][0:2]).astype('float32')
     mkpts1_full = mkpts1_full + np.array(maskBB[1][0:2]).astype('float32')
     
-    F, inlMask = pydegensac.findFundamentalMatrix(mkpts0_full, mkpts1_full, px_th=2, conf=0.9999, 
+    F, inlMask = pydegensac.findFundamentalMatrix(mkpts0_full, mkpts1_full, px_th=1.5, conf=0.9999, 
                                                   max_iters=100000, laf_consistensy_coef=-1.0, error_type='sampson', 
                                                   symmetric_error_check=True, enable_degeneracy_check=True)
     print ('pydegensac found {} inliers ({:.2f}%)'.format(inlMask.sum(),

@@ -45,20 +45,20 @@ from lib.geometry import (estimate_pose,
 from lib.utils import (interpolate_point_colors,
                        build_dsm, 
                        generate_ortophoto,
-                       DSM,
+                       DSM, #NOTE: temporary class. TO be built better and put in classes.py
                        )
+from lib.point_clouds import (create_point_cloud,
+                              display_pc_inliers, 
+                              write_ply,
+                              )
 from lib.visualization import (make_camera_pyramid,
                                draw_epip_lines, 
                                make_matching_plot, 
                                )
-                               
-from lib.point_clouds import (
-    create_point_cloud, display_pc_inliers, write_ply)
 from lib.misc import (convert_to_homogeneous,
                       convert_from_homogeneous,
                       create_directory,
                       )
-
 from lib.thirdParts.triangulation import iterative_LS_triangulation
 from lib.thirdParts.transformations import affine_matrix_from_points
 
@@ -79,15 +79,14 @@ numCams = 2
 cam_names = ['p0', 'p1']
 
 # - Bounding box for processing the images from the two cameras
-# maskBB = [[600,1900,5300, 3600], [800,1800,5500,3500]]
-maskBB = [[400, 1500, 5500, 4000], [600, 1400, 5700, 3900]]
+maskBB = [[400, 1900, 5500, 3500], [300, 1800, 5700, 3500]]
 
 # On-Off switches
-find_matches = False
+find_matches = True
 
 # Epoches to process
 # It can be 'all' for processing all the epochs or a list with the epoches to be processed
-epoches_to_process = [0] #'all' # [x for x in range(5)]  # 
+epoches_to_process = [0] #'all' # [0] # [x for x in range(5)]  # 
 
 #--- Perform matching and tracking ---#
 
@@ -472,7 +471,8 @@ for epoch in epoches_to_process:
     dsms.append(build_dsm(np.asarray(pcd[epoch].points),
                           dsm_step=res,
                           xlim=xlim, ylim=ylim, 
-                          make_dsm_plot=False,
+                          make_dsm_plot=True,
+                          fill_value = 'mean',
                           save_path=f'res/dsm/dsm_app_epoch_{epoch}.tif'
                           ))
     print('DSM built.')

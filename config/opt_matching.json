@@ -7,24 +7,25 @@
     
     "nms_radius": 3, 
     "keypoint_threshold": 0.0001, 
-    "max_keypoints": 8192, 
+    "max_keypoints": 12288, 
     
     "superglue": "outdoor", 
     "sinkhorn_iterations": 100, 
-    "match_threshold": 0.2, 
+    "match_threshold": 0.01, 
     
     "viz": true, 
     "viz_extension": "png", 
     "fast_viz": true, 
     "opencv_display": false, 
     "show_keypoints": false, 
+    
     "cache": false, 
     "force_cpu": false, 
     
     "useTile": true, 
-    "writeTile2Disk": false, 
+    "writeTile2Disk": true, 
     "do_viz_tile": true, 
-    "rowDivisor": 3, 
+    "rowDivisor": 2, 
     "colDivisor": 4, 
-    "overlap": 300
+    "overlap": 400
 }
