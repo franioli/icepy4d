@@ -76,19 +76,42 @@ res_folder = 'res'
 
 #- CAMERAS
 numCams = 2
-cam_names = ['p0', 'p1']
+cam_names = ['p0', 'p1'] # ['p1_00', 'p2_00'] # 
+''' Note that the calibration file must have the same name as the camera.'''
+
+#- Targets 
+target_paths = [Path('data/target_image_p0.txt'),
+                Path('data/target_image_p1.txt')]
+# target_paths = [Path('data/target_image_p1.txt'),
+#                 Path('data/target_image_p0.txt')]
+
+# Find new matches
+find_matches = True
+
+# Epoches to process
+# It can be 'all' for processing all the epochs or a list with the epoches to be processed
+epoches_to_process = [x for x in range(5)]  # 'all' # [0] # [0] #  # 
+
+# Coregistration switches
+# TODO: implement these swithces as proprierty of each camera camera Class
+# do_coregistration: If True, try to coregister point clouds based on n points (still have to fully implement it)
+do_coregistration = False    
+# fix_both_cameras: if False, estimate EO of cam2 with relative orientation, otherwise keep both cameras fixed.
+fix_both_cameras = False
+
+# Other On-Off switches
+do_viz = False
+do_SOR_filter = True
+rotate_RS = False
 
 # - Bounding box for processing the images from the two cameras
 maskBB = [[400, 1900, 5500, 3500], [300, 1800, 5700, 3500]]
 
-# On-Off switches
-find_matches = False
-
-# Epoches to process
-# It can be 'all' for processing all the epochs or a list with the epoches to be processed
-epoches_to_process = 'all' # [0] # [0] # [x for x in range(5)]  # 
 
 #--- Perform matching and tracking ---#
+'''
+Notes 
+'''
 
 #  Inizialize Variables
 # TODO: replace all lists with dictionaries
@@ -97,7 +120,6 @@ cam0, cam1 = cam_names[0], cam_names[1]
 images = dict.fromkeys(cam_names)  # List for storing image paths
 features = dict.fromkeys(cam_names)  # List for storing image paths
 f_matrixes = []  # List for storing fundamental matrixes
-points3d = []  # List for storing 3D points
 
 # - Create Image Datastore objects
 for jj, cam in enumerate(cam_names):
@@ -179,18 +201,19 @@ if find_matches:
 
             # Run Pydegensac to estimate F matrix and reject outliers
             F, inlMask = pydegensac.findFundamentalMatrix(features[cam0][epoch].get_keypoints(),
-                                                          features[cam1][epoch].get_keypoints(
-            ),
-                px_th=2, conf=0.9, max_iters=100000,
+                                                          features[cam1][epoch].get_keypoints(),
+                px_th=2, conf=0.999, max_iters=10000,
                 laf_consistensy_coef=-1.0,
                 error_type='sampson',
                 symmetric_error_check=True,
                 enable_degeneracy_check=True,
             )
             f_matrixes.append(F)
-            print('Matches at epoch {}: pydegensac found {} inliers ({:.2f}%)'.format(epoch, inlMask.sum(),
-                                                                                      inlMask.sum()*100 / len(features[cam0][epoch])))
-
+            print(f'Matching at epoch {epoch}: pydegensac found {inlMask.sum()} \
+                  inliers ({inlMask.sum()*100/len(features[cam0][epoch]):.2f}%)')
+            features[cam0][epoch].remove_outliers_features(inlMask)
+            features[cam1][epoch].remove_outliers_features(inlMask)
+                                                                                                  
         # Write matched points to disk
         im_stems = images[cam0].get_image_stem(
             epoch), images[cam1].get_image_stem(epoch)
@@ -213,40 +236,21 @@ else:
     print("Features already present, nothing was changed.")
 
 
-## SfM ##
+#--- SfM ---#
 '''
 Notes 
 '''
-# TODO: put parameters, swithches and pre-processing all togheter at the beginning.
-
-# Parameters
-target_paths = [Path('data/target_image_p0.txt'),
-                Path('data/target_image_p1.txt')]
-
-# Coregistration switches
-# TODO: implement these swithces as proprierty of each camera camera Class
-# do_coregistration: If True, try to coregister point clouds based on n points
-do_coregistration = False    
-# fix_both_cameras: if False, estimate EO of cam2 with relative orientation, otherwise keep both cameras fixed.
-fix_both_cameras = False
-
-# On-Off switches
-do_viz = False
-do_SOR_filter = True
-rotate_RS = False
-
-# Iizialize variables
+# Initialize variables
 cameras = dict.fromkeys(cam_names)
 cameras[cam0], cameras[cam1] = [], []
 pcd = []
 tform = []
-img0 = images[cam0][0]
-h, w, _ = img0.shape
+h, w = 4000, 6000
 
 # Build reference camera objects with only known interior orientation
 ref_cams = dict.fromkeys(cam_names)
 for jj, cam in enumerate(cam_names):
-    ref_cams[cam] = Camera(width=6000, heigth=400,
+    ref_cams[cam] = Camera(width=6000, height=400,
                            calib_path=Path(calibFld) / f'{cam}.txt')
 
 # Read target image coordinates
@@ -268,7 +272,7 @@ for epoch in epoches_to_process:
     # TODO: replace append with insert or a more robust data structure...
     for cam in cam_names:
         cameras[cam].append(Camera(width=ref_cams[cam].width,
-                                   heigth=ref_cams[cam].heigth,
+                                   height=ref_cams[cam].height,
                                    K=ref_cams[cam].K,
                                    dist=ref_cams[cam].dist,
                                    ))
@@ -400,7 +404,7 @@ for epoch in epoches_to_process:
     print('Done.')
 
 # Visualize epoch x
-epoch = 26
+epoch = 0
 cam_syms = []
 cam_colors = [[1, 0, 0], [0, 0, 1]]
 for i, cam in enumerate(cam_names):
@@ -413,20 +417,51 @@ o3d.visualization.draw_geometries([pcd[epoch],  cam_syms[0], cam_syms[1]], windo
                                   width=1280, height=720,
                                   left=300, top=200)
 
-# fig, ax = plt.subplots(1,2)
-# fig.tight_layout()
-# for i, cam in enumerate(cam_names):
-#     projections = project_points(points3d,
-#                                  cameras[cam][epoch],
-#                                  )
-#     im = cv2.cvtColor(images[cam][epoch], cv2.COLOR_BGR2RGB)
-#     # im = undistort_image(im, cameras[cam][epoch])
-#     ax[i].imshow(im)
-#     ax[i].scatter(projections[:, 0], projections[:, 1],
-#                s=10, c='r', marker='o',  
-#                alpha=0.5, edgecolors='k',
-#                )   
-#     ax[i].set_title(cam)
+
+#%% Plot features on stereo pair
+cam = cam0
+epoch = 0
+fig, ax = plt.subplots(1,2)
+fig.tight_layout()
+for i, cam in enumerate(cam_names):
+    pts = features[cam][epoch].get_keypoints()
+    im = cv2.cvtColor(images[cam][epoch], cv2.COLOR_BGR2RGB)
+    ax[i].imshow(im)
+    ax[i].scatter(pts[:, 0], pts[:, 1],
+                s=6, c='y', marker='o',  
+                alpha=0.8, edgecolors='r',
+                linewidths=1,
+                )   
+    ax[i].set_title(cam)
+    
+
+#%% Plot projections on stereo pair
+cam = cam0
+epoch = 1
+pts0_und = undistort_points(features[cam0][epoch].get_keypoints(),
+                            cameras[cam0][epoch]
+                            )
+pts1_und = undistort_points(features[cam1][epoch].get_keypoints(),
+                            cameras[cam1][epoch]
+                            )
+points3d, status = iterative_LS_triangulation(pts0_und, cameras[cam0][epoch].P,
+                                              pts1_und, cameras[cam1][epoch].P,
+                                              )
+print(f'Point triangulation succeded: {status.sum()/status.size}.')
+fig, ax = plt.subplots(1,2)
+fig.tight_layout()
+for i, cam in enumerate(cam_names):
+    projections = project_points(points3d,
+                                  cameras[cam][epoch],
+                                  )
+    im = cv2.cvtColor(images[cam][epoch], cv2.COLOR_BGR2RGB)
+    ax[i].imshow(im)
+    ax[i].scatter(projections[:, 0], projections[:, 1],
+                s=8, c='y', marker='o',  
+                alpha=1, edgecolors='r',
+                linewidths=1,
+                )   
+    ax[i].set_title(cam)
     
 # %% Viz reprojection error (note, it is normalized so far...)
 
@@ -435,8 +470,19 @@ import matplotlib.cm as cm
 import matplotlib.colors as Colors
 
 cam = cam0
-epcoh = 26
-projections = project_points(np.asarray(pcd[epoch].points),
+epoch = 0
+pts0_und = undistort_points(features[cam0][epoch].get_keypoints(),
+                            cameras[cam0][epoch]
+                            )
+pts1_und = undistort_points(features[cam1][epoch].get_keypoints(),
+                            cameras[cam1][epoch]
+                            )
+points3d, status = iterative_LS_triangulation(pts0_und, cameras[cam0][epoch].P,
+                                              pts1_und, cameras[cam1][epoch].P,
+                                              )
+print(f'Point triangulation succeded: {status.sum()/status.size}.')
+
+projections = project_points(points3d,
                              cameras[cam][epoch],
                              )
 observed = features[cam][epoch].get_keypoints()
