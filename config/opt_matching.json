@@ -23,7 +23,7 @@
     "force_cpu": false, 
     
     "useTile": true, 
-    "writeTile2Disk": true, 
+    "writeTile2Disk": false, 
     "do_viz_tile": true, 
     "rowDivisor": 2, 
     "colDivisor": 4, 

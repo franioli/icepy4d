@@ -169,7 +169,7 @@ class DSM:
         self.res = res    
         
 def build_dsm(points3d, dsm_step=1, xlim=None, ylim=None, 
-                 interp_method='linear', fill_value = None,
+                 interp_method='linear', fill_value=np.nan,
                  save_path=None, make_dsm_plot=False
                  ):
     #TODO: Use Numpy binning instead of pandas grouping.
@@ -234,6 +234,7 @@ def build_dsm(points3d, dsm_step=1, xlim=None, ylim=None,
     #                     fill_value=fill_value,
     #                     )
     # interp = CloughTocher2DInterpolator(list(zip(x, y)), z)
+    
     interp = LinearNDInterpolator(list(zip(x, y)), z,
                                   fill_value=fill_value,
                                   )
