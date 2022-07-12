@@ -82,11 +82,11 @@ cam_names = ['p0', 'p1']
 maskBB = [[400, 1900, 5500, 3500], [300, 1800, 5700, 3500]]
 
 # On-Off switches
-find_matches = True
+find_matches = False
 
 # Epoches to process
 # It can be 'all' for processing all the epochs or a list with the epoches to be processed
-epoches_to_process = [0] #'all' # [0] # [x for x in range(5)]  # 
+epoches_to_process = 'all' # [0] # [0] # [x for x in range(5)]  # 
 
 #--- Perform matching and tracking ---#
 
@@ -399,27 +399,34 @@ for epoch in epoches_to_process:
 
     print('Done.')
 
-# Visualize all points clouds together
-o3d.visualization.draw_geometries([pcd[0]],
-                                  window_name='All epoches',
-                                  width=1280, height=720,
-                                  left=300, top=200,
-                                  )
-
-fig, ax = plt.subplots(1,2)
-fig.tight_layout()
+# Visualize epoch x
+epoch = 26
+cam_syms = []
+cam_colors = [[1, 0, 0], [0, 0, 1]]
 for i, cam in enumerate(cam_names):
-    projections = project_points(points3d,
-                                 cameras[cam][epoch],
-                                 )
-    im = cv2.cvtColor(images[cam][epoch], cv2.COLOR_BGR2RGB)
-    # im = undistort_image(im, cameras[cam][epoch])
-    ax[i].imshow(im)
-    ax[i].scatter(projections[:, 0], projections[:, 1],
-               s=10, c='r', marker='o',  
-               alpha=0.5, edgecolors='k',
-               )   
-    ax[i].set_title(cam)
+    cam_syms.append(make_camera_pyramid(cameras[cam][epoch],
+                                        color=cam_colors[i],
+                                        focal_len_scaled=30,
+                                        ))
+win_name = f'Sparse point cloud - Epoch: {epoch} - Num pts: {len(np.asarray(pcd_epc.points))}'
+o3d.visualization.draw_geometries([pcd[epoch],  cam_syms[0], cam_syms[1]], window_name=win_name,
+                                  width=1280, height=720,
+                                  left=300, top=200)
+
+# fig, ax = plt.subplots(1,2)
+# fig.tight_layout()
+# for i, cam in enumerate(cam_names):
+#     projections = project_points(points3d,
+#                                  cameras[cam][epoch],
+#                                  )
+#     im = cv2.cvtColor(images[cam][epoch], cv2.COLOR_BGR2RGB)
+#     # im = undistort_image(im, cameras[cam][epoch])
+#     ax[i].imshow(im)
+#     ax[i].scatter(projections[:, 0], projections[:, 1],
+#                s=10, c='r', marker='o',  
+#                alpha=0.5, edgecolors='k',
+#                )   
+#     ax[i].set_title(cam)
     
 # %% Viz reprojection error (note, it is normalized so far...)
 
@@ -428,14 +435,16 @@ import matplotlib.cm as cm
 import matplotlib.colors as Colors
 
 cam = cam0
-epcoh = 0
-projections = project_points(points3d,
+epcoh = 26
+projections = project_points(np.asarray(pcd[epoch].points),
                              cameras[cam][epoch],
                              )
 observed = features[cam][epoch].get_keypoints()
 reprojection_error, rmse = compute_reprojection_error(observed,
                                                 projections
                                                 )
+print(f"Reprojection rmse: {rmse}")
+
 err = reprojection_error[:,1]
 im = cv2.cvtColor(images[cam][epoch], cv2.COLOR_BGR2RGB)
 
@@ -460,8 +469,8 @@ cbar.set_label("Reprojection error in y")
 
 print('DSM and orthophoto generation started')
 res = 0.03
-xlim = [-90., 70.]
-ylim = [0., 55.]
+xlim = [-100., 80.]
+ylim = [-10., 65.]
 
 dsms = []
 ortofoto = dict.fromkeys(cam_names)
@@ -471,8 +480,8 @@ for epoch in epoches_to_process:
     dsms.append(build_dsm(np.asarray(pcd[epoch].points),
                           dsm_step=res,
                           xlim=xlim, ylim=ylim, 
-                          make_dsm_plot=True,
-                          fill_value = 'mean',
+                          make_dsm_plot=False,
+                          # fill_value = ,
                           save_path=f'res/dsm/dsm_app_epoch_{epoch}.tif'
                           ))
     print('DSM built.')
