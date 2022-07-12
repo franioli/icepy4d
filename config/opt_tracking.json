@@ -24,7 +24,7 @@
 
     "useTile": true,
     "writeTile2Disk": false,
-    "do_viz_tile": true,
+    "do_viz_tile": false,
     "rowDivisor": 2,
     "colDivisor": 4
 }   

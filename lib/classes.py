@@ -34,7 +34,7 @@ from pathlib import Path
 class Camera:
     ''' Class to help manage Cameras. '''
 
-    def __init__(self, width=None, heigth=None, 
+    def __init__(self, width=None, height=None, 
                  K=None, dist=None,
                  R=None, t=None, 
                  calib_path=None
@@ -53,7 +53,7 @@ class Camera:
         #TODO: add assertion to check that only K and dist OR calib_path is provided.
         
         self.width = width
-        self.heigth = heigth
+        self.height = height
         self.K = K # calibration matrix
         self.dist = dist # Distortion vector in OpenCV format
         self.R = R # rotation
@@ -483,6 +483,23 @@ class Features:
                 'descriptors0': self.get_descriptors(),
                 'scores0': self.get_scores() }
         return out
+    
+    def remove_outliers_features(self, inlier_mask):
+        #TODO: write description
+        ''' Remove outliers features 
+        Parameters
+        ----------
+        new_features : TYPE
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
+        '''
+        self.kpts = self.kpts[inlier_mask,:]
+        self.descr = self.descr[:,inlier_mask]
+        self.score = self.score[inlier_mask]
+    
     
     def append_features(self, new_features):
         '''

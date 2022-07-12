@@ -58,7 +58,7 @@ def estimate_pose(kpts0, kpts1, K0, K1, thresh, conf=0.9999):
             best_num_inliers = n
             ret = (R, t[:, 0], mask.ravel() > 0)
     return ret
-    
+  
 
 def triangulate_nviews(P, ip):
     """
