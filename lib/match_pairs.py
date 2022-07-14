@@ -152,19 +152,26 @@ def match_pair(pair, maskBB, opt):
     mkpts0_full = mkpts0_full + np.array(maskBB[0][0:2]).astype('float32')
     mkpts1_full = mkpts1_full + np.array(maskBB[1][0:2]).astype('float32')
     
-    F, inlMask = pydegensac.findFundamentalMatrix(mkpts0_full, mkpts1_full, px_th=1.5, conf=0.9999, 
-                                                  max_iters=100000, laf_consistensy_coef=-1.0, error_type='sampson', 
-                                                  symmetric_error_check=True, enable_degeneracy_check=True)
-    print ('pydegensac found {} inliers ({:.2f}%)'.format(inlMask.sum(),
-                    inlMask.sum()*100 / len(mkpts0_full) ))
-    mconf = conf_full[inlMask]
-    mkpts0 = mkpts0_full[inlMask]
-    mkpts1 = mkpts1_full[inlMask]
-    scores0 = scores0_full[inlMask]
-    scores1 = scores1_full[inlMask]
-    descriptors0 = descriptors0_full[:,inlMask]
-    descriptors1 = descriptors1_full[:,inlMask]
-    timer.update('PyDegensac')
+    # F, inlMask = pydegensac.findFundamentalMatrix(mkpts0_full, mkpts1_full, px_th=1.5, conf=0.9999, 
+    #                                               max_iters=100000, laf_consistensy_coef=-1.0, error_type='sampson', 
+    #                                               symmetric_error_check=True, enable_degeneracy_check=True)
+    # print ('pydegensac found {} inliers ({:.2f}%)'.format(inlMask.sum(),
+    #                 inlMask.sum()*100 / len(mkpts0_full) ))
+    # mconf = conf_full[inlMask]
+    # mkpts0 = mkpts0_full[inlMask]
+    # mkpts1 = mkpts1_full[inlMask]
+    # scores0 = scores0_full[inlMask]
+    # scores1 = scores1_full[inlMask]
+    # descriptors0 = descriptors0_full[:,inlMask]
+    # descriptors1 = descriptors1_full[:,inlMask]
+    # timer.update('PyDegensac')
+    mconf = conf_full
+    mkpts0 = mkpts0_full
+    mkpts1 = mkpts1_full
+    scores0 = scores0_full
+    scores1 = scores1_full
+    descriptors0 = descriptors0_full
+    descriptors1 = descriptors1_full
 
     # Write the matches to disk.
     out_matches = {'mkpts0': mkpts0 , 'mkpts1': mkpts1, 'match_confidence': mconf}        

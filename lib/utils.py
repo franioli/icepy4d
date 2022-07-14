@@ -245,9 +245,9 @@ def build_dsm(points3d, dsm_step=1, xlim=None, ylim=None,
         fig, ax = plt.subplots()
         dsm_plt = ax.contourf(grid_x, grid_y, dsm_grid)
         scatter = ax.scatter(points3d[:,0], points3d[:,1], 
-                             s=10, c=points3d[:,2], 
+                             s=5, c=points3d[:,2], 
                              marker='o',  cmap='viridis',
-                             alpha=0.5, edgecolors='k',
+                             alpha=0.4, edgecolors='k',
                              )
         ax.axis('equal')
         ax.invert_yaxis()
@@ -284,10 +284,12 @@ def build_dsm(points3d, dsm_step=1, xlim=None, ylim=None,
                             transform=transform,
                             ) as dst:
             dst.write(dsm_grid, 1)
-            # dst.write_mask(mask)
+            if fill_value is not None:
+                mask = np.invert(np.isnan(dsm_grid))                                      
+                dst.write_mask(mask)
             
         if fill_value is not None:
-            mask = np.invert(np.isnan(dsm_grid))
+            # mask = np.invert(np.isnan(dsm_grid))
             with rasterio.open(
                                 save_path.parent/(save_path.stem+'_msk.tif'), 'w',
                                 driver='GTiff', 
