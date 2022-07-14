@@ -76,7 +76,7 @@ res_folder = 'res'
 
 #- CAMERAS
 numCams = 2
-cam_names = ['p0', 'p1'] # ['p1_00', 'p2_00'] # 
+cam_names = ['p0', 'p1'] # ['p0_00', 'p1_00'] # 
 ''' Note that the calibration file must have the same name as the camera.'''
 
 #- Targets 
@@ -90,14 +90,14 @@ find_matches = True
 
 # Epoches to process
 # It can be 'all' for processing all the epochs or a list with the epoches to be processed
-epoches_to_process = [x for x in range(5)]  # 'all' # [0] # [0] #  # 
+epoches_to_process = 'all' # [x for x in range(15)]  # [0] #
 
 # Coregistration switches
 # TODO: implement these swithces as proprierty of each camera camera Class
 # do_coregistration: If True, try to coregister point clouds based on n points (still have to fully implement it)
 do_coregistration = False    
 # fix_both_cameras: if False, estimate EO of cam2 with relative orientation, otherwise keep both cameras fixed.
-fix_both_cameras = False
+# fix_both_cameras = False
 
 # Other On-Off switches
 do_viz = False
@@ -162,7 +162,7 @@ if find_matches:
         for jj, cam in enumerate(cam_names):
             # TODO: add better description
             ''' 
-            External list are the cameras, internal list are the epoches... 
+            Dict keys are the cameras names, internal list are the epoches... 
             '''
             features[cam].append(Features())
             features[cam][epoch].append_features({'kpts': matchedPts[jj],
@@ -187,7 +187,7 @@ if find_matches:
                      features[cam1][epoch-1].get_features_as_dict()]
             tracked_cam0, tracked_cam1 = track_matches(
                 pairs, maskBB, prevs, opt_tracking)
-            # TODO: tenere traccia dell'epoca in cui è stato trovato il match
+            # TODO: keep track of the epoch in which feature is matched
             # TODO: Check bounding box in tracking
             # TODO: clean tracking code
 
@@ -199,20 +199,20 @@ if find_matches:
                                                    'descr': tracked_cam1['descriptors1'],
                                                    'score': tracked_cam1['scores1']})
 
-            # Run Pydegensac to estimate F matrix and reject outliers
-            F, inlMask = pydegensac.findFundamentalMatrix(features[cam0][epoch].get_keypoints(),
-                                                          features[cam1][epoch].get_keypoints(),
-                px_th=2, conf=0.999, max_iters=10000,
-                laf_consistensy_coef=-1.0,
-                error_type='sampson',
-                symmetric_error_check=True,
-                enable_degeneracy_check=True,
-            )
-            f_matrixes.append(F)
-            print(f'Matching at epoch {epoch}: pydegensac found {inlMask.sum()} \
-                  inliers ({inlMask.sum()*100/len(features[cam0][epoch]):.2f}%)')
-            features[cam0][epoch].remove_outliers_features(inlMask)
-            features[cam1][epoch].remove_outliers_features(inlMask)
+        # Run Pydegensac to estimate F matrix and reject outliers
+        F, inlMask = pydegensac.findFundamentalMatrix(features[cam0][epoch].get_keypoints(),
+                                                      features[cam1][epoch].get_keypoints(),
+                                                      px_th=1.5, conf=0.99999, max_iters=10000,
+                                                      laf_consistensy_coef=-1.0,
+                                                      error_type='sampson',
+                                                      symmetric_error_check=True,
+                                                      enable_degeneracy_check=True,
+                                                      )
+        f_matrixes.append(F)
+        print(f'Matching at epoch {epoch}: pydegensac found {inlMask.sum()} \
+              inliers ({inlMask.sum()*100/len(features[cam0][epoch]):.2f}%)')
+        features[cam0][epoch].remove_outliers_features(inlMask)
+        features[cam1][epoch].remove_outliers_features(inlMask)
                                                                                                   
         # Write matched points to disk
         im_stems = images[cam0].get_image_stem(
@@ -236,6 +236,8 @@ else:
     print("Features already present, nothing was changed.")
 
 
+
+#%%
 #--- SfM ---#
 '''
 Notes 
@@ -282,7 +284,7 @@ for epoch in epoches_to_process:
                                 features[cam1][epoch].get_keypoints(),
                                 cameras[cam0][epoch].K,
                                 cameras[cam1][epoch].K,
-                                thresh=0.5, conf=0.99999,
+                                thresh=1.5, conf=0.999999,
                                 )
     print('Computing relative pose. Valid points: {}/{}'.format(valid.sum(), len(valid)))
 
@@ -437,7 +439,7 @@ for i, cam in enumerate(cam_names):
 
 #%% Plot projections on stereo pair
 cam = cam0
-epoch = 1
+epoch = 0
 pts0_und = undistort_points(features[cam0][epoch].get_keypoints(),
                             cameras[cam0][epoch]
                             )
@@ -482,18 +484,44 @@ points3d, status = iterative_LS_triangulation(pts0_und, cameras[cam0][epoch].P,
                                               )
 print(f'Point triangulation succeded: {status.sum()/status.size}.')
 
+observed = features[cam][epoch].get_keypoints()
 projections = project_points(points3d,
                              cameras[cam][epoch],
                              )
-observed = features[cam][epoch].get_keypoints()
-reprojection_error, rmse = compute_reprojection_error(observed,
-                                                projections
-                                                )
+reprojection_error, rmse = compute_reprojection_error(observed, projections)
 print(f"Reprojection rmse: {rmse}")
 
-err = reprojection_error[:,1]
-im = cv2.cvtColor(images[cam][epoch], cv2.COLOR_BGR2RGB)
 
+# Reject features with reprojection error magnitude larger than proj_err_max
+err = reprojection_error[:,2]
+proj_err_max = 4
+inliers = err<proj_err_max
+print(f'Rejected points: {np.invert(inliers).sum()}/{len(err)} --> number of inliers matches: {inliers.sum()}')
+
+# features[cam0][epoch].remove_outliers_features(inliers)
+# features[cam1][epoch].remove_outliers_features(inliers)
+# ''' Now MANUALLY perform again orientation and reprojection error computation... and iterate'''
+
+# pts0_und = undistort_points(features[cam0][epoch].get_keypoints(),
+#                             cameras[cam0][epoch]
+#                             )
+# pts1_und = undistort_points(features[cam1][epoch].get_keypoints(),
+#                             cameras[cam1][epoch]
+#                             )
+# points3d, status = iterative_LS_triangulation(pts0_und, cameras[cam0][epoch].P,
+#                                               pts1_und, cameras[cam1][epoch].P,
+#                                               )
+# print(f'Point triangulation succeded: {status.sum()/status.size}.')
+
+observed = features[cam][epoch].get_keypoints()
+projections = project_points(points3d,
+                             cameras[cam][epoch],
+                             )
+reprojection_error, rmse = compute_reprojection_error(observed, projections)
+print(f"Reprojection rmse: {rmse}")
+
+
+im = cv2.cvtColor(images[cam][epoch], cv2.COLOR_BGR2RGB)
 viridis = cm.get_cmap('viridis', 8)
 norm = Colors.Normalize(vmin=err.min(), vmax=err.max())
 cmap = viridis(norm(err)) 
@@ -526,7 +554,7 @@ for epoch in epoches_to_process:
     dsms.append(build_dsm(np.asarray(pcd[epoch].points),
                           dsm_step=res,
                           xlim=xlim, ylim=ylim, 
-                          make_dsm_plot=False,
+                          make_dsm_plot=True,
                           # fill_value = ,
                           save_path=f'res/dsm/dsm_app_epoch_{epoch}.tif'
                           ))
