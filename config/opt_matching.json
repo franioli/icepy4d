@@ -7,11 +7,11 @@
     
     "nms_radius": 3, 
     "keypoint_threshold": 0.0001, 
-    "max_keypoints": 12288,     
+    "max_keypoints": 10240,     
     
     "superglue": "outdoor", 
     "sinkhorn_iterations": 100, 
-    "match_threshold": 0.01, 
+    "match_threshold": 0.15, 
     
     "viz": true, 
     "viz_extension": "png", 

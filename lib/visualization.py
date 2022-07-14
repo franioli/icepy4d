@@ -124,6 +124,37 @@ def pose2pyramid(camera_pose, focal_len_scaled=5, aspect_ratio=0.3):
     return vertex_transformed[:,0:3]
     
 
+def make_viz_sdr(scale=5):
+    '''
+    Parameters
+    ----------
+    scale : int
+        scale for plotting the axes vectors
+    Returns
+    -------
+    rs_obj : o3d geometry
+        Open3D geometry object containing the reference system visualization symbol
+        Colors are R, G, B respectively for X, Y, Z axis
+
+    '''
+    
+    vertexes = scale * np.array([[0., 0., 0.],
+                                 [1., 0., 0.],
+                                 [0., 1., 0.],
+                                 [0., 0., 1.],
+                                 ])
+    colors = np.array([[255., 0., 0.],
+                      [0., 255., 0.],
+                      [0., 0., 255.]], 
+                     dtype='float32')
+    lines = [[0, 1], [0, 2], [0, 3]] 
+
+    rs_obj = o3d.geometry.LineSet()
+    rs_obj.lines = o3d.utility.Vector2iVector(lines)
+    rs_obj.colors = o3d.utility.Vector3dVector(colors)
+    rs_obj.points = o3d.utility.Vector3dVector(vertexes)  
+    
+    return rs_obj
 
 
 # Darw features
