@@ -3,29 +3,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import open3d as o3d
 
-from lib.classes import Camera
+from lib.classes import (Camera, Features)
+from lib.geometry import (undistort_points,
+                          project_points,
+                          )
 
-def draw_epip_lines(img0, img1, lines, pts0, pts1, fast_viz=True):
-    ''' img0 - image on which we draw the epilines for the points in img2
-        lines - corresponding epilines '''
-    r,c,_ = img0.shape
-    if not fast_viz:
-        img0 = cv2.cvtColor(img0,cv2.COLOR_BGR2RGB)
-        img1 = cv2.cvtColor(img1,cv2.COLOR_BGR2RGB)
-        #TODO: implement visualization in matplotlib
-    for r,pt0,pt1 in zip(lines,pts0,pts1):
-        color = tuple(np.random.randint(0,255,3).tolist())
-        x0,y0 = map(int, [0, -r[2]/r[1] ])
-        x1,y1 = map(int, [c, -(r[2]+r[0]*c)/r[1] ])
-        img0 = cv2.line(img0, (x0,y0), (x1,y1), color,1)
-        img0 = cv2.circle(img0,tuple(pt0.astype(int)),5,color,-1)
-        img1 = cv2.circle(img1,tuple(pt1.astype(int)),5,color,-1)
-        # img0 = cv2.drawMarker(img0,tuple(pt0.astype(int)),color,cv2.MARKER_CROSS,3)
-        # img1 = cv2.drawMarker(img1,tuple(pt1.astype(int)),color,cv2.MARKER_CROSS,3)        
-    return img0,img1
-
-
-def make_matching_plot(image0, image1, pts0, pts1, pts_col=(0,0,255), point_size=2, line_col=(0,255,0), line_thickness=1, path=None, margin=10):
+def make_matching_plot(image0, image1, pts0, pts1, 
+                       pts_col=(0,0,255), point_size=2, line_col=(0,255,0), 
+                       line_thickness=1, path=None, margin=10):
     if image0.ndim > 2:
         image0 = cv2.cvtColor(image0, cv2.COLOR_BGR2GRAY)
     if image1.ndim > 2:
@@ -49,7 +34,77 @@ def make_matching_plot(image0, image1, pts0, pts1, pts_col=(0,0,255), point_size
                    lineType=cv2.LINE_AA)
     if path is not None: 
         cv2.imwrite(path, out)
+        
  
+def plot_features(image, features, title: str=None, ax = None):
+    ''' Plot detected features on the input image
+    Parameters
+    ----------
+    image : numpy array with BRG channels (OpenCV standard)
+    features : nx2 float32 array
+        array of 2D image coordinates of the features to plot
+    title: str
+        title of the axes of the plt
+    ax : matplotlib axes (default = None)
+        axis in which to make the plot. If nothing is given, the function create
+        a new figure and axes.
+    Return : None
+    ''' 
+    im = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    if ax is None:    
+        fig, ax = plt.subplots()  
+    ax.imshow(im)
+    ax.scatter(features[:, 0], features[:, 1],
+                s=6, c='y', marker='o',  
+                alpha=0.8, edgecolors='r',
+                linewidths=1,
+                )  
+    if title is not None:
+        ax.set_title(title)
+    
+def plot_projections(points3d, camera: Camera, image, title: str=None, ax = None):
+    '''  Project 3D point to a camera and plot projections over the image
+    Parameters
+    ----------
+    points3d: nx3 float32 array
+        Array of 3D points in the object space
+    camera: Camera object
+        Camera object contining exterior and interior orientation
+    image: numpy array with BRG channels (OpenCV standard)
+    title: str
+        title of the axes of the plt
+    ax : matplotlib axes (default = None)
+        axis in which to make the plot. If nothing is given, the function create
+        a new figure and axes.
+    Return : None
+    ''' 
+    if ax is None:    
+        fig, ax = plt.subplots()
+        
+    projections = project_points(points3d, camera)
+    plot_features(image, projections, title, ax)
+        
+               
+def draw_epip_lines(img0, img1, lines, pts0, pts1, fast_viz=True):
+    ''' img0 - image on which we draw the epilines for the points in img2
+        lines - corresponding epilines '''
+    r,c,_ = img0.shape
+    if not fast_viz:
+        img0 = cv2.cvtColor(img0,cv2.COLOR_BGR2RGB)
+        img1 = cv2.cvtColor(img1,cv2.COLOR_BGR2RGB)
+        #TODO: implement visualization in matplotlib
+    for r,pt0,pt1 in zip(lines,pts0,pts1):
+        color = tuple(np.random.randint(0,255,3).tolist())
+        x0,y0 = map(int, [0, -r[2]/r[1] ])
+        x1,y1 = map(int, [c, -(r[2]+r[0]*c)/r[1] ])
+        img0 = cv2.line(img0, (x0,y0), (x1,y1), color,1)
+        img0 = cv2.circle(img0,tuple(pt0.astype(int)),5,color,-1)
+        img1 = cv2.circle(img1,tuple(pt1.astype(int)),5,color,-1)
+        # img0 = cv2.drawMarker(img0,tuple(pt0.astype(int)),color,cv2.MARKER_CROSS,3)
+        # img1 = cv2.drawMarker(img1,tuple(pt1.astype(int)),color,cv2.MARKER_CROSS,3)        
+    return img0,img1   
+
 # TODO: decide where to put these functions for camera viz
 def make_camera_pyramid(camera: Camera, 
                         color=[1., 0., 0.], 
@@ -135,9 +190,7 @@ def make_viz_sdr(scale=5):
     rs_obj : o3d geometry
         Open3D geometry object containing the reference system visualization symbol
         Colors are R, G, B respectively for X, Y, Z axis
-
     '''
-    
     vertexes = scale * np.array([[0., 0., 0.],
                                  [1., 0., 0.],
                                  [0., 1., 0.],
