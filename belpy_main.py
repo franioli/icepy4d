@@ -54,6 +54,8 @@ from lib.point_clouds import (create_point_cloud,
 from lib.visualization import (make_camera_pyramid,
                                draw_epip_lines, 
                                make_matching_plot, 
+                               plot_features,
+                               plot_projections,
                                )
 from lib.misc import (convert_to_homogeneous,
                       convert_from_homogeneous,
@@ -86,7 +88,7 @@ target_paths = [Path('data/target_image_p0.txt'),
 #                 Path('data/target_image_p0.txt')]
 
 # Find new matches
-find_matches = True
+find_matches = False
 
 # Epoches to process
 # It can be 'all' for processing all the epochs or a list with the epoches to be processed
@@ -421,50 +423,13 @@ o3d.visualization.draw_geometries([pcd[epoch],  cam_syms[0], cam_syms[1]], windo
 
 
 #%% Plot features on stereo pair
-cam = cam0
 epoch = 0
-fig, ax = plt.subplots(1,2)
-fig.tight_layout()
+fig, axes = plt.subplots(2,1)   
 for i, cam in enumerate(cam_names):
-    pts = features[cam][epoch].get_keypoints()
-    im = cv2.cvtColor(images[cam][epoch], cv2.COLOR_BGR2RGB)
-    ax[i].imshow(im)
-    ax[i].scatter(pts[:, 0], pts[:, 1],
-                s=6, c='y', marker='o',  
-                alpha=0.8, edgecolors='r',
-                linewidths=1,
-                )   
-    ax[i].set_title(cam)
+    plot_features(images[cam][epoch], features[cam][epoch].get_keypoints(), cam, axes[i])
+  
     
-
-#%% Plot projections on stereo pair
-cam = cam0
-epoch = 0
-pts0_und = undistort_points(features[cam0][epoch].get_keypoints(),
-                            cameras[cam0][epoch]
-                            )
-pts1_und = undistort_points(features[cam1][epoch].get_keypoints(),
-                            cameras[cam1][epoch]
-                            )
-points3d, status = iterative_LS_triangulation(pts0_und, cameras[cam0][epoch].P,
-                                              pts1_und, cameras[cam1][epoch].P,
-                                              )
-print(f'Point triangulation succeded: {status.sum()/status.size}.')
-fig, ax = plt.subplots(1,2)
-fig.tight_layout()
-for i, cam in enumerate(cam_names):
-    projections = project_points(points3d,
-                                  cameras[cam][epoch],
-                                  )
-    im = cv2.cvtColor(images[cam][epoch], cv2.COLOR_BGR2RGB)
-    ax[i].imshow(im)
-    ax[i].scatter(projections[:, 0], projections[:, 1],
-                s=8, c='y', marker='o',  
-                alpha=1, edgecolors='r',
-                linewidths=1,
-                )   
-    ax[i].set_title(cam)
-    
+  
 # %% Viz reprojection error (note, it is normalized so far...)
 
 from lib.geometry import compute_reprojection_error  
@@ -567,170 +532,3 @@ for epoch in epoches_to_process:
                                                 save_path=fout_name,
                                                 ))
     print('Orthophotos built.')
-
-
-# %% DENSE MATCHING
-
-# Init
-epoch = 0
-sgm_path = Path('sgm')
-downsample = 0.25
-fast_viz = True
-
-stem0, stem1 = images[cam0].get_image_stem(
-    epoch), images[cam1].get_image_stem(epoch)
-img0, img1 = images[cam0][epoch], images[cam1][epoch]
-h, w, _ = img0.shape
-
-
-#--- Rectify calibrated ---#
-left_cam = cameras[cam1][epoch]
-right_cam = cameras[cam1][epoch]
-left_img = images[cam1][epoch]
-rigth_img = images[cam0][epoch]
-
-#
-rectOut = cv2.stereoRectify(left_cam.K, left_cam.dist,
-                            right_cam.K, right_cam.dist,
-                            (w, h), left_cam.R, left_cam.t,
-                            # (w,h), left_cam.R.T, -left_cam.t,
-                            # (w,h), right_cam.R.T, -right_cam.t,
-                            flags=cv2.CALIB_ZERO_DISPARITY,
-                            )
-# R1,R2,P1,P2,Q,validRoi0,validRoi1
-R0, R1 = rectOut[0], rectOut[1]
-P0, P1 = rectOut[2], rectOut[3]
-Q = rectOut[4]
-
-# r1, r2, p1, p2, q, roi1, roi2 = cv2.stereoRectify(k_left, d_left, k_right, d_right,
-#                                                   (img_height, img_width),
-#                                                   R,T,flags=cv2.CALIB_ZERO_DISPARITY)
-
-map0x, map0y = cv2.initUndistortRectifyMap(cameraMatrix=left_cam.K,
-                                           distCoeffs=left_cam.dist,
-                                           R=R0,
-                                           newCameraMatrix=P0,
-                                           size=(w, h),
-                                           m1type=cv2.CV_32FC1
-                                           )
-map1x, map1y = cv2.initUndistortRectifyMap(cameraMatrix=right_cam.K,
-                                           distCoeffs=right_cam.dist,
-                                           R=R1,
-                                           newCameraMatrix=P1,
-                                           size=(w, h),
-                                           m1type=cv2.CV_32FC1
-                                           )
-img0_rect = cv2.remap(left_img, map0x, map0y,
-                      cv2.INTER_LINEAR, cv2.BORDER_CONSTANT)
-img1_rect = cv2.remap(rigth_img, map1x, map1y,
-                      cv2.INTER_LINEAR, cv2.BORDER_CONSTANT)
-cv2.imwrite(str(sgm_path / (stem0 + "_rectified.jpg")), img0_rect)
-cv2.imwrite(str(sgm_path / (stem1 + "_rectified.jpg")), img1_rect)
-
-
-# cv2.imshow('img0 rect', img0_rect)
-# cv2.waitKey()
-# cv2.destroyAllWindows()
-
-# img0_rectified = cv2.warpPerspective(img0, R0, (w,h))
-# img1_rectified = cv2.warpPerspective(img1, R1, (w,h))
-
-# # write images to disk
-
-# cv2.imwrite(path0, img0_rectified)
-# cv2.imwrite(path1, img1_rectified)
-
-
-#--- Run PSMNet to compute disparity ---#
-
-
-# %%
-#--- Recify Uncalibrated ---#
-
-# Udistort images
-img0, img1 = images[cam1][epoch], images[cam0][epoch]
-name0 = str(sgm_path / 'und' / (stem0 + "_undistorted.jpg"))
-name1 = str(sgm_path / 'und' / (stem1 + "_undistorted.jpg"))
-img0, K0_scaled = undistort_image(
-    img0, cameras[cam1][epoch].K, cameras[cam1][epoch].dist, downsample, name0)
-img1, K1_scaled = undistort_image(
-    img1, cameras[cam1][epoch].K, cameras[cam1][epoch].dist, downsample, name1)
-h, w, _ = img0.shape
-
-# Undistot points and compute F matrx
-pts0 = features[cam0][epoch].get_keypoints()*downsample
-pts1 = features[cam1][epoch].get_keypoints()*downsample
-pts0 = cv2.undistortPoints(
-    pts0, cameras[cam1][epoch].K, cameras[cam1][epoch].dist, None, cameras[cam1][epoch].K)
-pts1 = cv2.undistortPoints(
-    pts1, cameras[cam1][epoch].K, cameras[cam1][epoch].dist, None, cameras[cam1][epoch].K)
-F, inlMask = pydegensac.findFundamentalMatrix(pts0, pts1, px_th=1, conf=0.99999,
-                                              max_iters=100000, laf_consistensy_coef=-1.0, error_type='sampson',
-                                              symmetric_error_check=True, enable_degeneracy_check=True)
-print('Pydegensac: {} inliers ({:.2f}%)'.format(
-    inlMask.sum(), inlMask.sum()*100 / len(pts0)))
-
-# Rectify uncalibrated
-success, H1, H0 = cv2.stereoRectifyUncalibrated(pts0, pts1, F, (w, h))
-img0_rectified = cv2.warpPerspective(img0, H0, (w, h))
-img1_rectified = cv2.warpPerspective(img1, H1, (w, h))
-
-# write images to disk
-path0 = str(sgm_path / 'rectified' / (stem0 + "_rectified.jpg"))
-path1 = str(sgm_path / 'rectified' / (stem1 + "_rectified.jpg"))
-cv2.imwrite(path0, img0_rectified)
-cv2.imwrite(path1, img1_rectified)
-
-if fast_viz:
-    print()
-else:
-    fig = plt.figure()
-    ax1 = fig.add_subplot(1, 2, 1)
-    plt.imshow(cv2.cvtColor(img0_rectified, cv2.COLOR_BGR2RGB))
-    ax2 = fig.add_subplot(1, 2, 2)
-    plt.imshow(cv2.cvtColor(img1_rectified, cv2.COLOR_BGR2RGB))
-    plt.show()
-
-
-# %%
-
-
-#--- Find epilines corresponding to points in right image (second image) and drawing its lines on left image ---#
-img0, img1 = images[cam0][0], images[cam1][0]
-
-lines0 = cv2.computeCorrespondEpilines(pts1.reshape(-1, 1, 2), 2, F)
-lines0 = lines0.reshape(-1, 3)
-img0_epiplines, _ = draw_epip_lines(img0, img1, lines0, pts0, pts1)
-
-# Find epilines corresponding to points in left image (first image) and drawing its lines on right image
-lines1 = cv2.computeCorrespondEpilines(pts0.reshape(-1, 1, 2), 1, F)
-lines1 = lines1.reshape(-1, 3)
-img1_epiplines, _ = draw_epip_lines(
-    img1, img0, lines1, pts1, pts0, fast_viz=True)
-
-if fast_viz:
-    cv2.imwrite(str(sgm_path / (stem0 + "_epiplines.jpg")), img0_epiplines)
-    cv2.imwrite(str(sgm_path / (stem1 + "_epiplines.jpg")), img1_epiplines)
-else:
-    plt.subplot(121), plt.imshow(img0_epiplines)
-    plt.subplot(122), plt.imshow(img1_epiplines)
-    plt.show()
-
-#--- Draw keypoints and matches ---#
-pts0_rect = cv2.perspectiveTransform(
-    np.float32(pts0).reshape(-1, 1, 2), H0).reshape(-1, 2)
-pts1_rect = cv2.perspectiveTransform(
-    np.float32(pts1).reshape(-1, 1, 2), H1).reshape(-1, 2)
-
-# img0_rect_kpts = img0.copy()
-img0 = cv2.cvtColor(images[cam0][0], cv2.COLOR_BGR2GRAY)
-img1 = cv2.cvtColor(images[cam1][0], cv2.COLOR_BGR2GRAY)
-pts0, pts1 = features[cam0]['mkpts0'], features[cam0]['mkpts1']
-img0_kpts = cv2.drawKeypoints(img0, cv2.KeyPoint.convert(
-    pts0), img0, (), flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-img1_kpts = cv2.drawKeypoints(img1, cv2.KeyPoint.convert(
-    pts1), img1, (0, 0, 255), flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-cv2.imwrite('kpts0.jpg', img0_kpts)
-cv2.imwrite('kpts1.jpg', img1_kpts)
-
-make_matching_plot(img0, img1, pts0, pts1, path='matches.jpg')
