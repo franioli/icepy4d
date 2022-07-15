@@ -26,9 +26,11 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import open3d as o3d
+import matplotlib.colors as Colors
 
 from lib.classes import (Camera, Features)
-from lib.geometry import (undistort_points,
+from lib.geometry import (compute_reprojection_error,
+                          undistort_points,
                           project_points,
                           )
 
@@ -121,6 +123,29 @@ def plot_projections(points3d, camera: Camera, image, title: str = None, ax=None
 
     projections = project_points(points3d, camera)
     plot_features(image, projections, title, ax)
+
+
+def plot_projection_error(projections, projection_error, image,
+                          title: str = None, ax=None,
+                          convert_BRG2RGB=True,
+                          ):
+    if convert_BRG2RGB:
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    viridis = cm.get_cmap('viridis', 8)
+    norm = Colors.Normalize(vmin=err.min(), vmax=err.max())
+    cmap = viridis(norm(err))
+
+    fig, ax = plt.subplots()
+    fig.tight_layout()
+    ax.imshow(image)
+    scatter = ax.scatter(projections[:, 0], projections[:, 1],
+                         s=10, c=cmap, marker='o',
+                         # alpha=0.5, edgecolors='k',
+                         )
+    ax.set_title(cam)
+    cbar = plt.colorbar(scatter, ax=ax)
+    cbar.set_label("Reprojection error in y")
 
 
 def draw_epip_lines(img0, img1, lines, pts0, pts1, fast_viz=True):
