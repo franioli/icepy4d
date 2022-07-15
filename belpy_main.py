@@ -85,8 +85,8 @@ def main() -> None:
     ]
 
     # Find new matches
-    find_matches = False
-
+    find_matches = True  #number of keypoints: 10240,
+ 
     # Epoches to process
     # It can be 'all' for processing all the epochs or a list with the epoches to be processed
     epoches_to_process = 'all'  # [x for x in range(15)]  # [0] #
@@ -102,7 +102,6 @@ def main() -> None:
     # Other On-Off switches
     do_viz = False
     do_SOR_filter = True
-    rotate_RS = False
 
     # - Bounding box for processing the images from the two cameras
     maskBB = [[400, 1900, 5500, 3500], [300, 1800, 5700, 3500]]
@@ -113,10 +112,10 @@ def main() -> None:
             [416622.2755, 5091364.5071, 1902.4053],   # IMG_0481
         ])
   
+    # %%
     ''' Perform matching and tracking '''
     
-    #  Inizialize Variables
-    # TODO: replace all lists with dictionaries
+    # Inizialize Variables
     # TODO: replace cam0, cam1 with iterable objects
     images = dict.fromkeys(cam_names)
     features = dict.fromkeys(cam_names)
@@ -125,7 +124,7 @@ def main() -> None:
     numCams = len(cam_names)
     cam0, cam1 = cam_names[0], cam_names[1]
 
-    # - Create Image Datastore objects
+    # Create Image Datastore objects
     for cam in cam_names:
         images[cam] = Imageds(Path(imFld) / cam)
 
@@ -143,6 +142,15 @@ def main() -> None:
         print('Invalid input of epoches to process')
         raise SystemExit(0)
 
+    # Load matching and tracking configurations 
+    with open(matching_config,) as f:
+        opt_matching = json.load(f)
+    with open(tracking_config,) as f:
+        opt_tracking = json.load(f)
+        
+    # transform mask bounding box to numpy 
+    maskBB = np.array(maskBB).astype('int')
+
     # epoch = 0
     if find_matches:
         features[cam0], features[cam1] = [], []
@@ -153,42 +161,42 @@ def main() -> None:
             #=== Find Matches at current epoch ===#
             print(f'Run Superglue to find matches at epoch {epoch}')
             epochdir = Path(res_folder) / f'epoch_{epoch}'
-            with open(matching_config,) as f:
-                opt_matching = json.load(f)
             opt_matching['output_dir'] = epochdir
-            pair = [images[cam0].get_image_path(
-                epoch), images[cam1].get_image_path(epoch)]
-            maskBB = np.array(maskBB).astype('int')
+            pair = [
+                images[cam0].get_image_path(epoch), 
+                images[cam1].get_image_path(epoch)
+                    ]
             matchedPts, matchedDescriptors, matchedPtsScores = match_pair(
-                pair, maskBB, opt_matching)
+                pair, maskBB, opt_matching
+                )
 
             # Store matches in features structure
             for jj, cam in enumerate(cam_names):
-                # TODO: add better description
-                '''
-                Dict keys are the cameras names, internal list are the epoches...
-                '''
+                # Dict keys are the cameras names, internal list contain epoches
                 features[cam].append(Features())
-                features[cam][epoch].append_features({'kpts': matchedPts[jj],
-                                                    'descr': matchedDescriptors[jj],
-                                                    'score': matchedPtsScores[jj]})
+                features[cam][epoch].append_features({
+                    'kpts': matchedPts[jj],
+                    'descr': matchedDescriptors[jj],
+                    'score': matchedPtsScores[jj]
+                    })
                 # TODO: Store match confidence!
 
             #=== Track previous matches at current epoch ===#
             if epoch > 0:
                 print(f'Track points from epoch {epoch-1} to epoch {epoch}')
-
+                
                 trackoutdir = epochdir / f'from_t{epoch-1}'
-                with open(tracking_config,) as f:
-                    opt_tracking = json.load(f)
                 opt_tracking['output_dir'] = trackoutdir
-                pairs = [[images[cam0].get_image_path(epoch-1),
-                        images[cam0].get_image_path(epoch)],
-                        [images[cam1].get_image_path(epoch-1),
-                        images[cam1].get_image_path(epoch)]
-                        ]
-                prevs = [features[cam0][epoch-1].get_features_as_dict(),
-                        features[cam1][epoch-1].get_features_as_dict()]
+                pairs = [
+                    [images[cam0].get_image_path(epoch-1),
+                     images[cam0].get_image_path(epoch)],
+                    [images[cam1].get_image_path(epoch-1),
+                     images[cam1].get_image_path(epoch)],
+                    ]
+                prevs = [
+                    features[cam0][epoch-1].get_features_as_dict(),
+                    features[cam1][epoch-1].get_features_as_dict()
+                    ]
                 tracked_cam0, tracked_cam1 = track_matches(
                     pairs, maskBB, prevs, opt_tracking)
                 # TODO: keep track of the epoch in which feature is matched
@@ -196,12 +204,8 @@ def main() -> None:
                 # TODO: clean tracking code
 
                 # Store all matches in features structure
-                features[cam0][epoch].append_features({'kpts': tracked_cam0['keypoints1'],
-                                                    'descr': tracked_cam0['descriptors1'],
-                                                    'score': tracked_cam0['scores1']})
-                features[cam1][epoch].append_features({'kpts': tracked_cam1['keypoints1'],
-                                                    'descr': tracked_cam1['descriptors1'],
-                                                    'score': tracked_cam1['scores1']})
+                features[cam0][epoch].append_features(tracked_cam0)
+                features[cam1][epoch].append_features(tracked_cam1)
 
             # Run Pydegensac to estimate F matrix and reject outliers
             F, inlMask = pydegensac.findFundamentalMatrix(
@@ -297,7 +301,6 @@ def main() -> None:
         cameras[cam1][epoch] = relative_ori.cameras[1]
 
         # TODO: make wrappers to handle RS transformations
-        #   (or use external libraries)
         if do_coregistration:
             # Triangulate targets
             triangulate = Triangulate(
@@ -367,6 +370,7 @@ def main() -> None:
         pcd.append(pcd_epc)
 
     print('Done.')
+
 
     # %% Some visualization
     ''' Visualization '''
