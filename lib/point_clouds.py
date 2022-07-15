@@ -1,8 +1,33 @@
+'''
+MIT License
+
+Copyright (c) 2022 Francesco Ioli
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+'''
+
 import open3d as o3d
 
 from pathlib import Path
 
 from lib.misc import create_directory
+
 
 def create_point_cloud(points3d, points_col=None, path=None, *scalar_fied):
     ''' Function to create a point cloud object by using Open3D library.
@@ -23,6 +48,7 @@ def create_point_cloud(points3d, points_col=None, path=None, *scalar_fied):
         write_ply(pcd, path)
     return pcd
 
+
 def write_ply(pcd, path):
     ''' Write point cloud to disk as .ply
 
@@ -34,28 +60,5 @@ def write_ply(pcd, path):
     Returns: None
     '''
     path = Path(path)
-    create_directory(path.parent) 
-    o3d.io.write_point_cloud(str(path), pcd)  
-    
-    
-def display_pc_inliers(cloud, ind):
-    ''' Display a O3D point cloud, separating inliers from outliers 
-    (e.g. after a SOR filter)
-    Parameters
-    ----------
-    cloud : O3D obejct
-        Point cloud with n points.
-    ind : (nx1) List of int
-        List of indices of the inlier points
-    Returns
-    -------
-    None.
-    '''
-    inlier_cloud = cloud.select_by_index(ind)
-    outlier_cloud = cloud.select_by_index(ind, invert=True)
-
-    print("Showing outliers (red) and inliers (gray): ")
-    outlier_cloud.paint_uniform_color([1, 0, 0])
-    inlier_cloud.paint_uniform_color([0.8, 0.8, 0.8])
-    o3d.visualization.draw_geometries([inlier_cloud, outlier_cloud])
-    
+    create_directory(path.parent)
+    o3d.io.write_point_cloud(str(path), pcd)
