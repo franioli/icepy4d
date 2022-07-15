@@ -22,8 +22,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '''
 
-from lib.geometry import compute_reprojection_error
-import matplotlib.colors as Colors
 import matplotlib.cm as cm
 import numpy as np
 import os
@@ -42,7 +40,9 @@ from lib.track_matches import track_matches
 from lib.sfm.triangulation import Triangulate
 from lib.sfm.two_view_geometry import Two_view_geometry
 
-from lib.geometry import project_points
+from lib.geometry import (project_points, 
+                          compute_reprojection_error
+                          )
 from lib.utils import (build_dsm,
                        generate_ortophoto,
                        )
@@ -405,67 +405,48 @@ def main() -> None:
 
     # Plot reprojection error (note, it is normalized so far...)
     cam = cam0
-    epoch = 0
-    triangulate = Triangulate([cameras[cam0][epoch],
-                               cameras[cam1][epoch]],
-                              [features[cam0][epoch].get_keypoints(),
-                               features[cam1][epoch].get_keypoints()]
-                              )
-    points3d = triangulate.triangulate_two_views()
-
-    observed = features[cam][epoch].get_keypoints()
-    projections = project_points(points3d,
-                                 cameras[cam][epoch],
-                                 )
+    triangulation = Triangulate(
+            [cameras[cam0][epoch], cameras[cam1][epoch]],
+            [
+                features[cam0][epoch].get_keypoints(),
+                features[cam1][epoch].get_keypoints()
+            ]
+        )
+    projections = project_points(
+        triangulation.triangulate_two_views(),
+        cameras[cam][epoch],
+        )
     reprojection_error, rmse = compute_reprojection_error(
-        observed, projections)
+        features[cam][epoch].get_keypoints(), 
+        projections
+        )
     print(f"Reprojection rmse: {rmse}")
 
     # Reject features with reprojection error magnitude larger than proj_err_max
-    err = reprojection_error[:, 2]
-    proj_err_max = 4
-    inliers = err < proj_err_max
-    print(
-        f'Rejected points: {np.invert(inliers).sum()}/{len(err)} --> number of inliers matches: {inliers.sum()}')
-
+    # err = reprojection_error[:, 2]
+    # proj_err_max = 4
+    # inliers = err < proj_err_max
+    # print(
+    #     f'Rejected points: {np.invert(inliers).sum()}/{len(err)} --> number of inliers matches: {inliers.sum()}')
     # features[cam0][epoch].remove_outliers_features(inliers)
     # features[cam1][epoch].remove_outliers_features(inliers)
     # ''' Now MANUALLY perform again orientation and reprojection error computation... and iterate'''
 
-    # pts0_und = undistort_points(features[cam0][epoch].get_keypoints(),
-    #                             cameras[cam0][epoch]
-    #                             )
-    # pts1_und = undistort_points(features[cam1][epoch].get_keypoints(),
-    #                             cameras[cam1][epoch]
-    #                             )
-    # points3d, status = iterative_LS_triangulation(pts0_und, cameras[cam0][epoch].P,
-    #                                               pts1_und, cameras[cam1][epoch].P,
-    #                                               )
-    # print(f'Point triangulation succeded: {status.sum()/status.size}.')
+    # im = cv2.cvtColor(images[cam][epoch], cv2.COLOR_BGR2RGB)
+    # viridis = cm.get_cmap('viridis', 8)
+    # norm = Colors.Normalize(vmin=err.min(), vmax=err.max())
+    # cmap = viridis(norm(err))
 
-    observed = features[cam][epoch].get_keypoints()
-    projections = project_points(points3d,
-                               cameras[cam][epoch],
-                               )
-    reprojection_error, rmse = compute_reprojection_error(
-        observed, projections)
-    print(f"Reprojection rmse: {rmse}")
-
-    im = cv2.cvtColor(images[cam][epoch], cv2.COLOR_BGR2RGB)
-    viridis = cm.get_cmap('viridis', 8)
-    norm = Colors.Normalize(vmin=err.min(), vmax=err.max())
-    cmap = viridis(norm(err))
-
-    fig, ax = plt.subplots()
-    fig.tight_layout()
-    ax.imshow(im)
-    scatter = ax.scatter(projections[:, 0], projections[:, 1],
-                       s=10, c=cmap, marker='o',
-                       # alpha=0.5, edgecolors='k',
-                       )
-    ax.set_title(cam)
-    cbar = plt.colorbar(scatter, ax=ax)
-    cbar.set_label("Reprojection error in y")
+    # fig, ax = plt.subplots()
+    # fig.tight_layout()
+    # ax.imshow(im)
+    # scatter = ax.scatter(projections[:, 0], projections[:, 1],
+    #                      s=10, c=cmap, marker='o',
+    #                      # alpha=0.5, edgecolors='k',
+    #                      )
+    # ax.set_title(cam)
+    # cbar = plt.colorbar(scatter, ax=ax)
+    # cbar.set_label("Reprojection error in y")
 
 
     # %% 

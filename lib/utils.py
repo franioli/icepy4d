@@ -43,7 +43,7 @@ from lib.misc import create_directory
 
 '''TODO: Reorganize the code in utils.py and put functions in better places'''
 
-def interpolate_point_colors(points3d, image, camera: Camera, convert_BRG2RGB=False):
+def interpolate_point_colors(points3d, image, camera: Camera, convert_BRG2RGB=True):
     '''  Interpolate color of a 3D sparse point cloud, given an oriented image
     Parameters
     ----------
