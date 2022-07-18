@@ -189,23 +189,33 @@ def display_point_cloud(pcd, cameras: list = None,
     None.
     '''
 
+    if type(pcd) == list:
+        plt_objs = pcd
+    else:
+        plt_objs = [pcd]
+
     if cameras is not None:
         num_cams = len(cameras)
+
         if num_cams < 3:
             cam_colors = [[1, 0, 0], [0, 0, 1]]
         else:
             cam_colors = np.full((num_cams, 3), [1, 0, 0])
 
-        cam_syms = []
         for i, cam in enumerate(cameras):
-            cam_syms.append(make_camera_pyramid(cam,
+            plt_objs.append(make_camera_pyramid(cam,
                                                 color=cam_colors[i],
                                                 focal_len_scaled=30,
                                                 ))
+    if viz_rs:
+        plt_objs.append(make_viz_sdr(scale=5))
 
-    o3d.visualization.draw_geometries([pcd,  cam_syms[0], cam_syms[1]], window_name=win_name,
-                                      width=1280, height=720,
-                                      left=300, top=200)
+    o3d.visualization.draw_geometries(
+        plt_objs,
+        window_name=win_name,
+        width=1280, height=720,
+        left=300, top=200,
+    )
 
 
 def display_pc_inliers(cloud, ind):

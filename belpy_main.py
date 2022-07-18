@@ -88,7 +88,7 @@ def main() -> None:
 
     # - Epoches to process
     # It can be 'all' for processing all the epochs or a list with the epoches to be processed
-    epoches_to_process = 'all'  # [x for x in range(15)]  # [0] #
+    epoches_to_process = [0, 1]  # 'all'  # [x for x in range(15)]  # [0] #
 
     # - Coregistration switches
     # do_coregistration: If True, try to coregister point clouds based on n double points
@@ -389,11 +389,10 @@ def main() -> None:
 
     # Visualize point cloud at epoch x
     epoch = 0
-    display_point_cloud(pcd[epoch],
-                        [
-                            cameras[cam0][epoch],
-                            cameras[cam1][epoch]],
-                        )
+    display_point_cloud(
+        pcd[epoch],
+        [cameras[cam0][epoch], cameras[cam1][epoch]],
+        )
 
     # Plot detected features on stereo pair
     fig, axes = plt.subplots(2, 1)
@@ -498,5 +497,3 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
-
-# %%
