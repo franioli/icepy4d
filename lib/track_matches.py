@@ -349,8 +349,8 @@ def track_matches(pairs, maskBB, prevs, opt):
     # Free cuda memory and return variables
     torch.cuda.empty_cache()
     
-    tracked_cam0 = {'keypoints1': mkpts1_cam0, 'descriptors1': descr1_cam0, 'scores1': scores1_cam0}
-    tracked_cam1 = {'keypoints1': mkpts1_cam1, 'descriptors1': descr1_cam1, 'scores1': scores1_cam1}
+    tracked_cam0 = {'kpts': mkpts1_cam0, 'descr': descr1_cam0, 'score': scores1_cam0}
+    tracked_cam1 = {'kpts': mkpts1_cam1, 'descr': descr1_cam1, 'score': scores1_cam1}
 
     return tracked_cam0, tracked_cam1
 
