@@ -21,26 +21,26 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '''
+# %%
 
-import matplotlib.cm as cm
 import numpy as np
-import os
 from pathlib import Path
 import cv2
 import pickle
-import h5py
 import json
 import matplotlib.pyplot as plt
-import open3d as o3d
+import matplotlib.cm as cm
 import pydegensac
+# import open3d as o3d
+# import h5py
 
 from lib.classes import (Camera, Imageds, Features, Targets)
+from lib.sfm.two_view_geometry import Two_view_geometry
+from lib.sfm.triangulation import Triangulate
 from lib.match_pairs import match_pair
 from lib.track_matches import track_matches
-from lib.sfm.triangulation import Triangulate
-from lib.sfm.two_view_geometry import Two_view_geometry
 
-from lib.geometry import (project_points, 
+from lib.geometry import (project_points,
                           compute_reprojection_error
                           )
 from lib.utils import (build_dsm,
@@ -63,7 +63,7 @@ from lib.thirdParts.transformations import affine_matrix_from_points
 
 def main() -> None:
     #---  Parameters  ---#
-    # TODO: put parameters in parser or in json file
+    # TODO: add parser for parameters or read them from json file
 
     # - Folders and paths
     imFld = 'data/img'
@@ -73,55 +73,53 @@ def main() -> None:
     res_folder = 'res'
 
     # - CAMERAS
+    # Note that the calibration file must have the same name as the camera.
     cam_names = ['p0', 'p1']  # ['p0_00', 'p1_00'] #
-    ''' Note that the calibration file must have the same name as the camera.'''
 
     # - Targets
     target_paths = [
         Path('data/target_image_p0.txt'),
         Path('data/target_image_p1.txt'),
-        # Path('data/target_image_p1.txt'),
-        # Path('data/target_image_p0.txt'),
     ]
 
-    # Find new matches
-    find_matches = True  #number of keypoints: 10240,
- 
-    # Epoches to process
+    # - Find new matches
+    find_matches = False  # number of keypoints: 10240,
+
+    # - Epoches to process
     # It can be 'all' for processing all the epochs or a list with the epoches to be processed
     epoches_to_process = 'all'  # [x for x in range(15)]  # [0] #
 
-    # Coregistration switches
-    # TODO: implement these swithces as proprierty of each camera camera Class
-    # do_coregistration: If True, try to coregister point clouds based on n points (still have to fully implement it)
+    # - Coregistration switches
+    # do_coregistration: If True, try to coregister point clouds based on n double points
+    # TODO: still have to fully implement it and move code to a specific Class
     do_coregistration = False
 
     # fix_both_cameras: if False, estimate EO of cam2 with relative orientation, otherwise keep both cameras fixed.
     # fix_both_cameras = False
 
-    # Other On-Off switches
+    # - Other On-Off switches
     do_viz = False
     do_SOR_filter = True
+    # TODO: implement some  swithces as proprierty of camera Class
 
     # - Bounding box for processing the images from the two cameras
     maskBB = [[400, 1900, 5500, 3500], [300, 1800, 5700, 3500]]
 
-    # Camera centers obtained from Metashape model in July [m] 
+    # - Camera centers obtained from Metashape model in July [m]
     camera_centers_world = np.array([
-            [416651.5248, 5091109.9121, 1858.9084],   # IMG_2092
-            [416622.2755, 5091364.5071, 1902.4053],   # IMG_0481
-        ])
-  
+        [416651.5248, 5091109.9121, 1858.9084],   # IMG_2092
+        [416622.2755, 5091364.5071, 1902.4053],   # IMG_0481
+    ])
+
     # %%
     ''' Perform matching and tracking '''
-    
+
     # Inizialize Variables
     # TODO: replace cam0, cam1 with iterable objects
     images = dict.fromkeys(cam_names)
     features = dict.fromkeys(cam_names)
     f_matrixes = []
 
-    numCams = len(cam_names)
     cam0, cam1 = cam_names[0], cam_names[1]
 
     # Create Image Datastore objects
@@ -142,13 +140,13 @@ def main() -> None:
         print('Invalid input of epoches to process')
         raise SystemExit(0)
 
-    # Load matching and tracking configurations 
+    # Load matching and tracking configurations
     with open(matching_config,) as f:
         opt_matching = json.load(f)
     with open(tracking_config,) as f:
         opt_tracking = json.load(f)
-        
-    # transform mask bounding box to numpy 
+
+    # transform mask bounding box to numpy
     maskBB = np.array(maskBB).astype('int')
 
     # epoch = 0
@@ -158,17 +156,18 @@ def main() -> None:
         for epoch in epoches_to_process:
             print(f'Processing epoch {epoch}...')
 
+            epochdir = Path(res_folder) / f'epoch_{epoch}'
+
             #=== Find Matches at current epoch ===#
             print(f'Run Superglue to find matches at epoch {epoch}')
-            epochdir = Path(res_folder) / f'epoch_{epoch}'
             opt_matching['output_dir'] = epochdir
             pair = [
-                images[cam0].get_image_path(epoch), 
+                images[cam0].get_image_path(epoch),
                 images[cam1].get_image_path(epoch)
-                    ]
+            ]
             matchedPts, matchedDescriptors, matchedPtsScores = match_pair(
                 pair, maskBB, opt_matching
-                )
+            )
 
             # Store matches in features structure
             for jj, cam in enumerate(cam_names):
@@ -178,13 +177,13 @@ def main() -> None:
                     'kpts': matchedPts[jj],
                     'descr': matchedDescriptors[jj],
                     'score': matchedPtsScores[jj]
-                    })
+                })
                 # TODO: Store match confidence!
 
             #=== Track previous matches at current epoch ===#
             if epoch > 0:
                 print(f'Track points from epoch {epoch-1} to epoch {epoch}')
-                
+
                 trackoutdir = epochdir / f'from_t{epoch-1}'
                 opt_tracking['output_dir'] = trackoutdir
                 pairs = [
@@ -192,11 +191,11 @@ def main() -> None:
                      images[cam0].get_image_path(epoch)],
                     [images[cam1].get_image_path(epoch-1),
                      images[cam1].get_image_path(epoch)],
-                    ]
+                ]
                 prevs = [
                     features[cam0][epoch-1].get_features_as_dict(),
                     features[cam1][epoch-1].get_features_as_dict()
-                    ]
+                ]
                 tracked_cam0, tracked_cam1 = track_matches(
                     pairs, maskBB, prevs, opt_tracking)
                 # TODO: keep track of the epoch in which feature is matched
@@ -216,7 +215,7 @@ def main() -> None:
                 error_type='sampson',
                 symmetric_error_check=True,
                 enable_degeneracy_check=True,
-                )
+            )
             f_matrixes.append(F)
             print(f'Matching at epoch {epoch}: pydegensac found {inlMask.sum()} \
                 inliers ({inlMask.sum()*100/len(features[cam0][epoch]):.2f}%)')
@@ -247,7 +246,7 @@ def main() -> None:
 
     # %%
     ''' SfM '''
-    
+
     # Initialize variables
     cameras = dict.fromkeys(cam_names)
     cameras[cam0], cameras[cam1] = [], []
@@ -261,12 +260,12 @@ def main() -> None:
         ref_cams[cam] = Camera(
             width=6000, height=400,
             calib_path=Path(calibFld) / f'{cam}.txt'
-            )
+        )
 
     # Read target image coordinates
     targets = Targets(cam_id=[0, 1],  im_coord_path=target_paths)
 
-    # Camera baseline 
+    # Camera baseline
     baseline_world = np.linalg.norm(
         camera_centers_world[0] - camera_centers_world[1]
     )
@@ -276,6 +275,9 @@ def main() -> None:
         print(f'Reconstructing epoch {epoch}...')
 
         # Initialize Intrinsics
+        ''' Inizialize Camera Intrinsics at every epoch setting them equal to 
+            the reference cameras ones.
+        '''
         # TODO: replace append with insert or a more robust data structure...
         for cam in cam_names:
             cameras[cam].append(
@@ -285,13 +287,16 @@ def main() -> None:
                     K=ref_cams[cam].K,
                     dist=ref_cams[cam].dist,
                 )
-        )
+            )
 
         # Perform Relative orientation of the two cameras
+        ''' Initialize Two_view_geometry class with a list containing the two cameras 
+            and a list contaning the matched features location on each camera.
+        '''
         relative_ori = Two_view_geometry(
             [cameras[cam0][epoch], cameras[cam1][epoch]],
-            [features[cam0][epoch].get_keypoints(), features[cam1]
-            [epoch].get_keypoints()],
+            [features[cam0][epoch].get_keypoints(),
+             features[cam1][epoch].get_keypoints()],
         )
         relative_ori.relative_orientation(threshold=1.5, confidence=0.999999)
         relative_ori.scale_model_with_baseline(baseline_world)
@@ -300,26 +305,27 @@ def main() -> None:
         cameras[cam0][epoch] = relative_ori.cameras[0]
         cameras[cam1][epoch] = relative_ori.cameras[1]
 
-        # TODO: make wrappers to handle RS transformations
         if do_coregistration:
+            # TODO: make wrappers to handle RS transformations
+
             # Triangulate targets
             triangulate = Triangulate(
                 [cameras[cam0][epoch], cameras[cam1][epoch]],
                 [targets.get_im_coord(0)[epoch],
-                                      targets.get_im_coord(1)[epoch]],
-        )
+                 targets.get_im_coord(1)[epoch]],
+            )
             targets.append_obj_cord(triangulate.triangulate_two_views())
 
             # Estimate rigid body transformation between first epoch RS and current epoch RS
-            # TODO: make a Wrapper for this
+            # TODO: make a wrapper for this
             v0 = np.concatenate((cameras[cam0][0].C,
                                 cameras[cam1][0].C,
                                 targets.get_obj_coord()[0].reshape(3, 1),
-                                ), axis=1)
+                                 ), axis=1)
             v1 = np.concatenate((cameras[cam0][epoch].C,
                                 cameras[cam1][epoch].C,
                                 targets.get_obj_coord()[epoch].reshape(3, 1),
-                                ), axis=1)
+                                 ), axis=1)
             tform.append(affine_matrix_from_points(
                 v1, v0, shear=False, scale=False, usesvd=True))
             print('Point cloud coregistered based on {len(v0)} points.')
@@ -331,12 +337,17 @@ def main() -> None:
             print('Camera exterior orientation fixed to that of the master cameras.')
 
         #--- Triangulate Points ---#
+        ''' Initialize Triangulate class with a list containing the two cameras 
+            and a list contaning the matched features location on each camera.
+            Triangulated points are saved as points3d proprierty of the 
+            Triangulate object (eg., triangulation.points3d)
+        '''
         triangulation = Triangulate(
             [cameras[cam0][epoch], cameras[cam1][epoch]],
             [
                 features[cam0][epoch].get_keypoints(),
                 features[cam1][epoch].get_keypoints()
-             ]
+            ]
         )
         triangulation.triangulate_two_views()
         triangulation.interpolate_colors_from_image(
@@ -347,9 +358,10 @@ def main() -> None:
 
         if do_coregistration:
             # Apply rigid body transformation to triangulated points
+            # TODO: make wrapper for apply transformation to arrays
             pts = np.dot(tform[epoch],
-                        convert_to_homogeneous(triangulation.points3d.T)
-                        )
+                         convert_to_homogeneous(triangulation.points3d.T)
+                         )
             triangulation.points3d = convert_from_homogeneous(pts).T
 
         # Create point cloud and save .ply to disk
@@ -359,7 +371,7 @@ def main() -> None:
         # Filter outliers in point cloud with SOR filter
         if do_SOR_filter:
             _, ind = pcd_epc.remove_statistical_outlier(nb_neighbors=10,
-                                                    std_ratio=3.0)
+                                                        std_ratio=3.0)
             if do_viz:
                 display_pc_inliers(pcd_epc, ind)
             pcd_epc = pcd_epc.select_by_index(ind)
@@ -371,10 +383,9 @@ def main() -> None:
 
     print('Done.')
 
-
     # %% Some visualization
-    ''' Visualization '''
-    
+    ''' Some various visualization functions'''
+
     # Visualize point cloud at epoch x
     epoch = 0
     display_point_cloud(pcd[epoch],
@@ -383,14 +394,14 @@ def main() -> None:
                             cameras[cam1][epoch]],
                         )
 
-    # Plot detected features on stereo pair    
+    # Plot detected features on stereo pair
     fig, axes = plt.subplots(2, 1)
     for i, cam in enumerate(cam_names):
         plot_features(
             images[cam][epoch],
             features[cam][epoch].get_keypoints(),
             cam, axes[i],
-            )
+        )
 
     # Plot projections of 3d points on stereo-pair (after triangulation)
     triangulation = Triangulate(
@@ -398,32 +409,32 @@ def main() -> None:
         [
             features[cam0][epoch].get_keypoints(),
             features[cam1][epoch].get_keypoints()
-            ]
+        ]
     )
     triangulation.triangulate_two_views()
     fig, axes = plt.subplots(2, 1)
     for i, cam in enumerate(cam_names):
         plot_projections(triangulation.points3d, cameras[cam][epoch],
-                        images[cam][epoch], cam, axes[i]
-                        )
+                         images[cam][epoch], cam, axes[i]
+                         )
 
     # Plot reprojection error (note, it is normalized so far...)
     cam = cam0
     triangulation = Triangulate(
-            [cameras[cam0][epoch], cameras[cam1][epoch]],
-            [
-                features[cam0][epoch].get_keypoints(),
-                features[cam1][epoch].get_keypoints()
-            ]
-        )
+        [cameras[cam0][epoch], cameras[cam1][epoch]],
+        [
+            features[cam0][epoch].get_keypoints(),
+            features[cam1][epoch].get_keypoints()
+        ]
+    )
     projections = project_points(
         triangulation.triangulate_two_views(),
         cameras[cam][epoch],
-        )
+    )
     reprojection_error, rmse = compute_reprojection_error(
-        features[cam][epoch].get_keypoints(), 
+        features[cam][epoch].get_keypoints(),
         projections
-        )
+    )
     print(f"Reprojection rmse: {rmse}")
 
     # Reject features with reprojection error magnitude larger than proj_err_max
@@ -452,9 +463,8 @@ def main() -> None:
     # cbar = plt.colorbar(scatter, ax=ax)
     # cbar.set_label("Reprojection error in y")
 
-
-    # %% 
-    ''' DSM and orthophoto '''
+    # %%
+    ''' Compute DSM and orthophotos '''
     # TODO: implement better DSM class
 
     print('DSM and orthophoto generation started')
@@ -468,12 +478,12 @@ def main() -> None:
     for epoch in epoches_to_process:
         print(f'Epoch {epoch}')
         dsms.append(build_dsm(np.asarray(pcd[epoch].points),
-                            dsm_step=res,
-                            xlim=xlim, ylim=ylim,
-                            make_dsm_plot=False,
-                            # fill_value = ,
-                            save_path=f'res/dsm/dsm_app_epoch_{epoch}.tif'
-                            ))
+                              dsm_step=res,
+                              xlim=xlim, ylim=ylim,
+                              make_dsm_plot=False,
+                              # fill_value = ,
+                              save_path=f'res/dsm/dsm_app_epoch_{epoch}.tif'
+                              ))
         print('DSM built.')
         for cam in cam_names:
             fout_name = f'res/ortofoto/ortofoto_app_cam_{cam}_epc_{epoch}.tif'
@@ -485,6 +495,7 @@ def main() -> None:
         print('Orthophotos built.')
 
 
-if __name__ == '__main__': 
+if __name__ == '__main__':
     main()
-    
+
+# %%
