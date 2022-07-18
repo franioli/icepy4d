@@ -7,7 +7,5 @@ data/calib/calib_fullOpenCVmodel.txt
 data/calib/calib_fullOpenCVmodel_matlab.txt
 data/calib/bk/
 res/
-sfm/
-sgm/
 other/
 test/PSMNet/dataset
