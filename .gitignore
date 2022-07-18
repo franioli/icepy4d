@@ -1,13 +1,11 @@
 *spyproject/
 *ipynb_checkpoints/
 *__pycache__
+*_old/
 *.old/
 data/img/
 data/calib/calib_fullOpenCVmodel.txt
 data/calib/calib_fullOpenCVmodel_matlab.txt
-data/calib/bk/
 res/
-sfm/
-sgm/
-other/
-test/PSMNet/dataset
+tests/PSMNet/dataset
+tests/sfm/epoch0/

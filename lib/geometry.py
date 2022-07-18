@@ -60,38 +60,6 @@ def estimate_pose(kpts0, kpts1, K0, K1, thresh, conf=0.9999):
     return ret
   
 
-def triangulate_nviews(P, ip):
-    """
-    Triangulate a point visible in n camera views.
-    P is a list of camera projection matrices.
-    ip is a list of homogenised image points. eg [ [x, y, 1], [x, y, 1] ], OR,
-    ip is a 2d array - shape nx3 - [ [x, y, 1], [x, y, 1] ]
-    len of ip must be the same as le~n of P
-    """
-    if not len(ip) == len(P):
-        raise ValueError('Number of points and number of cameras not equal.')
-    n = len(P)
-    M = np.zeros([3*n, 4+n])
-    for i, (x, p) in enumerate(zip(ip, P)):
-        M[3*i:3*i+3, :4] = p
-        M[3*i:3*i+3, 4+i] = -x
-    V = np.linalg.svd(M)[-1]
-    X = V[-1, :4]
-    return X / X[3]
-
-
-def triangulate_points_linear(P1, P2, x1, x2):
-    """
-    Two-view triangulation of points in
-    x1,x2np.array([[274.128, 624.409]]) (nx3 homog. coordinates).
-    Similar to openCV triangulatePoints.
-    """
-    if not len(x2) == len(x1):
-        raise ValueError("Number of points don't match.")
-    X = [triangulate_nviews([P1, P2], [x[0], x[1]]) for x in zip(x1, x2)]
-    return np.array(X)
-        
-
 def project_points(points3d, camera: Camera):
     '''
     Project 3D points (Nx3 array) to image coordinates, given a Camera object
@@ -106,22 +74,6 @@ def project_points(points3d, camera: Camera):
     m = m[:,0,:]
     return m.astype('float32')
 
-
-# def project_points(points3d, P, K=None, dist=None):
-#     ''' Erroneous and substitued with new function
-#     Project 3D points (Nx3 array) to image coordinates, given the projection matrix P (4x3 matrix)
-#     If K matric and dist vector are given, the function computes undistorted image projections (otherwise, zero distortions are assumed)
-#     Returns: 2D projected points (Nx2 array) in image coordinates
-#     '''
-#     points3d = cv2.convertPointsToHomogeneous(points3d)[:,0,:]
-#     m = np.matmul(P, points3d.T)
-#     m = m[0:2,:] / m[2,:]; 
-#     m = m.astype(float).T
-    
-#     if dist is not None and K is not None:
-#         m = cv2.undistortPoints(m, K, dist, None, K)[:,0,:]
-        
-#     return m.astype(float)
 
 def undistort_points(pts, camera: Camera):
     ''' Wrapper around OpenCV cv2.undistortPoints to simplify function calling
@@ -168,6 +120,7 @@ def undistort_image(image, camera: Camera, out_path=None):
         
     return image_und
 
+
 def undistort_image_new_cam_matrix(image, K, dist, downsample=1, out_path=None):
     ''' Deprecated, substituted with undistort_image()
     Undistort image with OpenCV
@@ -187,12 +140,14 @@ def undistort_image_new_cam_matrix(image, K, dist, downsample=1, out_path=None):
     # image_und = cv2.undistort(image, K, dist, None, K)
     # cv2.imwrite(images[cam].get_image_stem(0)+'_undistorted.tif', image_und)
     
+    
 def scale_intrinsics(K, scales):
     """ 
     Scale camera intrisics matrix (K) after image downsampling or upsampling.
     """
     scales = np.diag([1./scales[0], 1./scales[1], 1.])
     return np.dot(scales, K)
+
 
 def compute_reprojection_error(observed, projected):
     ''' Compute reprojection error
@@ -210,7 +165,6 @@ def compute_reprojection_error(observed, projected):
     rmse : 2x1 numpy array of float32
       RMSE of the reprojection error in x, y directions
     '''
-   
     npts = len(observed)
     
     err = np.zeros((npts,3), 'float32')
