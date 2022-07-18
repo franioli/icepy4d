@@ -7,7 +7,7 @@
     "equalize_hist": false,
     "nms_radius": 3,
     "keypoint_threshold": 0.0001,
-    "max_keypoints": 2048,
+    "max_keypoints": 10240,
     "superglue": "outdoor",
     "sinkhorn_iterations": 100,
     "match_threshold": 0.15,
