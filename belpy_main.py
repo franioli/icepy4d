@@ -83,12 +83,13 @@ def main() -> None:
         Path('data/target_image_p1.txt'),
     ]
 
-    # - Find new matches
-    find_matches = False  # number of keypoints: 10240,
+    # - Switches to find and track matches
+    find_matches = True  # number of keypoints: 10240,
+    track_matches = True
 
     # - Epoches to process
     # It can be 'all' for processing all the epochs or a list with the epoches to be processed
-    epoches_to_process = [0, 1]  # 'all'  # [x for x in range(15)]  # [0] #
+    epoches_to_process = 'all'  # [0, 1]  #  [x for x in range(15)]  # [0] #
 
     # - Coregistration switches
     # do_coregistration: If True, try to coregister point clouds based on n double points
@@ -183,7 +184,7 @@ def main() -> None:
                 # @TODO: Store match confidence!
 
             #=== Track previous matches at current epoch ===#
-            if epoch > 0:
+            if track_matches and epoch > 0:
                 print(f'Track points from epoch {epoch-1} to epoch {epoch}')
 
                 trackoutdir = epochdir / f'from_t{epoch-1}'
