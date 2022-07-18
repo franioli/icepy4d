@@ -166,6 +166,7 @@ def main() -> None:
                 images[cam0].get_image_path(epoch),
                 images[cam1].get_image_path(epoch)
             ]
+            # Call actual matching function
             matchedPts, matchedDescriptors, matchedPtsScores = match_pair(
                 pair, maskBB, opt_matching
             )
@@ -197,6 +198,7 @@ def main() -> None:
                     features[cam0][epoch-1].get_features_as_dict(),
                     features[cam1][epoch-1].get_features_as_dict()
                 ]
+                # Call actual tracking function
                 tracked_cam0, tracked_cam1 = track_matches(
                     pairs, maskBB, prevs, opt_tracking)
                 # @TODO: keep track of the epoch in which feature is matched
@@ -384,7 +386,7 @@ def main() -> None:
 
     print('Done.')
 
-    # %% Some visualization
+    # %%
     ''' Some various visualization functions'''
 
     # Visualize point cloud at epoch x
@@ -392,7 +394,8 @@ def main() -> None:
     display_point_cloud(
         pcd[epoch],
         [cameras[cam0][epoch], cameras[cam1][epoch]],
-        )
+        win_name=f'Point cloud at Epoch {epoch} - num points: {len(pcd[epoch].points)}'
+    )
 
     # Plot detected features on stereo pair
     fig, axes = plt.subplots(2, 1)
@@ -418,7 +421,7 @@ def main() -> None:
                          images[cam][epoch], cam, axes[i]
                          )
 
-    # Plot reprojection error (note, it is normalized so far...)
+    # Plot reprojection error (note, values are normalized so far...)
     cam = cam0
     triangulation = Triangulate(
         [cameras[cam0][epoch], cameras[cam1][epoch]],
