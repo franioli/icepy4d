@@ -2,10 +2,10 @@
 *ipynb_checkpoints/
 *__pycache__
 *_old/
+*.old/
 data/img/
 data/calib/calib_fullOpenCVmodel.txt
 data/calib/calib_fullOpenCVmodel_matlab.txt
 res/
-other/
 tests/PSMNet/dataset
 tests/sfm/epoch0/
