@@ -9,3 +9,4 @@ data/calib/calib_fullOpenCVmodel_matlab.txt
 res/
 tests/PSMNet/dataset
 tests/sfm/epoch0/
+tests/sfm/images/
