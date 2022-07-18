@@ -21,6 +21,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '''
+
 # %%
 
 import numpy as np
@@ -63,7 +64,7 @@ from lib.thirdParts.transformations import affine_matrix_from_points
 
 def main() -> None:
     #---  Parameters  ---#
-    # TODO: add parser for parameters or read them from json file
+    # @TODO: add parser for parameters or read them from json file
 
     # - Folders and paths
     imFld = 'data/img'
@@ -91,7 +92,7 @@ def main() -> None:
 
     # - Coregistration switches
     # do_coregistration: If True, try to coregister point clouds based on n double points
-    # TODO: still have to fully implement it and move code to a specific Class
+    # @TODO: still have to fully implement it and move code to a specific Class
     do_coregistration = False
 
     # fix_both_cameras: if False, estimate EO of cam2 with relative orientation, otherwise keep both cameras fixed.
@@ -100,7 +101,7 @@ def main() -> None:
     # - Other On-Off switches
     do_viz = False
     do_SOR_filter = True
-    # TODO: implement some  swithces as proprierty of camera Class
+    # @TODO: implement some  swithces as proprierty of camera Class
 
     # - Bounding box for processing the images from the two cameras
     maskBB = [[400, 1900, 5500, 3500], [300, 1800, 5700, 3500]]
@@ -115,7 +116,7 @@ def main() -> None:
     ''' Perform matching and tracking '''
 
     # Inizialize Variables
-    # TODO: replace cam0, cam1 with iterable objects
+    # @TODO: replace cam0, cam1 with iterable objects
     images = dict.fromkeys(cam_names)
     features = dict.fromkeys(cam_names)
     f_matrixes = []
@@ -178,7 +179,7 @@ def main() -> None:
                     'descr': matchedDescriptors[jj],
                     'score': matchedPtsScores[jj]
                 })
-                # TODO: Store match confidence!
+                # @TODO: Store match confidence!
 
             #=== Track previous matches at current epoch ===#
             if epoch > 0:
@@ -198,9 +199,9 @@ def main() -> None:
                 ]
                 tracked_cam0, tracked_cam1 = track_matches(
                     pairs, maskBB, prevs, opt_tracking)
-                # TODO: keep track of the epoch in which feature is matched
-                # TODO: Check bounding box in tracking
-                # TODO: clean tracking code
+                # @TODO: keep track of the epoch in which feature is matched
+                # @TODO: Check bounding box in tracking
+                # @@TODO: clean tracking code
 
                 # Store all matches in features structure
                 features[cam0][epoch].append_features(tracked_cam0)
@@ -278,7 +279,7 @@ def main() -> None:
         ''' Inizialize Camera Intrinsics at every epoch setting them equal to 
             the reference cameras ones.
         '''
-        # TODO: replace append with insert or a more robust data structure...
+        # @TODO: replace append with insert or a more robust data structure...
         for cam in cam_names:
             cameras[cam].append(
                 Camera(
@@ -306,7 +307,7 @@ def main() -> None:
         cameras[cam1][epoch] = relative_ori.cameras[1]
 
         if do_coregistration:
-            # TODO: make wrappers to handle RS transformations
+            # @TODO: make wrappers to handle RS transformations
 
             # Triangulate targets
             triangulate = Triangulate(
@@ -317,7 +318,7 @@ def main() -> None:
             targets.append_obj_cord(triangulate.triangulate_two_views())
 
             # Estimate rigid body transformation between first epoch RS and current epoch RS
-            # TODO: make a wrapper for this
+            # @TODO: make a wrapper for this
             v0 = np.concatenate((cameras[cam0][0].C,
                                 cameras[cam1][0].C,
                                 targets.get_obj_coord()[0].reshape(3, 1),
@@ -358,7 +359,7 @@ def main() -> None:
 
         if do_coregistration:
             # Apply rigid body transformation to triangulated points
-            # TODO: make wrapper for apply transformation to arrays
+            # @TODO: make wrapper for apply transformation to arrays
             pts = np.dot(tform[epoch],
                          convert_to_homogeneous(triangulation.points3d.T)
                          )
@@ -465,7 +466,7 @@ def main() -> None:
 
     # %%
     ''' Compute DSM and orthophotos '''
-    # TODO: implement better DSM class
+    # @TODO: implement better DSM class
 
     print('DSM and orthophoto generation started')
     res = 0.03
