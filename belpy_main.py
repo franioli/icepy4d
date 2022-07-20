@@ -84,15 +84,15 @@ def main() -> None:
     ]
 
     # - Switches to find and track matches
-    find_matches = True  # number of keypoints: 10240,
-    track_matches = True
+    do_matching = False  # number of keypoints: 10240,
+    do_tracking = False
 
     # - Epoches to process
     # It can be 'all' for processing all the epochs or a list with the epoches to be processed
     epoches_to_process = 'all'  # [0, 1]  #  [x for x in range(15)]  # [0] #
 
     # - Coregistration switches
-    # do_coregistration: If True, try to coregister point clouds based on n double points
+    # If True, try to coregister point clouds based on n double points
     # @TODO: still have to fully implement it and move code to a specific Class
     do_coregistration = False
 
@@ -151,8 +151,12 @@ def main() -> None:
     # transform mask bounding box to numpy
     maskBB = np.array(maskBB).astype('int')
 
+    # Check input parameters(@TODO: put in separate function)
+    if do_tracking:
+        assert do_matching is True, "Tracking enabled, but matching disabled. Please enable matching as well by setting do_matching to True"
+
     # epoch = 0
-    if find_matches:
+    if do_matching:
         features[cam0], features[cam1] = [], []
 
         for epoch in epoches_to_process:
@@ -184,7 +188,7 @@ def main() -> None:
                 # @TODO: Store match confidence!
 
             #=== Track previous matches at current epoch ===#
-            if track_matches and epoch > 0:
+            if do_tracking and epoch > 0:
                 print(f'Track points from epoch {epoch-1} to epoch {epoch}')
 
                 trackoutdir = epochdir / f'from_t{epoch-1}'
