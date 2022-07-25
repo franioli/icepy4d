@@ -84,8 +84,8 @@ def main() -> None:
     ]
 
     # - Switches to find and track matches
-    find_matches = True  # number of keypoints: 10240,
-    track_matches = True
+    find_matches = False  # number of keypoints: 10240,
+    track_matches = False
 
     # - Epoches to process
     # It can be 'all' for processing all the epochs or a list with the epoches to be processed

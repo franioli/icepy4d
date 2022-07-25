@@ -60,7 +60,7 @@ class Tiles:
         else:
             nrows, ncols = self.grid['nrows'], self.grid['ncols']
 
-        # Check if overlap is given , otherwise read it from self.overlap
+        # Check if overlap is given, otherwise read it from self.overlap
         if overlap is None:
             overlap = self.overlap
 
@@ -105,6 +105,17 @@ class Tiles:
 
     def print_tiles(self):
         print('method not implemented yet')
+
+        # for idx in tiles.tile_idx:
+        #     plt.subplot(tile_grid[0], tile_grid[1], idx+1)
+        #     plt.imshow(tiles.tiles[idx])
+        # plt.show()
+
+        # fig, ax = plt.subplots(tile_grid[0], tile_grid[1])
+        # for idx in tiles.tile_idx:
+        #     i, j = np.unravel_index(idx, tile_grid, order='F')
+        #     ax[i][j].imshow(tiles.tiles[idx])
+        # fig.show()
 
     def write_tiles_to_disk(self):
         print('method not implemented yet')
@@ -170,10 +181,6 @@ if __name__ == '__main__':
         plt.subplot(tile_grid[0], tile_grid[1], idx+1)
         plt.imshow(tiles.tiles[idx])
     plt.show()
-
-    # fig, ax = plt.subplots(tile_grid[0], tile_grid[1])
-    # for idx in tiles.tile_idx:
-    #     i, j = np.unravel_index(idx, tile_grid, order='F')
-    #     ax[i][j].imshow(tiles.tiles[idx])
-    # fig.show()
-#
+    
+    
+    
