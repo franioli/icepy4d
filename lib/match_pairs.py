@@ -20,6 +20,7 @@ def match_pair(pair, maskBB, opt):
 
     if len(opt['resize']) == 2 and opt['resize'][1] == -1:
         opt['resize'] = opt['resize'][0:1]
+        
     if len(opt['resize']) == 2:
         print('Will resize to {}x{} (WxH)'.format(
             opt['resize'][0], opt['resize'][1]))
