@@ -24,17 +24,19 @@ SOFTWARE.
 
 # %%
 
+from lib.validate_inputs import validate
 import numpy as np
-from pathlib import Path
 import cv2
 import pickle
 import json
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
+# import matplotlib.cm as cm
 import pydegensac
-# import open3d as o3d
-# import h5py
 
+from pathlib import Path
+from easydict import EasyDict as edict
+
+from lib.config import parse_yaml_cfg
 from lib.classes import (Camera, Imageds, Features, Targets)
 from lib.sfm.two_view_geometry import Two_view_geometry
 from lib.sfm.triangulation import Triangulate
@@ -62,98 +64,34 @@ from lib.misc import (convert_to_homogeneous,
 from lib.thirdParts.transformations import affine_matrix_from_points
 
 
-def main() -> None:
-    #---  Parameters  ---#
-    # @TODO: add parser for parameters or read them from json file
+# Parse options from yaml file
+cfg_file = 'config/config_base.yaml'
+cfg = parse_yaml_cfg(cfg_file)
 
-    # - Folders and paths
-    imFld = 'data/img'
-    calibFld = 'data/calib'
-    matching_config = 'config/opt_matching.json'
-    tracking_config = 'config/opt_tracking.json'
-    res_folder = 'res'
+# %%
 
-    # - CAMERAS
-    # Note that the calibration file must have the same name as the camera.
-    cam_names = ['p0', 'p1']  # ['p0_00', 'p1_00'] #
+# Inizialize Variables
+cams = cfg.paths.cam_names
+images = dict.fromkeys(cams)
+features = dict.fromkeys(cams)
+f_matrixes = []
 
-    # - Targets
-    target_paths = [
-        Path('data/target_image_p0.txt'),
-        Path('data/target_image_p1.txt'),
-    ]
+# Create Image Datastore objects
+for cam in cams:
+    images[cam] = Imageds(cfg.paths.imdir / cam)
 
-    # - Switches to find and track matches
-    do_matching = False  # number of keypoints: 10240,
-    do_tracking = False
+cfg = validate(cfg, images)
 
-    # - Epoches to process
-    # It can be 'all' for processing all the epochs or a list with the epoches to be processed
-    epoches_to_process = 'all'  # [0, 1]  #  [x for x in range(15)]  # [0] #
-
-    # - Coregistration switches
-    # If True, try to coregister point clouds based on n double points
-    # @TODO: still have to fully implement it and move code to a specific Class
-    do_coregistration = False
-
-    # fix_both_cameras: if False, estimate EO of cam2 with relative orientation, otherwise keep both cameras fixed.
-    # fix_both_cameras = False
-
-    # - Other On-Off switches
-    do_viz = False
-    do_SOR_filter = True
-    # @TODO: implement some  swithces as proprierty of camera Class
-
-    # - Bounding box for processing the images from the two cameras
-    maskBB = [[400, 1900, 5500, 3500], [300, 1800, 5700, 3500]]
-
-    # - Camera centers obtained from Metashape model in July [m]
-    camera_centers_world = np.array([
-        [416651.5248, 5091109.9121, 1858.9084],   # IMG_2092
-        [416622.2755, 5091364.5071, 1902.4053],   # IMG_0481
-    ])
-
-    # %%
-    ''' Perform matching and tracking '''
-
-    # Inizialize Variables
-    # @TODO: replace cam0, cam1 with iterable objects
-    images = dict.fromkeys(cam_names)
-    features = dict.fromkeys(cam_names)
-    f_matrixes = []
-
-    cam0, cam1 = cam_names[0], cam_names[1]
-
-    # Create Image Datastore objects
-    for cam in cam_names:
-        images[cam] = Imageds(Path(imFld) / cam)
-
-    # Check that number of images is the same for every camera
-    if len(images[cam1]) is not len(images[cam0]):
-        print('Error: different number of images per camera')
-        raise SystemExit(0)
-    else:
-        print('Image datastores created.')
-
-    # Define epoches to be processed
-    if epoches_to_process == 'all':
-        epoches_to_process = [x for x in range(len(images[cam0]))]
-    if epoches_to_process is None:
-        print('Invalid input of epoches to process')
-        raise SystemExit(0)
-
+##----- corrected up to here
+''' Perform matching and tracking '''
     # Load matching and tracking configurations
     with open(matching_config,) as f:
         opt_matching = json.load(f)
     with open(tracking_config,) as f:
         opt_tracking = json.load(f)
 
-    # transform mask bounding box to numpy
-    maskBB = np.array(maskBB).astype('int')
-
-    # Check input parameters(@TODO: put in separate function)
-    if do_tracking:
-        assert do_matching is True, "Tracking enabled, but matching disabled. Please enable matching as well by setting do_matching to True"
+    # # transform mask bounding box to numpy
+    # maskBB = np.array(maskBB).astype('int')
 
     # epoch = 0
     if do_matching:
@@ -503,5 +441,5 @@ def main() -> None:
         print('Orthophotos built.')
 
 
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()

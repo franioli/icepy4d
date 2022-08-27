@@ -43,6 +43,7 @@ from lib.misc import create_directory
 
 '''TODO: Reorganize the code in utils.py and put functions in better places'''
 
+
 def interpolate_point_colors(points3d, image, camera: Camera, convert_BRG2RGB=True):
     '''  Interpolate color of a 3D sparse point cloud, given an oriented image
     Parameters
@@ -140,7 +141,6 @@ def interpolate_point_colors_interp2d(pointxyz, image, P, K=None, dist=None, win
        - distortion vector according to OpenCV
     Output: Nx3 colour matrix, as float numbers (normalized in [0,1])
     '''
-    # TODO: improve velocity of the function removing the cicles...
 
     assert P is not None, 'invalid projection matrix'
     assert image.ndim == 3, 'invalid input image. Image has not 3 channel'
