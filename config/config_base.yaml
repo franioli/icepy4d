@@ -1,0 +1,55 @@
+#- Define paths and base settings
+# paths:
+image_dir: "data/img"
+calibration_dir: "data/calib"
+results_dir: "res"
+camera_names: ["p0", "p1"] # ['p0_00', 'p1_00'] #
+matching_cfg: "config/opt_matching.json"
+tracking_cfg: "config/opt_tracking.json"
+
+#- Processing options
+# processing:
+#- Epoches to process
+# It can be either 'all' for processing all the epochs
+# or a list with the epoches to be processed
+epoch_to_process: "all" # [0, 1]  #  [x for x in range(15)]
+
+#- Switches to find and track matches
+do_matching: False # number of keypoints: 10240,
+do_tracking: False
+
+#- Coregistration switches
+# If True, try to coregister point clouds based on n double points
+# @TODO: still have to fully implement it and move code to a specific Class
+do_coregistration: False
+
+#- Fix Cameras:
+# if False, estimate EO of cam2 with relative orientation, otherwise keep both cameras fixed.
+# fix_both_cameras: False
+
+#- Image-related options
+# images:
+#- Bounding box for processing the images from the two cameras
+mask_bounding_box: [[400, 1900, 5500, 3500], [300, 1800, 5700, 3500]]
+
+#- Georeferencing (i.e., absolute orientation) information
+# georef:
+#- Camera centers obtained from Metashape model in July [m]
+camera_centers_world: [
+    [416651.5248, 5091109.9121, 1858.9084], # IMG_2092
+    [416622.2755, 5091364.5071, 1902.4053], # IMG_0481
+  ]
+#- Targets' information
+target_paths: ["data/target_image_p0.txt", "data/target_image_p1.txt"]
+
+#- Other On-Off switches
+# others:
+#- visualize outputs
+do_viz: False
+
+#- Point cloud processing
+do_SOR_filter: True
+
+# Matching options
+matching:
+  method: Superglue
