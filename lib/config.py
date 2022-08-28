@@ -31,7 +31,7 @@ def parse_yaml_cfg(cfg_file: edict) -> edict:
     cfg.proc.do_coregistration = yaml_opt.do_coregistration
 
     # - Matching options
-    # @TODO: simplify matching options
+    # @TODO: loop on all elemnts of yaml_opt to create conf dict
     cfg.matching.detector = yaml_opt.detector
     cfg.matching.matcher = yaml_opt.matcher
     cfg.matching.output_dir = yaml_opt.output_dir
