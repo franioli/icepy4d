@@ -10,8 +10,7 @@ def validate(cfg: edict, images: Imageds):
     # Check that number of images is the same for every camera
     for i in range(1, len(cams)):
         if len(images[cams[i]]) is not len(images[cams[i-1]]):
-            print('Error: different number of images per camera')
-            raise SystemExit(0)
+            raise ValueError('Error: different number of images per camera')
         else:
             print('Image datastores created successfully.')
 
@@ -19,8 +18,7 @@ def validate(cfg: edict, images: Imageds):
     if cfg.proc.epoch_to_process == 'all':
         cfg.proc.epoch_to_process = [x for x in range(len(images[cams[0]]))]
     if type(cfg.proc.epoch_to_process) is not list:
-        print('Invalid input of epoches to process')
-        raise SystemExit(0)
+        raise ValueError('Invalid input of epoches to process')
 
     return cfg
 
@@ -30,9 +28,9 @@ if __name__ == '__main__':
     cfg = parse_yaml(cfg_file)
 
     cams = cfg.paths.cam_names
-    images = dict.fromkeys(cams)
 
     # Create Image Datastore objects
+    images = dict.fromkeys(cams)
     for cam in cams:
         images[cam] = Imageds(cfg.paths.imdir / cam)
 

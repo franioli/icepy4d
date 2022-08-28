@@ -61,134 +61,123 @@ from lib.misc import (convert_to_homogeneous,
                       convert_from_homogeneous,
                       create_directory,
                       )
-from lib.thirdParts.transformations import affine_matrix_from_points
 
+from thirdparty.transformations import affine_matrix_from_points
 
 # Parse options from yaml file
 cfg_file = 'config/config_base.yaml'
 cfg = parse_yaml_cfg(cfg_file)
 
-# %%
-
 # Inizialize Variables
 cams = cfg.paths.cam_names
-images = dict.fromkeys(cams)
-features = dict.fromkeys(cams)
-f_matrixes = []
+features = dict.fromkeys(cams)  # @TODO: put this in an inizialization function
 
 # Create Image Datastore objects
+images = dict.fromkeys(cams)  # @TODO: put this in an inizialization function
 for cam in cams:
     images[cam] = Imageds(cfg.paths.imdir / cam)
 
 cfg = validate(cfg, images)
 
-##----- corrected up to here
 ''' Perform matching and tracking '''
-    # Load matching and tracking configurations
-    with open(matching_config,) as f:
-        opt_matching = json.load(f)
-    with open(tracking_config,) as f:
-        opt_tracking = json.load(f)
 
-    # # transform mask bounding box to numpy
-    # maskBB = np.array(maskBB).astype('int')
+epoch = 0
+if cfg.proc.do_matching:
+    for cam in cams:
+        features[cam] = []
 
-    # epoch = 0
-    if do_matching:
-        features[cam0], features[cam1] = [], []
+    # for epoch in cfg.proc.epoch_to_process:
+    print(f'Processing epoch {epoch}...')
 
-        for epoch in epoches_to_process:
-            print(f'Processing epoch {epoch}...')
+    opt_matching = cfg.matching.copy()
+    epochdir = Path(cfg.paths.resdir) / f'epoch_{epoch}'
 
-            epochdir = Path(res_folder) / f'epoch_{epoch}'
+    #-- Find Matches at current epoch --#
+    print(f'Run Superglue to find matches at epoch {epoch}')
+    opt_matching.output_dir = epochdir
+    pair = [
+        images[cams[0]].get_image_path(epoch),
+        images[cams[1]].get_image_path(epoch)
+    ]
+    # Call matching function
+    matchedPts, matchedDescriptors, matchedPtsScores = match_pair(
+        pair, cfg.images.bbox, opt_matching
+    )
 
-            #=== Find Matches at current epoch ===#
-            print(f'Run Superglue to find matches at epoch {epoch}')
-            opt_matching['output_dir'] = epochdir
-            pair = [
-                images[cam0].get_image_path(epoch),
-                images[cam1].get_image_path(epoch)
+    # Store matches in features structure
+    for jj, cam in enumerate(cams):
+        # Dict keys are the cameras names, internal list contain epoches
+        features[cam].append(Features())
+        features[cam][epoch].append_features({
+            'kpts': matchedPts[jj],
+            'descr': matchedDescriptors[jj],
+            'score': matchedPtsScores[jj]
+        })
+        # @TODO: Store match confidence!
+
+        #=== Track previous matches at current epoch ===#
+        if do_tracking and epoch > 0:
+            print(f'Track points from epoch {epoch-1} to epoch {epoch}')
+
+            trackoutdir = epochdir / f'from_t{epoch-1}'
+            opt_tracking['output_dir'] = trackoutdir
+            pairs = [
+                [images[cam0].get_image_path(epoch-1),
+                    images[cam0].get_image_path(epoch)],
+                [images[cam1].get_image_path(epoch-1),
+                    images[cam1].get_image_path(epoch)],
             ]
-            # Call actual matching function
-            matchedPts, matchedDescriptors, matchedPtsScores = match_pair(
-                pair, maskBB, opt_matching
-            )
+            prevs = [
+                features[cam0][epoch-1].get_features_as_dict(),
+                features[cam1][epoch-1].get_features_as_dict()
+            ]
+            # Call actual tracking function
+            tracked_cam0, tracked_cam1 = track_matches(
+                pairs, maskBB, prevs, opt_tracking)
+            # @TODO: keep track of the epoch in which feature is matched
+            # @TODO: Check bounding box in tracking
+            # @@TODO: clean tracking code
 
-            # Store matches in features structure
-            for jj, cam in enumerate(cam_names):
-                # Dict keys are the cameras names, internal list contain epoches
-                features[cam].append(Features())
-                features[cam][epoch].append_features({
-                    'kpts': matchedPts[jj],
-                    'descr': matchedDescriptors[jj],
-                    'score': matchedPtsScores[jj]
-                })
-                # @TODO: Store match confidence!
+            # Store all matches in features structure
+            features[cam0][epoch].append_features(tracked_cam0)
+            features[cam1][epoch].append_features(tracked_cam1)
 
-            #=== Track previous matches at current epoch ===#
-            if do_tracking and epoch > 0:
-                print(f'Track points from epoch {epoch-1} to epoch {epoch}')
+        # Run Pydegensac to estimate F matrix and reject outliers
+        F, inlMask = pydegensac.findFundamentalMatrix(
+            features[cam0][epoch].get_keypoints(),
+            features[cam1][epoch].get_keypoints(),
+            px_th=1.5, conf=0.99999, max_iters=10000,
+            laf_consistensy_coef=-1.0,
+            error_type='sampson',
+            symmetric_error_check=True,
+            enable_degeneracy_check=True,
+        )
+        print(f'Matching at epoch {epoch}: pydegensac found {inlMask.sum()} \
+            inliers ({inlMask.sum()*100/len(features[cam0][epoch]):.2f}%)')
+        features[cam0][epoch].remove_outliers_features(inlMask)
+        features[cam1][epoch].remove_outliers_features(inlMask)
 
-                trackoutdir = epochdir / f'from_t{epoch-1}'
-                opt_tracking['output_dir'] = trackoutdir
-                pairs = [
-                    [images[cam0].get_image_path(epoch-1),
-                     images[cam0].get_image_path(epoch)],
-                    [images[cam1].get_image_path(epoch-1),
-                     images[cam1].get_image_path(epoch)],
-                ]
-                prevs = [
-                    features[cam0][epoch-1].get_features_as_dict(),
-                    features[cam1][epoch-1].get_features_as_dict()
-                ]
-                # Call actual tracking function
-                tracked_cam0, tracked_cam1 = track_matches(
-                    pairs, maskBB, prevs, opt_tracking)
-                # @TODO: keep track of the epoch in which feature is matched
-                # @TODO: Check bounding box in tracking
-                # @@TODO: clean tracking code
+        # Write matched points to disk
+        im_stems = images[cam0].get_image_stem(
+            epoch), images[cam1].get_image_stem(epoch)
+        for jj, cam in enumerate(cam_names):
+            features[cam][epoch].save_as_txt(
+                epochdir / f'{im_stems[jj]}_mktps.txt')
+        with open(epochdir / f'{im_stems[0]}_{im_stems[1]}_features.pickle', 'wb') as f:
+            pickle.dump(features, f, protocol=pickle.HIGHEST_PROTOCOL)
+        last_match_path = create_directory('res/last_epoch')
+        with open(last_match_path / 'last_features.pickle', 'wb') as f:
+            pickle.dump(features, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-                # Store all matches in features structure
-                features[cam0][epoch].append_features(tracked_cam0)
-                features[cam1][epoch].append_features(tracked_cam1)
+    print('Matching completed')
 
-            # Run Pydegensac to estimate F matrix and reject outliers
-            F, inlMask = pydegensac.findFundamentalMatrix(
-                features[cam0][epoch].get_keypoints(),
-                features[cam1][epoch].get_keypoints(),
-                px_th=1.5, conf=0.99999, max_iters=10000,
-                laf_consistensy_coef=-1.0,
-                error_type='sampson',
-                symmetric_error_check=True,
-                enable_degeneracy_check=True,
-            )
-            f_matrixes.append(F)
-            print(f'Matching at epoch {epoch}: pydegensac found {inlMask.sum()} \
-                inliers ({inlMask.sum()*100/len(features[cam0][epoch]):.2f}%)')
-            features[cam0][epoch].remove_outliers_features(inlMask)
-            features[cam1][epoch].remove_outliers_features(inlMask)
-
-            # Write matched points to disk
-            im_stems = images[cam0].get_image_stem(
-                epoch), images[cam1].get_image_stem(epoch)
-            for jj, cam in enumerate(cam_names):
-                features[cam][epoch].save_as_txt(
-                    epochdir / f'{im_stems[jj]}_mktps.txt')
-            with open(epochdir / f'{im_stems[0]}_{im_stems[1]}_features.pickle', 'wb') as f:
-                pickle.dump(features, f, protocol=pickle.HIGHEST_PROTOCOL)
-            last_match_path = create_directory('res/last_epoch')
-            with open(last_match_path / 'last_features.pickle', 'wb') as f:
-                pickle.dump(features, f, protocol=pickle.HIGHEST_PROTOCOL)
-
-        print('Matching completed')
-
-    elif not features[cam0]:
-        last_match_path = 'res/last_epoch/last_features.pickle'
-        with open(last_match_path, 'rb') as f:
-            features = pickle.load(f)
-            print("Loaded previous matches")
-    else:
-        print("Features already present, nothing was changed.")
+elif not features[cam0]:
+    last_match_path = 'res/last_epoch/last_features.pickle'
+    with open(last_match_path, 'rb') as f:
+        features = pickle.load(f)
+        print("Loaded previous matches")
+else:
+    print("Features already present, nothing was changed.")
 
     # %%
     ''' SfM '''
