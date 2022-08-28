@@ -52,4 +52,30 @@ do_SOR_filter: True
 
 # Matching options
 matching:
-  method: Superglue
+  keypoints: "Superpoint"
+  matcher: Superglue
+
+  output_dir: "./",
+  resize: [-1]
+  resize_float: True,
+  equalize_hist: False,
+  nms_radius: 3,
+  keypoint_threshold: 0.0001,
+  max_keypoints: 2048,
+  superglue: "outdoor",
+  sinkhorn_iterations: 100,
+  match_threshold: 0.15,
+  viz: True,
+  viz_extension: "png",
+  fast_viz: True,
+  opencv_display: False,
+  show_keypoints: False,
+  cache: False,
+  force_cpu: False,
+  useTile: True,
+  writeTile2Disk: False,
+  do_viz_tile: True,
+  rowDivisor: 2,
+  colDivisor: 4,
+  overlap: 400
+    
