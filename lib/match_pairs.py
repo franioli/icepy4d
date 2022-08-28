@@ -9,7 +9,7 @@ from lib.sg.matching import Matching
 from lib.sg.utils import (make_matching_plot, AverageTimer, read_image,  
                           frame2tensor, vizTileRes)
 from  lib.io import generateTiles
-torch.set_grad_enabled(False) 
+torch.set_grad_enabled(False)
 
 def match_pair(pair, maskBB, opt):
     
@@ -53,7 +53,7 @@ def match_pair(pair, maskBB, opt):
     print('Will write matches to directory \"{}\"'.format(output_dir))
     if opt['viz']:
         print('Will write visualization images to',
-              'directory \"{}\"'.format(output_dir
+              'directory \"{}\"'.format(output_dir))
     
     timer = AverageTimer(newline=True)
     name0, name1 = pair[:2]
