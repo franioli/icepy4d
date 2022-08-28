@@ -30,39 +30,24 @@ def parse_yaml_cfg(cfg_file: edict) -> edict:
     cfg.proc.do_tracking = yaml_opt.do_tracking
     cfg.proc.do_coregistration = yaml_opt.do_coregistration
 
-
     # - Matching options
     # @TODO: simplify matching options
-    cfg.matching.keypoints = yaml_opt.keypoints
+    cfg.matching.detector = yaml_opt.detector
     cfg.matching.matcher = yaml_opt.matcher
-    cfg.matching.output_dir: yaml_opt.output_dir
-    cfg.matching.resize: yaml_opt.resize
-    cfg.matching.resize_float: yaml_opt.resize_float
-    cfg.matching.equalize_hist: yaml_opt.equalize_hist
-    cfg.matching.nms_radius: yaml_opt.nms_radius
-    cfg.matching.keypoint_threshold: yaml_opt.keypoint_threshold
-    cfg.matching.max_keypoints: yaml_opt.max_keypoints
-    cfg.matching.superglue: yaml_opt.superglue
-    cfg.matching.sinkhorn_iterations: yaml_opt.sinkhorn_iterations
-    cfg.matching.match_threshold: yaml_opt.match_threshold
-    cfg.matching.viz: yaml_opt.viz
-    cfg.matching.viz_extension: yaml_opt.viz_extension
-    cfg.matching.fast_viz: yaml_opt.fast_viz
-    cfg.matching.opencv_display: yaml_opt.opencv_display
-    cfg.matching.show_keypoints: yaml_opt.show_keypoints
-    cfg.matching.cache: yaml_opt.cache
-    cfg.matching.force_cpu: yaml_opt.force_cpu
-    cfg.matching.useTile: yaml_opt.useTile
-    cfg.matching.writeTile2Disk: yaml_opt.writeTile2Disk
-    cfg.matching.do_viz_tile: yaml_opt.do_viz_tile
-    cfg.matching.rowDivisor: yaml_opt.rowDivisor
-    cfg.matching.colDivisor: yaml_opt.colDivisor
-    cfg.matching.overlap: yaml_opt.overlap
-    
+    cfg.matching.output_dir = yaml_opt.output_dir
+    cfg.matching.resize = yaml_opt.resize
+    cfg.matching.keypoint_threshold = yaml_opt.keypoint_threshold
+    cfg.matching.max_keypoints = yaml_opt.max_keypoints
+    cfg.matching.superglue_model = yaml_opt.superglue_model
+    cfg.matching.match_threshold = yaml_opt.match_threshold
+    cfg.matching.do_viz = yaml_opt.do_viz
+    cfg.matching.show_keypoints = yaml_opt.show_keypoints
+    cfg.matching.force_cpu = yaml_opt.force_cpu
+
     # - Tracking options
 
     # - Image-realted options
-    cfg.images.mask_bounding_box = np.array(
+    cfg.images.bbox = np.array(
         yaml_opt.mask_bounding_box).astype('int')
 
     # - Georef options
