@@ -54,16 +54,16 @@ do_SOR_filter: True
 detector: "Superpoint"
 matcher: "Superglue"
 output_dir: "./res"
+device: 'gpu'
 resize: [-1]
-resize_float: True
 keypoint_threshold: 0.0001
 max_keypoints: 2048
 superglue_model: "outdoor"
 match_threshold: 0.15
 do_viz: True
 show_keypoints: False
-force_cpu: False
 
+# Tile processing
 # useTile: True
 # writeTile2Disk: False
 # do_viz_tile: True

@@ -42,7 +42,7 @@ def parse_yaml_cfg(cfg_file: edict) -> edict:
     cfg.matching.match_threshold = yaml_opt.match_threshold
     cfg.matching.do_viz = yaml_opt.do_viz
     cfg.matching.show_keypoints = yaml_opt.show_keypoints
-    cfg.matching.force_cpu = yaml_opt.force_cpu
+    cfg.matching.device = yaml_opt.device
 
     # - Tracking options
 
