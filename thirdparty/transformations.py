@@ -924,7 +924,7 @@ def affine_matrix_from_points(v0, v1, shear=True, scale=True, usesvd=True):
     coordinates, where ndims is the dimensionality of the coordinate space.
 
     If shear is False, a similarity transformation matrix is returned.
-    If also scale is False, a rigid/Euclidean transformation matrix
+    If also scale is False, a rigid/Euclidean traffansformation matrix
     is returned.
 
     By default the algorithm by Hartley and Zissermann [15] is used.
