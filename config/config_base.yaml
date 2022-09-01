@@ -12,7 +12,7 @@ tracking_cfg: "config/opt_tracking.json"
 #- Epoches to process
 # It can be either 'all' for processing all the epochs
 # or a list with the epoches to be processed
-epoch_to_process: "all" # [0, 1]  #  [x for x in range(15)]
+epoch_to_process: [0] #"all" # [0, 1]  #  [x for x in range(15)]
 
 #- Switches to find and track matches
 do_matching: True
@@ -30,15 +30,25 @@ do_coregistration: False
 #- Image-related options
 # images:
 #- Bounding box for processing the images from the two cameras
-mask_bounding_box: [[400, 1900, 5500, 3500], [300, 1800, 5700, 3500]]
+# It must be a list of list (one instance for each camera) 
+# with the min/max coordinates
+# in the format of:
+# [xmin, ymin, xmax, ymax] 
+# 
+mask_bounding_box: [
+    [1000, 1500, 5600, 3700], 
+    [100, 1800, 4700, 4000],
+  ]
 
 #- Georeferencing (i.e., absolute orientation) information
 # georef:
 #- Camera centers obtained from Metashape model in July [m]
 camera_centers_world: [
-    [416651.5248, 5091109.9121, 1858.9084], # IMG_2092
-    [416622.2755, 5091364.5071, 1902.4053], # IMG_0481
+    [416623.25,	5091366.38,	1902.11], # IMG_2092
+    [416651.74,	5091110.17,	1859.05], # IMG_0481
   ]
+
+
 #- Targets' information
 target_paths: ["data/target_image_p0.txt", "data/target_image_p1.txt"]
 
@@ -57,7 +67,7 @@ output_dir: "./res"
 device: 'gpu'
 resize: [-1]
 keypoint_threshold: 0.0001
-max_keypoints: 2048  # number of keypoints: 10240,
+max_keypoints: 10240  
 superglue_model: "outdoor"
 match_threshold: 0.15
 do_viz: True
