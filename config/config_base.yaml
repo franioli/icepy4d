@@ -1,9 +1,9 @@
 #- Define paths and base settings
 # paths:
-image_dir: "data/img"
+image_dir: "data/img2022"
 calibration_dir: "data/calib"
 results_dir: "res"
-camera_names: ["p0", "p1"] # ['p0_00', 'p1_00'] #
+camera_names: ["p1", "p2"] # ['p0_00', 'p1_00'] #
 matching_cfg: "config/opt_matching.json"
 tracking_cfg: "config/opt_tracking.json"
 
