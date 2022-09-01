@@ -1,6 +1,7 @@
-from classes import Imageds
 from easydict import EasyDict as edict
-from config import parse_yaml
+
+from lib.classes import Imageds
+from lib.config import parse_yaml_cfg
 
 
 def validate(cfg: edict, images: Imageds):
@@ -25,7 +26,7 @@ def validate(cfg: edict, images: Imageds):
 
 if __name__ == '__main__':
     cfg_file = 'config/config_base.yaml'
-    cfg = parse_yaml(cfg_file)
+    cfg = parse_yaml_cfg(cfg_file)
 
     cams = cfg.paths.cam_names
 
