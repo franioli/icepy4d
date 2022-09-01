@@ -31,7 +31,7 @@ from lib.misc import (convert_from_homogeneous,
                       )
 from lib.utils import (interpolate_point_colors,
                        )
-from lib.thirdParts.triangulation import iterative_LS_triangulation
+from thirdparty.triangulation import iterative_LS_triangulation
 
 ''' Triangulation class '''
 

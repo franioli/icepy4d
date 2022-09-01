@@ -5,15 +5,6 @@ import os
 # import matplotlib
 # matplotlib.use('Agg')
 
-#---  ---#
-
-
-def read_camera_cal():
-    # TODO: implemen function for reading calibration data from file (and set it as class method)
-    print('function not implemented yet')
-
-#--- ---#
-
 
 def process_resize(w, h, resize):
     assert(len(resize) > 0 and len(resize) <= 2)
