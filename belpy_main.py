@@ -312,8 +312,7 @@ for epoch in cfg.proc.epoch_to_process:
     if cfg.other.do_SOR_filter:
         _, ind = pcd_epc.remove_statistical_outlier(nb_neighbors=10,
                                                     std_ratio=3.0)
-        if cfg.other.do_viz:
-            display_pc_inliers(pcd_epc, ind)
+        #     display_pc_inliers(pcd_epc, ind)
         pcd_epc = pcd_epc.select_by_index(ind)
         print("Point cloud filtered by Statistical Oulier Removal")
 
