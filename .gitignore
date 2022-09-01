@@ -4,9 +4,12 @@
 *_old/
 *.old/
 data/img/
+data/img2022/
 data/calib/calib_fullOpenCVmodel.txt
 data/calib/calib_fullOpenCVmodel_matlab.txt
+data/calib/seq2021/
 res/
+res_seq2021/
 tests/PSMNet/dataset
 tests/sfm/epoch0/
 tests/sfm/images/
