@@ -1,9 +1,9 @@
-from pathlib import Path
-# import argparse
 import numpy as np
 import matplotlib.cm as cm
 import torch
-import  pydegensac
+
+from pathlib import Path
+from easydict import EasyDict as edict
 
 from lib.sg.matching import Matching
 from lib.sg.utils import (make_matching_plot, AverageTimer, read_image,  
@@ -13,45 +13,45 @@ torch.set_grad_enabled(False)
 
 def match_pair(pair, maskBB, opt):
     
-    assert not (opt['opencv_display'] and not opt['viz']), 'Must use --viz with --opencv_display'
-    assert not (opt['opencv_display'] and not opt['fast_viz']), 'Cannot use --opencv_display without --fast_viz'
-    assert not (opt['fast_viz'] and not opt['viz']), 'Must use --viz with --fast_viz'
-    assert not (opt['fast_viz'] and opt['viz_extension'] == 'pdf'), 'Cannot use pdf extension with --fast_viz'
+    assert not (opt.opencv_display and not opt.viz), 'Must use --viz with --opencv_display'
+    assert not (opt.opencv_display and not opt.fast_viz), 'Cannot use --opencv_display without --fast_viz'
+    assert not (opt.fast_viz and not opt.viz), 'Must use --viz with --fast_viz'
+    assert not (opt.fast_viz and opt.viz_extension == 'pdf'), 'Cannot use pdf extension with --fast_viz'
 
-    if len(opt['resize']) == 2 and opt['resize'][1] == -1:
-        opt['resize'] = opt['resize'][0:1]
-    if len(opt['resize']) == 2:
+    if len(opt.resize) == 2 and opt.resize[1] == -1:
+        opt.resize = opt.resize[0:1]
+    if len(opt.resize) == 2:
         print('Will resize to {}x{} (WxH)'.format(
-            opt['resize'][0], opt['resize'][1]))
-    elif len(opt['resize']) == 1 and opt['resize'][0] > 0:
-        print('Will resize max dimension to {}'.format(opt['resize'][0]))
-    elif len(opt['resize']) == 1:
+            opt.resize[0], opt.resize[1]))
+    elif len(opt.resize) == 1 and opt.resize[0] > 0:
+        print('Will resize max dimension to {}'.format(opt.resize[0]))
+    elif len(opt.resize) == 1:
         print('Will not resize images')
     else:
         raise ValueError('Cannot specify more than two integers for --resize')
 
     # Load the SuperPoint and SuperGlue models.
-    device = 'cuda' if torch.cuda.is_available() and not opt['force_cpu'] else 'cpu'
+    device = 'cuda' if torch.cuda.is_available() and not opt.force_cpu else 'cpu'
     print('Running inference on device \"{}\"'.format(device))
     config = {
         'superpoint': {
-            'nms_radius': opt['nms_radius'],
-            'keypoint_threshold': opt['keypoint_threshold'],
-            'max_keypoints': opt['max_keypoints']
+            'nms_radius': opt.nms_radius,
+            'keypoint_threshold': opt.keypoint_threshold,
+            'max_keypoints': opt.max_keypoints
         },
         'superglue': {
-            'weights': opt['superglue'],
-            'sinkhorn_iterations': opt['sinkhorn_iterations'],
-            'match_threshold': opt['match_threshold'],
+            'weights': opt.superglue,
+            'sinkhorn_iterations': opt.sinkhorn_iterations,
+            'match_threshold': opt.match_threshold,
         }
     }
     matching = Matching(config).eval().to(device)
 
     # Create the output directories if they do not exist already.
-    output_dir = Path(opt['output_dir'])
+    output_dir = Path(opt.output_dir)
     output_dir.mkdir(exist_ok=True, parents=True)
     print('Will write matches to directory \"{}\"'.format(output_dir))
-    if opt['viz']:
+    if opt.viz:
         print('Will write visualization images to',
               'directory \"{}\"'.format(output_dir))
     
@@ -59,14 +59,14 @@ def match_pair(pair, maskBB, opt):
     name0, name1 = pair[:2]
     stem0, stem1 = Path(name0).stem, Path(name1).stem
     matches_path = output_dir / '{}_{}_matches.npz'.format(stem0, stem1)
-    viz_path = output_dir / '{}_{}_matches.{}'.format(stem0, stem1, opt['viz_extension'])
+    viz_path = output_dir / '{}_{}_matches.{}'.format(stem0, stem1, opt.viz_extension)
  
 
     rot0, rot1 = 0, 0
     image0, inp0, scales0 = read_image(
-        name0, device, opt['resize'], rot0, opt['resize_float'], maskBB[0], opt['equalize_hist'])
+        name0, device, opt.resize, rot0, opt.resize_float, maskBB[0], opt.equalize_hist)
     image1, inp1, scales1 = read_image(
-        name1, device, opt['resize'], rot1, opt['resize_float'], maskBB[1], opt['equalize_hist'])
+        name1, device, opt.resize, rot1, opt.resize_float, maskBB[1], opt.equalize_hist)
     if image0 is None or image1 is None:
         print('Problem reading image pair: {} {}'.format(
             name0, name1))
@@ -78,13 +78,13 @@ def match_pair(pair, maskBB, opt):
     # plt.imshow(cv2.cvtColor(image1/255., cv2.COLOR_BGR2RGB))
     # plt.show()  
     
-    do_viz = opt['viz']
-    useTile = opt['useTile']
-    writeTile2Disk = opt['writeTile2Disk']
-    do_viz_tile = opt['do_viz_tile']
-    rowDivisor = opt['rowDivisor']
-    colDivisor = opt['colDivisor']
-    overlap = opt['overlap']
+    do_viz = opt.viz
+    useTile = opt.useTile
+    writeTile2Disk = opt.writeTile2Disk
+    do_viz_tile = opt.do_viz_tile
+    rowDivisor = opt.rowDivisor
+    colDivisor = opt.colDivisor
+    overlap = opt.overlap
     
     if useTile:
 
@@ -139,9 +139,9 @@ def match_pair(pair, maskBB, opt):
                 descriptors1_full = np.append(descriptors1_full, descriptors1, axis=1) 
             
             if do_viz_tile:
-                vizTile_path = output_dir / '{}_{}_matches_tile{}_{}.{}'.format(stem0, stem1, t0, t1, opt['viz_extension'])
+                vizTile_path = output_dir / '{}_{}_matches_tile{}_{}.{}'.format(stem0, stem1, t0, t1, opt.viz_extension)
                 tile_print_opt = {'imstem0': stem0+'_'+str(t0), 'imstem1': stem1+'_'+str(t1), 'show_keypoints': True, 
-                       'fast_viz': opt['fast_viz'], 'opencv_display': opt['opencv_display']}
+                       'fast_viz': opt.fast_viz, 'opencv_display': opt.opencv_display}
                 vizTileRes(vizTile_path, predTile, tiles0[t0], tiles1[t1], matching, timerTile, tile_print_opt)     
                 
             timerTile.print('Finished Tile Pairs {:2} - {:2} of {:2}'.format(t0, t1, len(tiles0)))
@@ -214,8 +214,8 @@ def match_pair(pair, maskBB, opt):
         make_matching_plot(
             image0, image1, mkpts0-maskBB[0][0:2].astype('float32'), mkpts1-maskBB[1][0:2].astype('float32'), 
             mkpts0-maskBB[0][0:2].astype('float32'), mkpts1-maskBB[1][0:2].astype('float32'), color,
-            text, viz_path, opt['show_keypoints'],
-            opt['fast_viz'], opt['opencv_display'], 'Matches', small_text)
+            text, viz_path, opt.show_keypoints,
+            opt.fast_viz, opt.opencv_display, 'Matches', small_text)
 
         timer.update('viz_match')
     

@@ -23,6 +23,8 @@ def parse_yaml_cfg(cfg_file: edict) -> edict:
     cfg.paths.caldir = Path(yaml_opt.calibration_dir)
     cfg.paths.resdir = Path(yaml_opt.results_dir)
     cfg.paths.cam_names = yaml_opt.camera_names
+    cfg.matching_cfg = Path(yaml_opt.matching_cfg)
+    cfg.tracking_cfg = Path(yaml_opt.tracking_cfg)
 
     # - Processing options
     cfg.proc.epoch_to_process = yaml_opt.epoch_to_process
