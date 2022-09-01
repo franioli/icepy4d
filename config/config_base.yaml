@@ -15,8 +15,8 @@ tracking_cfg: "config/opt_tracking.json"
 epoch_to_process: "all" # [0, 1]  #  [x for x in range(15)]
 
 #- Switches to find and track matches
-do_matching: False
-do_tracking: False
+do_matching: True
+do_tracking: True
 
 #- Coregistration switches
 # If True, try to coregister point clouds based on n double points
