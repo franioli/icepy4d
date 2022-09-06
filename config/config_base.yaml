@@ -36,17 +36,17 @@ do_coregistration: False
 # [xmin, ymin, xmax, ymax] 
 # 
 mask_bounding_box: [
-    [1000, 1500, 5600, 3700], 
-    [100, 1800, 4700, 4000],
-  ]
+  [1000, 1500, 5600, 3700], 
+  [100, 1800, 4700, 4000],
+]
 
 #- Georeferencing (i.e., absolute orientation) information
 # georef:
 #- Camera centers obtained from Metashape model in July [m]
 camera_centers_world: [
-    [416623.25,	5091366.38,	1902.11], # IMG_2092
-    [416651.74,	5091110.17,	1859.05], # IMG_0481
-  ]
+  [312.930, 300.536, 135.159], # IMG_2092
+  [151.703, 99.171, 91.618], # IMG_0481
+]
 
 
 #- Targets' information
