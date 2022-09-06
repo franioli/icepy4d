@@ -174,6 +174,7 @@ def draw_epip_lines(img0, img1, lines, pts0, pts1, fast_viz=True):
 def display_point_cloud(pcd, cameras: list = None,
                         viz_rs: bool = True,
                         win_name: str = 'Point cloud',
+                        plot_scale: int = 5,
                         ) -> None:
     ''' Display a O3D point cloud
     Parameters
@@ -205,10 +206,10 @@ def display_point_cloud(pcd, cameras: list = None,
         for i, cam in enumerate(cameras):
             plt_objs.append(make_camera_pyramid(cam,
                                                 color=cam_colors[i],
-                                                focal_len_scaled=30,
+                                                focal_len_scaled=plot_scale*5,
                                                 ))
     if viz_rs:
-        plt_objs.append(make_viz_sdr(scale=5))
+        plt_objs.append(make_viz_sdr(scale=plot_scale))
 
     o3d.visualization.draw_geometries(
         plt_objs,
