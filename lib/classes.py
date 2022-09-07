@@ -35,6 +35,9 @@ from pathlib import Path
 
 class Camera:
     ''' Class to help manage Cameras. '''
+    # @TODO =: revise all Camera methods, integrate build_pose_matrix
+    # (from belpy.ipynb), build method to completely update Camera object
+    # add method to compute camera pose relatevely to another pose
 
     def __init__(self, width=None, height=None,
                  K=None, dist=None,
@@ -54,16 +57,18 @@ class Camera:
             dist = np.array(dist)
         # TODO: add assertion to check that only K and dist OR calib_path is provided.
 
-        self.width = width
-        self.height = height
-        self.K = K  # calibration matrix
-        self.dist = dist  # Distortion vector in OpenCV format
-        self.R = R  # rotation
-        self.t = t  # translation
-        self.P = None
-        self.C = None  # camera center
-        self.pose = None
-        self.extrinsics = None
+        self.width = width  # Image width [px]
+        self.height = height  # Image height [px]
+        self.K = K          # Calibration matrix (Intrisics)
+        self.dist = dist    # Distortion vector in OpenCV format
+        self.R = R      # rotation matrix (from world to cam)
+        self.t = t      # translation vector (from world to cam)
+        self.P = None   # Projection matrix (from world to cam)
+        self.C = None   # camera center (in world coordinates)
+        self.pose = None    # Pose matrix
+                            # (describes change of basis from camera to world)
+        self.extrinsics = None  # Extriniscs matrix
+                                # (describes change of basis from world to cam)
 
         # If calib_path is provided, read camera calibration from file
         if calib_path is not None:
@@ -86,9 +91,9 @@ class Camera:
         # self.C_from_P()
 
     def Rt_to_extrinsics(self):
-        ''' 
+        '''
         [ R | t ]    [ I | t ]   [ R | 0 ]
-        | --|-- |  = | --|-- | * | --|-- |  
+        | --|-- |  = | --|-- | * | --|-- |
         [ 0 | 1 ]    [ 0 | 1 ]   [ 0 | 1 ]
         '''
         # t = np.block([[np.eye(3), self.t],
@@ -105,7 +110,7 @@ class Camera:
         return self.extrinsics
 
     def extrinsics_to_pose(self):
-        ''' 
+        '''
         '''
         if self.extrinsics is None:
             self.Rt_to_extrinsics()
@@ -117,14 +122,7 @@ class Camera:
         C = -np.dot(Rc, t)
 
         Rc_block = self.build_block_matrix(Rc)
-        C_block = self.build_block_matrix(C)
-
-        self.pose = np.dot(C_block, Rc_block)
-
-        return self.pose
-
-    def pose_to_extrinsics(self):
-        ''' 
+        C_block = self. print('Not implemented yet')
 
         '''
         if self.pose is None:
@@ -145,7 +143,7 @@ class Camera:
             return self.extrinsics
 
     def update_camera_from_extrinsics(self):
-        ''' 
+        '''
 
         '''
         if self.extrinsics is None:
@@ -155,17 +153,18 @@ class Camera:
             self.R = self.extrinsics[0:3, 0:3]
             self.t = self.extrinsics[0:3, 3:4]
             self.P = np.dot(self.K, self.extrinsics[0:3, :])
+            self.C_from_P()
 
     def get_C_from_pose(self):
-        ''' 
+        '''
 
         '''
         return self.pose[0:3, 3:4]
 
     def C_from_P(self):
-        ''' 
+        '''
         Compute and return the camera center from projection matrix P, as
-        C = [ - inv(KR) * Kt ] = [ -inv(P[1:3]) * P[4] ]
+        C = [- inv(KR) * Kt] = [-inv(P[1:3]) * P[4]]
         '''
         # if self.C is not None:
         #     return self.C
@@ -176,11 +175,11 @@ class Camera:
 
     def t_from_RC(self):
         ''' Deprecrated function. Use extrinsics_to_pose instead.
-        Compute and return the camera translation vector t, given the camera 
+        Compute and return the camera translation vector t, given the camera
         centre and the roation matrix X, as
-        t = [ -R * C ] 
+        t = [-R * C]
         The relation is derived from the formula of the camera centre
-        C = [ - inv(KR) * Kt ]
+        C = [- inv(KR) * Kt]
         '''
         self.t = -np.dot(self.R, self.C)
         self.compose_P()
@@ -189,7 +188,7 @@ class Camera:
     def compose_P(self):
         '''
         Compose and return the 4x3 P matrix from 3x3 K matrix, 3x3 R matrix and 3x1 t vector, as:
-            K[ R | t ]
+            K[R | t]
         '''
         if (self.K is None):
             print("Invalid calibration matrix. Unable to compute P.")
@@ -211,7 +210,7 @@ class Camera:
         return self.P
 
     def factor_P(self):
-        ''' Factorize the camera matrix into K,R,t as P = K[R|t]. '''
+        ''' Factorize the camera matrix into K, R, t as P = K[R | t]. '''
 
         # factor first 3*3 part
         K, R = linalg.rq(self.P[:, :3])
@@ -229,11 +228,11 @@ class Camera:
 
     def project_points(self, points3d):
         '''
-        Overhelmed method (see lib.geometry) for projecting 3D to image coordinates.
+        Overhelmed method(see lib.geometry) for projecting 3D to image coordinates.
 
-        Project 3D points (Nx3 array) to image coordinates, given the projection matrix P (4x3 matrix)
-        If K matric and dist vector are given, the function computes undistorted image projections (otherwise, zero distortions are assumed)
-        Returns: 2D projected points (Nx2 array) in image coordinates
+        Project 3D points(Nx3 array) to image coordinates, given the projection matrix P(4x3 matrix)
+        If K matric and dist vector are given, the function computes undistorted image projections(otherwise, zero distortions are assumed)
+        Returns: 2D projected points(Nx2 array) in image coordinates
         '''
         points3d = cv2.convertPointsToHomogeneous(points3d)[:, 0, :]
         m = np.dot(self.P, points3d.T)
@@ -250,12 +249,12 @@ class Camera:
         '''
         Read camera internal orientation from file, save in camera class
         and return them.
-        The file must contain the full K matrix and distortion vector, 
+        The file must contain the full K matrix and distortion vector,
         according to OpenCV standards, and organized in one line, as follow:
         fx 0. cx 0. fy cy 0. 0. 1. k1, k2, p1, p2, [k3, [k4, k5, k6
-        Values must be float (include the . after integers) and divided by a 
-        white space. 
-        -------      
+        Values must be float(include the . after integers) and divided by a
+        white space.
+        -------
         Returns:  K, dist
         '''
         path = Path(path)
@@ -283,7 +282,7 @@ class Camera:
         return K, dist
 
     def get_P_homogeneous(self):
-        """ 
+        """
         Return the 4x4 P matrix from 3x4 P matrix, as:
             [      P     ]
             [------------]
@@ -297,7 +296,7 @@ class Camera:
     def euler_from_R(self):
         '''
         Compute Euler angles from rotation matrix
-        -------      
+        - ------
         Returns:  [omega, phi, kappa]
         '''
         omega = np.arctan2(self.R[2, 1], self.R[2, 2])
@@ -309,7 +308,7 @@ class Camera:
 
     def build_block_matrix(self, mat):
         # TODO: add description
-        ''' 
+        '''
 
         '''
         if mat.shape[1] == 3:
@@ -331,7 +330,7 @@ class Camera:
 
 class Imageds:
     '''
-    Class to help manage Image datasets 
+    Class to help manage Image datasets
 
     '''
 
@@ -389,7 +388,7 @@ class Imageds:
         return (os.path.join(self.folder[idx], self.files[idx]))
 
     def get_image_stem(self, idx):
-        ''' Return name without extension (stem) of the image at position idx in datastore '''
+        ''' Return name without extension(stem) of the image at position idx in datastore '''
         return Path(self.files[idx]).stem
 
     # TODO: Define iterable
@@ -444,11 +443,11 @@ def process_resize(w, h, resize):
 
 #--- Features ---#
 class Features:
-    ''' 
-    Class to store matched features, descriptors and scores 
-    Features are stored as numpy arrays: 
+    '''
+    Class to store matched features, descriptors and scores
+    Features are stored as numpy arrays:
         Features.kpts: nx2 array of features location
-        Features.descr: mxn array of descriptors (note that descriptors are stored columnwise)
+        Features.descr: mxn array of descriptors(note that descriptors are stored columnwise)
         Features.score: nx1 array with feature score    '''
 
     def __init__(self):
@@ -468,8 +467,8 @@ class Features:
 
     def initialize_fetures(self, nfeatures=1, descr_size=256):
         '''
-        Inizialize Feature instance to numpy arrays, 
-        optionally for a given number of features and descriptor size (default is 256).
+        Inizialize Feature instance to numpy arrays,
+        optionally for a given number of features and descriptor size(default is 256).
         '''
         self.kpts = np.empty((nfeatures, 2), dtype=float)
         self.descr = np.empty((descr_size, nfeatures), dtype=float)
@@ -496,14 +495,14 @@ class Features:
 
     def remove_outliers_features(self, inlier_mask):
         # TODO: write description
-        ''' Remove outliers features 
+        ''' Remove outliers features
         Parameters
-        ----------
-        new_features : TYPE
+        - ---------
+        new_features: TYPE
             DESCRIPTION.
 
         Returns
-        -------
+        - ------
         None.
         '''
         self.kpts = self.kpts[inlier_mask, :]
@@ -512,10 +511,10 @@ class Features:
 
     def append_features(self, new_features):
         '''
-        Append new features to Features Class. 
+        Append new features to Features Class.
         Input new_features is a Dict with keys as follows:
             new_features['kpts']: nx2 array of features location
-            new_features['descr']: mxn array of descriptors (note that descriptors are stored columnwise)
+            new_features['descr']: mxn array of descriptors(note that descriptors are stored columnwise)
             new_features['score']: nx1 array with feature score
         '''
         # Check dictionary keys:
@@ -560,12 +559,12 @@ class Features:
 
 # Targets
 class Targets:
-    ''' 
+    '''
     Class to store Target information, including image coordinates and object coordinates
-    Targets are stored as numpy arrays: 
-        Targets.im_coor: [nx2] List of array of containing xy coordinates of the 
+    Targets are stored as numpy arrays:
+        Targets.im_coor: [nx2] List of array of containing xy coordinates of the
                         target projections on each image
-        Targets.obj_coor: nx3 array of XYZ object coordinates (it can be empty)
+        Targets.obj_coor: nx3 array of XYZ object coordinates(it can be empty)
     '''
 
     def __init__(self, cam_id=None, im_coord_path=None):
@@ -595,9 +594,9 @@ class Targets:
         self.obj_coor = None
 
     def get_im_coord(self, cam_id=None, epoch=None):
-        ''' 
-        Return image coordinates as numpy array 
-        If numeric camera id (integer) is provided, the function returns the
+        '''
+        Return image coordinates as numpy array
+        If numeric camera id(integer) is provided, the function returns the
         image coordinates in that camera, otherwise the list with the projections
         on all the cameras is returned.
         '''
@@ -624,17 +623,17 @@ class Targets:
             self.obj_coor = np.append(self.obj_coor, new_obj_coor, axis=0)
 
     def read_im_coord_from_txt(self, camera_id=None, path=None, fmt='%i', delimiter=',', header='x,y'):
-        ''' 
+        '''
         Read image target image coordinates from .txt file, organized as follows:
             - One line per target
             - first x coordinate, then y coordinate
-            - Coordinates separated by a delimiter (default ',')          
-            e.g. 
-            #x,y
-            1000,2000
-            2000,3000
+            - Coordinates separated by a delimiter(default ',')
+            e.g.
+            # x,y
+            1000, 2000
+            2000, 3000
 
-            NB: added -1 in the image coordinates to take into account 
+            NB: added - 1 in the image coordinates to take into account
             matlab-python different image coordinates
         '''
         if camera_id is None:
