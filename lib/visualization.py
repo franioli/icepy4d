@@ -27,6 +27,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import open3d as o3d
 import matplotlib.colors as Colors
+import matplotlib.cm as cm
 
 from lib.classes import (Camera, Features)
 from lib.geometry import (compute_reprojection_error,
@@ -133,8 +134,10 @@ def plot_projection_error(projections, projection_error, image,
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
     viridis = cm.get_cmap('viridis', 8)
-    norm = Colors.Normalize(vmin=err.min(), vmax=err.max())
-    cmap = viridis(norm(err))
+    norm = Colors.Normalize(vmin=projection_error.min(),
+                            vmax=projection_error.max()
+                            )
+    cmap = viridis(norm(projection_error))
 
     fig, ax = plt.subplots()
     fig.tight_layout()
@@ -143,7 +146,7 @@ def plot_projection_error(projections, projection_error, image,
                          s=10, c=cmap, marker='o',
                          # alpha=0.5, edgecolors='k',
                          )
-    ax.set_title(cam)
+    ax.set_title(title)
     cbar = plt.colorbar(scatter, ax=ax)
     cbar.set_label("Reprojection error in y")
 
