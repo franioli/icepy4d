@@ -66,9 +66,9 @@ class Camera:
         self.P = None   # Projection matrix (from world to cam)
         self.C = None   # camera center (in world coordinates)
         self.pose = None    # Pose matrix
-                            # (describes change of basis from camera to world)
+        # (describes change of basis from camera to world)
         self.extrinsics = None  # Extriniscs matrix
-                                # (describes change of basis from world to cam)
+        # (describes change of basis from world to cam)
 
         # If calib_path is provided, read camera calibration from file
         if calib_path is not None:
@@ -122,8 +122,14 @@ class Camera:
         C = -np.dot(Rc, t)
 
         Rc_block = self.build_block_matrix(Rc)
-        C_block = self. print('Not implemented yet')
+        C_block = self.build_block_matrix(C)
 
+        self.pose = np.dot(C_block, Rc_block)
+
+        return self.pose
+
+    def pose_to_extrinsics(self):
+        ''' 
         '''
         if self.pose is None:
             print('Camera pose not available. Compute it first.')
