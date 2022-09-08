@@ -562,8 +562,9 @@ class Features:
         np.savetxt(path, self.kpts, fmt=fmt, delimiter=delimiter,
                    newline='\n', header=header)
 
-
 # Targets
+
+
 class Targets:
     '''
     Class to store Target information, including image coordinates and object coordinates
