@@ -4,6 +4,7 @@
 *_old/
 *.old/
 data/img/
+data/2021
 data/img2022/
 data/calib/calib_fullOpenCVmodel.txt
 data/calib/calib_fullOpenCVmodel_matlab.txt
