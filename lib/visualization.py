@@ -209,7 +209,7 @@ def display_point_cloud(pcd, cameras: list = None,
         for i, cam in enumerate(cameras):
             plt_objs.append(make_camera_pyramid(cam,
                                                 color=cam_colors[i],
-                                                focal_len_scaled=plot_scale*5,
+                                                focal_len_scaled=plot_scale,
                                                 ))
     if viz_rs:
         plt_objs.append(make_viz_sdr(scale=plot_scale))
