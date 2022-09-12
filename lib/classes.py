@@ -90,23 +90,51 @@ class Camera:
         # self.P = P_from_KRT(self.K, self.R, self.t)
         # self.C_from_P()
 
+    def build_camera_EO(self,
+                        extrinsics: np.ndarray = None,
+                        pose: np.ndarray = None
+                        ) -> None:
+
+        if extrinsics is not None:
+            self.extrinsics = extrinsics
+            self.extrinsics_to_pose()
+            self.update_camera_from_extrinsics()
+
+        elif pose is not None:
+            self.pose = pose
+            self.pose_to_extrinsics()
+            self.update_camera_from_extrinsics()
+
+        else:
+            raise ValueError(
+                'Not enough data to build Camera External Orientation matrixes.')
+
+    def build_pose_matrix(self,
+                          R: np.ndarray,
+                          C: np.ndarray) -> None:
+        # Check for input dimensions
+        if R.shape != (3, 3):
+            raise ValueError(
+                'Wrong dimension of the R matrix. It must be a 3x3 numpy array')
+        if C.shape == (3,) or C.shape == (1, 3):
+            C = C.T
+        elif C.shape != (3, 1):
+            raise ValueError(
+                'Wrong dimension of the C vector. It must be a 3x1 or a 1x3 numpy array')
+
+        self.pose = np.eye(4)
+        self.pose[0:3, 0:3] = R
+        self.pose[0:3, 3:4] = C
+
     def Rt_to_extrinsics(self):
         '''
         [ R | t ]    [ I | t ]   [ R | 0 ]
         | --|-- |  = | --|-- | * | --|-- |
         [ 0 | 1 ]    [ 0 | 1 ]   [ 0 | 1 ]
         '''
-        # t = np.block([[np.eye(3), self.t],
-        #               [np.zeros((1,3)), 1]]
-        #              )
-        # R = np.block([[self.R, np.zeros((3,1))],
-        #               [np.zeros((1,3)), 1]]
-        #              )
         R_block = self.build_block_matrix(self.R)
         t_block = self.build_block_matrix(self.t)
-
         self.extrinsics = np.dot(t_block, R_block)
-
         return self.extrinsics
 
     def extrinsics_to_pose(self):
@@ -630,7 +658,8 @@ class Targets:
             self.obj_coor = np.append(self.obj_coor, new_obj_coor, axis=0)
 
     def read_im_coord_from_txt(self, camera_id=None, path=None, fmt='%i', delimiter=',', header='x,y'):
-        '''
+        '''            data = data - 1
+
         Read image target image coordinates from .txt file, organized as follows:
             - One line per target
             - first x coordinate, then y coordinate
