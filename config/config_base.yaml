@@ -16,7 +16,7 @@ epoch_to_process: [0] #"all" # [0, 1]  #  [x for x in range(15)]
 
 #- Switches to find and track matches
 do_matching: True
-do_tracking: True
+do_tracking: False
 
 #- Coregistration switches
 # If True, try to coregister point clouds based on n double points
