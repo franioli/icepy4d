@@ -24,7 +24,6 @@ SOFTWARE.
 
 # %%
 
-from lib.validate_inputs import validate
 import numpy as np
 import cv2
 import pickle
@@ -42,7 +41,7 @@ from lib.sfm.two_view_geometry import Two_view_geometry
 from lib.sfm.triangulation import Triangulate
 from lib.match_pairs import match_pair
 from lib.track_matches import track_matches
-
+from lib.validate_inputs import validate
 from lib.geometry import (project_points,
                           compute_reprojection_error
                           )
