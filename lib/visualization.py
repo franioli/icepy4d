@@ -174,7 +174,8 @@ def draw_epip_lines(img0, img1, lines, pts0, pts1, fast_viz=True):
 ''' Visualization of 3D point clouds'''
 
 
-def display_point_cloud(pcd, cameras: list = None,
+def display_point_cloud(pcd,
+                        cameras: list = None,
                         viz_rs: bool = True,
                         win_name: str = 'Point cloud',
                         plot_scale: int = 5,
@@ -212,7 +213,7 @@ def display_point_cloud(pcd, cameras: list = None,
                                                 focal_len_scaled=plot_scale,
                                                 ))
     if viz_rs:
-        plt_objs.append(make_viz_sdr(scale=plot_scale))
+        plt_objs.append(make_viz_sdr(scale=plot_scale*2))
 
     o3d.visualization.draw_geometries(
         plt_objs,

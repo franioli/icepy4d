@@ -23,6 +23,7 @@ SOFTWARE.
 '''
 
 import numpy as np
+from typing import List
 
 from lib.classes import Camera
 from lib.geometry import undistort_points
@@ -53,7 +54,8 @@ class Triangulate():
         self.points3d = None
         self.colors = None
 
-    def triangulate_two_views(self, views_ids=[0, 1],
+    def triangulate_two_views(self,
+                              views_ids: List[int] = [0, 1],
                               approach: str = 'iterative_LS_triangulation'
                               ):
 
@@ -64,12 +66,13 @@ class Triangulate():
             pts1_und = undistort_points(self.image_points[views_ids[1]],
                                         self.cameras[views_ids[1]]
                                         )
-            points3d, status = iterative_LS_triangulation(pts0_und, self.cameras[views_ids[0]].P,
-                                                          pts1_und,  self.cameras[views_ids[1]].P,
-                                                          )
-            print(f'Point triangulation succeded: {status.sum()/status.size}.')
+            pts3d, ret = iterative_LS_triangulation(
+                pts0_und, self.cameras[views_ids[0]].P,
+                pts1_und, self.cameras[views_ids[1]].P
+            )
+            print(f'Point triangulation succeded: {ret.sum()/ret.size}.')
 
-            self.points3d = points3d
+            self.points3d = pts3d
 
         elif approach == 'linear_triangulation':
             pts0_und = undistort_points(self.image_points[views_ids[0]],
@@ -112,7 +115,7 @@ class Triangulate():
                 Triangulate homologous points first."
         self.colors = interpolate_point_colors(self.points3d,
                                                image, camera,
-                                               convert_BRG2RGB=True,
+                                               convert_BRG2RGB=convert_BRG2RGB,
                                                )
         print('Points color interpolated')
 
