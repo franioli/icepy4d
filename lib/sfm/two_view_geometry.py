@@ -23,8 +23,10 @@ SOFTWARE.
 '''
 
 import numpy as np
+import cv2
+from typing import List
 
-from lib.classes import Camera
+from lib.classes import Camera, Features
 # from lib.sfm.triangulation import Triangulate
 
 from lib.geometry import (estimate_pose,
@@ -33,25 +35,61 @@ from lib.geometry import (estimate_pose,
                           project_points,
                           )
 
+''' Single_camera_geometry class'''
+
+
+class Single_camera_geometry():
+
+    def __init__(self, camera: Camera,
+                 ) -> None:
+        self.camera = camera
+
+    def space_resection(self,
+                        image_points: np.ndarray,
+                        object_poits: np.ndarray,
+                        reprojection_error:  float = 3.0,
+                        ) -> None:
+        ret, r, t, inliers = cv2.solvePnPRansac(object_poits,
+                                                image_points,
+                                                self.camera.K,
+                                                self.camera.dist,
+                                                reprojectionError=reprojection_error
+                                                )
+        if ret:
+            print(
+                f"Space resection succeded. Number of inlier points: {len(inliers)}/{len(object_poits)}")
+        else:
+            print("Space resection failed. Wrong input data or not enough inliers found")
+            return
+
+        R, _ = cv2.Rodrigues(r)
+        extrinsics = np.concatenate((R, t), axis=1)
+        self.camera.build_camera_EO(extrinsics=extrinsics)
+
+
 ''' Two_view_geometry class'''
 
 
 class Two_view_geometry():
-    def __init__(self, cameras: list, features: list) -> None:
+    def __init__(self, cameras: List[Camera],
+                 features: List[np.ndarray]
+                 ) -> None:
         ''' Inizialize class
         Parameters
         ----------
-        cameras : List
-            cameras is a list of Camera objects instances, each containing cameras 
+        cameras : List[Cameras]
+            cameras is a list of Camera objects instances, each containing cameras
             intrisics and extrinsics orientation
-        features: List
-            features is a list of Features object detected (and matched) for 
-            every the cameras
+        features: List[Features]
+            features is a list containing the features (nx2 numpy array) matched on the two cameras
         '''
         self.cameras = cameras
         self.features = features
 
-    def relative_orientation(self, threshold=1., confidence=0.9999) -> list:
+    def relative_orientation(self,
+                             threshold: float = 1.,
+                             confidence: float = 0.9999,
+                             scale_factor=None) -> list:
         ''' Perform relative orientation with OpenCV recoverPose function
         Parameters
         ----------
@@ -61,14 +99,22 @@ class Two_view_geometry():
             See OpenCV recoverPose function for more information.
         confidence:  float (default = 0.9999)
             Confidence for RANSAC estimation
-
+        scale_factor : float (default=None)
+            Scale factor for scaling the two-view-geometry model
         Returns
         -------
-        cameras : 
-        valid : 
+        cameras :
+        valid :
 
         '''
+
+        # Check if extrinsics matrix of camera 0 is available
+        if self.cameras[0].extrinsics is None:
+            print("Extrinsics matrix is not available for camera 0. Please, compute it before running Two_view_geometry estimation.")
+            return
+
         # Estimate Realtive Pose with Essential Matrix
+        # R, t make up a tuple that performs a change of basis from the first camera's coordinate system to the second camera's coordinate system.
         R, t, valid = estimate_pose(
             self.features[0],
             self.features[1],
@@ -80,16 +126,21 @@ class Two_view_geometry():
             f'Relative Orientation - valid points: {valid.sum()}/{len(valid)}'
         )
 
-        # Update camera 1 extrinsics
+        # If the scaling factor is given, scale the stereo model
+        if scale_factor is not None:
+            t = t * scale_factor
+        else:
+            print("No scaling factor (e.g., computed from camera baseline) is provided. Two-view-geometry estimated up to a scale factor.")
+
+        # Update Camera 1 Extrinsics and Pose relatevely to the world reference system (by multipling the estimated Pose with the Pose of Camera 0)
         self.cameras[1].R = R
         self.cameras[1].t = t.reshape(3, 1)
         self.cameras[1].Rt_to_extrinsics()
         self.cameras[1].extrinsics_to_pose()
+        cam2toWorld = self.cameras[0].pose @ self.cameras[1].pose
+        self.cameras[1].build_camera_EO(pose=cam2toWorld)
 
         return self.cameras, valid
-
-    def absolute_orientation(self) -> None:
-        pass
 
     def scale_model_with_baseline(self, baseline_world):
         ''' Scale model given the camera baseline in thw world reference system
@@ -120,3 +171,6 @@ class Two_view_geometry():
         self.cameras[1].update_camera_from_extrinsics()
 
         return self.cameras, scale_fct
+
+    def absolute_orientation(self) -> None:
+        pass
