@@ -27,6 +27,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import open3d as o3d
 import matplotlib.colors as Colors
+import matplotlib.cm as cm
 
 from lib.classes import (Camera, Features)
 from lib.geometry import (compute_reprojection_error,
@@ -133,8 +134,10 @@ def plot_projection_error(projections, projection_error, image,
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
     viridis = cm.get_cmap('viridis', 8)
-    norm = Colors.Normalize(vmin=err.min(), vmax=err.max())
-    cmap = viridis(norm(err))
+    norm = Colors.Normalize(vmin=projection_error.min(),
+                            vmax=projection_error.max()
+                            )
+    cmap = viridis(norm(projection_error))
 
     fig, ax = plt.subplots()
     fig.tight_layout()
@@ -143,7 +146,7 @@ def plot_projection_error(projections, projection_error, image,
                          s=10, c=cmap, marker='o',
                          # alpha=0.5, edgecolors='k',
                          )
-    ax.set_title(cam)
+    ax.set_title(title)
     cbar = plt.colorbar(scatter, ax=ax)
     cbar.set_label("Reprojection error in y")
 
@@ -171,9 +174,11 @@ def draw_epip_lines(img0, img1, lines, pts0, pts1, fast_viz=True):
 ''' Visualization of 3D point clouds'''
 
 
-def display_point_cloud(pcd, cameras: list = None,
+def display_point_cloud(pcd,
+                        cameras: list = None,
                         viz_rs: bool = True,
                         win_name: str = 'Point cloud',
+                        plot_scale: int = 5,
                         ) -> None:
     ''' Display a O3D point cloud
     Parameters
@@ -205,10 +210,10 @@ def display_point_cloud(pcd, cameras: list = None,
         for i, cam in enumerate(cameras):
             plt_objs.append(make_camera_pyramid(cam,
                                                 color=cam_colors[i],
-                                                focal_len_scaled=30,
+                                                focal_len_scaled=plot_scale,
                                                 ))
     if viz_rs:
-        plt_objs.append(make_viz_sdr(scale=5))
+        plt_objs.append(make_viz_sdr(scale=plot_scale*2))
 
     o3d.visualization.draw_geometries(
         plt_objs,

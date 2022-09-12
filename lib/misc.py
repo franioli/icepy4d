@@ -1,9 +1,9 @@
 from pathlib import Path
-import os
 import numpy as np
-import open3d as o3d
 
 #--- File system ---#
+
+
 def create_directory(path):
     """
     Creates a directory, if it does not exist.
@@ -14,6 +14,8 @@ def create_directory(path):
     return path
 
 #--- MAT ---#
+
+
 def convert_to_homogeneous(x):
     '''
     Convert 2xn or 3xn vector of n points in euclidean coordinates 
@@ -21,13 +23,14 @@ def convert_to_homogeneous(x):
     '''
     x = np.array(x)
     ndim, npts = x.shape
-    if  ndim!= 2 and ndim !=3:
+    if ndim != 2 and ndim != 3:
         print('Error: wrong number of dimension of the input vector.\
-              A number of dimensions (rows) of 2 or 3 is required.') 
+              A number of dimensions (rows) of 2 or 3 is required.')
         return None
-    x1 = np.concatenate((x, np.ones((1,npts), 'float32')), axis=0)
-    return x1 
-    
+    x1 = np.concatenate((x, np.ones((1, npts), 'float32')), axis=0)
+    return x1
+
+
 def convert_from_homogeneous(x):
     '''
     Convert 3xn or 4xn vector of n points in homogeneous coordinates 
@@ -36,16 +39,18 @@ def convert_from_homogeneous(x):
     '''
     x = np.array(x)
     ndim, npts = x.shape
-    if  ndim!= 3 and ndim !=4:
+    if ndim != 3 and ndim != 4:
         print('Error: wrong number of dimension of the input vector.\
-              A number of dimensions (rows) of 2 or 3 is required.') 
+              A number of dimensions (rows) of 2 or 3 is required.')
         return None
-    x1 = x[:ndim-1,:] / x[ndim-1,:]
-    return x1 
+    x1 = x[:ndim-1, :] / x[ndim-1, :]
+    return x1
+
 
 def skew_symmetric(x):
     '''  Return skew symmetric matrix from input matrix x '''
     return np.array([[0, -x[2], x[1]], [x[2], 0, -x[0]], [-x[1], x[0], 0]])
+
 
 def compute_rmse(observed, predicted):
     ''' Compute RMSE between predicted and observed values'''
