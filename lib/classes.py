@@ -25,8 +25,10 @@ import os
 import cv2
 import pickle
 import numpy as np
-# import exifread
+import pandas as pd
 
+# import exifread
+from typing import List, Union
 from scipy import linalg
 from pathlib import Path
 
@@ -602,20 +604,15 @@ class Targets:
         Targets.obj_coor: nx3 array of XYZ object coordinates(it can be empty)
     '''
 
-    def __init__(self, cam_id=None, im_coord_path=None):
+    def __init__(self, cam_id=None, im_file_path=None, obj_file_path=None):
         self.reset_targets()
 
-        # If cam_id and im_coord_path are rpovided, read image coordinates from file
-        if im_coord_path is not None and cam_id is not None:
-            if type(cam_id) == list and type(im_coord_path) == list:
-                if len(cam_id) != len(im_coord_path):
-                    print('Error: diffent number of elements in cameras id \
-                          and paths provided.')
-                    return
-                for cam, path in zip(cam_id, im_coord_path):
-                    self.read_im_coord_from_txt(cam, path)
-            else:
-                self.read_im_coord_from_txt(cam_id, im_coord_path)
+        # If im_coord_path is provided, read image coordinates from file
+        if im_file_path is not None:
+            for cam, path in enumerate(im_file_path):
+                self.read_im_coord_from_txt(cam, path)
+        if obj_file_path is not None:
+            self.read_obj_coord_from_txt(obj_file_path)
 
     def __len__(self):
         ''' Get total number of featues stored'''
@@ -628,27 +625,21 @@ class Targets:
         self.im_coor = []
         self.obj_coor = None
 
-    def get_im_coord(self, cam_id=None, epoch=None):
+    def get_im_coord(self, cam_id=None):
         '''
         Return image coordinates as numpy array
         If numeric camera id(integer) is provided, the function returns the
-        image coordinates in that camera, otherwise the list with the projections
-        on all the cameras is returned.
+        image coordinates in that camera, otherwise the list with the projections on all the cameras is returned.
         '''
         if cam_id is None:
             return np.float32(self.im_coor)
         else:
-            if epoch is None:
-                return np.float32(self.im_coor[cam_id])
-            elif epoch < len(self):
-                return np.float32(self.im_coor[cam_id][epoch])
+            # Return object coordinates as numpy array
+            return np.float32(self.im_coor[cam_id].iloc[:, 1:])
 
     def get_obj_coord(self):
-        ''' Return objject coordinates as numpy array '''
-        return np.float32(self.obj_coor)
-
-    def append_features(self, new_features):
-        print('method not implemented yet')
+        # Return object coordinates as numpy array
+        return np.float32(self.obj_coor.iloc[:, 1:])
 
     def append_obj_cord(self, new_obj_coor):
         # TODO: add check on dimension and add description
@@ -657,20 +648,68 @@ class Targets:
         else:
             self.obj_coor = np.append(self.obj_coor, new_obj_coor, axis=0)
 
-    def read_im_coord_from_txt(self, camera_id=None, path=None, fmt='%i', delimiter=',', header='x,y'):
-        '''            data = data - 1
+    def get_target_labels(self,
+                          labels: List[str],
+                          cam_id=None):
+        '''
 
-        Read image target image coordinates from .txt file, organized as follows:
+        '''
+        pass
+
+    def extract_image_coor_by_label(self,
+                                    labels: List[str],
+                                    cam_id: int = None,
+                                    ) -> np.ndarray:
+        """
+        Return image coordinates of the targets on the images given a list of target labels
+        """
+        coor = []
+        for lab in labels:
+            if cam_id is not None:
+                selected = self.im_coor[cam_id][self.im_coor[cam_id]
+                                                ["label"] == lab]
+                if not selected.empty:
+                    coor.append(np.float32(selected.iloc[:, 1:]))
+                else:
+                    print(f"Warning: target {lab} is not present.")
+            else:
+                print("provide cam id")
+                return None
+
+        return np.concatenate(coor, axis=0)
+
+    def extract_object_coor_by_label(self,
+                                     labels: List[str],
+                                     ) -> np.ndarray:
+        """
+        Return object coordinates of the targets on the images given a list of target labels        
+        """
+        coor = []
+        for lab in labels:
+            selected = self.obj_coor[self.obj_coor["label"] == lab]
+            if not selected.empty:
+                coor.append(np.float32(selected.iloc[:, 1:]))
+            else:
+                print(f"Warning: target {lab} is not present.")
+
+        return np.concatenate(coor, axis=0)
+
+    def read_im_coord_from_txt(self,
+                               camera_id=None,
+                               path=None,
+                               delimiter: str = ',',
+                               header: int = 0,
+                               column_names: List[str] = None):
+        '''            
+        Read image target image coordinates from .txt file in a pandas dataframe
+        organized as follows:
             - One line per target
-            - first x coordinate, then y coordinate
+            - label, then first x coordinate, then y coordinate
             - Coordinates separated by a delimiter(default ',')
             e.g.
-            # x,y
-            1000, 2000
-            2000, 3000
-
-            NB: added - 1 in the image coordinates to take into account
-            matlab-python different image coordinates
+            # label,x,y
+            target_1,1000,2000
+            target_2,2000,3000
         '''
         if camera_id is None:
             print('Error: missing camera id. Impossible to assign the target\
@@ -683,32 +722,69 @@ class Targets:
         if not path.exists():
             print('Error: Input path does not exist.')
             return
-        with open(path, 'r') as f:
-            data = np.loadtxt(f, delimiter=',')
-            data = data - 1
+        data = pd.read_csv(path, sep=delimiter,
+                           header=header)
+
         self.im_coor.insert(camera_id, data)
 
-    def save_as_txt(self, path=None, fmt='%i', delimiter=',', header='x,y'):
-        ''' Save keypoints in a .txt file '''
+    def read_obj_coord_from_txt(self,
+                                path=None,
+                                delimiter: str = ',',
+                                header: int = 0,
+                                column_names: List[str] = None):
+        '''
+        Read image target image coordinates from .txt file in a pandas dataframe
+        organized as follows:
+            - One line per target
+            - label, then first x coordinate, then y coordinate
+            - Coordinates separated by a delimiter(default ',')
+            e.g.
+            # label,X,Y,Z
+            target_1,1000,2000,3000
+            target_1,2000,3000,3000
+        '''
         if path is None:
             print("Error: missing path argument.")
             return
-        # if not Path(path).:
-        #     print('Error: invalid input path.')
-        #     return
-        np.savetxt(path, self.kpts, fmt=fmt, delimiter=delimiter,
-                   newline='\n', header=header)
+        path = Path(path)
+        if not path.exists():
+            print('Error: Input path does not exist.')
+            return
+        data = pd.read_csv(path, sep=delimiter,
+                           header=header)
 
-# #--- DSM ---#
-# class DSM:
-#     ''' Class to store and manage DSM. '''
-#     def __init__(self, x, y, z, res):
-#         xx, yy = np.meshgrid(x,y)
-#         self.x = xx
-#         self.y = yy
-#         self.z = z
-#         self.res = res
+        self.append_obj_cord(data)
+
+    # def save_as_txt(self, path=None, fmt='%i', delimiter=',', header='x,y'):
+    #     ''' Save keypoints in a .txt file '''
+    #     if path is None:
+    #         print("Error: missing path argument.")
+    #         return
+    #     # if not Path(path).:
+    #     #     print('Error: invalid input path.')
+    #     #     return
+    #     np.savetxt(path, self.kpts, fmt=fmt, delimiter=delimiter,
+    #                newline='\n', header=header)
 
 
 if __name__ == '__main__':
     '''Test classes '''
+
+    target_paths = ["data/target_image_p1_all.csv",
+                    "data/target_image_p2_all.csv"]
+    obj_path = "data/target_world_all.csv"
+    targets = [Targets(im_file_path=target_paths, obj_file_path=obj_path), ]
+    print('image 0 coords:')
+
+    # print('image 0 coords:')
+    # print(targets[0].get_im_coord(0))
+    # print('image 1 coords:')
+    # print(targets[0].get_im_coord(1))
+    # print('obj coords:')
+    # print(targets[0].get_obj_coord())
+
+    labels = ["F2", "T2"]
+    im_coor = targets[0].extract_image_coor_by_label(labels, cam_id=0)
+    print(im_coor)
+    obj_coor = targets[0].extract_object_coor_by_label(labels)
+    print(obj_coor)

@@ -57,7 +57,7 @@ class Triangulate():
     def triangulate_two_views(self,
                               views_ids: List[int] = [0, 1],
                               approach: str = 'iterative_LS_triangulation'
-                              ):
+                              ) -> np.ndarray:
 
         if approach == 'iterative_LS_triangulation':
             pts0_und = undistort_points(self.image_points[views_ids[0]],
