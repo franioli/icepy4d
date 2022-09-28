@@ -27,7 +27,10 @@ def parse_yaml_cfg(cfg_file: edict) -> edict:
     cfg.tracking_cfg = Path(yaml_opt.tracking_cfg)
 
     # - Processing options
-    cfg.proc.epoch_to_process = yaml_opt.epoch_to_process
+    if yaml_opt.epoch_to_process == "all":
+          cfg.proc.epoch_to_process = [x for x in range(27)]
+    else:
+        cfg.proc.epoch_to_process =  yaml_opt.epoch_to_process
     cfg.proc.do_matching = yaml_opt.do_matching
     cfg.proc.do_tracking = yaml_opt.do_tracking
     cfg.proc.do_coregistration = yaml_opt.do_coregistration
