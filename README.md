@@ -28,8 +28,9 @@ pip3 install torch torchvision --extra-index-url <https://download.pytorch.org/w
 Install other packages
 
 ```bash
-pip3 install numpy opencv-python tqdm matplotlib plotly scipy h5py pycolmap open3d kornia gdown rasterio exifread easydict
-pip3 install pydegensac
+pip install -r requirements.txt
+# pip3 install numpy opencv-python scipy tqdm matplotlib plotly scipy h5py pycolmap open3d kornia gdown rasterio exifread easydict
+# pip3 install pydegensac
 ```
 
 Optional
