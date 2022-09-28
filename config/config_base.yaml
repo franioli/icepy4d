@@ -44,8 +44,8 @@ mask_bounding_box: [
 # georef:
 #- Camera centers obtained from Metashape model in July [m]
 camera_centers_world: [
-  [312.930, 300.536, 135.159], # IMG_2092
-  [151.703, 99.171, 91.618], # IMG_0481
+  [151.703, 99.171, 91.618], # IMG_2814
+  [312.930, 300.536, 135.159], # IMG_1289
 ]
 
 
