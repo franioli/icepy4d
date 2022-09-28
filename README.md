@@ -37,3 +37,9 @@ Optional
 ```bash
 pip3 install jupyterlab
 ```
+
+If needed
+
+```bash
+pip install PyQt5
+```
