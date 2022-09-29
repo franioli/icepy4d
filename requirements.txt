@@ -4,6 +4,7 @@ pandas
 opencv-python
 scipy
 h5py
+pyyaml
 tqdm
 pycolmap
 open3d
