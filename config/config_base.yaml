@@ -12,7 +12,7 @@ tracking_cfg: "config/opt_tracking.json"
 #- Epoches to process
 # It can be either 'all' for processing all the epochs
 # or a list with the epoches to be processed
-epoch_to_process: "all" # [0, 1]  # [0]
+epoch_to_process: 'all' # [0, 1]  # [0]
 
 #- Switches to find and track matches
 do_matching: False
@@ -44,13 +44,16 @@ mask_bounding_box: [
 # georef:
 #- Camera centers obtained from Metashape model in July [m]
 camera_centers_world: [
-  [312.930, 300.536, 135.159], # IMG_2092
-  [151.703, 99.171, 91.618], # IMG_0481
+  [151.703, 99.171, 91.618], # IMG_2814
+  [312.930, 300.536, 135.159], # IMG_1289
 ]
 
 
 #- Targets' information
-target_paths: ["data/target_image_p1.txt", "data/target_image_p2.txt"]
+# Target information must be stored in file, one file per image, saved with the name of the relative image (with target_file_ext extension)
+target_dir: 'data/targets'
+target_file_ext: '.csv'
+
 
 #- Other On-Off switches
 # others:
