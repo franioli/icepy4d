@@ -4,7 +4,7 @@ MIT License
 Copyright (c) 2022 Francesco Ioli
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
+of this software and associated documentation files (the 'Software'), to deal
 in the Software without restriction, including without limitation the rights
 to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
@@ -13,7 +13,7 @@ furnished to do so, subject to the following conditions:
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
@@ -57,9 +57,9 @@ class Single_camera_geometry():
                                                 )
         if ret:
             print(
-                f"Space resection succeded. Number of inlier points: {len(inliers)}/{len(object_poits)}")
+                f'Space resection succeded. Number of inlier points: {len(inliers)}/{len(object_poits)}')
         else:
-            print("Space resection failed. Wrong input data or not enough inliers found")
+            print('Space resection failed. Wrong input data or not enough inliers found')
             return
 
         R, _ = cv2.Rodrigues(r)
@@ -110,7 +110,7 @@ class Two_view_geometry():
 
         # Check if extrinsics matrix of camera 0 is available
         if self.cameras[0].extrinsics is None:
-            print("Extrinsics matrix is not available for camera 0. Please, compute it before running Two_view_geometry estimation.")
+            print('Extrinsics matrix is not available for camera 0. Please, compute it before running Two_view_geometry estimation.')
             return
 
         # Estimate Realtive Pose with Essential Matrix
@@ -130,7 +130,7 @@ class Two_view_geometry():
         if scale_factor is not None:
             t = t * scale_factor
         else:
-            print("No scaling factor (e.g., computed from camera baseline) is provided. Two-view-geometry estimated up to a scale factor.")
+            print('No scaling factor (e.g., computed from camera baseline) is provided. Two-view-geometry estimated up to a scale factor.')
 
         # Update Camera 1 Extrinsics and Pose relatevely to the world reference system (by multipling the estimated Pose with the Pose of Camera 0)
         self.cameras[1].R = R
