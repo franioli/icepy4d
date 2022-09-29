@@ -110,6 +110,8 @@ class Absolute_orientation():
                 (v1, camera_centers_world)
             )
             # print(f'v1: {v1}')
+            self.points3d_loc = v0.copy()
+            self.points3d_world = v1.copy()
 
         self.tform = affine_matrix_from_points(
             v0.T,
