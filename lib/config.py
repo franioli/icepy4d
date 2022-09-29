@@ -1,6 +1,7 @@
 import numpy as np
 import yaml
 
+from lib.classes import Imageds
 from pathlib import Path
 from easydict import EasyDict as edict
 
@@ -27,10 +28,7 @@ def parse_yaml_cfg(cfg_file: edict) -> edict:
     cfg.tracking_cfg = Path(yaml_opt.tracking_cfg)
 
     # - Processing options
-    if yaml_opt.epoch_to_process == "all":
-          cfg.proc.epoch_to_process = [x for x in range(27)]
-    else:
-        cfg.proc.epoch_to_process =  yaml_opt.epoch_to_process
+    cfg.proc.epoch_to_process = yaml_opt.epoch_to_process
     cfg.proc.do_matching = yaml_opt.do_matching
     cfg.proc.do_tracking = yaml_opt.do_tracking
     cfg.proc.do_coregistration = yaml_opt.do_coregistration
@@ -71,12 +69,32 @@ def parse_yaml_cfg(cfg_file: edict) -> edict:
 
 
 def validate_cfg(cfg) -> None:
-    print('Input parameters are valid.')
+    pass
 
 
 def print_cfg(cfg) -> None:
     # @TODO: define function for printing main parameters on screen
-    print('')
+    pass
+
+
+def validate_inputs(cfg: edict, images: Imageds) -> edict:
+
+    cams = cfg.paths.cam_names
+
+    # Check that number of images is the same for every camera
+    for i in range(1, len(cams)):
+        if len(images[cams[i]]) is not len(images[cams[i-1]]):
+            raise ValueError('Error: different number of images per camera')
+        else:
+            print('Image datastores created successfully.')
+
+    # Check and expand epoches to be processed
+    if cfg.proc.epoch_to_process == 'all':
+        cfg.proc.epoch_to_process = [x for x in range(len(images[cams[0]]))]
+    if type(cfg.proc.epoch_to_process) is not list:
+        raise ValueError('Invalid input of epoches to process')
+
+    return cfg
 
 
 if __name__ == '__main__':
