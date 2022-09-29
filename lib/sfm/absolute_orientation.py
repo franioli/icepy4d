@@ -10,20 +10,20 @@ from lib.misc import convert_to_homogeneous, convert_from_homogeneous
 from thirdparty.transformations import affine_matrix_from_points
 
 
-''' Single_camera_geometry class for space resection'''
+''' Space resection class for orienting one single image in world space'''
 
 
-class Single_camera_geometry():
+class Space_resection():
 
     def __init__(self, camera: Camera,
                  ) -> None:
         self.camera = camera
 
-    def space_resection(self,
-                        image_points: np.ndarray,
-                        object_poits: np.ndarray,
-                        reprojection_error:  float = 3.0,
-                        ) -> None:
+    def estimate(self,
+                 image_points: np.ndarray,
+                 object_poits: np.ndarray,
+                 reprojection_error:  float = 3.0,
+                 ) -> None:
         ret, r, t, inliers = cv2.solvePnPRansac(object_poits,
                                                 image_points,
                                                 self.camera.K,
@@ -42,11 +42,11 @@ class Single_camera_geometry():
         self.camera.build_camera_EO(extrinsics=extrinsics)
 
 
-''' Absolute orientation class'''
+''' Absolute orientation class for georeferencing model'''
 
 
 class Absolute_orientation():
-
+    # @TODO: Apply transformation also to cameras!
     def __init__(self,
                  cameras: Tuple[Camera],
                  points3d_world: np.ndarray = None,
@@ -124,7 +124,7 @@ class Absolute_orientation():
     def apply_transformation(self,
                              points3d: np.ndarray,
                              ) -> np.ndarray:
-        # @TODO: Apply transformation also to cameras!print(pts3D)
+        # @TODO: Apply transformation also to cameras!
 
         points3d = convert_to_homogeneous(points3d.T)
         points_out = self.tform @ points3d
