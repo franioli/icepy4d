@@ -1,6 +1,7 @@
 import numpy as np
 import yaml
 
+from lib.classes import Imageds
 from pathlib import Path
 from easydict import EasyDict as edict
 
@@ -22,15 +23,12 @@ def parse_yaml_cfg(cfg_file: edict) -> edict:
     cfg.paths.imdir = Path(yaml_opt.image_dir)
     cfg.paths.caldir = Path(yaml_opt.calibration_dir)
     cfg.paths.resdir = Path(yaml_opt.results_dir)
-    cfg.paths.cam_names = yaml_opt.camera_names
+    cfg.paths.cam_names = tuple(yaml_opt.camera_names)
     cfg.matching_cfg = Path(yaml_opt.matching_cfg)
     cfg.tracking_cfg = Path(yaml_opt.tracking_cfg)
 
     # - Processing options
-    if yaml_opt.epoch_to_process == "all":
-          cfg.proc.epoch_to_process = [x for x in range(27)]
-    else:
-        cfg.proc.epoch_to_process =  yaml_opt.epoch_to_process
+    cfg.proc.epoch_to_process = yaml_opt.epoch_to_process
     cfg.proc.do_matching = yaml_opt.do_matching
     cfg.proc.do_tracking = yaml_opt.do_tracking
     cfg.proc.do_coregistration = yaml_opt.do_coregistration
@@ -57,26 +55,46 @@ def parse_yaml_cfg(cfg_file: edict) -> edict:
 
     # - Georef options
     cfg.georef.camera_centers_world = np.array(yaml_opt.camera_centers_world)
-    cfg.georef.target_paths = yaml_opt.target_paths
+    cfg.georef.target_dir = Path(yaml_opt.target_dir)
+    cfg.georef.target_file_ext = yaml_opt.target_file_ext
 
     # - Other options
     cfg.other.do_viz = yaml_opt.do_viz
     cfg.other.do_SOR_filter = yaml_opt.do_SOR_filter
 
-    validate_cfg(cfg)
-
-    print_cfg(cfg)
+    # validate_cfg(cfg)
+    # print_cfg(cfg)
 
     return cfg
 
 
 def validate_cfg(cfg) -> None:
-    print('Input parameters are valid.')
+    pass
 
 
 def print_cfg(cfg) -> None:
     # @TODO: define function for printing main parameters on screen
-    print('')
+    pass
+
+
+def validate_inputs(cfg: edict, images: Imageds) -> edict:
+
+    cams = cfg.paths.cam_names
+
+    # Check that number of images is the same for every camera
+    for i in range(1, len(cams)):
+        if len(images[cams[i]]) is not len(images[cams[i-1]]):
+            raise ValueError('Error: different number of images per camera')
+        else:
+            print('Image datastores created successfully.')
+
+    # Check and expand epoches to be processed
+    if cfg.proc.epoch_to_process == 'all':
+        cfg.proc.epoch_to_process = [x for x in range(len(images[cams[0]]))]
+    if type(cfg.proc.epoch_to_process) is not list:
+        raise ValueError('Invalid input of epoches to process')
+
+    return cfg
 
 
 if __name__ == '__main__':
