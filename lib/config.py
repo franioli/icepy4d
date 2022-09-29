@@ -61,9 +61,8 @@ def parse_yaml_cfg(cfg_file: edict) -> edict:
     cfg.other.do_viz = yaml_opt.do_viz
     cfg.other.do_SOR_filter = yaml_opt.do_SOR_filter
 
-    validate_cfg(cfg)
-
-    print_cfg(cfg)
+    # validate_cfg(cfg)
+    # print_cfg(cfg)
 
     return cfg
 
