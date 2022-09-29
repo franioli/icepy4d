@@ -23,7 +23,7 @@ def parse_yaml_cfg(cfg_file: edict) -> edict:
     cfg.paths.imdir = Path(yaml_opt.image_dir)
     cfg.paths.caldir = Path(yaml_opt.calibration_dir)
     cfg.paths.resdir = Path(yaml_opt.results_dir)
-    cfg.paths.cam_names = yaml_opt.camera_names
+    cfg.paths.cam_names = tuple(yaml_opt.camera_names)
     cfg.matching_cfg = Path(yaml_opt.matching_cfg)
     cfg.tracking_cfg = Path(yaml_opt.tracking_cfg)
 
@@ -55,7 +55,8 @@ def parse_yaml_cfg(cfg_file: edict) -> edict:
 
     # - Georef options
     cfg.georef.camera_centers_world = np.array(yaml_opt.camera_centers_world)
-    cfg.georef.target_paths = yaml_opt.target_paths
+    cfg.georef.target_dir = Path(yaml_opt.target_dir)
+    cfg.georef.target_file_ext = yaml_opt.target_file_ext
 
     # - Other options
     cfg.other.do_viz = yaml_opt.do_viz
