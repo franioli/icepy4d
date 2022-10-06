@@ -2,6 +2,8 @@ import numpy as np
 import cv2
 import os
 
+from pathlib import Path
+
 from lib.classes import Features, Imageds
 # import matplotlib.pyplot as plt
 # import matplotlib
@@ -83,8 +85,58 @@ def generateTiles(image, rowDivisor=2, colDivisor=2, overlap=200, viz=False, out
 
     return tiles, limits
 
-# Export data to file for CALGE
+'''
+Export keypoints and points3d to file
+'''
+def export_keypoints_by_image(
+    features: Features,
+    imageds: Imageds,
+    path: str = './', 
+    epoch: int = None,
+) -> None:
+    if epoch is not None:
+        
+        cams = list(imageds.keys())
+        path = Path(path)
+        
+        for cam in cams:
+            im_name = imageds[cam].get_image_stem(epoch)
+            file = open(path / f'keypoints_{im_name}.txt', "w")
 
+            # Write header to file
+            file.write("feature_id,x,y\n")
+
+            for id, kpt in enumerate(features[cam][epoch].get_keypoints()):
+                x, y = kpt
+                file.write(
+                        f"{id},{x},{y}\n"
+                        )
+
+        file.close()
+        print("Marker exported successfully")
+    else:
+        print('please, provide the epoch number.')
+        return
+
+
+def export_points3D(
+    filename: str,
+    points3D: np.ndarray,
+) -> None:
+    # Write header to file
+    file = open(filename, "w")
+    file.write("point_id,X,Y,Z\n")
+
+    for id, pt in enumerate(points3D):
+        file.write(f"{id},{pt[0]},{pt[1]},{pt[2]}\n")
+
+    file.close()
+    print("Points exported successfully")
+
+
+'''
+Export data to file for CALGE
+'''
 
 def export_keypoints_for_calge(
     filename: str,
