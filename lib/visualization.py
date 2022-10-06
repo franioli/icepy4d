@@ -28,6 +28,8 @@ import matplotlib.pyplot as plt
 import open3d as o3d
 import matplotlib.colors as Colors
 import matplotlib.cm as cm
+import matplotlib
+matplotlib.use('Agg')
 
 from lib.classes import (Camera, Features)
 from lib.geometry import (compute_reprojection_error,
@@ -158,7 +160,7 @@ def draw_epip_lines(img0, img1, lines, pts0, pts1, fast_viz=True):
     if not fast_viz:
         img0 = cv2.cvtColor(img0, cv2.COLOR_BGR2RGB)
         img1 = cv2.cvtColor(img1, cv2.COLOR_BGR2RGB)
-        # TODO: implement visualization in matplotlib
+        # @TODO: implement visualization in matplotlib
     for r, pt0, pt1 in zip(lines, pts0, pts1):
         color = tuple(np.random.randint(0, 255, 3).tolist())
         x0, y0 = map(int, [0, -r[2]/r[1]])
