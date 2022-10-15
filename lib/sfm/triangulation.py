@@ -1,4 +1,4 @@
-'''
+"""
 MIT License
 
 Copyright (c) 2022 Francesco Ioli
@@ -20,75 +20,83 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-'''
+"""
 
 import numpy as np
 from typing import List
 
 from lib.classes import Camera
 from lib.geometry import undistort_points
-from lib.misc import (convert_from_homogeneous,
-                      convert_to_homogeneous,
-                      )
-from lib.utils import (interpolate_point_colors,
-                       )
+from lib.misc import (
+    convert_from_homogeneous,
+    convert_to_homogeneous,
+)
+from lib.utils import (
+    interpolate_point_colors,
+)
 from thirdparty.triangulation import iterative_LS_triangulation
 
-''' Triangulation class '''
+""" Triangulation class """
 
 
-class Triangulate():
+class Triangulate:
     def __init__(self, cameras: Camera = None, image_points=None) -> None:
-        ''' Inizialize class
+        """Inizialize class
         Parameters
-        ----------     
-        cameras : List    
-            cameras is a list of Camera objects instances, each containing at least 
+        ----------
+        cameras : List
+            cameras is a list of Camera objects instances, each containing at least
             the projection matrix P
         image_points: List
             image_points is a list of image on nx2 image points array, as
             [ [x1, y1], [x2, y2],
-        '''
+        """
         self.cameras = cameras
         self.image_points = image_points
         self.points3d = None
         self.colors = None
 
-    def triangulate_two_views(self,
-                              views_ids: List[int] = [0, 1],
-                              approach: str = 'iterative_LS_triangulation'
-                              ) -> np.ndarray:
+    def triangulate_two_views(
+        self,
+        views_ids: List[int] = [0, 1],
+        approach: str = "iterative_LS_triangulation",
+    ) -> np.ndarray:
 
-        if approach == 'iterative_LS_triangulation':
-            pts0_und = undistort_points(self.image_points[views_ids[0]],
-                                        self.cameras[views_ids[0]]
-                                        )
-            pts1_und = undistort_points(self.image_points[views_ids[1]],
-                                        self.cameras[views_ids[1]]
-                                        )
-            pts3d, ret = iterative_LS_triangulation(
-                pts0_und, self.cameras[views_ids[0]].P,
-                pts1_und, self.cameras[views_ids[1]].P
+        if approach == "iterative_LS_triangulation":
+            pts0_und = undistort_points(
+                self.image_points[views_ids[0]], self.cameras[views_ids[0]]
             )
-            print(f'Point triangulation succeded: {ret.sum()/ret.size}.')
+            pts1_und = undistort_points(
+                self.image_points[views_ids[1]], self.cameras[views_ids[1]]
+            )
+            pts3d, ret = iterative_LS_triangulation(
+                pts0_und,
+                self.cameras[views_ids[0]].P,
+                pts1_und,
+                self.cameras[views_ids[1]].P,
+            )
+            print(f"Point triangulation succeded: {ret.sum()/ret.size}.")
 
             self.points3d = pts3d
 
-        elif approach == 'linear_triangulation':
-            pts0_und = undistort_points(self.image_points[views_ids[0]],
-                                        self.cameras[views_ids[0]]
-                                        )
-            pts1_und = undistort_points(self.image_points[views_ids[1]],
-                                        self.cameras[views_ids[1]]
-                                        )
+            return self.points3d
+
+        elif approach == "linear_triangulation":
+            pts0_und = undistort_points(
+                self.image_points[views_ids[0]], self.cameras[views_ids[0]]
+            )
+            pts1_und = undistort_points(
+                self.image_points[views_ids[1]], self.cameras[views_ids[1]]
+            )
             pts0_und = convert_to_homogeneous(pts0_und.T).T
             pts1_und = convert_to_homogeneous(pts1_und.T).T
 
-            points3d = triangulate_points_linear(self.cameras[views_ids[0]].P,
-                                                 self.cameras[views_ids[1]].P,
-                                                 pts0_und,
-                                                 pts1_und
-                                                 )
+            points3d = triangulate_points_linear(
+                self.cameras[views_ids[0]].P,
+                self.cameras[views_ids[1]].P,
+                pts0_und,
+                pts1_und,
+            )
             self.points3d = convert_from_homogeneous(points3d.T).T
 
         return self.points3d
@@ -108,21 +116,25 @@ class Triangulate():
 
         return points3d
 
-    def interpolate_colors_from_image(self, image, camera: Camera,
-                                      convert_BRG2RGB: bool = True
-                                      ):
-        assert self.points3d is not None, "points 3D are not available, \
+    def interpolate_colors_from_image(
+        self, image, camera: Camera, convert_BRG2RGB: bool = True
+    ):
+        assert (
+            self.points3d is not None
+        ), "points 3D are not available, \
                 Triangulate homologous points first."
-        self.colors = interpolate_point_colors(self.points3d,
-                                               image, camera,
-                                               convert_BRG2RGB=convert_BRG2RGB,
-                                               )
-        print('Points color interpolated')
+        self.colors = interpolate_point_colors(
+            self.points3d,
+            image,
+            camera,
+            convert_BRG2RGB=convert_BRG2RGB,
+        )
+        print("Points color interpolated")
 
         return self.colors
 
 
-''' Functions '''
+""" Functions """
 
 
 def triangulate_points_linear(P1, P2, x1, x2):
@@ -146,16 +158,16 @@ def triangulate_nviews(P, ip):
     len of ip must be the same as len of P
     """
     if not len(ip) == len(P):
-        raise ValueError('Number of points and number of cameras not equal.')
+        raise ValueError("Number of points and number of cameras not equal.")
     n = len(P)
-    M = np.zeros([3*n, 4+n])
+    M = np.zeros([3 * n, 4 + n])
     for i, (x, p) in enumerate(zip(ip, P)):
-        M[3*i:3*i+3, :4] = p
-        M[3*i:3*i+3, 4+i] = -x
+        M[3 * i : 3 * i + 3, :4] = p
+        M[3 * i : 3 * i + 3, 4 + i] = -x
     V = np.linalg.svd(M)[-1]
     X = V[-1, :4]
     return X / X[3]
 
 
-if __name__ == '__main__':
-    print('Test class')
+if __name__ == "__main__":
+    print("Test class")
