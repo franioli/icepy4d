@@ -1,11 +1,8 @@
-# %%
 import numpy as np
 import cv2
 import pickle
 import json
-import matplotlib.pyplot as plt
 import pydegensac
-import open3d as o3d
 
 from pathlib import Path
 from easydict import EasyDict as edict
@@ -19,20 +16,13 @@ from lib.sfm.triangulation import Triangulate
 from lib.match_pairs import match_pair
 from lib.track_matches import track_matches
 
-from lib.geometry import (project_points,
-                          compute_reprojection_error
-                          )
 from lib.utils import (build_dsm,
                        generate_ortophoto,
                        )
 from lib.point_clouds import (create_point_cloud,
                               write_ply,
                               )
-from lib.visualization import (display_point_cloud,
-                               display_pc_inliers,
-                               plot_features,
-                               plot_projections,
-                               )
+from lib.visualization import display_point_cloud,
 from lib.misc import create_directory
 from lib.config import parse_yaml_cfg, validate_inputs
 
@@ -157,9 +147,7 @@ else:
     print('Features already present, nothing was changed.')
 
 
-# %%
 ''' SfM '''
-
 
 # Initialize variables @TODO: build function for variable inizialization
 cameras = dict.fromkeys(cams)
@@ -207,18 +195,18 @@ for epoch in cfg.proc.epoch_to_process:
         )
             
     #--- At the first epoch, perform Space resection of the first camera by using GCPs. At all other epoches, set camera 1 EO equal to first one. ---#
-    # if epoch == 0: 
-        # ''' Initialize Single_camera_geometry class with a cameras object'''
-        # targets_to_use = ['T2','T3','T4','F2' ]
-        # space_resection = Space_resection(cameras[cams[0]][epoch])
-        # space_resection.estimate(
-        #     targets[epoch].extract_image_coor_by_label(targets_to_use,cam_id=0),
-        #     targets[epoch].extract_object_coor_by_label(targets_to_use)
-        #     )
-        # # Store result in camera 0 object
-        # cameras[cams[0]][epoch] = space_resection.camera
-    # else:
-    #     cameras[cams[0]][epoch] = cameras[cams[0]][0]
+    if epoch == 0: 
+        ''' Initialize Single_camera_geometry class with a cameras object'''
+        targets_to_use = ['T2','T3','T4','F2' ]
+        space_resection = Space_resection(cameras[cams[0]][epoch])
+        space_resection.estimate(
+            targets[epoch].extract_image_coor_by_label(targets_to_use,cam_id=0),
+            targets[epoch].extract_object_coor_by_label(targets_to_use)
+            )
+        # Store result in camera 0 object
+        cameras[cams[0]][epoch] = space_resection.camera
+    else:
+        cameras[cams[0]][epoch] = cameras[cams[0]][0]
     
     #--- Perform Relative orientation of the two cameras ---#
     ''' Initialize Two_view_geometry class with a list containing the two cameras and a list contaning the matched features location on each camera.
@@ -300,246 +288,256 @@ display_point_cloud(
     plot_scale=10,
 )
 
-# %%
 # Absolute orientation (lmfit)
-from lmfit import Minimizer, minimize, Parameters, fit_report
+do_absolute_ori = False
+if do_absolute_ori:
+    from lmfit import Minimizer, minimize, Parameters, fit_report
 
-from lib.least_squares.rototra3d import compute_residuals
-from lib.least_squares.utils import print_results
-from lib.least_squares.rototra3d import (
-    compute_tform_matrix_from_params,
-    apply_transformation_to_points
+    from lib.least_squares.rototra3d import compute_residuals
+    from lib.least_squares.utils import print_results
+    from lib.least_squares.rototra3d import (
+        compute_tform_matrix_from_params,
+        apply_transformation_to_points
+        )
+
+    epoch = 0
+
+    targets_to_use = ['F2'] # ['T2', 'F2'] # 'T4',
+    triangulation = Triangulate(
+        [
+            cameras[cams[0]][epoch], 
+            cameras[cams[1]][epoch],
+        ],
+        [
+            targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=0),
+            targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=1)
+        ]
     )
+    triangulation.triangulate_two_views()
 
+    # Build arrays
+    v0 = triangulation.points3d
+    for cam in cams:
+        c =  cameras[cam][epoch].C.reshape(1,3)
+        v0 = np.concatenate((v0, c), axis=0)
+    print(f'V0: {v0}')
+
+    v1 = targets[epoch].extract_object_coor_by_label(targets_to_use)
+    v1 = np.concatenate((v1, cfg.georef.camera_centers_world), axis=0)
+    print(f'V1: {v1}')
+
+    # Initial values
+    t_ini = np.array(
+        [1.46882746e+02, 8.74147624e+01, 9.04722323e+01], 
+        dtype='float64'
+    )
+    rot_ini = np.array((-1.455234490428092, 0.06619166269889347,
+                    0.9470055218154193), 'float64')
+    m_ini = float(0.0)
+
+    # Define Parameters to be optimized
+    params = Parameters()
+    params.add('rx', value=rot_ini[0], vary=True)
+    params.add('ry', value=rot_ini[1], vary=True)
+    params.add('rz', value=rot_ini[2], vary=True)
+    params.add('tx', value=t_ini[0], vary=True)
+    params.add('ty', value=t_ini[1], vary=True)
+    params.add('tz', value=t_ini[2], vary=True)
+    params.add('m',  value=m_ini, vary=True)
+
+    uncertainty = np.ones(v0.shape)  # Default assigned uncertainty[m]
+    # uncertainty[0,:] *= 1  # weights for T2
+    uncertainty[0,:] *= 0.05  # weights for F2
+    uncertainty[1,:] *= 0.0001  # weights for camera 1
+    uncertainty[2,:] *= 0.2  # weights for camera 1
+
+    # Run Optimization!
+    weights = 1. / uncertainty
+    minimizer = Minimizer(
+        compute_residuals,
+        params,
+        fcn_args=(
+            v0,
+            v1,
+        ),
+        fcn_kws={
+            'weights': weights,
+        },
+        scale_covar=True,
+    )
+    ls_result = minimizer.minimize(method='leastsq')
+    # fit_report(result)
+
+    # Print result
+    print_results(ls_result, weights)
+
+
+    # Apply transformation to point cloud 
+    points3d = apply_transformation_to_points(
+        points3d = np.asarray(point_clouds[0].points),
+        tform = compute_tform_matrix_from_params(ls_result.params)
+    )
+    pt_cloud_world = create_point_cloud(
+            points3d, triangulation.colors)
+    write_ply(pt_cloud_world, f'res/pt_clouds/pts_ls_abs_ori.ply')
+
+
+
+''' Export results in Bundler .out format'''
+from thirdparty.transformations import euler_from_matrix, euler_matrix
+
+out_dir = Path('tests/bundler')
 epoch = 0
 
-targets_to_use = ['F2'] # ['T2', 'F2'] # 'T4',
+# Points 3d
+targets_to_use = [
+    'F2', 'F3', 'F4', 'F5',
+    ]
+
 triangulation = Triangulate(
     [
         cameras[cams[0]][epoch], 
-        cameras[cams[1]][epoch],
-    ],
+        cameras[cams[1]][epoch]
+        ],
     [
         targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=0),
-        targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=1)
-    ]
+        targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=1),
+        ]
 )
-triangulation.triangulate_two_views()
+points3d = triangulation.triangulate_two_views()
+# print(points3d)
+file = open(out_dir / f'points3d.out', "w")
+for point in points3d:
+    file.write(f"{point[0]:.10f} {point[1]:.10f} {point[2]:.10f}\n")     
 
-# Build arrays
-v0 = triangulation.points3d
+# Image coordinates
+w, h = 6012, 4008
+m = targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=1)
+print(m)
+m[:,0] = m[:,0] - w/2 
+m[:,1] = h /2 - m[:,1] 
+
+print(m)
+
+
+# Camera 
+R_ = euler_matrix(np.pi, 0., 0.)
+file = open(out_dir / f'cameras.out', "w")
 for cam in cams:
-    c =  cameras[cam][epoch].C.reshape(1,3)
-    v0 = np.concatenate((v0, c), axis=0)
-print(f'V0: {v0}')
-
-v1 = targets[epoch].extract_object_coor_by_label(targets_to_use)
-v1 = np.concatenate((v1, cfg.georef.camera_centers_world), axis=0)
-print(f'V1: {v1}')
-
-# Initial values
-t_ini = np.array(
-    [1.46882746e+02, 8.74147624e+01, 9.04722323e+01], 
-    dtype='float64'
-)
-rot_ini = np.array((-1.455234490428092, 0.06619166269889347,
-                   0.9470055218154193), 'float64')
-m_ini = float(0.0)
-
-# Define Parameters to be optimized
-params = Parameters()
-params.add('rx', value=rot_ini[0], vary=True)
-params.add('ry', value=rot_ini[1], vary=True)
-params.add('rz', value=rot_ini[2], vary=True)
-params.add('tx', value=t_ini[0], vary=True)
-params.add('ty', value=t_ini[1], vary=True)
-params.add('tz', value=t_ini[2], vary=True)
-params.add('m',  value=m_ini, vary=True)
-
-uncertainty = np.ones(v0.shape)  # Default assigned uncertainty[m]
-# uncertainty[0,:] *= 1  # weights for T2
-uncertainty[0,:] *= 0.05  # weights for F2
-uncertainty[1,:] *= 0.0001  # weights for camera 1
-uncertainty[2,:] *= 0.2  # weights for camera 1
-
-# Run Optimization!
-weights = 1. / uncertainty
-minimizer = Minimizer(
-    compute_residuals,
-    params,
-    fcn_args=(
-        v0,
-        v1,
-    ),
-    fcn_kws={
-        'weights': weights,
-    },
-    scale_covar=True,
-)
-ls_result = minimizer.minimize(method='leastsq')
-# fit_report(result)
-
-# Print result
-print_results(ls_result, weights)
+    cameras[cam][epoch].pose = cameras[cam][epoch].pose
+    cameras[cam][epoch].pose_to_extrinsics()
+    
+    K = cameras[cam][epoch].K
+    dist = cameras[cam][epoch].dist
+    t = cameras[cam][epoch].t.squeeze()
+    R = cameras[cam][epoch].R
+    file.write(f"{K[1,1]:.10f} {dist[0]:.10f} {dist[1]:.10f}\n")
+    for row in R:
+        file.write(f"{row[0]:.10f} {row[1]:.10f} {row[2]:.10f}\n")     
+    file.write(f"{t[0]:.10f} {t[1]:.10f} {t[2]:.10f}\n")
+file.close()
 
 
-# Apply transformation to point cloud 
-points3d = apply_transformation_to_points(
-    points3d = np.asarray(point_clouds[0].points),
-    tform = compute_tform_matrix_from_params(ls_result.params)
-)
-pt_cloud_world = create_point_cloud(
-        points3d, triangulation.colors)
-write_ply(pt_cloud_world, f'res/pt_clouds/pts_ls_abs_ori.ply')
-
-
-# %%
 ''' Export observations for external BBA '''
+export_results_to_file = False
+if export_results_to_file:
+    
+    from lib.io import export_keypoints, export_points3D
 
-def export_keypoints(
-    filename: str,
-    features: Features,
-    imageds: Imageds,
-    epoch: int = None,
-) -> None:
-    if epoch is not None:
+    epoch = 0
 
-        cams = list(imageds.keys())
+    export_keypoints(
+        'for_bba/keypoints_280722_for_bba.txt',
+        features=features,
+        imageds=images,
+        epoch=epoch,
+    )
+    export_points3D(
+        'for_bba/points3d_280722_for_bba.txt',
+        points3D=np.asarray(point_clouds[epoch].points)
+    )
 
-        # Write header to file
-        file = open(filename, "w")
-        file.write("image_name, feature_id, x, y\n")
-
-        for cam in cams:
-            image_name = imageds[cam].get_image_name(epoch)
-
-            # Write image name line
-            # NB: must be manually modified if it contains characters of symbols
-            file.write(f"{image_name}\n")
-
-            for id, kpt in enumerate(features[cam][epoch].get_keypoints()):
-                x, y = kpt
-                file.write(
-                        f"{id},{x},{y} \n"
-                        )
-
-        file.close()
-        print("Marker exported successfully")
-    else:
-        print('please, provide the epoch number.')
-        return
+    # Targets
+    targets[epoch].im_coor[0].to_csv('for_bba/targets_p1.txt', index=False)
+    targets[epoch].im_coor[1].to_csv('for_bba/targets_p2.txt', index=False)
+    targets[epoch].obj_coor.to_csv('for_bba/targets_world.txt', index=False)
 
 
-def export_points3D(
-    filename: str,
-    points3D: np.ndarray,
-) -> None:
-    # Write header to file
-    file = open(filename, "w")
-    file.write("point_id, X, Y, Z\n")
-
-    for id, pt in enumerate(points3D):
-        file.write(f"{id},{pt[0]},{pt[1]},{pt[2]}\n")
-
-    file.close()
-    print("Points exported successfully")
-
-epoch = 0
-
-for cam in cams:
-    print(f'Cam {cam}')
-    print(f'C:\n{cameras[cam][epoch].C}')
-    print(f'R:\n{cameras[cam][epoch].R}')
-
-export_keypoints(
-    'for_bba/keypoints_280722_for_bba.txt',
-    features=features,
-    imageds=images,
-    epoch=epoch,
-)
-export_points3D(
-    'for_bba/points3d_280722_for_bba.txt',
-    points3D=np.asarray(point_clouds[epoch].points)
-)
-
-# Targets
-targets[epoch].im_coor[0].to_csv('for_bba/targets_p1.txt', index=False)
-targets[epoch].im_coor[1].to_csv('for_bba/targets_p2.txt', index=False)
-targets[epoch].obj_coor.to_csv('for_bba/targets_world.txt', index=False)
-
-# %%
 ''' For CALGE'''
+export_results_for_calge = False
+if export_results_for_calge:
+    # CAMERA EXTERIOR ORIENTATION
+    from thirdparty.transformations import euler_from_matrix
 
-# CAMERA EXTERIOR ORIENTATION
-from thirdparty.transformations import euler_from_matrix
-
-print(cameras[cams[0]][0].get_C_from_pose() )
-print(cameras[cams[1]][0].get_C_from_pose() )
-print(np.array(euler_from_matrix(cameras['p1'][0].R)) * 200/np.pi)
-print(np.array(euler_from_matrix(cameras['p2'][0].R)) * 200/np.pi)
-
-
-baseline_world = np.linalg.norm(
-    cfg.georef.camera_centers_world[0] - cfg.georef.camera_centers_world[1]
-)
-
-print(baseline_world)
+    print(cameras[cams[0]][0].get_C_from_pose() )
+    print(cameras[cams[1]][0].get_C_from_pose() )
+    print(np.array(euler_from_matrix(cameras['p1'][0].R)) * 200/np.pi)
+    print(np.array(euler_from_matrix(cameras['p2'][0].R)) * 200/np.pi)
 
 
-# SAVE HOMOLOGOUS POINTS
-# NB: Remember to disable SOR filter when computing 3d coordinates of TPs
-from lib.io import export_keypoints_for_calge, export_points3D_for_calge
+    baseline_world = np.linalg.norm(
+        cfg.georef.camera_centers_world[0] - cfg.georef.camera_centers_world[1]
+    )
 
-from thirdparty.transformations import euler_from_matrix
-
-epoch = 0
-export_keypoints_for_calge('simulaCalge/keypoints_280722.txt',
-                           features=features,
-                           imageds=images,
-                           epoch=epoch,
-                           pixel_size_micron=3.773
-                           )
-export_points3D_for_calge('simulaCalge/points3D_280722.txt',
-                           points3D=np.asarray(point_clouds[epoch].points)
-                           )
-
-print(cameras['p1'][0].C)
-print(cameras['p2'][0].C)
+    print(baseline_world)
 
 
-print(np.array(euler_from_matrix(cameras['p1'][0].R)) * 200/np.pi)
-print(np.array(euler_from_matrix(cameras['p2'][0].R)) * 200/np.pi)
+    # SAVE HOMOLOGOUS POINTS
+    # NB: Remember to disable SOR filter when computing 3d coordinates of TPs
+    from lib.io import export_keypoints_for_calge, export_points3D_for_calge
+
+    from thirdparty.transformations import euler_from_matrix
+
+    epoch = 0
+    export_keypoints_for_calge('simulaCalge/keypoints_280722.txt',
+                            features=features,
+                            imageds=images,
+                            epoch=epoch,
+                            pixel_size_micron=3.773
+                            )
+    export_points3D_for_calge('simulaCalge/points3D_280722.txt',
+                            points3D=np.asarray(point_clouds[epoch].points)
+                            )
+
+    print(cameras['p1'][0].C)
+    print(cameras['p2'][0].C)
+
+    print(np.array(euler_from_matrix(cameras['p1'][0].R)) * 200/np.pi)
+    print(np.array(euler_from_matrix(cameras['p2'][0].R)) * 200/np.pi)
 
 
-# %%
+
 ''' Compute DSM and orthophotos '''
 # @TODO: implement better DSM class
 
-print('DSM and orthophoto generation started')
-res = 0.03
-xlim = [-100., 80.]
-ylim = [-10., 65.]
+compute_orthophoto_dsm = False
+if compute_orthophoto_dsm:
+    print('DSM and orthophoto generation started')
+    res = 0.03
+    xlim = [-100., 80.]
+    ylim = [-10., 65.]
 
-dsms = []
-ortofoto = dict.fromkeys(cams)
-ortofoto[cams[0]], ortofoto[cams[1]] = [], []
-for epoch in cfg.proc.epoch_to_process:
-    print(f'Epoch {epoch}')
-    dsms.append(build_dsm(np.asarray(point_clouds[epoch].points),
-                          dsm_step=res,
-                          xlim=xlim, ylim=ylim,
-                          make_dsm_plot=False,
-                          # fill_value = ,
-                          save_path=f'res/dsm/dsm_app_epoch_{epoch}.tif'
-                          ))
-    print('DSM built.')
-    for cam in cams:
-        fout_name = f'res/ortofoto/ortofoto_app_cam_{cam}_epc_{epoch}.tif'
-        ortofoto[cam].append(generate_ortophoto(cv2.cvtColor(images[cam][epoch], cv2.COLOR_BGR2RGB),
-                                                dsms[epoch], cameras[cam][epoch],
-                                                xlim=xlim, ylim=ylim,
-                                                save_path=fout_name,
-                                                ))
-    print('Orthophotos built.')
+    dsms = []
+    ortofoto = dict.fromkeys(cams)
+    ortofoto[cams[0]], ortofoto[cams[1]] = [], []
+    for epoch in cfg.proc.epoch_to_process:
+        print(f'Epoch {epoch}')
+        dsms.append(build_dsm(np.asarray(point_clouds[epoch].points),
+                            dsm_step=res,
+                            xlim=xlim, ylim=ylim,
+                            make_dsm_plot=False,
+                            # fill_value = ,
+                            save_path=f'res/dsm/dsm_app_epoch_{epoch}.tif'
+                            ))
+        print('DSM built.')
+        for cam in cams:
+            fout_name = f'res/ortofoto/ortofoto_app_cam_{cam}_epc_{epoch}.tif'
+            ortofoto[cam].append(generate_ortophoto(cv2.cvtColor(images[cam][epoch], cv2.COLOR_BGR2RGB),
+                                                    dsms[epoch], cameras[cam][epoch],
+                                                    xlim=xlim, ylim=ylim,
+                                                    save_path=fout_name,
+                                                    ))
+        print('Orthophotos built.')
 
 
+        
