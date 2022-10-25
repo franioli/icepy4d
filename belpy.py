@@ -6,6 +6,7 @@ import pydegensac
 
 from pathlib import Path
 from easydict import EasyDict as edict
+from copy import deepcopy
 
 from lib.classes import (Camera, Imageds, Features, Targets)
 from lib.sfm.two_view_geometry import Two_view_geometry
@@ -22,7 +23,7 @@ from lib.utils import (build_dsm,
 from lib.point_clouds import (create_point_cloud,
                               write_ply,
                               )
-from lib.visualization import display_point_cloud,
+from lib.visualization import display_point_cloud
 from lib.misc import create_directory
 from lib.config import parse_yaml_cfg, validate_inputs
 
@@ -385,57 +386,92 @@ if do_absolute_ori:
 
 ''' Export results in Bundler .out format'''
 from thirdparty.transformations import euler_from_matrix, euler_matrix
+do_export_to_bundler = True
 
-out_dir = Path('tests/bundler')
-epoch = 0
+if do_export_to_bundler:
+    out_dir = Path('tests/bundler')
+    epoch = 0
 
-# Points 3d
-targets_to_use = [
-    'F2', 'F3', 'F4', 'F5',
-    ]
-
-triangulation = Triangulate(
-    [
-        cameras[cams[0]][epoch], 
-        cameras[cams[1]][epoch]
-        ],
-    [
-        targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=0),
-        targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=1),
+    # Points 3d
+    targets_to_use = [
+        'F2', 'F3', 'F4', 'F5',
         ]
-)
-points3d = triangulation.triangulate_two_views()
-# print(points3d)
-file = open(out_dir / f'points3d.out', "w")
-for point in points3d:
-    file.write(f"{point[0]:.10f} {point[1]:.10f} {point[2]:.10f}\n")     
 
-# Image coordinates
-w, h = 6012, 4008
-m = targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=1)
-print(m)
-m[:,0] = m[:,0] - w/2 
-m[:,1] = h /2 - m[:,1] 
+    triangulation = Triangulate(
+        [
+            cameras[cams[0]][epoch], 
+            cameras[cams[1]][epoch]
+            ],
+        [
+            targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=0),
+            targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=1),
+            ]
+    )
+    points3d = triangulation.triangulate_two_views()
+    # print(points3d)
+    # file = open(out_dir / f'points3d.out', "w")
+    # for point in points3d:
+    #     file.write(f"{point[0]:.10f} {point[1]:.10f} {point[2]:.10f}\n")     
 
-print(m)
+    # # Image coordinates
+    # w, h = 6012, 4008
+    # m = targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=1)
+    # print(m)
+    # m[:,0] = m[:,0] - w/2 
+    # m[:,1] = h /2 - m[:,1] 
 
-
-# Camera 
-R_ = euler_matrix(np.pi, 0., 0.)
-file = open(out_dir / f'cameras.out', "w")
-for cam in cams:
-    cameras[cam][epoch].pose = cameras[cam][epoch].pose
-    cameras[cam][epoch].pose_to_extrinsics()
+    # print(m)
     
-    K = cameras[cam][epoch].K
-    dist = cameras[cam][epoch].dist
-    t = cameras[cam][epoch].t.squeeze()
-    R = cameras[cam][epoch].R
-    file.write(f"{K[1,1]:.10f} {dist[0]:.10f} {dist[1]:.10f}\n")
-    for row in R:
-        file.write(f"{row[0]:.10f} {row[1]:.10f} {row[2]:.10f}\n")     
-    file.write(f"{t[0]:.10f} {t[1]:.10f} {t[2]:.10f}\n")
-file.close()
+    epoch = 0
+    
+    num_cams = len(cams)
+    num_pts = len(features[cams[0]][epoch])
+    w, h = 6012, 4008
+
+    file = open(out_dir / f'belpy.out', "w")
+    file.write(f"{num_cams} {num_pts}\n")
+    
+    # Write cameras 
+    Rx = euler_matrix(np.pi, 0., 0.)
+    for cam in cams:
+        cam_  = deepcopy(cameras[cam][epoch])
+        cam_.pose = cam_.pose @ Rx 
+        cam_.pose_to_extrinsics()
+
+        t = cam_.t.squeeze()
+        R = cam_.R
+        file.write(f"{cam.K[1,1]:.10f} {cam.dist[0]:.10f} {cam.dist[1]:.10f}\n")
+        for row in R:
+            file.write(f"{row[0]:.10f} {row[1]:.10f} {row[2]:.10f}\n")     
+        file.write(f"{t[0]:.10f} {t[1]:.10f} {t[2]:.10f}\n")
+        
+    # Write points
+    obj_coor = np.asarray(point_clouds[epoch].points)
+    obj_col = (np.asarray(point_clouds[epoch].colors) * 255.).astype(int)
+    im_coor = {}
+    for cam in cams:
+        m = features[cam][epoch].get_keypoints()
+        m[:,0] = m[:,0] - w/2 
+        m[:,1] = h /2 - m[:,1] 
+        im_coor[cam] = m
+    
+    for i in range(num_pts):
+        # obj_coor = np.asarray(point_clouds[epoch].points)[i]
+        # # obj_col = (np.asarray(point_clouds[epoch].colors)[i] * 255.).astype(int)
+        # im_coor = []
+        # for cam in cams:
+        #     im_coor.append(features[cam][epoch].get_keypoints()[i])
+        file.write(
+            f"{obj_coor[i][0]} {obj_coor[i][1]} {obj_coor[i][2]}\n"
+        ) 
+        file.write(
+            f"{obj_col[i][0]} {obj_col[i][1]} {obj_col[i][2]}\n"
+        )             
+        file.write(
+            f"2 0 {i} {im_coor[cams[0]][i][0]:.4f} {im_coor[cams[0]][i][1]:.4f} 1 {i} {im_coor[cams[1]][i][0]:.4f} {im_coor[cams[1]][i][1]:.4f}\n"
+        )
+            
+    file.close()
 
 
 ''' Export observations for external BBA '''
