@@ -27,6 +27,15 @@ from lib.visualization import display_point_cloud
 from lib.misc import create_directory
 from lib.config import parse_yaml_cfg, validate_inputs
 
+# lmFit
+from lib.least_squares.rototra3d import (
+     compute_tform_matrix_from_params,
+      apply_transformation_to_points
+       )
+from lib.least_squares.utils import print_results
+from lib.least_squares.rototra3d import compute_residuals
+from lmfit import Minimizer, minimize, Parameters, fit_report
+
 # Parse options from yaml file
 cfg_file = 'config/config_base.yaml'
 cfg = parse_yaml_cfg(cfg_file)
@@ -196,18 +205,18 @@ for epoch in cfg.proc.epoch_to_process:
         )
             
     #--- At the first epoch, perform Space resection of the first camera by using GCPs. At all other epoches, set camera 1 EO equal to first one. ---#
-    if epoch == 0: 
-        ''' Initialize Single_camera_geometry class with a cameras object'''
-        targets_to_use = ['T2','T3','T4','F2' ]
-        space_resection = Space_resection(cameras[cams[0]][epoch])
-        space_resection.estimate(
-            targets[epoch].extract_image_coor_by_label(targets_to_use,cam_id=0),
-            targets[epoch].extract_object_coor_by_label(targets_to_use)
-            )
-        # Store result in camera 0 object
-        cameras[cams[0]][epoch] = space_resection.camera
-    else:
-        cameras[cams[0]][epoch] = cameras[cams[0]][0]
+    # if epoch == 0: 
+    #     ''' Initialize Single_camera_geometry class with a cameras object'''
+    #     targets_to_use = ['T2','T3','T4','F2' ]
+    #     space_resection = Space_resection(cameras[cams[0]][epoch])
+    #     space_resection.estimate(
+    #         targets[epoch].extract_image_coor_by_label(targets_to_use,cam_id=0),
+    #         targets[epoch].extract_object_coor_by_label(targets_to_use)
+    #         )
+    #     # Store result in camera 0 object
+    #     cameras[cams[0]][epoch] = space_resection.camera
+    # else:
+    #     cameras[cams[0]][epoch] = cameras[cams[0]][0]
     
     #--- Perform Relative orientation of the two cameras ---#
     ''' Initialize Two_view_geometry class with a list containing the two cameras and a list contaning the matched features location on each camera.
@@ -244,23 +253,23 @@ for epoch in cfg.proc.epoch_to_process:
         convert_BRG2RGB=True,
     )
     
-    # # Absolute orientation (-> coregistration on stable points)
-    # targets_to_use = ['T2', 'F2'] # 'T4',
-    # abs_ori = Absolute_orientation(
-    #     (cameras[cams[0]][epoch], cameras[cams[1]][epoch]),
-    #     points3d_world=targets[epoch].extract_object_coor_by_label(targets_to_use),
-    #     image_points=(
-    #         targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=0),
-    #         targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=1),
-    #     )
-    # )
-    # T = abs_ori.estimate_transformation(
-    #     estimate_scale=True,
-    #     add_camera_centers=True,
-    #     camera_centers_world=tuple(cfg.georef.camera_centers_world)
-    # )
+    # Absolute orientation (-> coregistration on stable points)
+    targets_to_use = ['T2', 'F2'] # 'T4',
+    abs_ori = Absolute_orientation(
+        (cameras[cams[0]][epoch], cameras[cams[1]][epoch]),
+        points3d_world=targets[epoch].extract_object_coor_by_label(targets_to_use),
+        image_points=(
+            targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=0),
+            targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=1),
+        )
+    )
+    T = abs_ori.estimate_transformation(
+        estimate_scale=True,
+        add_camera_centers=True,
+        camera_centers_world=tuple(cfg.georef.camera_centers_world)
+    )
                                                 
-    # points3d = abs_ori.apply_transformation(points3d=points3d)
+    points3d = abs_ori.apply_transformation(points3d=points3d)
     
     # Create point cloud and save .ply to disk
     pcd_epc = create_point_cloud(
@@ -290,17 +299,10 @@ display_point_cloud(
 )
 
 # Absolute orientation (lmfit)
+
 do_absolute_ori = False
 if do_absolute_ori:
-    from lmfit import Minimizer, minimize, Parameters, fit_report
-
-    from lib.least_squares.rototra3d import compute_residuals
-    from lib.least_squares.utils import print_results
-    from lib.least_squares.rototra3d import (
-        compute_tform_matrix_from_params,
-        apply_transformation_to_points
-        )
-
+    
     epoch = 0
 
     targets_to_use = ['F2'] # ['T2', 'F2'] # 'T4',
@@ -390,88 +392,89 @@ do_export_to_bundler = True
 
 if do_export_to_bundler:
     out_dir = Path('tests/bundler')
-    epoch = 0
-
-    # Points 3d
-    targets_to_use = [
-        'F2', 'F3', 'F4', 'F5',
-        ]
-
-    triangulation = Triangulate(
-        [
-            cameras[cams[0]][epoch], 
-            cameras[cams[1]][epoch]
-            ],
-        [
-            targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=0),
-            targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=1),
-            ]
-    )
-    points3d = triangulation.triangulate_two_views()
-    # print(points3d)
-    # file = open(out_dir / f'points3d.out', "w")
-    # for point in points3d:
-    #     file.write(f"{point[0]:.10f} {point[1]:.10f} {point[2]:.10f}\n")     
-
-    # # Image coordinates
-    # w, h = 6012, 4008
-    # m = targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=1)
-    # print(m)
-    # m[:,0] = m[:,0] - w/2 
-    # m[:,1] = h /2 - m[:,1] 
-
-    # print(m)
     
-    epoch = 0
-    
-    num_cams = len(cams)
-    num_pts = len(features[cams[0]][epoch])
-    w, h = 6012, 4008
+    for epoch in cfg.proc.epoch_to_process:
 
-    file = open(out_dir / f'belpy.out', "w")
-    file.write(f"{num_cams} {num_pts}\n")
-    
-    # Write cameras 
-    Rx = euler_matrix(np.pi, 0., 0.)
-    for cam in cams:
-        cam_  = deepcopy(cameras[cam][epoch])
-        cam_.pose = cam_.pose @ Rx 
-        cam_.pose_to_extrinsics()
+        # # Points 3d
+        # targets_to_use = [
+        #     'F2', 'F3', 'F4', 'F5',
+        #     ]
 
-        t = cam_.t.squeeze()
-        R = cam_.R
-        file.write(f"{cam_.K[1,1]:.10f} {cam_.dist[0]:.10f} {cam_.dist[1]:.10f}\n")
-        for row in R:
-            file.write(f"{row[0]:.10f} {row[1]:.10f} {row[2]:.10f}\n")     
-        file.write(f"{t[0]:.10f} {t[1]:.10f} {t[2]:.10f}\n")
+        # triangulation = Triangulate(
+        #     [
+        #         cameras[cams[0]][epoch], 
+        #         cameras[cams[1]][epoch]
+        #         ],
+        #     [
+        #         targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=0),
+        #         targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=1),
+        #         ]
+        # )
+        # points3d = triangulation.triangulate_two_views()
+        # print(points3d)
+        # file = open(out_dir / f'points3d.out', "w")
+        # for point in points3d:
+        #     file.write(f"{point[0]:.10f} {point[1]:.10f} {point[2]:.10f}\n")     
+
+        # # Image coordinates
+        # w, h = 6012, 4008
+        # m = targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=1)
+        # print(m)
+        # m[:,0] = m[:,0] - w/2 
+        # m[:,1] = h /2 - m[:,1] 
+
+        # print(m)
         
-    # Write points
-    obj_coor = np.asarray(point_clouds[epoch].points)
-    obj_col = (np.asarray(point_clouds[epoch].colors) * 255.).astype(int)
-    im_coor = {}
-    for cam in cams:
-        m = features[cam][epoch].get_keypoints()
-        m[:,0] = m[:,0] - w/2 
-        m[:,1] = h /2 - m[:,1] 
-        im_coor[cam] = m
-    
-    for i in range(num_pts):
-        # obj_coor = np.asarray(point_clouds[epoch].points)[i]
-        # # obj_col = (np.asarray(point_clouds[epoch].colors)[i] * 255.).astype(int)
-        # im_coor = []
-        # for cam in cams:
-        #     im_coor.append(features[cam][epoch].get_keypoints()[i])
-        file.write(
-            f"{obj_coor[i][0]} {obj_coor[i][1]} {obj_coor[i][2]}\n"
-        ) 
-        file.write(
-            f"{obj_col[i][0]} {obj_col[i][1]} {obj_col[i][2]}\n"
-        )             
-        file.write(
-            f"2 0 {i} {im_coor[cams[0]][i][0]:.4f} {im_coor[cams[0]][i][1]:.4f} 1 {i} {im_coor[cams[1]][i][0]:.4f} {im_coor[cams[1]][i][1]:.4f}\n"
-        )
+        # epoch = 0
+        
+        num_cams = len(cams)
+        num_pts = len(features[cams[0]][epoch])
+        w, h = 6012, 4008
+
+        file = open(out_dir / f'belpy_epoch_{epoch}_abs_ori.out', "w")
+        file.write(f"{num_cams} {num_pts}\n")
+        
+        # Write cameras 
+        Rx = euler_matrix(np.pi, 0., 0.)
+        for cam in cams:
+            cam_  = deepcopy(cameras[cam][epoch])
+            cam_.pose = cam_.pose @ Rx 
+            cam_.pose_to_extrinsics()
+
+            t = cam_.t.squeeze()
+            R = cam_.R
+            file.write(f"{cam_.K[1,1]:.10f} {cam_.dist[0]:.10f} {cam_.dist[1]:.10f}\n")
+            for row in R:
+                file.write(f"{row[0]:.10f} {row[1]:.10f} {row[2]:.10f}\n")     
+            file.write(f"{t[0]:.10f} {t[1]:.10f} {t[2]:.10f}\n")
             
-    file.close()
+        # Write points
+        obj_coor = np.asarray(point_clouds[epoch].points)
+        obj_col = (np.asarray(point_clouds[epoch].colors) * 255.).astype(int)
+        im_coor = {}
+        for cam in cams:
+            m = features[cam][epoch].get_keypoints()
+            m[:,0] = m[:,0] - w/2 
+            m[:,1] = h /2 - m[:,1] 
+            im_coor[cam] = m
+        
+        for i in range(num_pts):
+            # obj_coor = np.asarray(point_clouds[epoch].points)[i]
+            # # obj_col = (np.asarray(point_clouds[epoch].colors)[i] * 255.).astype(int)
+            # im_coor = []
+            # for cam in cams:
+            #     im_coor.append(features[cam][epoch].get_keypoints()[i])
+            file.write(
+                f"{obj_coor[i][0]} {obj_coor[i][1]} {obj_coor[i][2]}\n"
+            ) 
+            file.write(
+                f"{obj_col[i][0]} {obj_col[i][1]} {obj_col[i][2]}\n"
+            )             
+            file.write(
+                f"2 0 {i} {im_coor[cams[0]][i][0]:.4f} {im_coor[cams[0]][i][1]:.4f} 1 {i} {im_coor[cams[1]][i][0]:.4f} {im_coor[cams[1]][i][1]:.4f}\n"
+            )
+                
+        file.close()
 
 
 ''' Export observations for external BBA '''
