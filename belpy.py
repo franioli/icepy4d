@@ -440,7 +440,7 @@ if do_export_to_bundler:
 
         t = cam_.t.squeeze()
         R = cam_.R
-        file.write(f"{cam.K[1,1]:.10f} {cam.dist[0]:.10f} {cam.dist[1]:.10f}\n")
+        file.write(f"{cam_.K[1,1]:.10f} {cam_.dist[0]:.10f} {cam_.dist[1]:.10f}\n")
         for row in R:
             file.write(f"{row[0]:.10f} {row[1]:.10f} {row[2]:.10f}\n")     
         file.write(f"{t[0]:.10f} {t[1]:.10f} {t[2]:.10f}\n")
