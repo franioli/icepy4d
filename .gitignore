@@ -10,6 +10,7 @@ data/calib/calib_fullOpenCVmodel_matlab.txt
 data/calib/seq2021/
 data/belvedere_20220728_sparse_LOC.ply
 res/
+res_seq2021/
 res_2021/
 tests/PSMNet/dataset
 tests/sfm/epoch0/
