@@ -192,7 +192,7 @@ for epoch in cfg.proc.epoch_to_process:
 
     # Initialize Intrinsics
     ''' Inizialize Camera Intrinsics at every epoch setting them equal to
-        the reference cameras ones.
+        the those of the reference cameras.
     '''
     # @TODO: replace append with insert or a more robust data structure...
     for cam in cams:
@@ -204,7 +204,8 @@ for epoch in cfg.proc.epoch_to_process:
             )
         )
             
-    #--- At the first epoch, perform Space resection of the first camera by using GCPs. At all other epoches, set camera 1 EO equal to first one. ---#
+    #--- Space resection of Master camera ---# 
+    # At the first epoch, perform Space resection of the first camera by using GCPs. At all other epoches, set camera 1 EO equal to first one.
     # if epoch == 0: 
     #     ''' Initialize Single_camera_geometry class with a cameras object'''
     #     targets_to_use = ['T2','T3','T4','F2' ]
@@ -229,16 +230,17 @@ for epoch in cfg.proc.epoch_to_process:
     relative_ori.relative_orientation(
         threshold=1.5, 
         confidence=0.999999, 
-        scale_factor=261.606245022935 # 272.888187  #  baseline_world24
+        scale_factor=np.linalg.norm(
+            cfg.georef.camera_centers_world[0] -
+            cfg.georef.camera_centers_world[1]
+            )
         )
     # Store result in camera 1 object
     cameras[cams[1]][epoch] = relative_ori.cameras[1]
 
     #--- Triangulate Points ---#
-    ''' Initialize Triangulate class with a list containing the two cameras
-        and a list contaning the matched features location on each camera.
-        Triangulated points are saved as points3d proprierty of the
-        Triangulate object (eg., triangulation.points3d)
+    ''' Initialize a Triangulate class instance with a list containing the two cameras and a list contaning the matched features location on each camera.
+    Triangulated points are saved as points3d proprierty of the Triangulate object (eg., triangulation.points3d)
     '''
     triangulation = Triangulate(
         [cameras[cams[0]][epoch], 
@@ -253,24 +255,23 @@ for epoch in cfg.proc.epoch_to_process:
         convert_BRG2RGB=True,
     )
     
-    # Absolute orientation (-> coregistration on stable points)
-    targets_to_use = ['T2', 'F2'] # 'T4',
+    #--- Absolute orientation (-> coregistration on stable points) ---#
+    targets_to_use = ['F2'] # 'T4',
     abs_ori = Absolute_orientation(
         (cameras[cams[0]][epoch], cameras[cams[1]][epoch]),
-        points3d_world=targets[epoch].extract_object_coor_by_label(targets_to_use),
+        points3d_final=targets[epoch].extract_object_coor_by_label(
+            targets_to_use),
         image_points=(
             targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=0),
             targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=1),
-        )
+        ),
+        camera_centers_world=cfg.georef.camera_centers_world
     )
-    T = abs_ori.estimate_transformation(
-        estimate_scale=True,
-        add_camera_centers=True,
-        camera_centers_world=tuple(cfg.georef.camera_centers_world)
-    )
-                                                
+    T = abs_ori.estimate_transformation_linear(estimate_scale=True)
     points3d = abs_ori.apply_transformation(points3d=points3d)
-    
+    for i, cam in enumerate(cams):
+        cameras[cam][epoch] = abs_ori.cameras[i]
+
     # Create point cloud and save .ply to disk
     pcd_epc = create_point_cloud(
         points3d, triangulation.colors)
@@ -305,7 +306,7 @@ if do_absolute_ori:
     
     epoch = 0
 
-    targets_to_use = ['F2'] # ['T2', 'F2'] # 'T4',
+    targets_to_use = ['F2', 'F4'] # ['T2', 'F2'] # 'T4',
     triangulation = Triangulate(
         [
             cameras[cams[0]][epoch], 
@@ -391,47 +392,16 @@ from thirdparty.transformations import euler_from_matrix, euler_matrix
 do_export_to_bundler = True
 
 if do_export_to_bundler:
-    out_dir = Path('tests/bundler')
-    
+    out_dir = Path('res/bundler_output')
+    print('Exporting results in Bundler format...')
+
     for epoch in cfg.proc.epoch_to_process:
-
-        # # Points 3d
-        # targets_to_use = [
-        #     'F2', 'F3', 'F4', 'F5',
-        #     ]
-
-        # triangulation = Triangulate(
-        #     [
-        #         cameras[cams[0]][epoch], 
-        #         cameras[cams[1]][epoch]
-        #         ],
-        #     [
-        #         targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=0),
-        #         targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=1),
-        #         ]
-        # )
-        # points3d = triangulation.triangulate_two_views()
-        # print(points3d)
-        # file = open(out_dir / f'points3d.out', "w")
-        # for point in points3d:
-        #     file.write(f"{point[0]:.10f} {point[1]:.10f} {point[2]:.10f}\n")     
-
-        # # Image coordinates
-        # w, h = 6012, 4008
-        # m = targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=1)
-        # print(m)
-        # m[:,0] = m[:,0] - w/2 
-        # m[:,1] = h /2 - m[:,1] 
-
-        # print(m)
-        
-        # epoch = 0
         
         num_cams = len(cams)
         num_pts = len(features[cams[0]][epoch])
         w, h = 6012, 4008
 
-        file = open(out_dir / f'belpy_epoch_{epoch}_abs_ori.out', "w")
+        file = open(out_dir / f'belpy_epoch_{epoch}.out', "w")
         file.write(f"{num_cams} {num_pts}\n")
         
         # Write cameras 
@@ -459,11 +429,7 @@ if do_export_to_bundler:
             im_coor[cam] = m
         
         for i in range(num_pts):
-            # obj_coor = np.asarray(point_clouds[epoch].points)[i]
-            # # obj_col = (np.asarray(point_clouds[epoch].colors)[i] * 255.).astype(int)
-            # im_coor = []
-            # for cam in cams:
-            #     im_coor.append(features[cam][epoch].get_keypoints()[i])
+        
             file.write(
                 f"{obj_coor[i][0]} {obj_coor[i][1]} {obj_coor[i][2]}\n"
             ) 
@@ -475,6 +441,8 @@ if do_export_to_bundler:
             )
                 
         file.close()
+        
+    print('Export completed.')
 
 
 ''' Export observations for external BBA '''
