@@ -267,7 +267,8 @@ for epoch in cfg.proc.epoch_to_process:
         ),
         camera_centers_world=cfg.georef.camera_centers_world
     )
-    T = abs_ori.estimate_transformation_linear(estimate_scale=True)
+    # T = abs_ori.estimate_transformation_linear(estimate_scale=True)
+    T = abs_ori.estimate_transformation_least_squares()
     points3d = abs_ori.apply_transformation(points3d=points3d)
     for i, cam in enumerate(cams):
         cameras[cam][epoch] = abs_ori.cameras[i]
@@ -298,93 +299,6 @@ display_point_cloud(
     [cameras[cams[0]][epoch], cameras[cams[1]][epoch]],
     plot_scale=10,
 )
-
-# Absolute orientation (lmfit)
-
-do_absolute_ori = False
-if do_absolute_ori:
-    
-    epoch = 0
-
-    targets_to_use = ['F2', 'F4'] # ['T2', 'F2'] # 'T4',
-    triangulation = Triangulate(
-        [
-            cameras[cams[0]][epoch], 
-            cameras[cams[1]][epoch],
-        ],
-        [
-            targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=0),
-            targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=1)
-        ]
-    )
-    triangulation.triangulate_two_views()
-
-    # Build arrays
-    v0 = triangulation.points3d
-    for cam in cams:
-        c =  cameras[cam][epoch].C.reshape(1,3)
-        v0 = np.concatenate((v0, c), axis=0)
-    print(f'V0: {v0}')
-
-    v1 = targets[epoch].extract_object_coor_by_label(targets_to_use)
-    v1 = np.concatenate((v1, cfg.georef.camera_centers_world), axis=0)
-    print(f'V1: {v1}')
-
-    # Initial values
-    t_ini = np.array(
-        [1.46882746e+02, 8.74147624e+01, 9.04722323e+01], 
-        dtype='float64'
-    )
-    rot_ini = np.array((-1.455234490428092, 0.06619166269889347,
-                    0.9470055218154193), 'float64')
-    m_ini = float(0.0)
-
-    # Define Parameters to be optimized
-    params = Parameters()
-    params.add('rx', value=rot_ini[0], vary=True)
-    params.add('ry', value=rot_ini[1], vary=True)
-    params.add('rz', value=rot_ini[2], vary=True)
-    params.add('tx', value=t_ini[0], vary=True)
-    params.add('ty', value=t_ini[1], vary=True)
-    params.add('tz', value=t_ini[2], vary=True)
-    params.add('m',  value=m_ini, vary=True)
-
-    uncertainty = np.ones(v0.shape)  # Default assigned uncertainty[m]
-    # uncertainty[0,:] *= 1  # weights for T2
-    uncertainty[0,:] *= 0.05  # weights for F2
-    uncertainty[1,:] *= 0.0001  # weights for camera 1
-    uncertainty[2,:] *= 0.2  # weights for camera 1
-
-    # Run Optimization!
-    weights = 1. / uncertainty
-    minimizer = Minimizer(
-        compute_residuals,
-        params,
-        fcn_args=(
-            v0,
-            v1,
-        ),
-        fcn_kws={
-            'weights': weights,
-        },
-        scale_covar=True,
-    )
-    ls_result = minimizer.minimize(method='leastsq')
-    # fit_report(result)
-
-    # Print result
-    print_results(ls_result, weights)
-
-
-    # Apply transformation to point cloud 
-    points3d = apply_transformation_to_points(
-        points3d = np.asarray(point_clouds[0].points),
-        tform = compute_tform_matrix_from_params(ls_result.params)
-    )
-    pt_cloud_world = create_point_cloud(
-            points3d, triangulation.colors)
-    write_ply(pt_cloud_world, f'res/pt_clouds/pts_ls_abs_ori.ply')
-
 
 
 ''' Export results in Bundler .out format'''
