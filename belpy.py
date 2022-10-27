@@ -27,15 +27,6 @@ from lib.visualization import display_point_cloud
 from lib.misc import create_directory
 from lib.config import parse_yaml_cfg, validate_inputs
 
-# lmFit
-from lib.least_squares.rototra3d import (
-     compute_tform_matrix_from_params,
-      apply_transformation_to_points
-       )
-from lib.least_squares.utils import print_results
-from lib.least_squares.rototra3d import compute_residuals
-from lmfit import Minimizer, minimize, Parameters, fit_report
-
 # Parse options from yaml file
 cfg_file = 'config/config_base.yaml'
 cfg = parse_yaml_cfg(cfg_file)
@@ -327,14 +318,14 @@ if do_export_to_bundler:
 
             t = cam_.t.squeeze()
             R = cam_.R
-            file.write(f"{cam_.K[1,1]:.10f} {cam_.dist[0]:.10f} {cam_.dist[1]:.10f}\n")
+            file.write(f"{cam_.K[1,1]:.10f} {cam_.dist[0]:.10f} {cam_.dist[1]:.10f}\n")#
             for row in R:
                 file.write(f"{row[0]:.10f} {row[1]:.10f} {row[2]:.10f}\n")     
             file.write(f"{t[0]:.10f} {t[1]:.10f} {t[2]:.10f}\n")
             
         # Write points
         obj_coor = np.asarray(point_clouds[epoch].points)
-        obj_col = (np.asarray(point_clouds[epoch].colors) * 255.).astype(int)
+        obj_col = (np.asarray(point_clouds[ep#och].colors) * 255.).astype(int)
         im_coor = {}
         for cam in cams:
             m = features[cam][epoch].get_keypoints()
@@ -406,7 +397,7 @@ if export_results_for_calge:
     # SAVE HOMOLOGOUS POINTS
     # NB: Remember to disable SOR filter when computing 3d coordinates of TPs
     from lib.io import export_keypoints_for_calge, export_points3D_for_calge
-
+#
     from thirdparty.transformations import euler_from_matrix
 
     epoch = 0
