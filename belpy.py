@@ -267,8 +267,8 @@ for epoch in cfg.proc.epoch_to_process:
         ),
         camera_centers_world=cfg.georef.camera_centers_world
     )
-    # T = abs_ori.estimate_transformation_linear(estimate_scale=True)
-    T = abs_ori.estimate_transformation_least_squares()
+    T = abs_ori.estimate_transformation_linear(estimate_scale=True)
+    # T = abs_ori.estimate_transformation_least_squares()
     points3d = abs_ori.apply_transformation(points3d=points3d)
     for i, cam in enumerate(cams):
         cameras[cam][epoch] = abs_ori.cameras[i]
