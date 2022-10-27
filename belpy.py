@@ -300,14 +300,45 @@ display_point_cloud(
 
 ''' Export results in Bundler .out format'''
 from thirdparty.transformations import euler_from_matrix, euler_matrix
+from shutil import copy as scopy
 do_export_to_bundler = True
 
 if do_export_to_bundler:
-    out_dir = Path('res/bundler_output')
+    # out_dir = Path('res/bundler_output')
     print('Exporting results in Bundler format...')
 
     for epoch in cfg.proc.epoch_to_process:
+        # Output dir by epoch
+        out_dir = create_directory(f'./metashape/epoch_{epoch}/data')
+
+        # Write im_list.txt in the same directory
+        file = open(out_dir / f'im_list.txt', "w")
+        for cam in cams:
+            file.write(f'{images[cam].get_image_name(epoch)}\n')
+        file.close()
+    
+        # Copy images in subdirectory "images"
+        for cam in cams:
+            im_out_dir = create_directory(out_dir / 'images')
+            scopy(
+                images[cam].get_image_path(epoch),
+                im_out_dir / images[cam].get_image_name(epoch)
+                )
         
+        # Write markers to file
+        targets_to_use = ['F2']  # 'T4',
+        file = open(out_dir / f'gcps.txt', "w")
+        for target in targets_to_use:
+            for i, cam in enumerate(cams):
+                for x in targets[epoch].extract_object_coor_by_label([target]).squeeze():
+                    file.write(f'{x:.4f} ')
+                for x in targets[epoch].extract_image_coor_by_label([target], cam_id=i).squeeze():
+                    file.write(f'{x:.4f} ')
+                file.write(f'{images[cam].get_image_name(epoch)} ')
+                file.write(f'{target}\n')
+        file.close()
+    
+        # Create Bundler output file
         num_cams = len(cams)
         num_pts = len(features[cams[0]][epoch])
         w, h = 6012, 4008
@@ -354,7 +385,7 @@ if do_export_to_bundler:
         file.close()
         
     print('Export completed.')
-
+    
 
 ''' Export observations for external BBA '''
 export_results_to_file = False
