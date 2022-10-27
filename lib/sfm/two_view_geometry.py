@@ -171,6 +171,3 @@ class Two_view_geometry():
         self.cameras[1].update_camera_from_extrinsics()
 
         return self.cameras, scale_fct
-
-    def absolute_orientation(self) -> None:
-        pass
