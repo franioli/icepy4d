@@ -260,7 +260,12 @@ for epoch in cfg.proc.epoch_to_process:
         camera_centers_world=cfg.georef.camera_centers_world
     )
     T = abs_ori.estimate_transformation_linear(estimate_scale=True)
-    # T = abs_ori.estimate_transformation_least_squares()
+    # uncertainty = np.array([
+    #     [1., 1., 1.],
+    #     [0.001, 0.001, 0.001],
+    #     [0.001, 0.001, 0.001],
+    #     ])
+    # T = abs_ori.estimate_transformation_least_squares(uncertainty=uncertainty)
     points3d = abs_ori.apply_transformation(points3d=points3d)
     for i, cam in enumerate(cams):
         cameras[cam][epoch] = abs_ori.cameras[i]
