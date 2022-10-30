@@ -326,7 +326,7 @@ if do_export_to_bundler:
                 )
         
         # Write markers to file
-        targets_to_use = ['F2']  # 'T4',
+        targets_to_use = ['F2', 'F4']  # 'T4',
         file = open(out_dir / f'gcps.txt', "w")
         for target in targets_to_use:
             for i, cam in enumerate(cams):
@@ -338,7 +338,7 @@ if do_export_to_bundler:
                 file.write(f'{target}\n')
         file.close()
     
-        # Create Bundler output file
+        # Create Bundler output fileadd
         num_cams = len(cams)
         num_pts = len(features[cams[0]][epoch])
         w, h = 6012, 4008
@@ -459,7 +459,7 @@ if export_results_for_calge:
 ''' Compute DSM and orthophotos '''
 # @TODO: implement better DSM class
 
-compute_orthophoto_dsm = False
+compute_orthophoto_dsm = True
 if compute_orthophoto_dsm:
     print('DSM and orthophoto generation started')
     res = 0.03
@@ -471,21 +471,27 @@ if compute_orthophoto_dsm:
     ortofoto[cams[0]], ortofoto[cams[1]] = [], []
     for epoch in cfg.proc.epoch_to_process:
         print(f'Epoch {epoch}')
-        dsms.append(build_dsm(np.asarray(point_clouds[epoch].points),
-                            dsm_step=res,
-                            xlim=xlim, ylim=ylim,
-                            make_dsm_plot=False,
-                            # fill_value = ,
-                            save_path=f'res/dsm/dsm_app_epoch_{epoch}.tif'
-                            ))
+        dsms.append(
+            build_dsm(
+                np.asarray(point_clouds[epoch].points),
+                dsm_step=res,
+                xlim=xlim, ylim=ylim,
+                make_dsm_plot=False,
+                # fill_value = ,
+                # save_path=f'res/dsm/dsm_app_epoch_{epoch}.tif'
+            ))
         print('DSM built.')
         for cam in cams:
             fout_name = f'res/ortofoto/ortofoto_app_cam_{cam}_epc_{epoch}.tif'
-            ortofoto[cam].append(generate_ortophoto(cv2.cvtColor(images[cam][epoch], cv2.COLOR_BGR2RGB),
-                                                    dsms[epoch], cameras[cam][epoch],
-                                                    xlim=xlim, ylim=ylim,
-                                                    save_path=fout_name,
-                                                    ))
+            ortofoto[cam].append(
+                generate_ortophoto(
+                    cv2.cvtColor(
+                        images[cam][epoch],
+                        cv2.COLOR_BGR2RGB),
+                        dsms[epoch], cameras[cam][epoch], 
+                        xlim=xlim, ylim=ylim,
+                        save_path=fout_name,
+                    ))
         print('Orthophotos built.')
 
 
