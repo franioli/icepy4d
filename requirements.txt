@@ -14,3 +14,4 @@ plotly
 rasterio
 exifread
 pydegensac
+easydict
