@@ -8,8 +8,9 @@ from lib.sg.utils import (make_matching_plot,AverageTimer, read_image, frame2ten
 from  lib.io import generateTiles
 torch.set_grad_enabled(False)
 
-import matplotlib
-matplotlib.use('Qt5Agg')
+# import matplotlib
+# matplotlib.use('Qt5Agg')
+# @matplotlib inline
 import matplotlib.pyplot as plt
 
 def track_matches(pairs, maskBB, prevs, opt):

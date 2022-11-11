@@ -9,8 +9,7 @@ def create_directory(path):
     Creates a directory, if it does not exist.
     """
     path = Path(path)
-    if not (path.is_dir() and path.is_dir()):
-        path.mkdir()
+    path.mkdir(parents=True, exist_ok=True)
     return path
 
 #--- MAT ---#
