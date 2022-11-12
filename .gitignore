@@ -20,6 +20,9 @@ tests/tmp/
 simulaCalge/
 metashape/
 
+# VScode
+.vscode/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
