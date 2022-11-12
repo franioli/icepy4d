@@ -29,7 +29,7 @@ class Tiler:
         - image (Image):
         - grid (List[int], default=[1, 1]): List containing the number of rows and number of colums in which to divide the image ([nrows, ncols])
         - overlap (int, default=0): Number of pixel of overlap between adiacent tiles
-        - origin
+        - origin (List[int], default=[0, 0]): List of coordinates [x,y] of the pixel from which the tiling starts (top-left corner of the first tile)
         __________
         Return: None
         '''
@@ -54,9 +54,12 @@ class Tiler:
         return self.limits
 
     def compute_limits_by_grid(self) -> None:
-        ''' Funtion to compute the limits of each tile (i.e. xmin,ymin,xmax,xmax), given the number or row and columns of the tile grid.
+        ''' Method to compute the limits of each tile (i.e. xmin,ymin,xmax,xmax), given the number or row and columns of the tile grid.
 
-        Note: array of tiles are arranged in row-major order (C-style)
+        Returns a dictionary containing the index of the tile (in row-major order, C-style) and a list of the bounding box coordinates as: 
+        {0,[xmin, xmax, ymin, ymax]}
+        {1,[xmin, xmax, ymin, ymax]}
+        ....
         '''
 
         DX = round(
