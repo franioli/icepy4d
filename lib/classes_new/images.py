@@ -194,14 +194,20 @@ class Image:
             self._date_time = datetime.strptime(date_str, date_fmt)
 
     def extract_patch(self, limits: dict) -> np.ndarray:
+        ''' Extract image patch
+        Parameters
+        __________
+        - limits (dict): dictionary containing the index of the tile (in row-major order, C-style) and a list of the bounding box coordinates as: {0,[xmin, xmax, ymin, ymax]}
+        __________
+        Return: patch (np.ndarray)
+        '''
         image = read_image(self._path)
         patch = image[
-                    limits[1]:limits[3],
-                    limits[0]:limits[2],
-                ]
+            limits[1]:limits[3],
+            limits[0]:limits[2],
+        ]
         return patch
- 
-            
+
     def get_intrinsics_from_exif(self) -> None:
         """Constructs the camera intrinsics from exif tag.
 
