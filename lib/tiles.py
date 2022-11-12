@@ -85,12 +85,17 @@ class Tiler:
                 )
 
     def read_all_tiles(self) -> None:
+        '''Read all tiles and store them in class instance '''
         assert self._im_path is not None, 'Invalid image path'
-
         for idx, limit in self.limits.items():
             self.tiles[idx] = self._image.extract_patch(limit)
+            
+    def read_tile(self, idx) -> np.ndarray:
+        ''' Extract tile given its idx (int) and return it '''
+        assert self._im_path is not None, 'Invalid image path'
+        return self._image.extract_patch(self.limits[idx])
 
-    def remove_tile(self, tile_idx) -> None:
+    def remove_tiles(self, tile_idx) -> None:
         if tile_idx is None:
             self.tiles = {}
         else:
@@ -100,7 +105,7 @@ class Tiler:
 if __name__ == '__main__':
     '''Test classes '''
 
-    images = Imageds(Path('data/img2021/p0'))
+    images = Imageds(Path('data/img2022/p1'))
     img = Image(images.get_image_path(0))
 
     tile_grid = (2, 1)
@@ -113,6 +118,9 @@ if __name__ == '__main__':
     )
 
     tiles.compute_limits_by_grid()
+
+    t = tiles.read_tile(1)
+    
     tiles.read_all_tiles()
 
     for idx, tile in tiles.tiles.items():
