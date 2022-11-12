@@ -27,11 +27,9 @@ from typing import List
 
 from lib.classes import Camera
 from lib.geometry import undistort_points
-from lib.misc import (
+from lib.utils import (
     convert_from_homogeneous,
     convert_to_homogeneous,
-)
-from lib.utils import (
     interpolate_point_colors,
 )
 from thirdparty.triangulation import iterative_LS_triangulation
