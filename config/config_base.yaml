@@ -12,7 +12,7 @@ tracking_cfg: "config/opt_tracking.json"
 #- Epoches to process
 # It can be either 'all' for processing all the epochs
 # or a list with the epoches to be processed
-epoch_to_process: 'all' # #[0] # [0, 1] 
+epoch_to_process: [0] # 'all' # #[0] # [0, 1] 
 
 #- Switches to find and track matches
 do_matching: True
