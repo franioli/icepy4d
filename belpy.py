@@ -25,10 +25,12 @@ from lib.utils import (
     build_dsm,
     generate_ortophoto,
 )
+
 from lib.point_clouds import (
     create_point_cloud,
     write_ply,
 )
+
 from lib.visualization import display_point_cloud
 from lib.utils import create_directory
 from lib.config import parse_yaml_cfg, validate_inputs
