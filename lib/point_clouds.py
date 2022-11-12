@@ -26,7 +26,7 @@ import open3d as o3d
 
 from pathlib import Path
 
-from lib.misc import create_directory
+from lib.utils import create_directory
 
 
 def create_point_cloud(points3d, points_col=None, path=None, *scalar_fied):

@@ -5,10 +5,16 @@ import torch
 from pathlib import Path
 from easydict import EasyDict as edict
 
-from lib.sg.matching import Matching
-from lib.sg.utils import (make_matching_plot, AverageTimer, read_image,  
-                          frame2tensor, vizTileRes)
-from  lib.io import generateTiles
+from thirdparty.SuperGluePretrainedNetwork.matching import Matching
+from thirdparty.SuperGluePretrainedNetwork.utils import (
+    make_matching_plot, 
+    AverageTimer, 
+    read_image, 
+    frame2tensor,
+    vizTileRes
+)
+from lib.utils import generateTiles
+
 torch.set_grad_enabled(False)
 
 def match_pair(pair, maskBB, opt):
