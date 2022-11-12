@@ -31,7 +31,7 @@ import cv2
 import exifread
 import numpy as np
 
-from lib.utils.sensor_width_database import SensorWidthDatabase
+# from lib.utils.sensor_width_database import SensorWidthDatabase
 
 
 def read_image(
@@ -105,6 +105,11 @@ class Image:
     ) -> None:
 
         self._path = path
+        self._value_array = None
+        self._width = None
+        self._height = None
+        self._exif_data = None
+        self._date_time = None
         self.read_exif()
 
         if image:
@@ -116,7 +121,7 @@ class Image:
         The height of the image (i.e. number of pixels in the vertical direction).
         """
         if self._height:
-            return self._height
+            return int(self._height)
 
     @property
     def width(self) -> int:
@@ -124,7 +129,7 @@ class Image:
         The width of the image (i.e. number of pixels in the horizontal direction).
         """
         if self._width:
-            return self._width
+            return int(self._width)
 
     @property
     def path(self) -> str:
@@ -134,20 +139,19 @@ class Image:
         return self._path
 
     @property
-    def image(self) -> np.ndarray:
-        ''' Returns the image '''
-        if self._value_array is not None:
-            return self._value_array
-        else:
-            return self.read_image(self._path)
-
-    @property
     def exif(self) -> dict:
         return self._exif_data
 
     @property
     def date(self):
         return self._date_time
+
+    def get_image(self) -> np.ndarray:
+        ''' Returns the image '''
+        if self._value_array is not None:
+            return self._value_array
+        else:
+            return self.read_image(self._path)
 
     def read_image(
         self,
@@ -156,7 +160,7 @@ class Image:
         resize: List[int] = [-1],
         crop: List[int] = None,
     ) -> None:
-        ''' Return the actual image as numpy array
+        ''' Wrapper around the function read_image to be a class method.
         '''
         path = Path(path)
         if path.exists():
@@ -165,6 +169,9 @@ class Image:
         else:
             print(f"Input paht {path} not valid.")
 
+    def clean_image(self) -> None:
+        self._value_array = None
+
     def read_exif(self) -> None:
         ''' Read image exif with exifread and store them in a dictionary
         '''
@@ -172,19 +179,29 @@ class Image:
             f = open(self._path, 'rb')
             self._exif_data = exifread.process_file(f, details=False)
             f.close()
+        except:
+            print("No exif data available.")
 
-            # Set image size
+        # Set image size
+        if ('Image ImageWidth' in self._exif_data.keys() and 'Image ImageLength' in self._exif_data.keys()):
             self._width = self._exif_data['Image ImageWidth'].printable
             self._height = self._exif_data['Image ImageLength'].printable
 
-            # Set Image Datetime
+        # Set Image Datetime
+        if 'Image DateTime' in self._exif_data.keys():
             date_fmt = "%Y:%m:%d %H:%M:%S"
             date_str = self._exif_data['Image DateTime'].printable
             self._date_time = datetime.strptime(date_str, date_fmt)
 
-        except:
-            print("No exif data available.")
-
+    def extract_patch(self, limits: dict) -> np.ndarray:
+        image = read_image(self._path)
+        patch = image[
+                    limits[1]:limits[3],
+                    limits[0]:limits[2],
+                ]
+        return patch
+ 
+            
     def get_intrinsics_from_exif(self) -> None:
         """Constructs the camera intrinsics from exif tag.
 
