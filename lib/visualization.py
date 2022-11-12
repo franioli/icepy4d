@@ -32,10 +32,8 @@ import matplotlib
 matplotlib.use('Agg')
 
 from lib.classes import (Camera, Features)
-from lib.geometry import (compute_reprojection_error,
-                          undistort_points,
-                          project_points,
-                          )
+from lib.utils import compute_reprojection_error
+from lib.geometry import project_points
 
 ''' Misc functions'''
 

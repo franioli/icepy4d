@@ -28,7 +28,6 @@ import cv2
 import pydegensac
 
 from lib.classes import Camera
-from lib.misc import compute_rmse
 
 def estimate_pose(kpts0, kpts1, K0, K1, thresh, conf=0.9999):
     """
@@ -149,31 +148,3 @@ def scale_intrinsics(K, scales):
     return np.dot(scales, K)
 
 
-def compute_reprojection_error(observed, projected):
-    ''' Compute reprojection error
-    Parameters
-    ----------
-    observed : nx2 numpy array of float32
-        array of observed image coordinates (usually, detected keypoints)
-    projected : nx2 numpy array of float32
-        array of image coordinates of projected points
-        
-    Returns
-    -------
-    err : nx3 numpy array of float32
-        Reprojection error as in x, y direction and magnitude
-    rmse : 2x1 numpy array of float32
-      RMSE of the reprojection error in x, y directions
-    '''
-    npts = len(observed)
-    
-    err = np.zeros((npts,3), 'float32')
-    err[:, 0:2] = observed - projected  
-    err[:, 2:3] = np.linalg.norm(err[:,0:2] , axis=1).reshape((npts,1))
-    
-    rmse = np.zeros((2,1), 'float32')
-    for i in range(2):
-        rmse[i] = compute_rmse(observed[:,i], projected[:,i])
-    
-    return err, rmse
-    
