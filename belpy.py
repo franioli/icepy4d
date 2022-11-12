@@ -7,16 +7,19 @@ import pydegensac
 from pathlib import Path
 from easydict import EasyDict as edict
 from copy import deepcopy
+from shutil import copy as scopy
 
 from lib.classes import Camera, Imageds, Features, Targets
+
+from lib.matching.match_pairs import match_pair
+from lib.matching.track_matches import track_matches
+
 from lib.sfm.two_view_geometry import Two_view_geometry
+from lib.sfm.triangulation import Triangulate
 from lib.sfm.absolute_orientation import (
     Absolute_orientation,
     Space_resection,
 )
-from lib.sfm.triangulation import Triangulate
-from lib.match_pairs import match_pair
-from lib.track_matches import track_matches
 
 from lib.utils import (
     build_dsm,
@@ -27,8 +30,10 @@ from lib.point_clouds import (
     write_ply,
 )
 from lib.visualization import display_point_cloud
-from lib.misc import create_directory
+from lib.utils import create_directory
 from lib.config import parse_yaml_cfg, validate_inputs
+
+from thirdparty.transformations import euler_from_matrix, euler_matrix
 
 
 # Parse options from yaml file
@@ -145,7 +150,8 @@ if cfg.proc.do_matching:
             cams[1]
         ].get_image_stem(epoch)
         for jj, cam in enumerate(cams):
-            features[cam][epoch].save_as_txt(epochdir / f"{im_stems[jj]}_mktps.txt")
+            features[cam][epoch].save_as_txt(
+                epochdir / f"{im_stems[jj]}_mktps.txt")
         with open(epochdir / f"{im_stems[0]}_{im_stems[1]}_features.pickle", "wb") as f:
             pickle.dump(features, f, protocol=pickle.HIGHEST_PROTOCOL)
         last_match_path = create_directory("res/last_epoch")
@@ -187,7 +193,8 @@ for epoch in cfg.proc.epoch_to_process:
 
     targets.append(
         Targets(
-            im_file_path=[p1_path, p2_path], obj_file_path="data/target_world_p1.csv"
+            im_file_path=[
+                p1_path, p2_path], obj_file_path="data/target_world_p1.csv"
         )
     )
 
@@ -239,7 +246,8 @@ for epoch in cfg.proc.epoch_to_process:
         threshold=1.5,
         confidence=0.999999,
         scale_factor=np.linalg.norm(
-            cfg.georef.camera_centers_world[0] - cfg.georef.camera_centers_world[1]
+            cfg.georef.camera_centers_world[0] -
+            cfg.georef.camera_centers_world[1]
         ),
     )
     # Store result in camera 1 object
@@ -267,10 +275,13 @@ for epoch in cfg.proc.epoch_to_process:
     targets_to_use = ["F2"]  # 'T4',
     abs_ori = Absolute_orientation(
         (cameras[cams[0]][epoch], cameras[cams[1]][epoch]),
-        points3d_final=targets[epoch].extract_object_coor_by_label(targets_to_use),
+        points3d_final=targets[epoch].extract_object_coor_by_label(
+            targets_to_use),
         image_points=(
-            targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=0),
-            targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=1),
+            targets[epoch].extract_image_coor_by_label(
+                targets_to_use, cam_id=0),
+            targets[epoch].extract_image_coor_by_label(
+                targets_to_use, cam_id=1),
         ),
         camera_centers_world=cfg.georef.camera_centers_world,
     )
@@ -312,8 +323,6 @@ display_point_cloud(
 
 
 """ Export results in Bundler .out format"""
-from thirdparty.transformations import euler_from_matrix, euler_matrix
-from shutil import copy as scopy
 
 do_export_to_bundler = True
 
@@ -345,7 +354,8 @@ if do_export_to_bundler:
         for target in targets_to_use:
             for i, cam in enumerate(cams):
                 for x in (
-                    targets[epoch].extract_object_coor_by_label([target]).squeeze()
+                    targets[epoch].extract_object_coor_by_label(
+                        [target]).squeeze()
                 ):
                     file.write(f"{x:.4f} ")
                 for x in (
@@ -375,7 +385,8 @@ if do_export_to_bundler:
 
             t = cam_.t.squeeze()
             R = cam_.R
-            file.write(f"{cam_.K[1,1]:.10f} {cam_.dist[0]:.10f} {cam_.dist[1]:.10f}\n")
+            file.write(
+                f"{cam_.K[1,1]:.10f} {cam_.dist[0]:.10f} {cam_.dist[1]:.10f}\n")
             for row in R:
                 file.write(f"{row[0]:.10f} {row[1]:.10f} {row[2]:.10f}\n")
             file.write(f"{t[0]:.10f} {t[1]:.10f} {t[2]:.10f}\n")

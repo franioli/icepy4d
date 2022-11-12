@@ -1,17 +1,17 @@
 from pathlib import Path
-# import argparse
 import numpy as np
 import matplotlib.cm as cm
 import torch
 import json
 
-# from lib.sg.matching import Matching
-# from lib.sg.utils import (make_matching_plot, AverageTimer, read_image,
-#                           frame2tensor, vizTileRes)
-
-from sg.matching import Matching
-from sg.utils import (make_matching_plot, AverageTimer, read_image,
-                      frame2tensor, vizTileRes)
+from thirdparty.SuperGluePretrainedNetwork.matching import Matching
+from thirdparty.SuperGluePretrainedNetwork.utils import (
+    make_matching_plot, 
+    AverageTimer, 
+    read_image,
+    frame2tensor,
+    vizTileRes
+)
 
 torch.set_grad_enabled(False)
 
