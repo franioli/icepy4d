@@ -30,9 +30,8 @@ from datetime import datetime
 import cv2
 import exifread
 import numpy as np
-import pandas as pd
 
-# from lib.utils.sensor_width_database import SensorWidthDatabase
+from lib.utils.sensor_width_database import SensorWidthDatabase
 
 
 def read_image(
@@ -200,23 +199,23 @@ class Image:
             intrinsics matrix (3x3).
         """
 
-        if self._exif_data is None or len(self._exif_data) == 0:
-            return None
+        # if self._exif_data is None or len(self._exif_data) == 0:
+        #     return None
 
-        focal_length_mm = self.exif_data.get("FocalLength")
+        # focal_length_mm = self.exif_data.get("FocalLength")
 
-        sensor_width_mm = Image.sensor_width_db.lookup(
-            self._exif_data.get("Make"),
-            self._exif_data.get("Model"),
-        )
+        # sensor_width_mm = Image.sensor_width_db.lookup(
+        #     self._exif_data.get("Make"),
+        #     self._exif_data.get("Model"),
+        # )
 
-        img_w_px = self._width
-        img_h_px = self._height
-        focal_length_px = max(img_h_px, img_w_px) * \
-            focal_length_mm / sensor_width_mm
+        # img_w_px = self._width
+        # img_h_px = self._height
+        # focal_length_px = max(img_h_px, img_w_px) * \
+        #     focal_length_mm / sensor_width_mm
 
-        center_x = img_w_px / 2
-        center_y = img_h_px / 2
+        # center_x = img_w_px / 2
+        # center_y = img_h_px / 2
 
 
 class ImageDS:
