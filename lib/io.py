@@ -5,13 +5,12 @@ import os
 from pathlib import Path
 
 from lib.classes import Features, Imageds
-# import matplotlib.pyplot as plt
-# import matplotlib
-# matplotlib.use('Agg')
+
+# @TODO MOVE ALL FUNCTIONS IN CORRECT import_export folder
 
 
 def process_resize(w, h, resize):
-    assert(len(resize) > 0 and len(resize) <= 2)
+    assert (len(resize) > 0 and len(resize) <= 2)
     if len(resize) == 1 and resize[0] > -1:
         scale = resize[0] / max(h, w)
         w_new, h_new = int(round(w*scale)), int(round(h*scale))
@@ -44,61 +43,22 @@ def read_img(path, color=True, resize=[-1], crop=None):
     return image, scales
 
 
-def generateTiles(image, rowDivisor=2, colDivisor=2, overlap=200, viz=False, out_dir='tiles', writeTile2Disk=True):
-    assert not (image is None), 'Invalid image input'
-
-    image = image.astype('float32')
-    H = image.shape[0]
-    W = image.shape[1]
-    DY = round(H/rowDivisor/10)*10
-    DX = round(W/colDivisor/10)*10
-    dim = (rowDivisor, colDivisor)
-
-    # TODO: implement checks on image dimension
-    # Check image dimensions
-    # if not W % colDivisor == 0:
-    #     print('Number of columns non divisible by the ColDivisor. Removing last column.')
-    #     image = image[:, 0:-1]
-    # if not H % rowDivisor == 0:
-    #     print('Number of rows non divisible by the RowDivisor. Removing last row')
-    #     image = image[0:-1, :]
-
-    tiles = []
-    limits = []
-    for col in range(0, colDivisor):
-        for row in range(0, rowDivisor):
-            tileIdx = np.ravel_multi_index((row, col), dim, order='F')
-            limits.append((max(0, col*DX - overlap),
-                           max(0, row*DY - overlap),
-                           max(0, col*DX - overlap) + DX+overlap,
-                           max(0, row*DY - overlap) + DY+overlap))
-            # print(f'Tile {tileIdx}: xlim = ({ limits[tileIdx][0], limits[tileIdx][2]}), ylim = {limits[tileIdx][1], limits[tileIdx][3]}')
-            tile = image[limits[tileIdx][1]:limits[tileIdx][3],
-                         limits[tileIdx][0]:limits[tileIdx][2]]
-            tiles.append(tile)
-            if writeTile2Disk:
-                isExist = os.path.exists(out_dir)
-                if not isExist:
-                    os.makedirs(out_dir)
-                cv2.imwrite(os.path.join(out_dir, 'tile_'+str(tileIdx)+'_'
-                                         + str(limits[tileIdx][0])+'_'+str(limits[tileIdx][1])+'.jpg'), tile)
-
-    return tiles, limits
-
 '''
 Export keypoints and points3d to file
 '''
+
+
 def export_keypoints_by_image(
     features: Features,
     imageds: Imageds,
-    path: str = './', 
+    path: str = './',
     epoch: int = None,
 ) -> None:
     if epoch is not None:
-        
+
         cams = list(imageds.keys())
         path = Path(path)
-        
+
         for cam in cams:
             im_name = imageds[cam].get_image_stem(epoch)
             file = open(path / f'keypoints_{im_name}.txt', "w")
@@ -109,8 +69,8 @@ def export_keypoints_by_image(
             for id, kpt in enumerate(features[cam][epoch].get_keypoints()):
                 x, y = kpt
                 file.write(
-                        f"{id},{x},{y}\n"
-                        )
+                    f"{id},{x},{y}\n"
+                )
 
         file.close()
         print("Marker exported successfully")
@@ -133,9 +93,12 @@ def export_points3D(
     file.close()
     print("Points exported successfully")
 
+
 '''
 Export results to files
 '''
+
+
 def export_keypoints(
     filename: str,
     features: Features,
@@ -160,8 +123,8 @@ def export_keypoints(
             for id, kpt in enumerate(features[cam][epoch].get_keypoints()):
                 x, y = kpt
                 file.write(
-                        f"{id},{x},{y} \n"
-                        )
+                    f"{id},{x},{y} \n"
+                )
 
         file.close()
         print("Marker exported successfully")
@@ -184,9 +147,11 @@ def export_points3D(
     file.close()
     print("Points exported successfully")
 
+
 '''
 Export data to file for CALGE
 '''
+
 
 def export_keypoints_for_calge(
     filename: str,
@@ -254,6 +219,7 @@ def export_keypoints_for_calge(
     else:
         print('please, provide the epoch number.')
         return
+
 
 def export_points3D_for_calge(
     filename: str,
