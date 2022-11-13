@@ -22,7 +22,8 @@ def parse_yaml_cfg(cfg_file: edict) -> edict:
     cfg.paths.results_dir = Path(cfg.paths.results_dir)
 
     # - Image-realted options
-    cfg.images.mask_bounding_box = np.array(cfg.images.mask_bounding_box).astype('int')
+    cfg.images.mask_bounding_box = np.array(
+        cfg.images.mask_bounding_box).astype('int')
 
     # - Georef options
     cfg.georef.camera_centers_world = np.array(cfg.georef.camera_centers_world)
@@ -37,33 +38,6 @@ def parse_yaml_cfg(cfg_file: edict) -> edict:
         raise ValueError('Invalid input of epoches to process')
 
     validate_cfg(cfg)
-
-    # cfg = edict({'paths': edict(), 'proc': edict(),
-    #             'matching': edict(), 'tracking': edict(),
-    #              'images': edict(), 'georef': edict(),
-    #              'other': edict(), })
-
-    # # - Processing options
-    # cfg.proc.epoch_to_process = yaml_opt.epoch_to_process
-    # cfg.proc.do_matching = yaml_opt.do_matching
-    # cfg.proc.do_tracking = yaml_opt.do_tracking
-    # cfg.proc.do_coregistration = yaml_opt.do_coregistration
-
-    # # - Image-realted options
-    # cfg.images.bbox = np.array(
-    #     yaml_opt.mask_bounding_box).astype('int')
-
-    # # - Georef options
-    # cfg.georef.camera_centers_world = np.array(yaml_opt.camera_centers_world)
-    # cfg.georef.target_dir = Path(yaml_opt.target_dir)
-    # cfg.georef.target_file_ext = yaml_opt.target_file_ext
-
-    # # - Other options
-    # cfg.other.do_viz = yaml_opt.do_viz
-    # cfg.other.do_SOR_filter = yaml_opt.do_SOR_filter
-
-    # validate_cfg(cfg)
-    # print_cfg(cfg)
 
     return cfg
 
