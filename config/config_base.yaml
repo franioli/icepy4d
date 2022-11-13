@@ -1,82 +1,105 @@
 #- Define paths and base settings
-# paths:
-image_dir: "data/img2022"
-calibration_dir: "data/calib"
-results_dir: "res"
-camera_names: ["p1", "p2"] # ['p0_00', 'p1_00'] #
-matching_cfg: "config/opt_matching.json"
-tracking_cfg: "config/opt_tracking.json"
+paths:
+  image_dir: "data/img2022"
+  calibration_dir: "data/calib"
+  results_dir: "res"
+  camera_names: ["p1", "p2"]
 
 #- Processing options
-# processing:
-#- Epoches to process
-# It can be either 'all' for processing all the epochs
-# or a list with the epoches to be processed
-epoch_to_process: [0] # 'all' # #[0] # [0, 1] 
+proc:
+  #- Epoches to process
+  # It can be either 'all' for processing all the epochs
+  # or a list with the epoches to be processed
+  epoch_to_process: [0] # 'all' # #[0] # [0 1]
 
-#- Switches to find and track matches
-do_matching: True
-do_tracking: False
+  #- Switches to find and track matches
+  do_matching: True
+  do_tracking: False
 
-#- Coregistration switches
-# If True, try to coregister point clouds based on n double points
-# @TODO: still have to fully implement it and move code to a specific Class
-do_coregistration: False
-
-#- Fix Cameras:
-# if False, estimate EO of cam2 with relative orientation, otherwise keep both cameras fixed.
-# fix_both_cameras: False
+  #- Coregistration switches
+  # If True try to coregister point clouds based on n double points
+  # @TODO: still have to fully implement it and move code to a specific Class
+  do_coregistration: False
 
 #- Image-related options
-# images:
-#- Bounding box for processing the images from the two cameras
-# It must be a list of list (one instance for each camera) 
-# with the min/max coordinates
-# in the format of:
-# [xmin, ymin, xmax, ymax] 
-# 
-mask_bounding_box: [
-  [1000, 1500, 5600, 3700], 
-  [100, 1800, 4700, 4000],
-]
+images:
+  #- Bounding box for processing the images from the two cameras
+  # It must be a list of list of lists (one list for each camera)
+  # with the min/max coordinates as [xmin ymin xmax ymax]
+  mask_bounding_box: [[1000, 1500, 5600, 3700], [100, 1800, 4700, 4000]]
 
-#- Georeferencing (i.e., absolute orientation) information
-# georef:
-#- Camera centers obtained from Metashape model in July [m]
-camera_centers_world: [
-  [151.962, 99.065, 91.643], # IMG_2814
-  [309.261, 301.051, 135.008], # IMG_1289
-]
+#- Georeferencing (i.e. absolute orientation) information
+georef:
+  #- Camera centers obtained from Metashape model in July [m]
+  camera_centers_world: [
+      [151.962, 99.065, 91.643], # IMG_2814
+      [309.261, 301.051, 135.008], # IMG_1289
+    ]
 
-
-#- Targets' information
-# Target information must be stored in file, one file per image, saved with the name of the relative image (with target_file_ext extension)
-target_dir: 'data/targets'
-target_file_ext: '.csv'
-
+  #- Targets' information
+  # Target information must be stored in file one file per image saved with the name of the relative image (with target_file_ext extension)
+  target_dir: "data/targets"
+  target_file_ext: ".csv"
 
 #- Other On-Off switches
-# others:
-#- visualize outputs
-do_viz: False
+other:
+  #- visualize outputs
+  do_viz: False
 
-#- Point cloud processing
-do_SOR_filter: False
+  #- Point cloud processing
+  do_SOR_filter: False
 
-# Matching options
-detector: "Superpoint"
-matcher: "Superglue"
-output_dir: "./res"
-device: 'gpu'
-resize: [-1]
-keypoint_threshold: 0.0001
-max_keypoints: 10240  
-superglue_model: "outdoor"
-match_threshold: 0.15
-do_viz: True
-show_keypoints: False
+#- Matching options
+matching:
+  output_dir: "./"
+  resize: [-1]
+  resize_float: true
+  equalize_hist: false
+  nms_radius: 4
+  keypoint_threshold: 0.0001
+  max_keypoints: 1024 # 10240
+  superglue: "outdoor"
+  sinkhorn_iterations: 100
+  match_threshold: 0.15
+  viz: true
+  viz_extension: "png"
+  fast_viz: true
+  opencv_display: false
+  show_keypoints: false
+  cache: false
+  force_cpu: false
+  useTile: true
+  writeTile2Disk: false
+  do_viz_tile: false
+  rowDivisor: 2
+  colDivisor: 4
+  overlap: 400
 
-# Tile processing
+#- Tracking options
+tracking:
+  output_dir: "./"
+  resize: [-1]
+  resize_float: true
+  equalize_hist: false
+  nms_radius: 3
+  keypoint_threshold: 0.005
+  max_keypoints: 2048
+  superglue: "outdoor"
+  sinkhorn_iterations: 100
+  match_threshold: 0.3
+  viz: true
+  viz_extension: "png"
+  fast_viz: true
+  opencv_display: false
+  show_keypoints: false
+  cache: false
+  force_cpu: false
+  useTile: true
+  writeTile2Disk: false
+  do_viz_tile: false
+  rowDivisor: 2
+  colDivisor: 4
+#- Tile processing
 # useTile: True
 # writeTile2Disk: False
 # do_viz_tile: True
