@@ -6,8 +6,8 @@ import numpy as np
 from pathlib import Path
 from typing import List, Union
 
-# from lib.classes import Camera, Imageds
-from classes import Camera, Imageds
+# from lib.classes import Imageds
+from classes import Imageds
 from classes_new.images import Image
 
 
@@ -89,7 +89,7 @@ class Tiler:
         assert self._im_path is not None, 'Invalid image path'
         for idx, limit in self.limits.items():
             self.tiles[idx] = self._image.extract_patch(limit)
-            
+
     def read_tile(self, idx) -> np.ndarray:
         ''' Extract tile given its idx (int) and return it '''
         assert self._im_path is not None, 'Invalid image path'
@@ -120,7 +120,7 @@ if __name__ == '__main__':
     tiles.compute_limits_by_grid()
 
     t = tiles.read_tile(1)
-    
+
     tiles.read_all_tiles()
 
     for idx, tile in tiles.tiles.items():
