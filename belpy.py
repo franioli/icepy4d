@@ -6,7 +6,7 @@ from copy import deepcopy
 from shutil import copy as scopy
 
 from lib.classes import Camera, Imageds, Features, Targets
-from lib.matching.matching_base import MatchingTracking
+from lib.matching.matching_base import MatchingAndTracking
 from lib.sfm.two_view_geometry import Two_view_geometry
 from lib.sfm.triangulation import Triangulate
 from lib.sfm.absolute_orientation import (
@@ -41,7 +41,7 @@ features = dict.fromkeys(cams)  # @TODO: put this in an inizialization function
 images = dict.fromkeys(cams)  # @TODO: put this in an inizialization function
 for cam in cams:
     images[cam] = Imageds(cfg.paths.imdir / cam)
-    
+
 cfg = validate_inputs(cfg, images)
 
 """ Perform matching and tracking """
