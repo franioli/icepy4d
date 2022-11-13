@@ -1,7 +1,6 @@
 import numpy as np
 import cv2
 import pickle
-
 from copy import deepcopy
 from shutil import copy as scopy
 
@@ -13,8 +12,7 @@ from lib.sfm.absolute_orientation import (
     Absolute_orientation,
     Space_resection,
 )
-
-from lib.config import parse_yaml_cfg, validate_inputs
+from lib.config import parse_yaml_cfg
 from lib.point_clouds import (
     create_point_cloud,
     write_ply,
@@ -33,43 +31,16 @@ from thirdparty.transformations import euler_from_matrix, euler_matrix
 cfg_file = "./config/config_base.yaml"
 cfg = parse_yaml_cfg(cfg_file)
 
-# Inizialize Variables
-cams = cfg.paths.cam_names
-features = dict.fromkeys(cams)  # @TODO: put this in an inizialization function
+
+''' Inizialize Variables '''
+# @TODO: put this in an inizialization function
+cams = cfg.paths.camera_names
+features = dict.fromkeys(cams)
 
 # Create Image Datastore objects
-images = dict.fromkeys(cams)  # @TODO: put this in an inizialization function
+images = dict.fromkeys(cams)
 for cam in cams:
-    images[cam] = Imageds(cfg.paths.imdir / cam)
-
-cfg = validate_inputs(cfg, images)
-
-""" Perform matching and tracking """
-if cfg.proc.do_matching:
-    features = MatchingAndTracking(
-        cfg=cfg,
-        images=images,
-        features=features,
-    )
-
-elif not features[cams[0]]:
-    last_match_path = "res/last_epoch/last_features.pickle"
-    with open(last_match_path, "rb") as f:
-        features = pickle.load(f)
-        print("Loaded previous matches")
-else:
-    print("Features already present.")
-
-
-""" SfM """
-
-# Initialize variables @TODO: build function for variable inizialization
-cameras = dict.fromkeys(cams)
-cameras[cams[0]], cameras[cams[1]] = [], []
-point_clouds = []
-tform = []
-im_height, im_width = 4000, 6000
-# @TODO: store this information in exif inside an Image Class
+    images[cam] = Imageds(cfg.paths.image_dir / cam)
 
 # Read target image coordinates and object coordinates
 targets = []
@@ -90,6 +61,33 @@ for epoch in cfg.proc.epoch_to_process:
         )
     )
 
+# Cameras
+# @TODO: build function for variable inizialization
+cameras = dict.fromkeys(cams)
+cameras[cams[0]], cameras[cams[1]] = [], []
+im_height, im_width = 4000, 6000
+# @TODO: store this information in exif inside an Image Class
+point_clouds = []
+
+
+""" Perform matching and tracking """
+if cfg.proc.do_matching:
+    MatchingAndTracking(
+        cfg=cfg,
+        images=images,
+        features=features,
+    )
+# features =
+elif not features[cams[0]]:
+    last_match_path = "res/last_epoch/last_features.pickle"
+    with open(last_match_path, "rb") as f:
+        features = pickle.load(f)
+        print("Loaded previous matches")
+else:
+    print("Features already present.")
+
+
+""" SfM """
 
 for epoch in cfg.proc.epoch_to_process:
     # epoch = 0
@@ -105,7 +103,7 @@ for epoch in cfg.proc.epoch_to_process:
             Camera(
                 width=im_width,
                 height=im_height,
-                calib_path=cfg.paths.caldir / f"{cam}.txt",
+                calib_path=cfg.paths.calibration_dir / f"{cam}.txt",
             )
         )
 
