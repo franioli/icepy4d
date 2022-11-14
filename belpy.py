@@ -311,164 +311,18 @@ display_point_cloud(
 )
 
 
-""" Export results in Bundler .out format"""
-from thirdparty.transformations import euler_from_matrix, euler_matrix
-from shutil import copy as scopy
+""" Bundle adjustment with Metashape"""
+# Export results in Bundler format
+write_bundler_out(
+    export_dir = "./res/metashape/"
+    
+)
 
 do_export_to_bundler = True
 
 if do_export_to_bundler:
-    # out_dir = Path('res/bundler_output')
-    print("Exporting results in Bundler format...")
-
-    for epoch in cfg.proc.epoch_to_process:
-        # Output dir by epoch
-        out_dir = create_directory(f"./res/metashape/epoch_{epoch}/data")
-
-        # Write im_list.txt in the same directory
-        file = open(out_dir / f"im_list.txt", "w")
-        for cam in cams:
-            file.write(f"{images[cam].get_image_name(epoch)}\n")
-        file.close()
-
-        # Copy images in subdirectory "images"
-        for cam in cams:
-            im_out_dir = create_directory(out_dir / "images")
-            scopy(
-                images[cam].get_image_path(epoch),
-                im_out_dir / images[cam].get_image_name(epoch),
-            )
-
-        # Write markers to file
-        targets_to_use = ["F2", "F4"]  # 'T4',
-        file = open(out_dir / f"gcps.txt", "w")
-        for target in targets_to_use:
-            for i, cam in enumerate(cams):
-                for x in (
-                    targets[epoch].extract_object_coor_by_label([target]).squeeze()
-                ):
-                    file.write(f"{x:.4f} ")
-                for x in (
-                    targets[epoch]
-                    .extract_image_coor_by_label([target], cam_id=i)
-                    .squeeze()
-                ):
-                    file.write(f"{x:.4f} ")
-                file.write(f"{images[cam].get_image_name(epoch)} ")
-                file.write(f"{target}\n")
-        file.close()
-
-        # Create Bundler output fileadd
-        num_cams = len(cams)
-        num_pts = len(features[cams[0]][epoch])
-        w, h = 6012, 4008
-
-        file = open(out_dir / f"belpy_epoch_{epoch}.out", "w")
-        file.write(f"{num_cams} {num_pts}\n")
-
-        # Write cameras
-        Rx = euler_matrix(np.pi, 0.0, 0.0)
-        for cam in cams:
-            cam_ = deepcopy(cameras[cam][epoch])
-            cam_.pose = cam_.pose @ Rx
-            cam_.pose_to_extrinsics()
-
-            t = cam_.t.squeeze()
-            R = cam_.R
-            file.write(f"{cam_.K[1,1]:.10f} {cam_.dist[0]:.10f} {cam_.dist[1]:.10f}\n")
-            for row in R:
-                file.write(f"{row[0]:.10f} {row[1]:.10f} {row[2]:.10f}\n")
-            file.write(f"{t[0]:.10f} {t[1]:.10f} {t[2]:.10f}\n")
-
-        # Write points
-        obj_coor = np.asarray(point_clouds[epoch].points)
-        obj_col = (np.asarray(point_clouds[epoch].colors) * 255.0).astype(int)
-        im_coor = {}
-        for cam in cams:
-            m = features[cam][epoch].get_keypoints()
-            m[:, 0] = m[:, 0] - w / 2
-            m[:, 1] = h / 2 - m[:, 1]
-            im_coor[cam] = m
-
-        for i in range(num_pts):
-
-            file.write(f"{obj_coor[i][0]} {obj_coor[i][1]} {obj_coor[i][2]}\n")
-            file.write(f"{obj_col[i][0]} {obj_col[i][1]} {obj_col[i][2]}\n")
-            file.write(
-                f"2 0 {i} {im_coor[cams[0]][i][0]:.4f} {im_coor[cams[0]][i][1]:.4f} 1 {i} {im_coor[cams[1]][i][0]:.4f} {im_coor[cams[1]][i][1]:.4f}\n"
-            )
-
-        file.close()
-
-    print("Export completed.")
-
-
-""" Export observations for external BBA """
-export_results_to_file = False
-if export_results_to_file:
-
-    from lib.io import export_keypoints, export_points3D
-
-    epoch = 0
-
-    export_keypoints(
-        "for_bba/keypoints_280722_for_bba.txt",
-        features=features,
-        imageds=images,
-        epoch=epoch,
-    )
-    export_points3D(
-        "for_bba/points3d_280722_for_bba.txt",
-        points3D=np.asarray(point_clouds[epoch].points),
-    )
-
-    # Targets
-    targets[epoch].im_coor[0].to_csv("for_bba/targets_p1.txt", index=False)
-    targets[epoch].im_coor[1].to_csv("for_bba/targets_p2.txt", index=False)
-    targets[epoch].obj_coor.to_csv("for_bba/targets_world.txt", index=False)
-
-
-""" For CALGE"""
-export_results_for_calge = False
-if export_results_for_calge:
-    # CAMERA EXTERIOR ORIENTATION
-    from thirdparty.transformations import euler_from_matrix
-
-    print(cameras[cams[0]][0].get_C_from_pose())
-    print(cameras[cams[1]][0].get_C_from_pose())
-    print(np.array(euler_from_matrix(cameras["p1"][0].R)) * 200 / np.pi)
-    print(np.array(euler_from_matrix(cameras["p2"][0].R)) * 200 / np.pi)
-
-    baseline_world = np.linalg.norm(
-        cfg.georef.camera_centers_world[0] - cfg.georef.camera_centers_world[1]
-    )
-
-    print(baseline_world)
-
-    # SAVE HOMOLOGOUS POINTS
-    # NB: Remember to disable SOR filter when computing 3d coordinates of TPs
-    from lib.io import export_keypoints_for_calge, export_points3D_for_calge
-
-    from thirdparty.transformations import euler_from_matrix
-
-    epoch = 0
-    export_keypoints_for_calge(
-        "simulaCalge/keypoints_280722.txt",
-        features=features,
-        imageds=images,
-        epoch=epoch,
-        pixel_size_micron=3.773,
-    )
-    export_points3D_for_calge(
-        "simulaCalge/points3D_280722.txt",
-        points3D=np.asarray(point_clouds[epoch].points),
-    )
-
-    print(cameras["p1"][0].C)
-    print(cameras["p2"][0].C)
-
-    print(np.array(euler_from_matrix(cameras["p1"][0].R)) * 200 / np.pi)
-    print(np.array(euler_from_matrix(cameras["p2"][0].R)) * 200 / np.pi)
+    #  = Path('res/bundler_output')
+ 
 
 
 """ Compute DSM and orthophotos """
