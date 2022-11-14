@@ -7,7 +7,7 @@ from scipy import stats
 
 from lib.classes import Camera
 from lib.sfm.triangulation import Triangulate
-from lib.misc import convert_to_homogeneous, convert_from_homogeneous
+from lib.utils import convert_to_homogeneous, convert_from_homogeneous
 
 from thirdparty.transformations import (
     affine_matrix_from_points,

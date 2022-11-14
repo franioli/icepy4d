@@ -1,87 +1,129 @@
-from classes import Camera, Imageds
-import os
-import numpy as np
+
 import cv2
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
 from pathlib import Path
+from typing import List, Union
 
-# from lib.classes import Camera, Imageds
-from classes import Camera, Imageds
+# from lib.classes import Imageds
+from classes import Imageds
+from classes_new.images import Image
 
-class Tiles:
 
-    def __init__(self, im_path, overlap=0, origin=[0, 0]):
-        self.im_path = im_path
-        self.grid = {}
-        self.overlap = overlap
-        self.origin = origin
-        self.tile_names = {}
-        self.tile = {}
+class Tiler:
+    '''
+    Class for dividing an image into tiles.
+    '''
+
+    def __init__(
+        self,
+        image: Image,
+        grid: List[int] = [1, 1],
+        overlap: int = 0,
+        origin: List[int] = [0, 0],
+    ) -> None:
+        ''' Initialize class
+        Parameters
+        __________
+        - image (Image):
+        - grid (List[int], default=[1, 1]): List containing the number of rows and number of colums in which to divide the image ([nrows, ncols])
+        - overlap (int, default=0): Number of pixel of overlap between adiacent tiles
+        - origin (List[int], default=[0, 0]): List of coordinates [x,y] of the pixel from which the tiling starts (top-left corner of the first tile)
+        __________
+        Return: None
+        '''
+
+        self._image = image
+        self._im_path = image.path
+        self._w = int(self._image.width)
+        self._h = int(self._image.height)
+        self._origin = origin
+        self._overlap = overlap
+        self._nrow = grid[0]
+        self._ncol = grid[1]
         self.limits = {}
+        self.tiles = {}
 
-    def compute_grid(self,):
-        print('method not implemented yet')
+    @property
+    def grid(self) -> List:
+        return [self._nrow, self._ncol]
 
-    def generate_tiles(self):
-        print('method not implemented yet')
+    @property
+    def tiles_limits(self) -> dict:
+        return self.limits
 
+    def compute_limits_by_grid(self) -> None:
+        ''' Method to compute the limits of each tile (i.e. xmin,ymin,xmax,xmax), given the number or row and columns of the tile grid.
 
-    def print_tiles(self):
-        print('method not implemented yet')
+        Returns a dictionary containing the index of the tile (in row-major order, C-style) and a list of the bounding box coordinates as: 
+        {0,[xmin, xmax, ymin, ymax]}
+        {1,[xmin, xmax, ymin, ymax]}
+        ....
+        '''
 
+        DX = round(
+            (self._w - self._origin[0]) / self._ncol / 10
+        ) * 10
+        DY = round(
+            (self._h - self._origin[1]) / self._nrow / 10
+        ) * 10
 
-        # for idx in tiles.tile_idx:
-        #     plt.subplot(tile_grid[0], tile_grid[1], idx+1)
-        #     plt.imshow(tiles.tiles[idx])
-        # plt.show()
+        for col in range(self._ncol):
+            for row in range(self._nrow):
+                tile_idx = np.ravel_multi_index(
+                    (row, col),
+                    (self._nrow, self._ncol),
+                    order='C'
+                )
+                xmin = max(self._origin[0], col*DX - self._overlap)
+                ymin = max(self._origin[1], row*DY - self._overlap)
+                xmax = xmin + DX + self._overlap - 1
+                ymax = ymin + DY + self._overlap - 1
+                self.limits[tile_idx] = (
+                    xmin, ymin, xmax, ymax
+                )
 
-        # fig, ax = plt.subplots(tile_grid[0], tile_grid[1])
-        # for idx in tiles.tile_idx:
-        #     i, j = np.unravel_index(idx, tile_grid, order='F')
-        #     ax[i][j].imshow(tiles.tiles[idx])
-        # fig.show()
+    def read_all_tiles(self) -> None:
+        '''Read all tiles and store them in class instance '''
+        assert self._im_path is not None, 'Invalid image path'
+        for idx, limit in self.limits.items():
+            self.tiles[idx] = self._image.extract_patch(limit)
 
+    def read_tile(self, idx) -> np.ndarray:
+        ''' Extract tile given its idx (int) and return it '''
+        assert self._im_path is not None, 'Invalid image path'
+        return self._image.extract_patch(self.limits[idx])
 
-def generateTiles(image, rowDivisor=2, colDivisor=2, overlap=200, viz=False, out_dir='tiles', writeTile2Disk=True):
-    assert not (image is None), 'Invalid image input'
-
-    image = image.astype('float32')
-    H = image.shape[0]
-    W = image.shape[1]
-    DY = round(H/rowDivisor/10)*10
-    DX = round(W/colDivisor/10)*10
-    dim = (rowDivisor, colDivisor)
-
-    tiles = []
-    limits = []
-    for col in range(0, colDivisor):
-        for row in range(0, rowDivisor):
-            tileIdx = np.ravel_multi_index((row, col), dim, order='F')
-            limits.append((max(0, col*DX - overlap),
-                           max(0, row*DY - overlap),
-                           max(0, col*DX - overlap) + DX+overlap,
-                           max(0, row*DY - overlap) + DY+overlap))
-            # print(f'Tile {tileIdx}: xlim = ({ limits[tileIdx][0], limits[tileIdx][2]}), ylim = {limits[tileIdx][1], limits[tileIdx][3]}')
-            tile = image[limits[tileIdx][1]:limits[tileIdx][3],
-                         limits[tileIdx][0]:limits[tileIdx][2]]
-            tiles.append(tile)
-            if writeTile2Disk:
-                isExist = os.path.exists(out_dir)
-                if not isExist:
-                    os.makedirs(out_dir)
-                cv2.imwrite(os.path.join(out_dir, 'tile_'+str(tileIdx)+'_'
-                                         + str(limits[tileIdx][0])+'_'+str(limits[tileIdx][1])+'.jpg'), tile)
-
-    return tiles, limits
+    def remove_tiles(self, tile_idx) -> None:
+        if tile_idx is None:
+            self.tiles = {}
+        else:
+            self.tiles[idx] = []
 
 
 if __name__ == '__main__':
     '''Test classes '''
 
-    images = Imageds(Path('data/img/p0'))
-    img = images[0]
-    tiles = Tiles(img)
-    print(img.shape)
+    images = Imageds(Path('data/img2022/p1'))
+    img = Image(images.get_image_path(0))
 
+    tile_grid = (2, 1)
+    origin = (1000, 0)
+
+    tiles = Tiler(
+        img,
+        grid=tile_grid,
+        origin=origin,
+    )
+
+    tiles.compute_limits_by_grid()
+
+    t = tiles.read_tile(1)
+
+    tiles.read_all_tiles()
+
+    for idx, tile in tiles.tiles.items():
+        plt.subplot(tile_grid[0], tile_grid[1], idx+1)
+        plt.imshow(tile)
+    plt.show()

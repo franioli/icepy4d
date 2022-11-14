@@ -22,26 +22,154 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '''
 
+import os
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import rasterio
+import time
 
-from rasterio.transform import Affine
-from scipy.interpolate import (interp2d,
-                               griddata,
-                               CloughTocher2DInterpolator,
-                               LinearNDInterpolator,
-                               )
+from collections import OrderedDict
 from pathlib import Path
 from PIL import Image
+from rasterio.transform import Affine
+from scipy.interpolate import (interp2d,
+                               LinearNDInterpolator,
+                               )
 
 from lib.classes import Camera
 from lib.geometry import project_points
-from lib.misc import create_directory
 
-'''TODO: Reorganize the code in utils.py and put functions in better places'''
+
+# --- File system ---#
+
+def create_directory(path):
+    """
+    Creates a directory, if it does not exist.
+    """
+    path = Path(path)
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+# --- MAT ---#
+
+
+def convert_to_homogeneous(x):
+    '''
+    Convert 2xn or 3xn vector of n points in euclidean coordinates 
+    to a 3xn or 4xn vector homogeneous by adding a row of ones
+    '''
+    x = np.array(x)
+    ndim, npts = x.shape
+    if ndim != 2 and ndim != 3:
+        print('Error: wrong number of dimension of the input vector.\
+              A number of dimensions (rows) of 2 or 3 is required.')
+        return None
+    x1 = np.concatenate((x, np.ones((1, npts), 'float32')), axis=0)
+    return x1
+
+
+def convert_from_homogeneous(x):
+    '''
+    Convert 3xn or 4xn vector of n points in homogeneous coordinates 
+    to a 2xn or 3xn vector in euclidean coordinates, by dividing by the 
+    homogeneous part of the vector (last row) and removing one dimension
+    '''
+    x = np.array(x)
+    ndim, npts = x.shape
+    if ndim != 3 and ndim != 4:
+        print('Error: wrong number of dimension of the input vector.\
+              A number of dimensions (rows) of 2 or 3 is required.')
+        return None
+    x1 = x[:ndim-1, :] / x[ndim-1, :]
+    return x1
+
+
+def skew_symmetric(x):
+    '''  Return skew symmetric matrix from input matrix x '''
+    return np.array([[0, -x[2], x[1]], [x[2], 0, -x[0]], [-x[1], x[0], 0]])
+
+
+def compute_rmse(observed, predicted):
+    ''' Compute RMSE between predicted and observed values'''
+    return np.sqrt(((observed - predicted) ** 2).mean())
+
+def compute_reprojection_error(observed, projected):
+    ''' Compute reprojection error
+    Parameters
+    ----------
+    observed : nx2 numpy array of float32
+        array of observed image coordinates (usually, detected keypoints)
+    projected : nx2 numpy array of float32
+        array of image coordinates of projected points
+        
+    Returns
+    -------
+    err : nx3 numpy array of float32
+        Reprojection error as in x, y direction and magnitude
+    rmse : 2x1 numpy array of float32
+      RMSE of the reprojection error in x, y directions
+    '''
+    npts = len(observed)
+    
+    err = np.zeros((npts,3), 'float32')
+    err[:, 0:2] = observed - projected  
+    err[:, 2:3] = np.linalg.norm(err[:,0:2] , axis=1).reshape((npts,1))
+    
+    rmse = np.zeros((2,1), 'float32')
+    for i in range(2):
+        rmse[i] = compute_rmse(observed[:,i], projected[:,i])
+    
+    return err, rmse
+    
+
+# --- Tiles ---#
+# @TODO: TO be moved in a separate class
+
+def generateTiles(image, rowDivisor=2, colDivisor=2, overlap=200, viz=False, out_dir='tiles', writeTile2Disk=True):
+    assert not (image is None), 'Invalid image input'
+
+    image = image.astype('float32')
+    H = image.shape[0]
+    W = image.shape[1]
+    DY = round(H/rowDivisor/10)*10
+    DX = round(W/colDivisor/10)*10
+    dim = (rowDivisor, colDivisor)
+
+    # TODO: implement checks on image dimension
+    # Check image dimensions
+    # if not W % colDivisor == 0:
+    #     print('Number of columns non divisible by the ColDivisor. Removing last column.')
+    #     image = image[:, 0:-1]
+    # if not H % rowDivisor == 0:
+    #     print('Number of rows non divisible by the RowDivisor. Removing last row')
+    #     image = image[0:-1, :]
+
+    tiles = []
+    limits = []
+    for col in range(0, colDivisor):
+        for row in range(0, rowDivisor):
+            tileIdx = np.ravel_multi_index((row, col), dim, order='F')
+            limits.append((max(0, col*DX - overlap),
+                           max(0, row*DY - overlap),
+                           max(0, col*DX - overlap) + DX+overlap,
+                           max(0, row*DY - overlap) + DY+overlap))
+            # print(f'Tile {tileIdx}: xlim = ({ limits[tileIdx][0], limits[tileIdx][2]}), ylim = {limits[tileIdx][1], limits[tileIdx][3]}')
+            tile = image[limits[tileIdx][1]:limits[tileIdx][3],
+                         limits[tileIdx][0]:limits[tileIdx][2]]
+            tiles.append(tile)
+            if writeTile2Disk:
+                isExist = os.path.exists(out_dir)
+                if not isExist:
+                    os.makedirs(out_dir)
+                cv2.imwrite(os.path.join(out_dir, 'tile_'+str(tileIdx)+'_'
+                                         + str(limits[tileIdx][0])+'_'+str(limits[tileIdx][1])+'.jpg'), tile)
+
+    return tiles, limits
+
+# --- Color interpolation ---#
 
 
 def interpolate_point_colors(points3d, image, camera: Camera, convert_BRG2RGB=True):
@@ -61,10 +189,7 @@ def interpolate_point_colors(points3d, image, camera: Camera, convert_BRG2RGB=Tr
         Nx(num_channels) colour matrix, as float numbers (normalized in [0,1])
     -------
     '''
-    # import pdb
-    # pdb.set_trace()
 
-    # TODO: implement new checks on Camera inputs
     assert image.ndim == 3, 'invalid input image. Image has not 3 channel'
 
     if convert_BRG2RGB:
@@ -129,7 +254,7 @@ def bilinear_interpolate(im, x, y):
 
 
 def interpolate_point_colors_interp2d(pointxyz, image, P, K=None, dist=None, winsz=1):
-    '''' Deprecated function (too slow)
+    '''' Deprecated function (too slow). Use bilinear_interpolate instead
     Interpolate color of a 3D sparse point cloud, given an oriented image
       Inputs:  
        - Nx3 matrix with 3d world points coordinates
@@ -170,9 +295,9 @@ def interpolate_point_colors_interp2d(pointxyz, image, P, K=None, dist=None, win
     return col
 
 
-#---- DSM ---##
+# ---- DSM ---##
 class DSM:
-    # TODO: define new better class
+    # @TODO: define new better class
     ''' Class to store and manage DSM. '''
 
     def __init__(self, xx, yy, zz, res):
@@ -237,19 +362,12 @@ def build_dsm(points3d, dsm_step=1, xlim=None, ylim=None,
     z = binned_arr[:, 2].astype('float32')
 
     # Interpolate dsm
-    # import pdb; pdb.set_trace()
     xq = np.arange(xlim[0], xlim[1], dsm_step)
     yq = np.arange(ylim[0], ylim[1], dsm_step)
     grid_x, grid_y = np.meshgrid(xq, yq)
 
     if fill_value == 'mean':
         fill_value = z.mean()
-
-    # dsm_grid = griddata((x, y), z, (grid_x, grid_y),
-    #                     method=interp_method,
-    #                     fill_value=fill_value,
-    #                     )
-    # interp = CloughTocher2DInterpolator(list(zip(x, y)), z)
 
     interp = LinearNDInterpolator(list(zip(x, y)), z,
                                   fill_value=fill_value,
@@ -378,3 +496,47 @@ def generate_ortophoto(image, dsm, camera: Camera,
             dst.write(np.moveaxis(ortophoto, -1, 0))
 
     return ortophoto
+
+# Timer
+
+
+class AverageTimer:
+    """ Class to help manage printing simple timing of code execution. """
+
+    def __init__(self, smoothing=0.3, newline=False):
+        self.smoothing = smoothing
+        self.newline = newline
+        self.times = OrderedDict()
+        self.will_print = OrderedDict()
+        self.reset()
+
+    def reset(self):
+        now = time.time()
+        self.start = now
+        self.last_time = now
+        for name in self.will_print:
+            self.will_print[name] = False
+
+    def update(self, name='default'):
+        now = time.time()
+        dt = now - self.last_time
+        if name in self.times:
+            dt = self.smoothing * dt + (1 - self.smoothing) * self.times[name]
+        self.times[name] = dt
+        self.will_print[name] = True
+        self.last_time = now
+
+    def print(self, text='Timer'):
+        total = 0.
+        print('[{}]'.format(text), end=' ')
+        for key in self.times:
+            val = self.times[key]
+            if self.will_print[key]:
+                print('%s=%.3f' % (key, val), end=' ')
+                total += val
+        print('total=%.3f sec {%.1f FPS}' % (total, 1./total), end=' ')
+        if self.newline:
+            print(flush=True)
+        else:
+            print(end='\r', flush=True)
+        self.reset()
