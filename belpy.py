@@ -1,8 +1,7 @@
 import numpy as np
 import cv2
 import pickle
-from copy import deepcopy
-from shutil import copy as scopy
+from pathlib import Path
 
 from lib.classes import Camera, Imageds, Features, Targets
 from lib.matching.matching_base import MatchingAndTracking
@@ -23,6 +22,7 @@ from lib.utils import (
     generate_ortophoto,
 )
 from lib.visualization import display_point_cloud
+from lib.import_export.export2bundler import write_bundler_out
 
 from thirdparty.transformations import euler_from_matrix, euler_matrix
 
@@ -160,7 +160,7 @@ for epoch in cfg.proc.epoch_to_process:
     )
 
     # --- Absolute orientation (-> coregistration on stable points) ---#
-    targets_to_use = ["F2"]  # 'T4',
+    targets_to_use = ["F2", "F4"]  # 'T4',
     abs_ori = Absolute_orientation(
         (cameras[cams[0]][epoch], cameras[cams[1]][epoch]),
         points3d_final=targets[epoch].extract_object_coor_by_label(targets_to_use),
@@ -174,9 +174,7 @@ for epoch in cfg.proc.epoch_to_process:
     # uncertainty = np.array([
     #     [1., 1., 1.],
     #     [0.001, 0.001, 0.001],
-    #     [0.001, 0.001, 0.001],
-    #     ])
-    # T = abs_ori.estimate_transformation_least_squares(uncertainty=uncertainty)
+    #     [0.001, 0.001, 0.001]cfg.proc.epoch_to_processnsformation_least_squares(uncertainty=uncertainty)
     points3d = abs_ori.apply_transformation(points3d=points3d)
     for i, cam in enumerate(cams):
         cameras[cam][epoch] = abs_ori.cameras[i]
@@ -185,12 +183,10 @@ for epoch in cfg.proc.epoch_to_process:
     pcd_epc = create_point_cloud(points3d, triangulation.colors)
 
     # Filter outliers in point cloud with SOR filter
-    # if cfg.other.do_SOR_filter:
-    #     _, ind = pcd_epc.remove_statistical_outlier(nb_neighbors=10,
-    #                                                 std_ratio=3.0)
-    #     #     display_pc_inliers(pcd_epc, ind)
-    #     pcd_epc = pcd_epc.select_by_index(ind)
-    #     print('Point cloud filtered by Statistical Oulier Removal')
+    if cfg.other.do_SOR_filter:
+        _, ind = pcd_epc.remove_statistical_outlier(nb_neighbors=10, std_ratio=3.0)
+        pcd_epc = pcd_epc.select_by_index(ind)
+        print("Point cloud filtered by Statistical Oulier Removal")
 
     # Write point cloud to disk and store it in Point Cloud List
     write_ply(pcd_epc, f"res/pt_clouds/sparse_pts_t{epoch}.ply")
@@ -209,15 +205,21 @@ display_point_cloud(
 
 """ Bundle adjustment with Metashape"""
 # Export results in Bundler format
-# write_bundler_out(
-#     export_dir = "./res/metashape/"
-
-# )
-
-# do_export_to_bundler = True
-
-# if do_export_to_bundler:
-#     #  = Path('res/bundler_output')
+do_export_to_bundler = True
+if do_export_to_bundler:
+    export_dir = Path("res/metashape/")
+    targets_to_use = ["F2", "F4"]  # 'T4',
+    write_bundler_out(
+        export_dir=export_dir,
+        epoches=cfg.proc.epoch_to_process,
+        images=images,
+        cams=cams,
+        cameras=cameras,
+        features=features,
+        point_clouds=point_clouds,
+        targets=targets,
+        targets_to_use=targets_to_use,
+    )
 
 
 """ Compute DSM and orthophotos """

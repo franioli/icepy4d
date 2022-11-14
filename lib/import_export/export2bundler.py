@@ -1,21 +1,42 @@
 import numpy as np
+import open3d as o3d
 
 from pathlib import Path
+from copy import deepcopy
 from shutil import copy as scopy
 from typing import Union, List
 
-from lib.classes import Features, Imageds
-from lib.misc import create_directory
+from lib.classes import Features, Imageds, Targets
+from lib.utils import create_directory
 from thirdparty.transformations import euler_from_matrix, euler_matrix
 
 
 def write_bundler_out(
-    export_dir: Union[str, Path], epoch: Union[int, List[int]]
+    export_dir: Union[str, Path],
+    epoches: List[int],
+    images: dict,
+    cams: List[str],
+    cameras: dict,
+    features: dict,
+    point_clouds: List[o3d.geometry.PointCloud],
+    targets: List[Targets] = [],
+    targets_to_use: List[str] = [],
 ) -> None:
-
+    """
+    Export solution in Bundler .out format.
+    Refers to the official website for information about the .out format.
+    https://www.cs.cornell.edu/~snavely/bundler/bundler-v0.4-manual.html#S6
+    __________
+    Parameters:
+    -
+    __________
+    Return
+        None
+    """
     print("Exporting results in Bundler format...")
 
-    for epoch in cfg.proc.epoch_to_process:
+    for epoch in epoches:
+        # for epoch in cfg.proc.epoch_to_process:
         # Output dir by epoch
         out_dir = create_directory(f"epoch_{epoch}/data")
 
@@ -34,7 +55,6 @@ def write_bundler_out(
             )
 
         # Write markers to file
-        targets_to_use = ["F2", "F4"]  # 'T4',
         file = open(out_dir / f"gcps.txt", "w")
         for target in targets_to_use:
             for i, cam in enumerate(cams):
@@ -95,3 +115,7 @@ def write_bundler_out(
         file.close()
 
     print("Export completed.")
+
+
+if __name__ == "main":
+    pass
