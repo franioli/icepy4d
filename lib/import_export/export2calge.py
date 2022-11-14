@@ -104,27 +104,3 @@ def export_points3D_for_calge(
 
 if __name__ == "main":
     pass
-
-
-""" For CALGE"""
-export_results_for_calge = False
-if export_results_for_calge:
-    # CAMERA EXTERIOR ORIENTATION
-    from thirdparty.transformations import euler_from_matrix
-    from lib.io import export_keypoints_for_calge, export_points3D_for_calge
-
-    # SAVE HOMOLOGOUS POINTS
-    # NB: Remember to disable SOR filter when computing 3d coordinates of TPs
-
-    epoch = 0
-    export_keypoints_for_calge(
-        "simulaCalge/keypoints_280722.txt",
-        features=features,
-        imageds=images,
-        epoch=epoch,
-        pixel_size_micron=3.773,
-    )
-    export_points3D_for_calge(
-        "simulaCalge/points3D_280722.txt",
-        points3D=np.asarray(point_clouds[epoch].points),
-    )
