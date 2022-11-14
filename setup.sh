@@ -1,3 +1,0 @@
-# Setup belpy
-# 
-# Francesco Ioli

@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 import os
 
+
 def process_resize(w, h, resize):
     assert len(resize) > 0 and len(resize) <= 2
     if len(resize) == 1 and resize[0] > -1:
