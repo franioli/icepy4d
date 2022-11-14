@@ -32,7 +32,7 @@ cfg_file = "./config/config_base.yaml"
 cfg = parse_yaml_cfg(cfg_file)
 
 
-''' Inizialize Variables '''
+""" Inizialize Variables """
 # @TODO: put this in an inizialization function
 cams = cfg.paths.camera_names
 features = dict.fromkeys(cams)
@@ -56,8 +56,7 @@ for epoch in cfg.proc.epoch_to_process:
 
     targets.append(
         Targets(
-            im_file_path=[
-                p1_path, p2_path], obj_file_path="data/target_world_p1.csv"
+            im_file_path=[p1_path, p2_path], obj_file_path="data/target_world_p1.csv"
         )
     )
 
@@ -136,8 +135,7 @@ for epoch in cfg.proc.epoch_to_process:
         threshold=1.5,
         confidence=0.999999,
         scale_factor=np.linalg.norm(
-            cfg.georef.camera_centers_world[0] -
-            cfg.georef.camera_centers_world[1]
+            cfg.georef.camera_centers_world[0] - cfg.georef.camera_centers_world[1]
         ),
     )
     # Store result in camera 1 object
@@ -165,13 +163,10 @@ for epoch in cfg.proc.epoch_to_process:
     targets_to_use = ["F2"]  # 'T4',
     abs_ori = Absolute_orientation(
         (cameras[cams[0]][epoch], cameras[cams[1]][epoch]),
-        points3d_final=targets[epoch].extract_object_coor_by_label(
-            targets_to_use),
+        points3d_final=targets[epoch].extract_object_coor_by_label(targets_to_use),
         image_points=(
-            targets[epoch].extract_image_coor_by_label(
-                targets_to_use, cam_id=0),
-            targets[epoch].extract_image_coor_by_label(
-                targets_to_use, cam_id=1),
+            targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=0),
+            targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=1),
         ),
         camera_centers_world=cfg.georef.camera_centers_world,
     )
@@ -214,16 +209,15 @@ display_point_cloud(
 
 """ Bundle adjustment with Metashape"""
 # Export results in Bundler format
-write_bundler_out(
-    export_dir = "./res/metashape/"
-    
-)
+# write_bundler_out(
+#     export_dir = "./res/metashape/"
 
-do_export_to_bundler = True
+# )
 
-if do_export_to_bundler:
-    #  = Path('res/bundler_output')
- 
+# do_export_to_bundler = True
+
+# if do_export_to_bundler:
+#     #  = Path('res/bundler_output')
 
 
 """ Compute DSM and orthophotos """
