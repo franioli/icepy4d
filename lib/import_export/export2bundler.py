@@ -39,7 +39,8 @@ def write_bundler_out(
     for epoch in epoches:
         # for epoch in cfg.proc.epoch_to_process:
         # Output dir by epoch
-        out_dir = create_directory(export_dir / f"epoch_{epoch}/data")
+        # out_dir = create_directory(export_dir / f"epoch_{epoch}/data")
+        out_dir = create_directory(export_dir / "data")
 
         # Write im_list.txt in the same directory
         file = open(out_dir / f"im_list.txt", "w")

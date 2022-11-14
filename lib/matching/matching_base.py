@@ -43,7 +43,7 @@ def MatchingAndTracking(
     for epoch in cfg.proc.epoch_to_process:
         print(f"Processing epoch {epoch}...")
 
-        epochdir = Path(cfg.paths.results_dir) / f"epoch_{epoch}"
+        epochdir = Path(cfg.paths.results_dir) / f"epoch_{epoch}/matching"
 
         # -- Find Matches at current epoch --#
         print(f"Run Superglue to find matches at epoch {epoch}")
