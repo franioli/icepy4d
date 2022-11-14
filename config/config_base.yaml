@@ -14,7 +14,7 @@ proc:
 
   #- Switches to find and track matches
   do_matching: True
-  do_tracking: False
+  do_tracking: True
 
   #- Coregistration switches
   # If True try to coregister point clouds based on n double points

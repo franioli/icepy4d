@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 import pickle
 from pathlib import Path
+from easydict import EasyDict as edict
 
 from lib.classes import Camera, Imageds, Features, Targets
 from lib.matching.matching_base import MatchingAndTracking
@@ -26,6 +27,7 @@ from lib.import_export.export2bundler import write_bundler_out
 
 from thirdparty.transformations import euler_from_matrix, euler_matrix
 
+from lib.metashape.metashape import MetashapeProject
 
 # Parse options from yaml file
 cfg_file = "./config/config_base.yaml"
@@ -87,10 +89,15 @@ else:
 
 
 """ SfM """
+do_export_to_bundler = True
+do_metashape_bba = True
+do_metashape_dense = True
 
 for epoch in cfg.proc.epoch_to_process:
     # epoch = 0
     print(f"Reconstructing epoch {epoch}...")
+
+    epochdir = Path(cfg.paths.results_dir) / f"epoch_{epoch}"
 
     # Initialize Intrinsics
     """ Inizialize Camera Intrinsics at every epoch setting them equal to
@@ -189,8 +196,77 @@ for epoch in cfg.proc.epoch_to_process:
         print("Point cloud filtered by Statistical Oulier Removal")
 
     # Write point cloud to disk and store it in Point Cloud List
-    write_ply(pcd_epc, f"res/pt_clouds/sparse_pts_t{epoch}.ply")
+    # write_ply(pcd_epc, f"res/pt_clouds/sparse_pts_t{epoch}.ply")
+    write_ply(pcd_epc, epochdir / f"sparse_pts_t{epoch}.ply")
     point_clouds.append(pcd_epc)
+
+    # Export results in Bundler format
+    if do_export_to_bundler:
+        targets_to_use = ["F2", "F4"]  # 'T4',
+        write_bundler_out(
+            export_dir=epochdir / "metashape",
+            epoches=[epoch],
+            images=images,
+            cams=cams,
+            cameras=cameras,
+            features=features,
+            point_clouds=point_clouds,
+            targets=targets,
+            targets_to_use=targets_to_use,
+        )
+
+    """" TO be organized!a"""
+
+    # Metashape BBA and dense cloud
+    if do_metashape_bba:
+        root_path = Path("/home/francesco/phd/belpy")
+        ms_dir = Path(root_path / f"res/epoch_{epoch}/metashape")
+        ms_cfg = edict(
+            {
+                "project_name": ms_dir / f"belpy_epoch_{epoch}.psx",
+                "im_path": ms_dir / "data/images/",
+                "bundler_file_path": ms_dir / f"data/belpy_epoch_{epoch}.out",
+                "bundler_im_list": ms_dir / "data/im_list.txt",
+                "gcp_filename": ms_dir / "data/gcps.txt",
+                "calib_filename": [
+                    root_path / "res/calib_metashape/belpy_35mm_280722_selfcal_all.xml",
+                    root_path / "res/calib_metashape/belpy_24mm_280722_selfcal_all.xml",
+                ],
+                "im_ext": "jpg",
+                "camera_location": [
+                    [309.261, 301.051, 135.008],  # IMG_1289
+                    [151.962, 99.065, 91.643],  # IMG_2814
+                ],
+                "gcp_accuracy": [0.01, 0.01, 0.01],
+                "cam_accuracy": [0.001, 0.001, 0.001],
+                "prm_to_fix": [
+                    "Cx",
+                    "Cy",
+                    "B1",
+                    "B2",
+                    "K1",
+                    "K2",
+                    "K3",
+                    "K4",
+                    "P1",
+                    "P2",
+                ],
+                "optimize_cameras": True,
+                "build_dense": True,
+                "dense_path": ms_dir,
+                "dense_name": f"dense_epoch_{epoch}.ply",
+                "force_overwrite_projects": True,
+            }
+        )
+
+        print("Processing started:")
+        print("-----------------------")
+
+        ms = MetashapeProject(ms_cfg)
+        ms.process_full_workflow()
+
+        print(f"Completed.\n")
+
 
 print("Done.")
 
@@ -203,23 +279,26 @@ display_point_cloud(
 )
 
 
-""" Bundle adjustment with Metashape"""
-# Export results in Bundler format
-do_export_to_bundler = True
-if do_export_to_bundler:
-    export_dir = Path("res/metashape/")
-    targets_to_use = ["F2", "F4"]  # 'T4',
-    write_bundler_out(
-        export_dir=export_dir,
-        epoches=cfg.proc.epoch_to_process,
-        images=images,
-        cams=cams,
-        cameras=cameras,
-        features=features,
-        point_clouds=point_clouds,
-        targets=targets,
-        targets_to_use=targets_to_use,
-    )
+# """ Bundle adjustment with Metashape"""
+# # Export results in Bundler format
+# do_export_to_bundler = True
+# if do_export_to_bundler:""" Bundle adjustment with Metashape"""
+# # Export results in Bundler format
+# do_export_to_bundler = True
+# if do_export_to_bundler:
+#     export_dir = Path("res/metashape/")
+#     targets_to_use = ["F2", "F4"]  # 'T4',
+#     write_bundler_out(
+#         export_dir=export_dir,
+#         epoches=cfg.proc.epoch_to_process,
+#         images=images,
+#         cams=cams,
+#         cameras=cameras,
+#         features=features,
+#         point_clouds=point_clouds,
+#         targets=targets,
+#         targets_to_use=targets_to_use,
+#     )
 
 
 """ Compute DSM and orthophotos """
