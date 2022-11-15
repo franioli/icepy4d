@@ -12,7 +12,7 @@ from pathlib import Path
 from lib.classes import Features
 from lib.matching.match_pairs import match_pair
 from lib.matching.track_matches import track_matches
-from lib.utils import create_directory
+from lib.utils.utils import create_directory
 
 # class MatchingBase(abc):
 

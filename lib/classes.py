@@ -1,4 +1,4 @@
-'''
+"""
 MIT License
 
 Copyright (c) 2022 Francesco Ioli
@@ -20,7 +20,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-'''
+"""
 
 import os
 import cv2
@@ -33,21 +33,27 @@ from typing import List, Union
 from scipy import linalg
 from pathlib import Path
 
-#--- Camera ---#
+# --- Camera ---#
 
 
 class Camera:
-    ''' Class to help manage Cameras. '''
+    """Class to help manage Cameras."""
+
     # @TODO =: revise all Camera methods, integrate build_pose_matrix
     # (from belpy.ipynb), build method to completely update Camera object
     # add method to compute camera pose relatevely to another pose
 
-    def __init__(self, width=None, height=None,
-                 K=None, dist=None,
-                 R=None, t=None,
-                 calib_path=None
-                 ):
-        ''' Initialize pinhole camera model '''
+    def __init__(
+        self,
+        width=None,
+        height=None,
+        K=None,
+        dist=None,
+        R=None,
+        t=None,
+        calib_path=None,
+    ):
+        """Initialize pinhole camera model"""
         # TODO: add checks on inputs
         # If not None, convert inputs to np array
         if K is not None:
@@ -62,13 +68,13 @@ class Camera:
 
         self.width = width  # Image width [px]
         self.height = height  # Image height [px]
-        self.K = K          # Calibration matrix (Intrisics)
-        self.dist = dist    # Distortion vector in OpenCV format
-        self.R = R      # rotation matrix (from world to cam)
-        self.t = t      # translation vector (from world to cam)
-        self.P = None   # Projection matrix (from world to cam)
-        self.C = None   # camera center (in world coordinates)
-        self.pose = None    # Pose matrix
+        self.K = K  # Calibration matrix (Intrisics)
+        self.dist = dist  # Distortion vector in OpenCV format
+        self.R = R  # rotation matrix (from world to cam)
+        self.t = t  # translation vector (from world to cam)
+        self.P = None  # Projection matrix (from world to cam)
+        self.C = None  # camera center (in world coordinates)
+        self.pose = None  # Pose matrix
         # (describes change of basis from camera to world)
         self.extrinsics = None  # Extriniscs matrix
         # (describes change of basis from world to cam)
@@ -83,7 +89,7 @@ class Camera:
             # self.C_from_P()
 
     def reset_EO(self):
-        ''' Reset camera EO as to make camera reference system parallel to world reference system '''
+        """Reset camera EO as to make camera reference system parallel to world reference system"""
         self.extrinsics = np.eye(4)
         self.update_camera_from_extrinsics()
         self.extrinsics_to_pose()
@@ -93,10 +99,9 @@ class Camera:
         # self.P = P_from_KRT(self.K, self.R, self.t)
         # self.C_from_P()
 
-    def build_camera_EO(self,
-                        extrinsics: np.ndarray = None,
-                        pose: np.ndarray = None
-                        ) -> None:
+    def build_camera_EO(
+        self, extrinsics: np.ndarray = None, pose: np.ndarray = None
+    ) -> None:
 
         if extrinsics is not None:
             self.extrinsics = extrinsics
@@ -110,39 +115,39 @@ class Camera:
 
         else:
             raise ValueError(
-                'Not enough data to build Camera External Orientation matrixes.')
+                "Not enough data to build Camera External Orientation matrixes."
+            )
 
-    def build_pose_matrix(self,
-                          R: np.ndarray,
-                          C: np.ndarray) -> None:
+    def build_pose_matrix(self, R: np.ndarray, C: np.ndarray) -> None:
         # Check for input dimensions
         if R.shape != (3, 3):
             raise ValueError(
-                'Wrong dimension of the R matrix. It must be a 3x3 numpy array')
+                "Wrong dimension of the R matrix. It must be a 3x3 numpy array"
+            )
         if C.shape == (3,) or C.shape == (1, 3):
             C = C.T
         elif C.shape != (3, 1):
             raise ValueError(
-                'Wrong dimension of the C vector. It must be a 3x1 or a 1x3 numpy array')
+                "Wrong dimension of the C vector. It must be a 3x1 or a 1x3 numpy array"
+            )
 
         self.pose = np.eye(4)
         self.pose[0:3, 0:3] = R
         self.pose[0:3, 3:4] = C
 
     def Rt_to_extrinsics(self):
-        '''
+        """
         [ R | t ]    [ I | t ]   [ R | 0 ]
         | --|-- |  = | --|-- | * | --|-- |
         [ 0 | 1 ]    [ 0 | 1 ]   [ 0 | 1 ]
-        '''
+        """
         R_block = self.build_block_matrix(self.R)
         t_block = self.build_block_matrix(self.t)
         self.extrinsics = np.dot(t_block, R_block)
         return self.extrinsics
 
     def extrinsics_to_pose(self):
-        '''
-        '''
+        """ """
         if self.extrinsics is None:
             self.Rt_to_extrinsics()
 
@@ -160,10 +165,9 @@ class Camera:
         return self.pose
 
     def pose_to_extrinsics(self):
-        ''' 
-        '''
+        """ """
         if self.pose is None:
-            print('Camera pose not available. Compute it first.')
+            print("Camera pose not available. Compute it first.")
             return None
         else:
             Rc = self.pose[0:3, 0:3]
@@ -180,11 +184,9 @@ class Camera:
             return self.extrinsics
 
     def update_camera_from_extrinsics(self):
-        '''
-
-        '''
+        """ """
         if self.extrinsics is None:
-            print('Camera extrinsics not available. Compute it first.')
+            print("Camera extrinsics not available. Compute it first.")
             return None
         else:
             self.R = self.extrinsics[0:3, 0:3]
@@ -193,49 +195,46 @@ class Camera:
             self.C_from_P()
 
     def get_C_from_pose(self):
-        '''
-
-        '''
+        """ """
         return self.pose[0:3, 3:4]
 
     def C_from_P(self):
-        '''
+        """
         Compute and return the camera center from projection matrix P, as
         C = [- inv(KR) * Kt] = [-inv(P[1:3]) * P[4]]
-        '''
+        """
         # if self.C is not None:
         #     return self.C
         # else:
-        self.C = - \
-            np.dot(np.linalg.inv(self.P[:, 0:3]), self.P[:, 3].reshape(3, 1))
+        self.C = -np.dot(np.linalg.inv(self.P[:, 0:3]), self.P[:, 3].reshape(3, 1))
         return self.C
 
     def t_from_RC(self):
-        ''' Deprecrated function. Use extrinsics_to_pose instead.
+        """Deprecrated function. Use extrinsics_to_pose instead.
         Compute and return the camera translation vector t, given the camera
         centre and the roation matrix X, as
         t = [-R * C]
         The relation is derived from the formula of the camera centre
         C = [- inv(KR) * Kt]
-        '''
+        """
         self.t = -np.dot(self.R, self.C)
         self.compose_P()
         return self.t
 
     def compose_P(self):
-        '''
+        """
         Compose and return the 4x3 P matrix from 3x3 K matrix, 3x3 R matrix and 3x1 t vector, as:
             K[R | t]
-        '''
-        if (self.K is None):
+        """
+        if self.K is None:
             print("Invalid calibration matrix. Unable to compute P.")
             self.P = None
             return None
-        elif (self.R is None):
+        elif self.R is None:
             print("Invalid Rotation matrix. Unable to compute P.")
             self.P = None
             return None
-        elif (self.t is None):
+        elif self.t is None:
             print("Invalid translation vector. Unable to compute P.")
             self.P = None
             return None
@@ -247,7 +246,7 @@ class Camera:
         return self.P
 
     def factor_P(self):
-        ''' Factorize the camera matrix into K, R, t as P = K[R | t]. '''
+        """Factorize the camera matrix into K, R, t as P = K[R | t]."""
 
         # factor first 3*3 part
         K, R = linalg.rq(self.P[:, :3])
@@ -264,56 +263,59 @@ class Camera:
         return self.K, self.R, self.t
 
     def project_points(self, points3d):
-        '''
+        """
         Overhelmed method(see lib.geometry) for projecting 3D to image coordinates.
 
         Project 3D points(Nx3 array) to image coordinates, given the projection matrix P(4x3 matrix)
         If K matric and dist vector are given, the function computes undistorted image projections(otherwise, zero distortions are assumed)
         Returns: 2D projected points(Nx2 array) in image coordinates
-        '''
+        """
         points3d = cv2.convertPointsToHomogeneous(points3d)[:, 0, :]
         m = np.dot(self.P, points3d.T)
         m = m[0:2, :] / m[2, :]
         m = m.astype(float).T
 
         if self.dist is not None and self.K is not None:
-            m = cv2.undistortPoints(
-                m, self.K, self.dist, None, self.K)[:, 0, :]
+            m = cv2.undistortPoints(m, self.K, self.dist, None, self.K)[:, 0, :]
 
         return m.astype(float)
 
     def read_calibration_from_file(self, path):
-        '''
+        """
         Read camera internal orientation from file, save in camera class
         and return them.
         The file must contain the full K matrix and distortion vector,
         according to OpenCV standards, and organized in one line, as follow:
-        fx 0. cx 0. fy cy 0. 0. 1. k1, k2, p1, p2, [k3, [k4, k5, k6
+        width height fx 0. cx 0. fy cy 0. 0. 1. k1, k2, p1, p2, [k3, [k4, k5, k6
         Values must be float(include the . after integers) and divided by a
         white space.
         -------
         Returns:  K, dist
-        '''
+        """
         path = Path(path)
         if not path.exists():
-            print('Error: calibration filed does not exist.')
+            print("Error: calibration filed does not exist.")
             return None, None
-        with open(path, 'r') as f:
+        with open(path, "r") as f:
             data = np.loadtxt(f)
-            K = data[0:9].astype(float).reshape(3, 3, order='C')
-            if len(data) == 13:
-                print('Using OPENCV camera model.')
-                dist = data[9:13].astype(float)
-            elif len(data) == 14:
-                print('Using OPENCV camera model + k3')
-                dist = data[9:14].astype(float)
-            elif len(data) == 17:
-                print('Using FULL OPENCV camera model')
-                dist = data[9:17].astype(float)
+            w = data[0]
+            h = data[1]
+            K = data[2:11].astype(float).reshape(3, 3, order="C")
+            if len(data) == 15:
+                print("Using OPENCV camera model.")
+                dist = data[11:15].astype(float)
+            elif len(data) == 16:
+                print("Using OPENCV camera model + k3")
+                dist = data[11:16].astype(float)
+            elif len(data) == 19:
+                print("Using FULL OPENCV camera model")
+                dist = data[11:19].astype(float)
             else:
-                print('invalid intrinsics data.')
+                print("invalid intrinsics data.")
                 return None, None
             # TODO: implement other camera models and estimate K from exif.
+        self.width = w
+        self.height = h
         self.K = K
         self.dist = dist
         return K, dist
@@ -331,72 +333,66 @@ class Camera:
         return P_hom
 
     def euler_from_R(self):
-        '''
+        """
         Compute Euler angles from rotation matrix
         - ------
         Returns:  [omega, phi, kappa]
-        '''
+        """
         omega = np.arctan2(self.R[2, 1], self.R[2, 2])
-        phi = np.arctan2(-self.R[2, 0],
-                         np.sqrt(self.R[2, 1]**2+self.R[2, 2]**2))
+        phi = np.arctan2(-self.R[2, 0], np.sqrt(self.R[2, 1] ** 2 + self.R[2, 2] ** 2))
         kappa = np.arctan2(self.R[1, 0], self.R[0, 0])
 
         return [omega, phi, kappa]
 
     def build_block_matrix(self, mat):
         # TODO: add description
-        '''
-
-        '''
+        """ """
         if mat.shape[1] == 3:
-            block = np.block([[mat, np.zeros((3, 1))],
-                              [np.zeros((1, 3)), 1]]
-                             )
+            block = np.block([[mat, np.zeros((3, 1))], [np.zeros((1, 3)), 1]])
         elif mat.shape[1] == 1:
-            block = np.block([[np.eye(3), mat],
-                              [np.zeros((1, 3)), 1]]
-                             )
+            block = np.block([[np.eye(3), mat], [np.zeros((1, 3)), 1]])
         else:
-            print('Error: unknown input matrix dimensions.')
+            print("Error: unknown input matrix dimensions.")
             return None
 
         return block
 
-#--- Images ---#
+
+# --- Images ---#
 
 
 class Imageds:
-    '''
+    """
     Class to help manage Image datasets
 
-    '''
+    """
 
     def __init__(self, path=None):
         # TODO: implement labels in datastore
-        if not hasattr(self, 'files'):
+        if not hasattr(self, "files"):
             self.reset_imageds()
         if path is not None:
             self.get_image_list(path)
 
     def __len__(self):
-        ''' Get number of images in the datastore '''
+        """Get number of images in the datastore"""
         return len(self.files)
 
     def __contains__(self, name):
-        ''' Check if an image is in the datastore, given the image name'''
+        """Check if an image is in the datastore, given the image name"""
         return name in self.files
 
     def __getitem__(self, idx, **args):
-        ''' Read and return the image at position idx in the image datastore '''
+        """Read and return the image at position idx in the image datastore"""
         # TODO: add possibility to chose reading between col or grayscale, scale image, crop etc...
         # @TODO change getitem to return path and implement reading function
         img = read_img2(os.path.join(self.folder[idx], self.files[idx]))
         if img is not None:
-            print(f'Loaded image {self.files[idx]}')
+            print(f"Loaded image {self.files[idx]}")
         return img
 
     def reset_imageds(self):
-        ''' Initialize image datastore '''
+        """Initialize image datastore"""
         self.files = []
         self.folder = []
         self.ext = []
@@ -409,7 +405,7 @@ class Imageds:
         # TODO: change name in read image list
         # TODO: add option for including subfolders
         if not os.path.exists(path):
-            print('Error: invalid input path.')
+            print("Error: invalid input path.")
             return
         d = os.listdir(path)
         d.sort()
@@ -417,15 +413,15 @@ class Imageds:
         self.folder = [path] * len(d)
 
     def get_image_name(self, idx):
-        ''' Return image name at position idx in datastore '''
+        """Return image name at position idx in datastore"""
         return self.files[idx]
 
     def get_image_path(self, idx):
-        ''' Return full path of the image at position idx in datastore '''
-        return (os.path.join(self.folder[idx], self.files[idx]))
+        """Return full path of the image at position idx in datastore"""
+        return os.path.join(self.folder[idx], self.files[idx])
 
     def get_image_stem(self, idx):
-        ''' Return name without extension(stem) of the image at position idx in datastore '''
+        """Return name without extension(stem) of the image at position idx in datastore"""
         return Path(self.files[idx]).stem
 
     # TODO: Define iterable
@@ -435,12 +431,12 @@ class Imageds:
     # def __getattr__(self, name):
     #     return self._data[name]
 
+
 # TODO: move to io.py lib and check all input/output variables when fct is called!
 
 
 def read_img2(path, color=True, resize=[-1], crop=None):
-    '''
-    '''
+    """ """
     if color:
         flag = cv2.IMREAD_COLOR
     else:
@@ -458,7 +454,7 @@ def read_img2(path, color=True, resize=[-1], crop=None):
     scales = (float(w) / float(w_new), float(h) / float(h_new))
     image = cv2.resize(image, (w_new, h_new))
     if crop:
-        image = image[crop[1]:crop[3], crop[0]:crop[2]]
+        image = image[crop[1] : crop[3], crop[0] : crop[2]]
 
     if len(resize) == 1 and resize[0] == -1:
         return image
@@ -467,10 +463,10 @@ def read_img2(path, color=True, resize=[-1], crop=None):
 
 
 def process_resize(w, h, resize):
-    assert(len(resize) > 0 and len(resize) <= 2)
+    assert len(resize) > 0 and len(resize) <= 2
     if len(resize) == 1 and resize[0] > -1:
         scale = resize[0] / max(h, w)
-        w_new, h_new = int(round(w*scale)), int(round(h*scale))
+        w_new, h_new = int(round(w * scale)), int(round(h * scale))
     elif len(resize) == 1 and resize[0] == -1:
         w_new, h_new = w, h
     else:  # len(resize) == 2:
@@ -478,61 +474,63 @@ def process_resize(w, h, resize):
     return w_new, h_new
 
 
-#--- Features ---#
+# --- Features ---#
 class Features:
-    '''
+    """
     Class to store matched features, descriptors and scores
     Features are stored as numpy arrays:
         Features.kpts: nx2 array of features location
         Features.descr: mxn array of descriptors(note that descriptors are stored columnwise)
-        Features.score: nx1 array with feature score    '''
+        Features.score: nx1 array with feature score"""
 
     def __init__(self):
         self.reset_fetures()
 
     def __len__(self):
-        ''' Get total number of featues stored'''
+        """Get total number of featues stored"""
         return len(self.kpts)
 
     def reset_fetures(self):
-        '''
+        """
         Reset Feature instance to None Objects
-        '''
+        """
         self.kpts = None
         self.descr = None
         self.score = None
 
     def initialize_fetures(self, nfeatures=1, descr_size=256):
-        '''
+        """
         Inizialize Feature instance to numpy arrays,
         optionally for a given number of features and descriptor size(default is 256).
-        '''
+        """
         self.kpts = np.empty((nfeatures, 2), dtype=float)
         self.descr = np.empty((descr_size, nfeatures), dtype=float)
         self.score = np.empty(nfeatures, dtype=float)
 
     def get_keypoints(self):
-        ''' Return keypoints as numpy array '''
+        """Return keypoints as numpy array"""
         return np.float32(self.kpts)
 
     def get_descriptors(self):
-        ''' Return descriptors as numpy array '''
+        """Return descriptors as numpy array"""
         return np.float32(self.descr)
 
     def get_scores(self):
-        ''' Return scores as numpy array '''
+        """Return scores as numpy array"""
         return np.float32(self.score)
 
     def get_features_as_dict(self):
-        ''' Return a dictionary with keypoints, descriptors and scores, organized for SuperGlue'''
-        out = {'keypoints0': self.get_keypoints(),
-               'descriptors0': self.get_descriptors(),
-               'scores0': self.get_scores()}
+        """Return a dictionary with keypoints, descriptors and scores, organized for SuperGlue"""
+        out = {
+            "keypoints0": self.get_keypoints(),
+            "descriptors0": self.get_descriptors(),
+            "scores0": self.get_scores(),
+        }
         return out
 
     def remove_outliers_features(self, inlier_mask):
         # TODO: write description
-        ''' Remove outliers features
+        """Remove outliers features
         Parameters
         - ---------
         new_features: TYPE
@@ -541,69 +539,72 @@ class Features:
         Returns
         - ------
         None.
-        '''
+        """
         self.kpts = self.kpts[inlier_mask, :]
         self.descr = self.descr[:, inlier_mask]
         self.score = self.score[inlier_mask]
 
     def append_features(self, new_features):
-        '''
+        """
         Append new features to Features Class.
         Input new_features is a Dict with keys as follows:
             new_features['kpts']: nx2 array of features location
             new_features['descr']: mxn array of descriptors(note that descriptors are stored columnwise)
             new_features['score']: nx1 array with feature score
-        '''
+        """
         # Check dictionary keys:
-        keys = ['kpts', 'descr', 'score']
+        keys = ["kpts", "descr", "score"]
         if any(key not in new_features.keys() for key in keys):
             print(
-                'Invalid input dictionary. Check all keys ["kpts", "descr", "scores"] are present')
+                'Invalid input dictionary. Check all keys ["kpts", "descr", "scores"] are present'
+            )
             return self
         # TODO: check correct shape of inputs.
 
         if self.kpts is None:
-            self.kpts = new_features['kpts']
-            self.descr = new_features['descr']
-            self.score = new_features['score']
+            self.kpts = new_features["kpts"]
+            self.descr = new_features["descr"]
+            self.score = new_features["score"]
         else:
-            self.kpts = np.append(self.kpts, new_features['kpts'], axis=0)
-            self.descr = np.append(self.descr, new_features['descr'], axis=1)
-            self.score = np.append(self.score, new_features['score'], axis=0)
+            self.kpts = np.append(self.kpts, new_features["kpts"], axis=0)
+            self.descr = np.append(self.descr, new_features["descr"], axis=1)
+            self.score = np.append(self.score, new_features["score"], axis=0)
 
     def save_as_pickle(self, path=None):
-        ''' Save keypoints in a .txt file '''
+        """Save keypoints in a .txt file"""
         if path is None:
             print("Error: missing path argument.")
             return
         # if not Path(path).:
         #     print('Error: invalid input path.')
         #     return
-        with open(path, 'wb') as f:
+        with open(path, "wb") as f:
             pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-    def save_as_txt(self, path=None, fmt='%i', delimiter=',', header='x,y'):
-        ''' Save keypoints in a .txt file '''
+    def save_as_txt(self, path=None, fmt="%i", delimiter=",", header="x,y"):
+        """Save keypoints in a .txt file"""
         if path is None:
             print("Error: missing path argument.")
             return
         # if not Path(path).:
         #     print('Error: invalid input path.')
         #     return
-        np.savetxt(path, self.kpts, fmt=fmt, delimiter=delimiter,
-                   newline='\n', header=header)
+        np.savetxt(
+            path, self.kpts, fmt=fmt, delimiter=delimiter, newline="\n", header=header
+        )
+
 
 # Targets
 
 
 class Targets:
-    '''
+    """
     Class to store Target information, including image coordinates and object coordinates
     Targets are stored as numpy arrays:
         Targets.im_coor: [nx2] List of array of containing xy coordinates of the
                         target projections on each image
         Targets.obj_coor: nx3 array of XYZ object coordinates(it can be empty)
-    '''
+    """
 
     def __init__(self, cam_id=None, im_file_path=None, obj_file_path=None):
         self.reset_targets()
@@ -616,22 +617,22 @@ class Targets:
             self.read_obj_coord_from_txt(obj_file_path)
 
     def __len__(self):
-        ''' Get total number of featues stored'''
+        """Get total number of featues stored"""
         return len(self.im_coor)
 
     def reset_targets(self):
-        '''
+        """
         Reset Target instance to empy list and None objects
-        '''
+        """
         self.im_coor = []
         self.obj_coor = None
 
     def get_im_coord(self, cam_id=None):
-        '''
+        """
         Return image coordinates as numpy array
         If numeric camera id(integer) is provided, the function returns the
         image coordinates in that camera, otherwise the list with the projections on all the cameras is returned.
-        '''
+        """
         if cam_id is None:
             return np.float32(self.im_coor)
         else:
@@ -649,26 +650,22 @@ class Targets:
         else:
             self.obj_coor = np.append(self.obj_coor, new_obj_coor, axis=0)
 
-    def get_target_labels(self,
-                          labels: List[str],
-                          cam_id=None):
-        '''
-
-        '''
+    def get_target_labels(self, labels: List[str], cam_id=None):
+        """ """
         pass
 
-    def extract_image_coor_by_label(self,
-                                    labels: List[str],
-                                    cam_id: int = None,
-                                    ) -> np.ndarray:
+    def extract_image_coor_by_label(
+        self,
+        labels: List[str],
+        cam_id: int = None,
+    ) -> np.ndarray:
         """
         Return image coordinates of the targets on the images given a list of target labels
         """
         coor = []
         for lab in labels:
             if cam_id is not None:
-                selected = self.im_coor[cam_id][self.im_coor[cam_id]
-                                                ["label"] == lab]
+                selected = self.im_coor[cam_id][self.im_coor[cam_id]["label"] == lab]
                 if not selected.empty:
                     coor.append(np.float32(selected.iloc[:, 1:]))
                 else:
@@ -679,11 +676,12 @@ class Targets:
 
         return np.concatenate(coor, axis=0)
 
-    def extract_object_coor_by_label(self,
-                                     labels: List[str],
-                                     ) -> np.ndarray:
+    def extract_object_coor_by_label(
+        self,
+        labels: List[str],
+    ) -> np.ndarray:
         """
-        Return object coordinates of the targets on the images given a list of target labels        
+        Return object coordinates of the targets on the images given a list of target labels
         """
         coor = []
         for lab in labels:
@@ -695,13 +693,15 @@ class Targets:
 
         return np.concatenate(coor, axis=0)
 
-    def read_im_coord_from_txt(self,
-                               camera_id=None,
-                               path=None,
-                               delimiter: str = ',',
-                               header: int = 0,
-                               column_names: List[str] = None):
-        '''            
+    def read_im_coord_from_txt(
+        self,
+        camera_id=None,
+        path=None,
+        delimiter: str = ",",
+        header: int = 0,
+        column_names: List[str] = None,
+    ):
+        """
         Read image target image coordinates from .txt file in a pandas dataframe
         organized as follows:
             - One line per target
@@ -711,29 +711,32 @@ class Targets:
             # label,x,y
             target_1,1000,2000
             target_2,2000,3000
-        '''
+        """
         if camera_id is None:
-            print('Error: missing camera id. Impossible to assign the target\
-                  coordinates to the correct camera')
+            print(
+                "Error: missing camera id. Impossible to assign the target\
+                  coordinates to the correct camera"
+            )
             return
         if path is None:
             print("Error: missing path argument.")
             return
         path = Path(path)
         if not path.exists():
-            print('Error: Input path does not exist.')
+            print("Error: Input path does not exist.")
             return
-        data = pd.read_csv(path, sep=delimiter,
-                           header=header)
+        data = pd.read_csv(path, sep=delimiter, header=header)
 
         self.im_coor.insert(camera_id, data)
 
-    def read_obj_coord_from_txt(self,
-                                path=None,
-                                delimiter: str = ',',
-                                header: int = 0,
-                                column_names: List[str] = None):
-        '''
+    def read_obj_coord_from_txt(
+        self,
+        path=None,
+        delimiter: str = ",",
+        header: int = 0,
+        column_names: List[str] = None,
+    ):
+        """
         Read image target image coordinates from .txt file in a pandas dataframe
         organized as follows:
             - One line per target
@@ -743,16 +746,15 @@ class Targets:
             # label,X,Y,Z
             target_1,1000,2000,3000
             target_1,2000,3000,3000
-        '''
+        """
         if path is None:
             print("Error: missing path argument.")
             return
         path = Path(path)
         if not path.exists():
-            print('Error: Input path does not exist.')
+            print("Error: Input path does not exist.")
             return
-        data = pd.read_csv(path, sep=delimiter,
-                           header=header)
+        data = pd.read_csv(path, sep=delimiter, header=header)
 
         self.append_obj_cord(data)
 
@@ -768,14 +770,15 @@ class Targets:
     #                newline='\n', header=header)
 
 
-if __name__ == '__main__':
-    '''Test classes '''
+if __name__ == "__main__":
+    """Test classes"""
 
-    target_paths = ["data/target_image_p1_all.csv",
-                    "data/target_image_p2_all.csv"]
+    target_paths = ["data/target_image_p1_all.csv", "data/target_image_p2_all.csv"]
     obj_path = "data/target_world_all.csv"
-    targets = [Targets(im_file_path=target_paths, obj_file_path=obj_path), ]
-    print('image 0 coords:')
+    targets = [
+        Targets(im_file_path=target_paths, obj_file_path=obj_path),
+    ]
+    print("image 0 coords:")
 
     # print('image 0 coords:')
     # print(targets[0].get_im_coord(0))
