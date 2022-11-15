@@ -1,4 +1,4 @@
-'''
+"""
 MIT License
 
 Copyright (c) 2022 Francesco Ioli
@@ -20,7 +20,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-'''
+"""
 
 import os
 from pathlib import Path
@@ -40,7 +40,7 @@ def read_image(
     resize: List[int] = [-1],
     crop: List[int] = None,
 ) -> np.ndarray:
-    '''
+    """
     Read image with OpenCV and return it as np array
     __________
     Parameters:
@@ -50,8 +50,8 @@ def read_image(
     - crop (List, default=None): If not None, List containing bounding box for cropping the image as [xmin, xmax, ymin, ymax]
     __________
     Return
-        image (np.ndarray): ima
-    '''
+        image (np.ndarray): image
+    """
 
     if color:
         flag = cv2.IMREAD_COLOR
@@ -77,7 +77,7 @@ def read_image(
     scales = (float(w) / float(w_new), float(h) / float(h_new))
     image = cv2.resize(image, (w_new, h_new))
     if crop:
-        image = image[crop[1]:crop[3], crop[0]:crop[2]]
+        image = image[crop[1] : crop[3], crop[0] : crop[2]]
 
     if len(resize) == 1 and resize[0] == -1:
         return image
@@ -86,10 +86,10 @@ def read_image(
 
 
 def process_resize(w, h, resize):
-    assert (len(resize) > 0 and len(resize) <= 2)
+    assert len(resize) > 0 and len(resize) <= 2
     if len(resize) == 1 and resize[0] > -1:
         scale = resize[0] / max(h, w)
-        w_new, h_new = int(round(w*scale)), int(round(h*scale))
+        w_new, h_new = int(round(w * scale)), int(round(h * scale))
     elif len(resize) == 1 and resize[0] == -1:
         w_new, h_new = w, h
     else:  # len(resize) == 2:
@@ -98,11 +98,7 @@ def process_resize(w, h, resize):
 
 
 class Image:
-    def __init__(
-        self,
-        path: Union[str, Path],
-        image: np.ndarray = None
-    ) -> None:
+    def __init__(self, path: Union[str, Path], image: np.ndarray = None) -> None:
 
         self._path = path
         self._value_array = None
@@ -147,7 +143,7 @@ class Image:
         return self._date_time
 
     def get_image(self) -> np.ndarray:
-        ''' Returns the image '''
+        """Returns the image"""
         if self._value_array is not None:
             return self._value_array
         else:
@@ -160,8 +156,7 @@ class Image:
         resize: List[int] = [-1],
         crop: List[int] = None,
     ) -> None:
-        ''' Wrapper around the function read_image to be a class method.
-        '''
+        """Wrapper around the function read_image to be a class method."""
         path = Path(path)
         if path.exists():
             self._value_array = read_image(path, col, resize, crop)
@@ -173,38 +168,40 @@ class Image:
         self._value_array = None
 
     def read_exif(self) -> None:
-        ''' Read image exif with exifread and store them in a dictionary
-        '''
+        """Read image exif with exifread and store them in a dictionary"""
         try:
-            f = open(self._path, 'rb')
+            f = open(self._path, "rb")
             self._exif_data = exifread.process_file(f, details=False)
             f.close()
         except:
             print("No exif data available.")
 
         # Set image size
-        if ('Image ImageWidth' in self._exif_data.keys() and 'Image ImageLength' in self._exif_data.keys()):
-            self._width = self._exif_data['Image ImageWidth'].printable
-            self._height = self._exif_data['Image ImageLength'].printable
+        if (
+            "Image ImageWidth" in self._exif_data.keys()
+            and "Image ImageLength" in self._exif_data.keys()
+        ):
+            self._width = self._exif_data["Image ImageWidth"].printable
+            self._height = self._exif_data["Image ImageLength"].printable
 
         # Set Image Datetime
-        if 'Image DateTime' in self._exif_data.keys():
+        if "Image DateTime" in self._exif_data.keys():
             date_fmt = "%Y:%m:%d %H:%M:%S"
-            date_str = self._exif_data['Image DateTime'].printable
+            date_str = self._exif_data["Image DateTime"].printable
             self._date_time = datetime.strptime(date_str, date_fmt)
 
     def extract_patch(self, limits: dict) -> np.ndarray:
-        ''' Extract image patch
+        """Extract image patch
         Parameters
         __________
         - limits (dict): dictionary containing the index of the tile (in row-major order, C-style) and a list of the bounding box coordinates as: {0,[xmin, xmax, ymin, ymax]}
         __________
         Return: patch (np.ndarray)
-        '''
+        """
         image = read_image(self._path)
         patch = image[
-            limits[1]:limits[3],
-            limits[0]:limits[2],
+            limits[1] : limits[3],
+            limits[0] : limits[2],
         ]
         return patch
 
@@ -242,37 +239,37 @@ class Image:
 
 
 class ImageDS:
-    '''
+    """
     Class to help manage Image datasets
 
-    '''
+    """
 
     def __init__(self, path=None):
         # TODO: implement labels in datastore
-        if not hasattr(self, 'files'):
+        if not hasattr(self, "files"):
             self.reset_imageds()
         if path is not None:
             self.get_image_list(path)
 
     def __len__(self):
-        ''' Get number of images in the datastore '''
+        """Get number of images in the datastore"""
         return len(self.files)
 
     def __contains__(self, name):
-        ''' Check if an image is in the datastore, given the image name'''
+        """Check if an image is in the datastore, given the image name"""
         return name in self.files
 
     def __getitem__(self, idx):
-        ''' Read and return the image at position idx in the image datastore '''
+        """Read and return the image at position idx in the image datastore"""
         # TODO: add possibility to chose reading between col or grayscale, scale image, crop etc...
         # @TODO change getitem to return path and implement reading function
         img = read_image(os.path.join(self.folder[idx], self.files[idx]))
         if img is not None:
-            print(f'Loaded image {self.files[idx]}')
+            print(f"Loaded image {self.files[idx]}")
         return img
 
     def reset_imageds(self):
-        ''' Initialize image datastore '''
+        """Initialize image datastore"""
         self.files = []
         self.folder = []
         self.ext = []
@@ -284,7 +281,7 @@ class ImageDS:
     def get_image_list(self, path):
         # TODO: add option for including subfolders
         if not os.path.exists(path):
-            print('Error: invalid input path.')
+            print("Error: invalid input path.")
             return
         d = os.listdir(path)
         d.sort()
@@ -292,25 +289,25 @@ class ImageDS:
         self.folder = [path] * len(d)
 
     def get_image_name(self, idx):
-        ''' Return image name at position idx in datastore '''
+        """Return image name at position idx in datastore"""
         return self.files[idx]
 
     def get_image_path(self, idx):
-        ''' Return full path of the image at position idx in datastore '''
-        return (os.path.join(self.folder[idx], self.files[idx]))
+        """Return full path of the image at position idx in datastore"""
+        return os.path.join(self.folder[idx], self.files[idx])
 
     def get_image_stem(self, idx):
-        ''' Return name without extension(stem) of the image at position idx in datastore '''
+        """Return name without extension(stem) of the image at position idx in datastore"""
         return Path(self.files[idx]).stem
 
 
-if __name__ == '__main__':
-    '''Test classes '''
+if __name__ == "__main__":
+    """Test classes"""
 
-    cams = ['p1', 'p2']
+    cams = ["p1", "p2"]
     images = dict.fromkeys(cams)
     for cam in cams:
-        images[cam] = ImageDS(Path('data/img2022') / cam)
+        images[cam] = ImageDS(Path("data/img2022") / cam)
 
-    im = Image(images['p1'].get_image_path(0))
+    im = Image(images["p1"].get_image_path(0))
     print(im)

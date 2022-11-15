@@ -1,4 +1,4 @@
-'''
+"""
 MIT License
 
 Copyright (c) 2022 Francesco Ioli
@@ -20,7 +20,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-'''
+"""
 
 import os
 import cv2
@@ -34,15 +34,17 @@ from collections import OrderedDict
 from pathlib import Path
 from PIL import Image
 from rasterio.transform import Affine
-from scipy.interpolate import (interp2d,
-                               LinearNDInterpolator,
-                               )
+from scipy.interpolate import (
+    interp2d,
+    LinearNDInterpolator,
+)
 
 from lib.classes import Camera
 from lib.geometry import project_points
 
 
 # --- File system ---#
+
 
 def create_directory(path):
     """
@@ -57,85 +59,99 @@ def create_directory(path):
 
 
 def convert_to_homogeneous(x):
-    '''
-    Convert 2xn or 3xn vector of n points in euclidean coordinates 
+    """
+    Convert 2xn or 3xn vector of n points in euclidean coordinates
     to a 3xn or 4xn vector homogeneous by adding a row of ones
-    '''
+    """
     x = np.array(x)
     ndim, npts = x.shape
     if ndim != 2 and ndim != 3:
-        print('Error: wrong number of dimension of the input vector.\
-              A number of dimensions (rows) of 2 or 3 is required.')
+        print(
+            "Error: wrong number of dimension of the input vector.\
+              A number of dimensions (rows) of 2 or 3 is required."
+        )
         return None
-    x1 = np.concatenate((x, np.ones((1, npts), 'float32')), axis=0)
+    x1 = np.concatenate((x, np.ones((1, npts), "float32")), axis=0)
     return x1
 
 
 def convert_from_homogeneous(x):
-    '''
-    Convert 3xn or 4xn vector of n points in homogeneous coordinates 
-    to a 2xn or 3xn vector in euclidean coordinates, by dividing by the 
+    """
+    Convert 3xn or 4xn vector of n points in homogeneous coordinates
+    to a 2xn or 3xn vector in euclidean coordinates, by dividing by the
     homogeneous part of the vector (last row) and removing one dimension
-    '''
+    """
     x = np.array(x)
     ndim, npts = x.shape
     if ndim != 3 and ndim != 4:
-        print('Error: wrong number of dimension of the input vector.\
-              A number of dimensions (rows) of 2 or 3 is required.')
+        print(
+            "Error: wrong number of dimension of the input vector.\
+              A number of dimensions (rows) of 2 or 3 is required."
+        )
         return None
-    x1 = x[:ndim-1, :] / x[ndim-1, :]
+    x1 = x[: ndim - 1, :] / x[ndim - 1, :]
     return x1
 
 
 def skew_symmetric(x):
-    '''  Return skew symmetric matrix from input matrix x '''
+    """Return skew symmetric matrix from input matrix x"""
     return np.array([[0, -x[2], x[1]], [x[2], 0, -x[0]], [-x[1], x[0], 0]])
 
 
 def compute_rmse(observed, predicted):
-    ''' Compute RMSE between predicted and observed values'''
+    """Compute RMSE between predicted and observed values"""
     return np.sqrt(((observed - predicted) ** 2).mean())
 
+
 def compute_reprojection_error(observed, projected):
-    ''' Compute reprojection error
+    """Compute reprojection error
     Parameters
     ----------
     observed : nx2 numpy array of float32
         array of observed image coordinates (usually, detected keypoints)
     projected : nx2 numpy array of float32
         array of image coordinates of projected points
-        
+
     Returns
     -------
     err : nx3 numpy array of float32
         Reprojection error as in x, y direction and magnitude
     rmse : 2x1 numpy array of float32
       RMSE of the reprojection error in x, y directions
-    '''
+    """
     npts = len(observed)
-    
-    err = np.zeros((npts,3), 'float32')
-    err[:, 0:2] = observed - projected  
-    err[:, 2:3] = np.linalg.norm(err[:,0:2] , axis=1).reshape((npts,1))
-    
-    rmse = np.zeros((2,1), 'float32')
+
+    err = np.zeros((npts, 3), "float32")
+    err[:, 0:2] = observed - projected
+    err[:, 2:3] = np.linalg.norm(err[:, 0:2], axis=1).reshape((npts, 1))
+
+    rmse = np.zeros((2, 1), "float32")
     for i in range(2):
-        rmse[i] = compute_rmse(observed[:,i], projected[:,i])
-    
+        rmse[i] = compute_rmse(observed[:, i], projected[:, i])
+
     return err, rmse
-    
+
 
 # --- Tiles ---#
 # @TODO: TO be moved in a separate class
 
-def generateTiles(image, rowDivisor=2, colDivisor=2, overlap=200, viz=False, out_dir='tiles', writeTile2Disk=True):
-    assert not (image is None), 'Invalid image input'
 
-    image = image.astype('float32')
+def generateTiles(
+    image,
+    rowDivisor=2,
+    colDivisor=2,
+    overlap=200,
+    viz=False,
+    out_dir="tiles",
+    writeTile2Disk=True,
+):
+    assert not (image is None), "Invalid image input"
+
+    image = image.astype("float32")
     H = image.shape[0]
     W = image.shape[1]
-    DY = round(H/rowDivisor/10)*10
-    DX = round(W/colDivisor/10)*10
+    DY = round(H / rowDivisor / 10) * 10
+    DX = round(W / colDivisor / 10) * 10
     dim = (rowDivisor, colDivisor)
 
     # TODO: implement checks on image dimension
@@ -151,35 +167,53 @@ def generateTiles(image, rowDivisor=2, colDivisor=2, overlap=200, viz=False, out
     limits = []
     for col in range(0, colDivisor):
         for row in range(0, rowDivisor):
-            tileIdx = np.ravel_multi_index((row, col), dim, order='F')
-            limits.append((max(0, col*DX - overlap),
-                           max(0, row*DY - overlap),
-                           max(0, col*DX - overlap) + DX+overlap,
-                           max(0, row*DY - overlap) + DY+overlap))
+            tileIdx = np.ravel_multi_index((row, col), dim, order="F")
+            limits.append(
+                (
+                    max(0, col * DX - overlap),
+                    max(0, row * DY - overlap),
+                    max(0, col * DX - overlap) + DX + overlap,
+                    max(0, row * DY - overlap) + DY + overlap,
+                )
+            )
             # print(f'Tile {tileIdx}: xlim = ({ limits[tileIdx][0], limits[tileIdx][2]}), ylim = {limits[tileIdx][1], limits[tileIdx][3]}')
-            tile = image[limits[tileIdx][1]:limits[tileIdx][3],
-                         limits[tileIdx][0]:limits[tileIdx][2]]
+            tile = image[
+                limits[tileIdx][1] : limits[tileIdx][3],
+                limits[tileIdx][0] : limits[tileIdx][2],
+            ]
             tiles.append(tile)
             if writeTile2Disk:
                 isExist = os.path.exists(out_dir)
                 if not isExist:
                     os.makedirs(out_dir)
-                cv2.imwrite(os.path.join(out_dir, 'tile_'+str(tileIdx)+'_'
-                                         + str(limits[tileIdx][0])+'_'+str(limits[tileIdx][1])+'.jpg'), tile)
+                cv2.imwrite(
+                    os.path.join(
+                        out_dir,
+                        "tile_"
+                        + str(tileIdx)
+                        + "_"
+                        + str(limits[tileIdx][0])
+                        + "_"
+                        + str(limits[tileIdx][1])
+                        + ".jpg",
+                    ),
+                    tile,
+                )
 
     return tiles, limits
+
 
 # --- Color interpolation ---#
 
 
 def interpolate_point_colors(points3d, image, camera: Camera, convert_BRG2RGB=True):
-    '''  Interpolate color of a 3D sparse point cloud, given an oriented image
+    """Interpolate color of a 3D sparse point cloud, given an oriented image
     Parameters
     ----------
     points3d : float32 array
         nx3 array with 3d world points coordinates
     image : numpy array
-        image on which to interpolate colors. It can be either a color image 
+        image on which to interpolate colors. It can be either a color image
         (3 channels, either RGB or BRG) or a grayscale image (1 channel)
     camera : Camera Object
         Camera object containing intrisics and extrinsics parameters
@@ -188,9 +222,9 @@ def interpolate_point_colors(points3d, image, camera: Camera, convert_BRG2RGB=Tr
     Returns: float32 array
         Nx(num_channels) colour matrix, as float numbers (normalized in [0,1])
     -------
-    '''
+    """
 
-    assert image.ndim == 3, 'invalid input image. Image has not 3 channel'
+    assert image.ndim == 3, "invalid input image. Image has not 3 channel"
 
     if convert_BRG2RGB:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -201,19 +235,20 @@ def interpolate_point_colors(points3d, image, camera: Camera, convert_BRG2RGB=Tr
     else:
         num_channels = image.shape[2]
     projections = project_points(points3d, camera)
-    image = image.astype(np.float32) / 255.
+    image = image.astype(np.float32) / 255.0
 
     col = np.zeros((num_pts, num_channels))
     for ch in range(num_channels):
-        col[:, ch] = bilinear_interpolate(image[:, :, ch],
-                                          projections[:, 0],
-                                          projections[:, 1],
-                                          )
+        col[:, ch] = bilinear_interpolate(
+            image[:, :, ch],
+            projections[:, 0],
+            projections[:, 1],
+        )
     return col
 
 
 def bilinear_interpolate(im, x, y):
-    ''' Perform bilinear interpolation given a 2D array (single channel image) 
+    """Perform bilinear interpolation given a 2D array (single channel image)
     and x, y arrays of unstructured query points
     Parameters
     ----------
@@ -226,7 +261,7 @@ def bilinear_interpolate(im, x, y):
 
     Returns: nx1 array of the interpolated color
     -------
-    '''
+    """
     x = np.asarray(x)
     y = np.asarray(y)
 
@@ -235,40 +270,40 @@ def bilinear_interpolate(im, x, y):
     y0 = np.floor(y).astype(int)
     y1 = y0 + 1
 
-    x0 = np.clip(x0, 0, im.shape[1]-1)
-    x1 = np.clip(x1, 0, im.shape[1]-1)
-    y0 = np.clip(y0, 0, im.shape[0]-1)
-    y1 = np.clip(y1, 0, im.shape[0]-1)
+    x0 = np.clip(x0, 0, im.shape[1] - 1)
+    x1 = np.clip(x1, 0, im.shape[1] - 1)
+    y0 = np.clip(y0, 0, im.shape[0] - 1)
+    y1 = np.clip(y1, 0, im.shape[0] - 1)
 
     Ia = im[y0, x0]
     Ib = im[y1, x0]
     Ic = im[y0, x1]
     Id = im[y1, x1]
 
-    wa = (x1-x) * (y1-y)
-    wb = (x1-x) * (y-y0)
-    wc = (x-x0) * (y1-y)
-    wd = (x-x0) * (y-y0)
+    wa = (x1 - x) * (y1 - y)
+    wb = (x1 - x) * (y - y0)
+    wc = (x - x0) * (y1 - y)
+    wd = (x - x0) * (y - y0)
 
-    return wa*Ia + wb*Ib + wc*Ic + wd*Id
+    return wa * Ia + wb * Ib + wc * Ic + wd * Id
 
 
 def interpolate_point_colors_interp2d(pointxyz, image, P, K=None, dist=None, winsz=1):
-    '''' Deprecated function (too slow). Use bilinear_interpolate instead
+    """' Deprecated function (too slow). Use bilinear_interpolate instead
     Interpolate color of a 3D sparse point cloud, given an oriented image
-      Inputs:  
+      Inputs:
        - Nx3 matrix with 3d world points coordinates
-       - image as np.array in RGB channels 
-           NB: if the image was impotred with OpenCV, it must be converted 
+       - image as np.array in RGB channels
+           NB: if the image was impotred with OpenCV, it must be converted
            from BRG color space to RGB
                cv2.cvtColor(image_und, cv2.COLOR_BGR2RGB)
        - camera interior and exterior orientation matrixes: K, R, t
        - distortion vector according to OpenCV
     Output: Nx3 colour matrix, as float numbers (normalized in [0,1])
-    '''
+    """
 
-    assert P is not None, 'invalid projection matrix'
-    assert image.ndim == 3, 'invalid input image. Image has not 3 channel'
+    assert P is not None, "invalid projection matrix"
+    assert image.ndim == 3, "invalid input image. Image has not 3 channel"
 
     if K is not None and dist is not None:
         image = cv2.undistort(image, K, dist, None, K)
@@ -277,20 +312,20 @@ def interpolate_point_colors_interp2d(pointxyz, image, P, K=None, dist=None, win
     col = np.zeros((numPts, 3))
     h, w, _ = image.shape
     projections = project_points(pointxyz, P, K, dist)
-    image = image.astype(np.float32) / 255.
+    image = image.astype(np.float32) / 255.0
 
     for k, m in enumerate(projections):
         kint = np.round(m).astype(int)
-        i = np.array([a for a in range(kint[1]-winsz, kint[1]+winsz+1)])
-        j = np.array([a for a in range(kint[0]-winsz, kint[0]+winsz+1)])
+        i = np.array([a for a in range(kint[1] - winsz, kint[1] + winsz + 1)])
+        j = np.array([a for a in range(kint[0] - winsz, kint[0] + winsz + 1)])
         if i.min() < 0 or i.max() > h or j.min() < 0 or j.max() > w:
             continue
 
         ii, jj = np.meshgrid(i, j)
         ii, jj = ii.flatten(), jj.flatten()
         for rgb in range(0, 3):
-            colPatch = image[i[0]:i[-1]+1, j[0]:j[-1]+1, rgb]
-            fcol = interp2d(i, j, colPatch, kind='linear')
+            colPatch = image[i[0] : i[-1] + 1, j[0] : j[-1] + 1, rgb]
+            fcol = interp2d(i, j, colPatch, kind="linear")
             col[k, rgb] = fcol(m[0], m[1])
     return col
 
@@ -298,7 +333,7 @@ def interpolate_point_colors_interp2d(pointxyz, image, P, K=None, dist=None, win
 # ---- DSM ---##
 class DSM:
     # @TODO: define new better class
-    ''' Class to store and manage DSM. '''
+    """Class to store and manage DSM."""
 
     def __init__(self, xx, yy, zz, res):
         # xx, yy = np.meshgrid(x,y)
@@ -308,20 +343,27 @@ class DSM:
         self.res = res
 
 
-def build_dsm(points3d, dsm_step=1, xlim=None, ylim=None,
-              interp_method='linear', fill_value=np.nan,
-              save_path=None, make_dsm_plot=False
-              ):
+def build_dsm(
+    points3d,
+    dsm_step=1,
+    xlim=None,
+    ylim=None,
+    interp_method="linear",
+    fill_value=np.nan,
+    save_path=None,
+    make_dsm_plot=False,
+):
     # TODO: Use Numpy binning instead of pandas grouping.
 
     def round_to_val(a, round_val):
-        return np.round(np.array(a, dtype='float32') / round_val) * round_val
+        return np.round(np.array(a, dtype="float32") / round_val) * round_val
 
     # Check dimensions of input array
-    assert np.any(np.array(points3d.shape) ==
-                  3), "Invalid size of input points"
+    assert np.any(np.array(points3d.shape) == 3), "Invalid size of input points"
     if points3d.shape[0] == points3d.shape[1]:
-        print("Warning: input vector has just 3 points. Unable to check validity of point dimensions.")
+        print(
+            "Warning: input vector has just 3 points. Unable to check validity of point dimensions."
+        )
     if points3d.shape[0] == 3:
         points3d = points3d.T
 
@@ -348,73 +390,82 @@ def build_dsm(points3d, dsm_step=1, xlim=None, ylim=None,
     d_sort = d_round[ind]
 
     # making dataframes and grouping stuff
-    df_cols = ['x_round', 'y_round', 'z']
+    df_cols = ["x_round", "y_round", "z"]
     df = pd.DataFrame(d_sort, columns=df_cols)
-    group_xy = df.groupby(['x_round', 'y_round'])
+    group_xy = df.groupby(["x_round", "y_round"])
     group_mean = group_xy.mean()
     binned_df = group_mean.index.to_frame()
-    binned_df['z'] = group_mean
+    binned_df["z"] = group_mean
 
     # Move again to numpy array for interpolation
     binned_arr = binned_df.to_numpy()
-    x = binned_arr[:, 0].astype('float32')
-    y = binned_arr[:, 1].astype('float32')
-    z = binned_arr[:, 2].astype('float32')
+    x = binned_arr[:, 0].astype("float32")
+    y = binned_arr[:, 1].astype("float32")
+    z = binned_arr[:, 2].astype("float32")
 
     # Interpolate dsm
     xq = np.arange(xlim[0], xlim[1], dsm_step)
     yq = np.arange(ylim[0], ylim[1], dsm_step)
     grid_x, grid_y = np.meshgrid(xq, yq)
 
-    if fill_value == 'mean':
+    if fill_value == "mean":
         fill_value = z.mean()
 
-    interp = LinearNDInterpolator(list(zip(x, y)), z,
-                                  fill_value=fill_value,
-                                  )
+    interp = LinearNDInterpolator(
+        list(zip(x, y)),
+        z,
+        fill_value=fill_value,
+    )
     dsm_grid = interp(grid_x, grid_y)
 
     # plot dsm
     if make_dsm_plot:
         fig, ax = plt.subplots()
         dsm_plt = ax.contourf(grid_x, grid_y, dsm_grid)
-        scatter = ax.scatter(points3d[:, 0], points3d[:, 1],
-                             s=5, c=points3d[:, 2],
-                             marker='o',  cmap='viridis',
-                             alpha=0.4, edgecolors='k',
-                             )
-        ax.axis('equal')
+        scatter = ax.scatter(
+            points3d[:, 0],
+            points3d[:, 1],
+            s=5,
+            c=points3d[:, 2],
+            marker="o",
+            cmap="viridis",
+            alpha=0.4,
+            edgecolors="k",
+        )
+        ax.axis("equal")
         ax.invert_yaxis()
         # fig.colorbar(dsm_plt, cax=ax, orientation='vertical')
         cbar = plt.colorbar(dsm_plt, ax=ax)
         cbar.set_label("z")
-        ax.set_xlabel('x')
+        ax.set_xlabel("x")
         ax.set_ylabel("y")
-        ax.set_title('DSM interpolated from point cloud on plane X-Y')
+        ax.set_title("DSM interpolated from point cloud on plane X-Y")
         fig.tight_layout()
         # plt.show()
         if save_path is not None:
-            plt.savefig(save_fld.joinpath(
-                save_stem+'_plot.png'), bbox_inches='tight')
+            plt.savefig(save_fld.joinpath(save_stem + "_plot.png"), bbox_inches="tight")
 
     # Save dsm as GeoTIff
     if save_path is not None:
         save_path = Path(save_path)
         create_directory(save_path.parent)
-        rater_origin = [xlim[0] - dsm_step/2, ylim[0] - dsm_step/2]
-        transform = Affine.translation(rater_origin[0], rater_origin[1]) \
-            * Affine.scale(dsm_step, -dsm_step)
+        rater_origin = [xlim[0] - dsm_step / 2, ylim[0] - dsm_step / 2]
+        transform = Affine.translation(rater_origin[0], rater_origin[1]) * Affine.scale(
+            dsm_step, -dsm_step
+        )
         mask = np.invert(np.isnan(dsm_grid))
         rater_origin = [grid_x[0, 0], grid_y[0, 0]]
-        transform = Affine.translation(rater_origin[0], rater_origin[1]) \
-            * Affine.scale(dsm_step, -dsm_step)
+        transform = Affine.translation(rater_origin[0], rater_origin[1]) * Affine.scale(
+            dsm_step, -dsm_step
+        )
         with rasterio.open(
-            save_path, 'w',
-            driver='GTiff',
+            save_path,
+            "w",
+            driver="GTiff",
             height=dsm_grid.shape[0],
             width=dsm_grid.shape[1],
             count=1,
-            dtype='float32',
+            dtype="float32",
             # crs="EPSG:32632",
             transform=transform,
         ) as dst:
@@ -426,12 +477,13 @@ def build_dsm(points3d, dsm_step=1, xlim=None, ylim=None,
         if fill_value is not None:
             # mask = np.invert(np.isnan(dsm_grid))
             with rasterio.open(
-                save_path.parent/(save_path.stem+'_msk.tif'), 'w',
-                driver='GTiff',
+                save_path.parent / (save_path.stem + "_msk.tif"),
+                "w",
+                driver="GTiff",
                 height=dsm_grid.shape[0],
                 width=dsm_grid.shape[1],
                 count=1,
-                dtype='float32',
+                dtype="float32",
                 # crs="EPSG:32632",
                 transform=transform,
             ) as dst:
@@ -443,9 +495,9 @@ def build_dsm(points3d, dsm_step=1, xlim=None, ylim=None,
     return dsm
 
 
-def generate_ortophoto(image, dsm, camera: Camera,
-                       xlim=None, ylim=None,
-                       res=None, save_path=None):
+def generate_ortophoto(
+    image, dsm, camera: Camera, xlim=None, ylim=None, res=None, save_path=None
+):
     xx = dsm.x
     yy = dsm.y
     zz = dsm.z
@@ -458,38 +510,41 @@ def generate_ortophoto(image, dsm, camera: Camera,
         ylim = [yy[0, 0], yy[-1, 0]]
 
     dsm_shape = dsm.x.shape
-    ncell = dsm_shape[0]*dsm_shape[1]
+    ncell = dsm_shape[0] * dsm_shape[1]
     xyz = np.zeros((ncell, 3))
     xyz[:, 0] = xx.flatten()
     xyz[:, 1] = yy.flatten()
     xyz[:, 2] = zz.flatten()
     valid_cell = np.invert(np.isnan(xyz[:, 2]))
 
-    cols = np.full((ncell, 3), 0., 'float32')
-    cols[valid_cell, :] = interpolate_point_colors(xyz[valid_cell, :],
-                                                   image,
-                                                   camera,
-                                                   )
+    cols = np.full((ncell, 3), 0.0, "float32")
+    cols[valid_cell, :] = interpolate_point_colors(
+        xyz[valid_cell, :],
+        image,
+        camera,
+    )
     ortophoto = np.zeros((dsm_shape[0], dsm_shape[1], 3))
     ortophoto[:, :, 0] = cols[:, 0].reshape(dsm_shape[0], dsm_shape[1])
     ortophoto[:, :, 1] = cols[:, 1].reshape(dsm_shape[0], dsm_shape[1])
     ortophoto[:, :, 2] = cols[:, 2].reshape(dsm_shape[0], dsm_shape[1])
-    ortophoto = np.uint8(ortophoto*255)
+    ortophoto = np.uint8(ortophoto * 255)
 
     # Save dsm as GeoTIff
     if save_path is not None:
         save_path = Path(save_path)
         create_directory(save_path.parent)
-        rater_origin = [xlim[0] - res/2, ylim[0] - res/2]
-        transform = Affine.translation(rater_origin[0], rater_origin[1]) \
-            * Affine.scale(res, -res)
+        rater_origin = [xlim[0] - res / 2, ylim[0] - res / 2]
+        transform = Affine.translation(rater_origin[0], rater_origin[1]) * Affine.scale(
+            res, -res
+        )
         with rasterio.open(
-            save_path, 'w',
-            driver='GTiff',
+            save_path,
+            "w",
+            driver="GTiff",
             height=ortophoto.shape[0],
             width=ortophoto.shape[1],
             count=3,
-            dtype='uint8',
+            dtype="uint8",
             # crs="EPSG:32632",
             transform=transform,
         ) as dst:
@@ -497,11 +552,12 @@ def generate_ortophoto(image, dsm, camera: Camera,
 
     return ortophoto
 
+
 # Timer
 
 
 class AverageTimer:
-    """ Class to help manage printing simple timing of code execution. """
+    """Class to help manage printing simple timing of code execution."""
 
     def __init__(self, smoothing=0.3, newline=False):
         self.smoothing = smoothing
@@ -517,7 +573,7 @@ class AverageTimer:
         for name in self.will_print:
             self.will_print[name] = False
 
-    def update(self, name='default'):
+    def update(self, name="default"):
         now = time.time()
         dt = now - self.last_time
         if name in self.times:
@@ -526,17 +582,16 @@ class AverageTimer:
         self.will_print[name] = True
         self.last_time = now
 
-    def print(self, text='Timer'):
-        total = 0.
-        print('[{}]'.format(text), end=' ')
+    def print(self, text="Timer"):
+        total = 0.0
+        print("[{}]".format(text), end=" ")
         for key in self.times:
             val = self.times[key]
             if self.will_print[key]:
-                print('%s=%.3f' % (key, val), end=' ')
+                print("%s=%.3f" % (key, val), end=" ")
                 total += val
-        print('total=%.3f sec {%.1f FPS}' % (total, 1./total), end=' ')
         if self.newline:
             print(flush=True)
         else:
-            print(end='\r', flush=True)
+            print(end="\r", flush=True)
         self.reset()
