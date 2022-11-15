@@ -1,8 +1,8 @@
 import numpy as np
 import cv2
 import pickle
-from copy import deepcopy
-from shutil import copy as scopy
+from pathlib import Path
+from easydict import EasyDict as edict
 
 from lib.classes import Camera, Imageds, Features, Targets
 from lib.matching.matching_base import MatchingAndTracking
@@ -19,20 +19,23 @@ from lib.point_clouds import (
 )
 from lib.utils import (
     create_directory,
+    AverageTimer,
     build_dsm,
     generate_ortophoto,
 )
 from lib.visualization import display_point_cloud
+from lib.import_export.export2bundler import write_bundler_out
 
 from thirdparty.transformations import euler_from_matrix, euler_matrix
 
+from lib.metashape.metashape import MetashapeProject
 
 # Parse options from yaml file
 cfg_file = "./config/config_base.yaml"
 cfg = parse_yaml_cfg(cfg_file)
 
 
-''' Inizialize Variables '''
+""" Inizialize Variables """
 # @TODO: put this in an inizialization function
 cams = cfg.paths.camera_names
 features = dict.fromkeys(cams)
@@ -56,8 +59,7 @@ for epoch in cfg.proc.epoch_to_process:
 
     targets.append(
         Targets(
-            im_file_path=[
-                p1_path, p2_path], obj_file_path="data/target_world_p1.csv"
+            im_file_path=[p1_path, p2_path], obj_file_path="data/target_world_p1.csv"
         )
     )
 
@@ -69,34 +71,50 @@ im_height, im_width = 4000, 6000
 # @TODO: store this information in exif inside an Image Class
 point_clouds = []
 
+""" Big Loop over epoches """
+do_export_to_bundler = True
+do_metashape_bba = True
+do_metashape_dense = True
 
-""" Perform matching and tracking """
-if cfg.proc.do_matching:
-    MatchingAndTracking(
-        cfg=cfg,
-        images=images,
-        features=features,
-    )
-# features =
-elif not features[cams[0]]:
-    last_match_path = "res/last_epoch/last_features.pickle"
-    with open(last_match_path, "rb") as f:
-        features = pickle.load(f)
-        print("Loaded previous matches")
-else:
-    print("Features already present.")
-
-
-""" SfM """
-
+print("Processing started:")
+print("-----------------------")
+timer = AverageTimer(newline=True)
 for epoch in cfg.proc.epoch_to_process:
-    # epoch = 0
+
+    print(f"\nProcessing epoch {epoch}...")
+
+    """Perform matching and tracking"""
+    if cfg.proc.do_matching:
+        MatchingAndTracking(
+            cfg=cfg,
+            epoch=epoch,
+            images=images,
+            features=features,
+        )
+    elif not features[cams[0]]:
+        try:
+            last_match_path = "res/last_epoch/last_features.pickle"
+            with open(last_match_path, "rb") as f:
+                features = pickle.load(f)
+                print("Loaded previous matches")
+        except:
+            print(
+                f"Features not found in {last_match_path}. Please enable performing matching or provide valid path to already computed matches."
+            )
+    else:
+        print("Features already loaded.")
+    timer.update("matching")
+
+    """ SfM """
+
+    # for epoch in cfg.proc.epoch_to_process:
     print(f"Reconstructing epoch {epoch}...")
 
+    epochdir = Path(cfg.paths.results_dir) / f"epoch_{epoch}"
+
     # Initialize Intrinsics
-    """ Inizialize Camera Intrinsics at every epoch setting them equal to
-        the those of the reference cameras.
-    """
+    # Inizialize Camera Intrinsics at every epoch setting them equal to the those of the reference cameras.
+
     # @TODO: replace append with insert or a more robust data structure...
     for cam in cams:
         cameras[cam].append(
@@ -123,8 +141,7 @@ for epoch in cfg.proc.epoch_to_process:
     #     cameras[cams[0]][epoch] = cameras[cams[0]][0]
 
     # --- Perform Relative orientation of the two cameras ---#
-    """ Initialize Two_view_geometry class with a list containing the two cameras and a list contaning the matched features location on each camera.
-    """
+    # Initialize Two_view_geometry class with a list containing the two cameras and a list contaning the matched features location on each camera.
     relative_ori = Two_view_geometry(
         [cameras[cams[0]][epoch], cameras[cams[1]][epoch]],
         [
@@ -136,17 +153,14 @@ for epoch in cfg.proc.epoch_to_process:
         threshold=1.5,
         confidence=0.999999,
         scale_factor=np.linalg.norm(
-            cfg.georef.camera_centers_world[0] -
-            cfg.georef.camera_centers_world[1]
+            cfg.georef.camera_centers_world[0] - cfg.georef.camera_centers_world[1]
         ),
     )
     # Store result in camera 1 object
     cameras[cams[1]][epoch] = relative_ori.cameras[1]
 
     # --- Triangulate Points ---#
-    """ Initialize a Triangulate class instance with a list containing the two cameras and a list contaning the matched features location on each camera.
-    Triangulated points are saved as points3d proprierty of the Triangulate object (eg., triangulation.points3d)
-    """
+    # Initialize a Triangulate class instance with a list containing the two cameras and a list contaning the matched features location on each camera. Triangulated points are saved as points3d proprierty of the Triangulate object (eg., triangulation.points3d)
     triangulation = Triangulate(
         [cameras[cams[0]][epoch], cameras[cams[1]][epoch]],
         [
@@ -162,16 +176,13 @@ for epoch in cfg.proc.epoch_to_process:
     )
 
     # --- Absolute orientation (-> coregistration on stable points) ---#
-    targets_to_use = ["F2"]  # 'T4',
+    targets_to_use = ["F2", "F4"]  # 'T4',
     abs_ori = Absolute_orientation(
         (cameras[cams[0]][epoch], cameras[cams[1]][epoch]),
-        points3d_final=targets[epoch].extract_object_coor_by_label(
-            targets_to_use),
+        points3d_final=targets[epoch].extract_object_coor_by_label(targets_to_use),
         image_points=(
-            targets[epoch].extract_image_coor_by_label(
-                targets_to_use, cam_id=0),
-            targets[epoch].extract_image_coor_by_label(
-                targets_to_use, cam_id=1),
+            targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=0),
+            targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=1),
         ),
         camera_centers_world=cfg.georef.camera_centers_world,
     )
@@ -179,9 +190,7 @@ for epoch in cfg.proc.epoch_to_process:
     # uncertainty = np.array([
     #     [1., 1., 1.],
     #     [0.001, 0.001, 0.001],
-    #     [0.001, 0.001, 0.001],
-    #     ])
-    # T = abs_ori.estimate_transformation_least_squares(uncertainty=uncertainty)
+    #     [0.001, 0.001, 0.001]cfg.proc.epoch_to_processnsformation_least_squares(uncertainty=uncertainty)
     points3d = abs_ori.apply_transformation(points3d=points3d)
     for i, cam in enumerate(cams):
         cameras[cam][epoch] = abs_ori.cameras[i]
@@ -190,19 +199,83 @@ for epoch in cfg.proc.epoch_to_process:
     pcd_epc = create_point_cloud(points3d, triangulation.colors)
 
     # Filter outliers in point cloud with SOR filter
-    # if cfg.other.do_SOR_filter:
-    #     _, ind = pcd_epc.remove_statistical_outlier(nb_neighbors=10,
-    #                                                 std_ratio=3.0)
-    #     #     display_pc_inliers(pcd_epc, ind)
-    #     pcd_epc = pcd_epc.select_by_index(ind)
-    #     print('Point cloud filtered by Statistical Oulier Removal')
+    if cfg.other.do_SOR_filter:
+        _, ind = pcd_epc.remove_statistical_outlier(nb_neighbors=10, std_ratio=3.0)
+        pcd_epc = pcd_epc.select_by_index(ind)
+        print("Point cloud filtered by Statistical Oulier Removal")
 
     # Write point cloud to disk and store it in Point Cloud List
-    write_ply(pcd_epc, f"res/pt_clouds/sparse_pts_t{epoch}.ply")
+    # write_ply(pcd_epc, f"res/pt_clouds/sparse_pts_t{epoch}.ply")
+    write_ply(pcd_epc, epochdir / f"sparse_pts_t{epoch}.ply")
     point_clouds.append(pcd_epc)
 
-print("Done.")
+    # Export results in Bundler format
+    if do_export_to_bundler:
+        targets_to_use = ["F2", "F4"]  # 'T4',
+        write_bundler_out(
+            export_dir=epochdir / "metashape",
+            epoches=[epoch],
+            images=images,
+            cams=cams,
+            cameras=cameras,
+            features=features,
+            point_clouds=point_clouds,
+            targets=targets,
+            targets_to_use=targets_to_use,
+        )
 
+    timer.update("relative orientation")
+
+    # Metashape BBA and dense cloud
+    """" TO be organized!"""
+    if do_metashape_bba:
+        root_path = Path("/home/francesco/phd/belpy")
+        ms_dir = Path(root_path / f"res/epoch_{epoch}/metashape")
+        ms_cfg = edict(
+            {
+                "project_name": ms_dir / f"belpy_epoch_{epoch}.psx",
+                "im_path": ms_dir / "data/images/",
+                "bundler_file_path": ms_dir / f"data/belpy_epoch_{epoch}.out",
+                "bundler_im_list": ms_dir / "data/im_list.txt",
+                "gcp_filename": ms_dir / "data/gcps.txt",
+                "calib_filename": [
+                    root_path / "res/calib_metashape/belpy_35mm_280722_selfcal_all.xml",
+                    root_path / "res/calib_metashape/belpy_24mm_280722_selfcal_all.xml",
+                ],
+                "im_ext": "jpg",
+                "camera_location": [
+                    [309.261, 301.051, 135.008],  # IMG_1289
+                    [151.962, 99.065, 91.643],  # IMG_2814
+                ],
+                "gcp_accuracy": [0.01, 0.01, 0.01],
+                "cam_accuracy": [0.001, 0.001, 0.001],
+                "prm_to_fix": [
+                    "Cx",
+                    "Cy",
+                    "B1",
+                    "B2",
+                    "K1",
+                    "K2",
+                    "K3",
+                    "K4",
+                    "P1",
+                    "P2",
+                ],
+                "optimize_cameras": True,
+                "build_dense": True,
+                "dense_path": ms_dir,
+                "dense_name": f"dense_epoch_{epoch}.ply",
+                "force_overwrite_projects": True,
+            }
+        )
+
+        ms = MetashapeProject(ms_cfg)
+        ms.process_full_workflow()
+        timer.update("bundle and dense")
+
+    timer.print(f"Epoch {epoch} completed.")
+
+# timer.print("All epoches completed.")
 
 # Visualize point cloud
 display_point_cloud(
@@ -212,164 +285,26 @@ display_point_cloud(
 )
 
 
-""" Export results in Bundler .out format"""
-
-do_export_to_bundler = True
-
-if do_export_to_bundler:
-    # out_dir = Path('res/bundler_output')
-    print("Exporting results in Bundler format...")
-
-    for epoch in cfg.proc.epoch_to_process:
-        # Output dir by epoch
-        out_dir = create_directory(f"./res/metashape/epoch_{epoch}/data")
-
-        # Write im_list.txt in the same directory
-        file = open(out_dir / f"im_list.txt", "w")
-        for cam in cams:
-            file.write(f"{images[cam].get_image_name(epoch)}\n")
-        file.close()
-
-        # Copy images in subdirectory "images"
-        for cam in cams:
-            im_out_dir = create_directory(out_dir / "images")
-            scopy(
-                images[cam].get_image_path(epoch),
-                im_out_dir / images[cam].get_image_name(epoch),
-            )
-
-        # Write markers to file
-        targets_to_use = ["F2", "F4"]  # 'T4',
-        file = open(out_dir / f"gcps.txt", "w")
-        for target in targets_to_use:
-            for i, cam in enumerate(cams):
-                for x in (
-                    targets[epoch].extract_object_coor_by_label(
-                        [target]).squeeze()
-                ):
-                    file.write(f"{x:.4f} ")
-                for x in (
-                    targets[epoch]
-                    .extract_image_coor_by_label([target], cam_id=i)
-                    .squeeze()
-                ):
-                    file.write(f"{x:.4f} ")
-                file.write(f"{images[cam].get_image_name(epoch)} ")
-                file.write(f"{target}\n")
-        file.close()
-
-        # Create Bundler output fileadd
-        num_cams = len(cams)
-        num_pts = len(features[cams[0]][epoch])
-        w, h = 6012, 4008
-
-        file = open(out_dir / f"belpy_epoch_{epoch}.out", "w")
-        file.write(f"{num_cams} {num_pts}\n")
-
-        # Write cameras
-        Rx = euler_matrix(np.pi, 0.0, 0.0)
-        for cam in cams:
-            cam_ = deepcopy(cameras[cam][epoch])
-            cam_.pose = cam_.pose @ Rx
-            cam_.pose_to_extrinsics()
-
-            t = cam_.t.squeeze()
-            R = cam_.R
-            file.write(
-                f"{cam_.K[1,1]:.10f} {cam_.dist[0]:.10f} {cam_.dist[1]:.10f}\n")
-            for row in R:
-                file.write(f"{row[0]:.10f} {row[1]:.10f} {row[2]:.10f}\n")
-            file.write(f"{t[0]:.10f} {t[1]:.10f} {t[2]:.10f}\n")
-
-        # Write points
-        obj_coor = np.asarray(point_clouds[epoch].points)
-        obj_col = (np.asarray(point_clouds[epoch].colors) * 255.0).astype(int)
-        im_coor = {}
-        for cam in cams:
-            m = features[cam][epoch].get_keypoints()
-            m[:, 0] = m[:, 0] - w / 2
-            m[:, 1] = h / 2 - m[:, 1]
-            im_coor[cam] = m
-
-        for i in range(num_pts):
-
-            file.write(f"{obj_coor[i][0]} {obj_coor[i][1]} {obj_coor[i][2]}\n")
-            file.write(f"{obj_col[i][0]} {obj_col[i][1]} {obj_col[i][2]}\n")
-            file.write(
-                f"2 0 {i} {im_coor[cams[0]][i][0]:.4f} {im_coor[cams[0]][i][1]:.4f} 1 {i} {im_coor[cams[1]][i][0]:.4f} {im_coor[cams[1]][i][1]:.4f}\n"
-            )
-
-        file.close()
-
-    print("Export completed.")
-
-
-""" Export observations for external BBA """
-export_results_to_file = False
-if export_results_to_file:
-
-    from lib.io import export_keypoints, export_points3D
-
-    epoch = 0
-
-    export_keypoints(
-        "for_bba/keypoints_280722_for_bba.txt",
-        features=features,
-        imageds=images,
-        epoch=epoch,
-    )
-    export_points3D(
-        "for_bba/points3d_280722_for_bba.txt",
-        points3D=np.asarray(point_clouds[epoch].points),
-    )
-
-    # Targets
-    targets[epoch].im_coor[0].to_csv("for_bba/targets_p1.txt", index=False)
-    targets[epoch].im_coor[1].to_csv("for_bba/targets_p2.txt", index=False)
-    targets[epoch].obj_coor.to_csv("for_bba/targets_world.txt", index=False)
-
-
-""" For CALGE"""
-export_results_for_calge = False
-if export_results_for_calge:
-    # CAMERA EXTERIOR ORIENTATION
-    from thirdparty.transformations import euler_from_matrix
-
-    print(cameras[cams[0]][0].get_C_from_pose())
-    print(cameras[cams[1]][0].get_C_from_pose())
-    print(np.array(euler_from_matrix(cameras["p1"][0].R)) * 200 / np.pi)
-    print(np.array(euler_from_matrix(cameras["p2"][0].R)) * 200 / np.pi)
-
-    baseline_world = np.linalg.norm(
-        cfg.georef.camera_centers_world[0] - cfg.georef.camera_centers_world[1]
-    )
-
-    print(baseline_world)
-
-    # SAVE HOMOLOGOUS POINTS
-    # NB: Remember to disable SOR filter when computing 3d coordinates of TPs
-    from lib.io import export_keypoints_for_calge, export_points3D_for_calge
-
-    from thirdparty.transformations import euler_from_matrix
-
-    epoch = 0
-    export_keypoints_for_calge(
-        "simulaCalge/keypoints_280722.txt",
-        features=features,
-        imageds=images,
-        epoch=epoch,
-        pixel_size_micron=3.773,
-    )
-    export_points3D_for_calge(
-        "simulaCalge/points3D_280722.txt",
-        points3D=np.asarray(point_clouds[epoch].points),
-    )
-
-    print(cameras["p1"][0].C)
-    print(cameras["p2"][0].C)
-
-    print(np.array(euler_from_matrix(cameras["p1"][0].R)) * 200 / np.pi)
-    print(np.array(euler_from_matrix(cameras["p2"][0].R)) * 200 / np.pi)
+# """ Bundle adjustment with Metashape"""
+# # Export results in Bundler format
+# do_export_to_bundler = True
+# if do_export_to_bundler:""" Bundle adjustment with Metashape"""
+# # Export results in Bundler format
+# do_export_to_bundler = True
+# if do_export_to_bundler:
+#     export_dir = Path("res/metashape/")
+#     targets_to_use = ["F2", "F4"]  # 'T4',
+#     write_bundler_out(
+#         export_dir=export_dir,
+#         epoches=cfg.proc.epoch_to_process,
+#         images=images,
+#         cams=cams,
+#         cameras=cameras,
+#         features=features,
+#         point_clouds=point_clouds,
+#         targets=targets,
+#         targets_to_use=targets_to_use,
+#     )
 
 
 """ Compute DSM and orthophotos """

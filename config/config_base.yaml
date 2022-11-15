@@ -10,10 +10,10 @@ proc:
   #- Epoches to process
   # It can be either 'all' for processing all the epochs
   # or a list with the epoches to be processed
-  epoch_to_process: [0] # 'all' # #[0] # [0 1]
+  epoch_to_process: "all" # [0] #  # #[0] # [0 1]
 
   #- Switches to find and track matches
-  do_matching: True
+  do_matching: False
   do_tracking: False
 
   #- Coregistration switches
@@ -57,7 +57,7 @@ matching:
   equalize_hist: false
   nms_radius: 4
   keypoint_threshold: 0.0001
-  max_keypoints: 1024 # 10240
+  max_keypoints: 10240 # 1024 #
   superglue: "outdoor"
   sinkhorn_iterations: 100
   match_threshold: 0.15
