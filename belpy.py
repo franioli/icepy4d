@@ -19,6 +19,7 @@ from lib.point_clouds import (
 )
 from lib.utils import (
     create_directory,
+    AverageTimer,
     build_dsm,
     generate_ortophoto,
 )
@@ -70,42 +71,50 @@ im_height, im_width = 4000, 6000
 # @TODO: store this information in exif inside an Image Class
 point_clouds = []
 
-
-""" Perform matching and tracking """
-if cfg.proc.do_matching:
-    MatchingAndTracking(
-        cfg=cfg,
-        images=images,
-        features=features,
-    )
-# features =
-elif not features[cams[0]]:
-    last_match_path = "res/last_epoch/last_features.pickle"
-    with open(last_match_path, "rb") as f:
-        features = pickle.load(f)
-        print("Loaded previous matches")
-else:
-    print("Features already present.")
-
-
-""" SfM """
+""" Big Loop over epoches """
 do_export_to_bundler = True
 do_metashape_bba = True
 do_metashape_dense = True
 
+print("Processing started:")
 print("-----------------------")
-
-
+timer = AverageTimer(newline=True)
 for epoch in cfg.proc.epoch_to_process:
-    # epoch = 0
+
+    print(f"\nProcessing epoch {epoch}...")
+
+    """Perform matching and tracking"""
+    if cfg.proc.do_matching:
+        MatchingAndTracking(
+            cfg=cfg,
+            epoch=epoch,
+            images=images,
+            features=features,
+        )
+    elif not features[cams[0]]:
+        try:
+            last_match_path = "res/last_epoch/last_features.pickle"
+            with open(last_match_path, "rb") as f:
+                features = pickle.load(f)
+                print("Loaded previous matches")
+        except:
+            print(
+                f"Features not found in {last_match_path}. Please enable performing matching or provide valid path to already computed matches."
+            )
+    else:
+        print("Features already loaded.")
+    timer.update("matching")
+
+    """ SfM """
+
+    # for epoch in cfg.proc.epoch_to_process:
     print(f"Reconstructing epoch {epoch}...")
 
     epochdir = Path(cfg.paths.results_dir) / f"epoch_{epoch}"
 
     # Initialize Intrinsics
-    """ Inizialize Camera Intrinsics at every epoch setting them equal to
-        the those of the reference cameras.
-    """
+    # Inizialize Camera Intrinsics at every epoch setting them equal to the those of the reference cameras.
+
     # @TODO: replace append with insert or a more robust data structure...
     for cam in cams:
         cameras[cam].append(
@@ -132,8 +141,7 @@ for epoch in cfg.proc.epoch_to_process:
     #     cameras[cams[0]][epoch] = cameras[cams[0]][0]
 
     # --- Perform Relative orientation of the two cameras ---#
-    """ Initialize Two_view_geometry class with a list containing the two cameras and a list contaning the matched features location on each camera.
-    """
+    # Initialize Two_view_geometry class with a list containing the two cameras and a list contaning the matched features location on each camera.
     relative_ori = Two_view_geometry(
         [cameras[cams[0]][epoch], cameras[cams[1]][epoch]],
         [
@@ -152,9 +160,7 @@ for epoch in cfg.proc.epoch_to_process:
     cameras[cams[1]][epoch] = relative_ori.cameras[1]
 
     # --- Triangulate Points ---#
-    """ Initialize a Triangulate class instance with a list containing the two cameras and a list contaning the matched features location on each camera.
-    Triangulated points are saved as points3d proprierty of the Triangulate object (eg., triangulation.points3d)
-    """
+    # Initialize a Triangulate class instance with a list containing the two cameras and a list contaning the matched features location on each camera. Triangulated points are saved as points3d proprierty of the Triangulate object (eg., triangulation.points3d)
     triangulation = Triangulate(
         [cameras[cams[0]][epoch], cameras[cams[1]][epoch]],
         [
@@ -218,9 +224,10 @@ for epoch in cfg.proc.epoch_to_process:
             targets_to_use=targets_to_use,
         )
 
-    """" TO be organized!a"""
+    timer.update("relative orientation")
 
     # Metashape BBA and dense cloud
+    """" TO be organized!"""
     if do_metashape_bba:
         root_path = Path("/home/francesco/phd/belpy")
         ms_dir = Path(root_path / f"res/epoch_{epoch}/metashape")
@@ -262,17 +269,13 @@ for epoch in cfg.proc.epoch_to_process:
             }
         )
 
-        print("Processing started:")
-        print("-----------------------")
-
         ms = MetashapeProject(ms_cfg)
         ms.process_full_workflow()
+        timer.update("bundle and dense")
 
-        print(f"Completed.\n")
+    timer.print(f"Epoch {epoch} completed.")
 
-
-print("Done.")
-
+# timer.print("All epoches completed.")
 
 # Visualize point cloud
 display_point_cloud(
