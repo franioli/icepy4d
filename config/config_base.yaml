@@ -13,8 +13,8 @@ proc:
   epoch_to_process: "all" # [0] #  # #[0] # [0 1]
 
   #- Switches to find and track matches
-  do_matching: True
-  do_tracking: True
+  do_matching: False
+  do_tracking: False
 
   #- Coregistration switches
   # If True try to coregister point clouds based on n double points
