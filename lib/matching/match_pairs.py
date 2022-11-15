@@ -13,7 +13,7 @@ from thirdparty.SuperGluePretrainedNetwork.utils import (
     frame2tensor,
     vizTileRes
 )
-from lib.utils import generateTiles
+from lib.utils.utils import generateTiles
 
 torch.set_grad_enabled(False)
 

@@ -27,7 +27,7 @@ from typing import List
 
 from lib.classes import Camera
 from lib.geometry import undistort_points
-from lib.utils import (
+from lib.utils.utils import (
     convert_from_homogeneous,
     convert_to_homogeneous,
     interpolate_point_colors,
