@@ -30,6 +30,7 @@ from thirdparty.transformations import euler_from_matrix, euler_matrix
 
 from lib.metashape.metashape import MetashapeProject
 
+timer_global = AverageTimer(newline=True)
 # Parse options from yaml file
 cfg_file = "./config/config_base.yaml"
 cfg = parse_yaml_cfg(cfg_file)
@@ -274,8 +275,10 @@ for epoch in cfg.proc.epoch_to_process:
         timer.update("bundle and dense")
 
     timer.print(f"Epoch {epoch} completed.")
+    timer_global.update(f"epoch {epoch}")
 
-# timer.print("All epoches completed.")
+
+timer_global.print("All epoches completed.")
 
 # Visualize point cloud
 display_point_cloud(
