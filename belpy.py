@@ -12,7 +12,7 @@ from lib.sfm.absolute_orientation import (
     Absolute_orientation,
     Space_resection,
 )
-from lib.config import parse_yaml_cfg
+from lib.read_config import parse_yaml_cfg
 from lib.point_clouds import (
     create_point_cloud,
     write_ply,
@@ -31,15 +31,27 @@ from thirdparty.transformations import euler_from_matrix, euler_matrix
 from lib.metashape.metashape import MetashapeProject
 
 timer_global = AverageTimer(newline=True)
-# Parse options from yaml file
-cfg_file = "./config/config_base.yaml"
-cfg = parse_yaml_cfg(cfg_file)
+root_path = Path().absolute()
 
+# Parameters to be put in option yaml
+last_match_path = root_path / "res/last_epoch/last_features.pickle"
+do_export_to_bundler = True
+do_metashape_bba = True
+do_metashape_dense = True
+targets_to_use = ["F2", "F4"]  # 'T4',
+pydegensac_treshold = 1
+
+# Parse options from yaml file
+cfg_file = root_path / "config/config_base.yaml"
+cfg = parse_yaml_cfg(cfg_file)
 
 """ Inizialize Variables """
 # @TODO: put this in an inizialization function
 cams = cfg.paths.camera_names
 features = dict.fromkeys(cams)
+cams = cfg.paths.camera_names
+for cam in cams:
+    features[cam] = []
 
 # Create Image Datastore objects
 images = dict.fromkeys(cams)
@@ -73,9 +85,6 @@ im_height, im_width = 4000, 6000
 point_clouds = []
 
 """ Big Loop over epoches """
-do_export_to_bundler = True
-do_metashape_bba = True
-do_metashape_dense = True
 
 print("Processing started:")
 print("-----------------------")
@@ -84,9 +93,11 @@ for epoch in cfg.proc.epoch_to_process:
 
     print(f"\nProcessing epoch {epoch}...")
 
+    epochdir = Path(cfg.paths.results_dir) / f"epoch_{epoch}"
+
     """Perform matching and tracking"""
     if cfg.proc.do_matching:
-        MatchingAndTracking(
+        features = MatchingAndTracking(
             cfg=cfg,
             epoch=epoch,
             images=images,
@@ -94,13 +105,12 @@ for epoch in cfg.proc.epoch_to_process:
         )
     elif not features[cams[0]]:
         try:
-            last_match_path = "res/last_epoch/last_features.pickle"
             with open(last_match_path, "rb") as f:
                 features = pickle.load(f)
                 print("Loaded previous matches")
         except:
             print(
-                f"Features not found in {last_match_path}. Please enable performing matching or provide valid path to already computed matches."
+                f"Features not found in {str(last_match_path)}. Please enable performing matching or provide valid path to already computed matches."
             )
     else:
         print("Features already loaded.")
@@ -108,14 +118,10 @@ for epoch in cfg.proc.epoch_to_process:
 
     """ SfM """
 
-    # for epoch in cfg.proc.epoch_to_process:
     print(f"Reconstructing epoch {epoch}...")
-
-    epochdir = Path(cfg.paths.results_dir) / f"epoch_{epoch}"
 
     # Initialize Intrinsics
     # Inizialize Camera Intrinsics at every epoch setting them equal to the those of the reference cameras.
-
     # @TODO: replace append with insert or a more robust data structure...
     for cam in cams:
         cameras[cam].append(
@@ -151,7 +157,7 @@ for epoch in cfg.proc.epoch_to_process:
         ],
     )
     relative_ori.relative_orientation(
-        threshold=1.5,
+        threshold=pydegensac_treshold,
         confidence=0.999999,
         scale_factor=np.linalg.norm(
             cfg.georef.camera_centers_world[0] - cfg.georef.camera_centers_world[1]
@@ -177,24 +183,20 @@ for epoch in cfg.proc.epoch_to_process:
     )
 
     # --- Absolute orientation (-> coregistration on stable points) ---#
-    targets_to_use = ["F2", "F4"]  # 'T4',
-    abs_ori = Absolute_orientation(
-        (cameras[cams[0]][epoch], cameras[cams[1]][epoch]),
-        points3d_final=targets[epoch].extract_object_coor_by_label(targets_to_use),
-        image_points=(
-            targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=0),
-            targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=1),
-        ),
-        camera_centers_world=cfg.georef.camera_centers_world,
-    )
-    T = abs_ori.estimate_transformation_linear(estimate_scale=True)
-    # uncertainty = np.array([
-    #     [1., 1., 1.],
-    #     [0.001, 0.001, 0.001],
-    #     [0.001, 0.001, 0.001]cfg.proc.epoch_to_processnsformation_least_squares(uncertainty=uncertainty)
-    points3d = abs_ori.apply_transformation(points3d=points3d)
-    for i, cam in enumerate(cams):
-        cameras[cam][epoch] = abs_ori.cameras[i]
+    if cfg.proc.do_coregistration:
+        abs_ori = Absolute_orientation(
+            (cameras[cams[0]][epoch], cameras[cams[1]][epoch]),
+            points3d_final=targets[epoch].extract_object_coor_by_label(targets_to_use),
+            image_points=(
+                targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=0),
+                targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=1),
+            ),
+            camera_centers_world=cfg.georef.camera_centers_world,
+        )
+        T = abs_ori.estimate_transformation_linear(estimate_scale=True)
+        points3d = abs_ori.apply_transformation(points3d=points3d)
+        for i, cam in enumerate(cams):
+            cameras[cam][epoch] = abs_ori.cameras[i]
 
     # Create point cloud and save .ply to disk
     pcd_epc = create_point_cloud(points3d, triangulation.colors)
@@ -212,7 +214,6 @@ for epoch in cfg.proc.epoch_to_process:
 
     # Export results in Bundler format
     if do_export_to_bundler:
-        targets_to_use = ["F2", "F4"]  # 'T4',
         write_bundler_out(
             export_dir=epochdir / "metashape",
             epoches=[epoch],
@@ -230,7 +231,6 @@ for epoch in cfg.proc.epoch_to_process:
     # Metashape BBA and dense cloud
     """" TO be organized!"""
     if do_metashape_bba:
-        root_path = Path("/home/francesco/phd/belpy")
         ms_dir = Path(root_path / f"res/epoch_{epoch}/metashape")
         ms_cfg = edict(
             {
@@ -270,15 +270,15 @@ for epoch in cfg.proc.epoch_to_process:
             }
         )
 
-        ms = MetashapeProject(ms_cfg)
+        ms = MetashapeProject(ms_cfg, timer)
         ms.process_full_workflow()
-        timer.update("bundle and dense")
+        # timer.update("bundle and dense")
 
-    timer.print(f"Epoch {epoch} completed.")
+    timer.print(f"Epoch {epoch} completed")
     timer_global.update(f"epoch {epoch}")
 
 
-timer_global.print("All epoches completed.")
+timer_global.print("All epoches completed")
 
 # Visualize point cloud
 display_point_cloud(
@@ -286,28 +286,6 @@ display_point_cloud(
     [cameras[cams[0]][epoch], cameras[cams[1]][epoch]],
     plot_scale=10,
 )
-
-
-# """ Bundle adjustment with Metashape"""
-# # Export results in Bundler format
-# do_export_to_bundler = True
-# if do_export_to_bundler:""" Bundle adjustment with Metashape"""
-# # Export results in Bundler format
-# do_export_to_bundler = True
-# if do_export_to_bundler:
-#     export_dir = Path("res/metashape/")
-#     targets_to_use = ["F2", "F4"]  # 'T4',
-#     write_bundler_out(
-#         export_dir=export_dir,
-#         epoches=cfg.proc.epoch_to_process,
-#         images=images,
-#         cams=cams,
-#         cameras=cameras,
-#         features=features,
-#         point_clouds=point_clouds,
-#         targets=targets,
-#         targets_to_use=targets_to_use,
-#     )
 
 
 """ Compute DSM and orthophotos """
