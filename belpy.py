@@ -93,6 +93,9 @@ do_export_to_bundler = True
 do_metashape_bba = True
 do_metashape_dense = True
 
+print("-----------------------")
+
+
 for epoch in cfg.proc.epoch_to_process:
     # epoch = 0
     print(f"Reconstructing epoch {epoch}...")
