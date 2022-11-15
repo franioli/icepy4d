@@ -58,6 +58,7 @@ class Triangulate:
         self,
         views_ids: List[int] = [0, 1],
         approach: str = "iterative_LS_triangulation",
+        compute_colors: bool = True,
     ) -> np.ndarray:
 
         if approach == "iterative_LS_triangulation":
@@ -76,6 +77,9 @@ class Triangulate:
             print(f"Point triangulation succeded: {ret.sum()/ret.size}.")
 
             self.points3d = pts3d
+            if compute_colors:
+                pass
+                # @TODO: call color interpolation directively here.
 
             return self.points3d
 
@@ -115,7 +119,7 @@ class Triangulate:
         return points3d
 
     def interpolate_colors_from_image(
-        self, image, camera: Camera, convert_BRG2RGB: bool = True
+        self, image: np.ndarray, camera: Camera, convert_BRG2RGB: bool = True
     ):
         assert (
             self.points3d is not None
