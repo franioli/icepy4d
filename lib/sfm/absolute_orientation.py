@@ -7,7 +7,7 @@ from scipy import stats
 
 from lib.classes import Camera
 from lib.sfm.triangulation import Triangulate
-from lib.utils import convert_to_homogeneous, convert_from_homogeneous
+from lib.utils.utils import convert_to_homogeneous, convert_from_homogeneous
 
 from thirdparty.transformations import (
     affine_matrix_from_points,
@@ -16,30 +16,37 @@ from thirdparty.transformations import (
 )
 
 
-''' Space resection class for orienting one single image in world space'''
+""" Space resection class for orienting one single image in world space"""
 
 
-class Space_resection():
-    def __init__(self, camera: Camera,
-                 ) -> None:
+class Space_resection:
+    def __init__(
+        self,
+        camera: Camera,
+    ) -> None:
         self.camera = camera
 
-    def estimate(self,
-                 image_points: np.ndarray,
-                 object_poits: np.ndarray,
-                 reprojection_error:  float = 3.0,
-                 ) -> None:
-        ret, r, t, inliers = cv2.solvePnPRansac(object_poits,
-                                                image_points,
-                                                self.camera.K,
-                                                self.camera.dist,
-                                                reprojectionError=reprojection_error
-                                                )
+    def estimate(
+        self,
+        image_points: np.ndarray,
+        object_poits: np.ndarray,
+        reprojection_error: float = 3.0,
+    ) -> None:
+        ret, r, t, inliers = cv2.solvePnPRansac(
+            object_poits,
+            image_points,
+            self.camera.K,
+            self.camera.dist,
+            reprojectionError=reprojection_error,
+        )
         if ret:
             print(
-                f'Space resection succeded. Number of inlier points: {len(inliers)}/{len(object_poits)}')
+                f"Space resection succeded. Number of inlier points: {len(inliers)}/{len(object_poits)}"
+            )
         else:
-            print('Space resection failed. Wrong input data or not enough inliers found')
+            print(
+                "Space resection failed. Wrong input data or not enough inliers found"
+            )
             return
 
         R, _ = cv2.Rodrigues(r)
@@ -47,7 +54,7 @@ class Space_resection():
         self.camera.build_camera_EO(extrinsics=extrinsics)
 
 
-''' Absolute orientation class for georeferencing model'''
+""" Absolute orientation class for georeferencing model"""
 
 
 def get_T_from_params(
@@ -56,13 +63,13 @@ def get_T_from_params(
 
     # Get parameters
     parvals = params.valuesdict()
-    rx = parvals['rx']
-    ry = parvals['ry']
-    rz = parvals['rz']
-    tx = parvals['tx']
-    ty = parvals['ty']
-    tz = parvals['tz']
-    m = parvals['m']
+    rx = parvals["rx"]
+    ry = parvals["ry"]
+    rz = parvals["rz"]
+    tx = parvals["tx"]
+    ty = parvals["ty"]
+    tz = parvals["tz"]
+    m = parvals["m"]
 
     # Build 4x4 transformation matrix (T) in homogeneous coordinates
     T = np.identity(4)
@@ -80,20 +87,20 @@ def compute_residuals(
     weights: np.ndarray = None,
     prior_covariance_scale: float = None,
 ) -> np.ndarray:
-    ''' 3D rototranslation with scale factor
+    """3D rototranslation with scale factor
 
     X1_ = T_ + m * R * X0_
 
-    Inputs: 
+    Inputs:
     - x0 (np.ndarray): Points in the starting reference system
-    - x1 (np.ndarray): Points in final reference system 
+    - x1 (np.ndarray): Points in final reference system
     - weights (np.ndarray, defult = None): weights (e.g., inverse of a-priori observation uncertainty)
-    - prior_covariance_scale (float, default = None): A-priori sigma_0^2     
+    - prior_covariance_scale (float, default = None): A-priori sigma_0^2
 
-    Return: 
+    Return:
     - res (nx1 np.ndarray): Vector of the weighted residuals
 
-    '''
+    """
 
     # Get parameters from params
     T = get_T_from_params(params)
@@ -107,23 +114,25 @@ def compute_residuals(
     x1_ = x1_[:3, :].T
 
     # Compute residuals as differences between observed and estimated values, scaled by the a-priori observation uncertainties
-    res = (x1 - x1_)
+    res = x1 - x1_
 
     # If weigthts are provided, scale residual
     if weights is not None:
 
         if weights.shape != res.shape:
             raise ValueError(
-                f'Wrong dimensions of the weight matrix. It must be of size {res.shape}')
+                f"Wrong dimensions of the weight matrix. It must be of size {res.shape}"
+            )
 
         res = res * weights
 
     return res.flatten()
 
 
-def rescale_residuals(residuals: np.ndarray,
-                      weights: np.ndarray,
-                      ) -> np.ndarray:
+def rescale_residuals(
+    residuals: np.ndarray,
+    weights: np.ndarray,
+) -> np.ndarray:
 
     residuals = residuals / weights
     return residuals
@@ -132,7 +141,7 @@ def rescale_residuals(residuals: np.ndarray,
 def print_results(
     result,
     weights: np.ndarray = None,
-    sigma0_2: float = 1.,
+    sigma0_2: float = 1.0,
 ) -> None:
 
     ndim = weights.shape[1]
@@ -146,76 +155,79 @@ def print_results(
     else:
         residuals = result.residual.reshape(-1, ndim)
 
-    print('-------------------------------')
-    print('Optimization report')
+    print("-------------------------------")
+    print("Optimization report")
     print(fit_report(result))
 
-    print('-------------------------------')
-    print(f'Chi quadro test:')
+    print("-------------------------------")
+    print(f"Chi quadro test:")
     nfree = result.nfree
-    chi_lim = stats.chi2.ppf(1-.05, df=nfree)
+    chi_lim = stats.chi2.ppf(1 - 0.05, df=nfree)
     chi_0 = result.redchi / sigma0_2
-    print(f'Degrees of freedom: {nfree}')
-    print(f'Chi2 empirical: {chi_0:.3f}')
-    print(f'Chi2 limit: {chi_lim:.3f}')
+    print(f"Degrees of freedom: {nfree}")
+    print(f"Chi2 empirical: {chi_0:.3f}")
+    print(f"Chi2 limit: {chi_lim:.3f}")
     if chi_0 < chi_lim:
-        print('Test passed')
+        print("Test passed")
     else:
-        print('Test NOT passed')
+        print("Test NOT passed")
 
-    print('-------------------------------')
-    print('Residuals')
+    print("-------------------------------")
+    print("Residuals")
     # print('     X       Y      Z')
     # print(f'{res[0]:8.3f} {res[1]:8.3f} {res[2]:8.3f}')
     for res in residuals:
         for dim in range(ndim):
-            if dim == ndim-1:
-                endline = '\n'
+            if dim == ndim - 1:
+                endline = "\n"
             else:
-                endline = ' '
+                endline = " "
             print(f"{res[dim]:8.3f}", end=endline)
 
-    print('-------------------------------')
-    print(f'Covariance matrix:')
+    print("-------------------------------")
+    print(f"Covariance matrix:")
     for var in result.var_names:
         if var is result.var_names[-1]:
-            endline = '\n'
+            endline = "\n"
         else:
-            endline = ' '
+            endline = " "
         print(f"   {var:7s}", end=endline)
 
     for row in result.covar:
         for cov in row:
             if cov == row[-1]:
-                endline = '\n'
+                endline = "\n"
             else:
-                endline = ' '
+                endline = " "
             print(f"{cov:10.5f}", end=endline)
 
 
-class Absolute_orientation():
+class Absolute_orientation:
     # @TODO: Apply transformation also to cameras!
-    def __init__(self,
-                 cameras: Tuple[Camera],
-                 points3d_final: np.ndarray = None,
-                 points3d_orig: np.ndarray = None,
-                 image_points: Tuple[np.ndarray] = None,
-                 camera_centers_world: Tuple[np.ndarray] = None,
-                 ) -> None:
+    def __init__(
+        self,
+        cameras: Tuple[Camera],
+        points3d_final: np.ndarray = None,
+        points3d_orig: np.ndarray = None,
+        image_points: Tuple[np.ndarray] = None,
+        camera_centers_world: Tuple[np.ndarray] = None,
+    ) -> None:
 
         self.cameras = cameras
         if points3d_final is not None:
             self.v1 = points3d_final
         else:
             raise ValueError(
-                'Missing input for points in world reference system. Please, provide the their 3D coordinates in nx3 numpy array.')
+                "Missing input for points in world reference system. Please, provide the their 3D coordinates in nx3 numpy array."
+            )
         if points3d_orig is not None:
             self.v0 = points3d_orig
         elif image_points is not None:
             self.v0 = self.triangulate_image_points(image_points)
         else:
             raise ValueError(
-                'Missing input for points in local reference system. Please, provide the their 3D coordinates or the image points to be triangulated')
+                "Missing input for points in local reference system. Please, provide the their 3D coordinates or the image points to be triangulated"
+            )
         if camera_centers_world is not None:
             self.add_camera_centers_to_points(camera_centers_world)
 
@@ -225,7 +237,7 @@ class Absolute_orientation():
         v0: np.ndarray = None,
         v1: np.ndarray = None,
     ) -> None:
-        ''' Add camera centers to arrays of points for estimating transformation.
+        """Add camera centers to arrays of points for estimating transformation.
         --------------
         Parameters:
             - camera_centers_world (List[np.ndarray]): List of numpy array containing the two camera centers.
@@ -233,7 +245,7 @@ class Absolute_orientation():
             - v1 (nx3 np.ndarray, default=None): points in the final RS. If provided, they overwrite the old point stored in the class object.
         Returns: None
         --------------
-        '''
+        """
 
         # if new arrays of points are provided, overwrite old ones.
         if v0:
@@ -243,23 +255,21 @@ class Absolute_orientation():
 
         if camera_centers_world is None:
             raise ValueError(
-                'Missing camera_centers_world argument. Please, provide Tuple with coordinates of the camera centers in world reference system to be added')
+                "Missing camera_centers_world argument. Please, provide Tuple with coordinates of the camera centers in world reference system to be added"
+            )
         self.v0 = np.concatenate(
-            (self.v0,
+            (
+                self.v0,
                 #  @TODO: add possibility of using multiple cameras
                 self.cameras[0].C.reshape(1, -1),
                 self.cameras[1].C.reshape(1, -1),
-             )
+            )
         )
         # print(f'v0: {self.v0}')
-        self.v1 = np.concatenate(
-            (self.v1, camera_centers_world)
-        )
+        self.v1 = np.concatenate((self.v1, camera_centers_world))
         # print(f'v1: {self.v1}')
 
-    def triangulate_image_points(self,
-                                 image_points: List[np.ndarray]
-                                 ) -> np.ndarray:
+    def triangulate_image_points(self, image_points: List[np.ndarray]) -> np.ndarray:
         #  @TODO: add possibility of using multiple cameras
 
         triangulation = Triangulate(
@@ -269,31 +279,27 @@ class Absolute_orientation():
         triangulation.triangulate_two_views()
         return triangulation.points3d
 
-    def estimate_transformation_linear(self,
-                                       estimate_scale:  bool = True,
-                                       ) -> np.ndarray:
-        ''' Wrapper around 'affine_matrix_from_points' function from 'transformation'. It estimates 3D rototranslation by using SVD
-        '''
+    def estimate_transformation_linear(
+        self,
+        estimate_scale: bool = True,
+    ) -> np.ndarray:
+        """Wrapper around 'affine_matrix_from_points' function from 'transformation'. It estimates 3D rototranslation by using SVD"""
 
         self.tform = affine_matrix_from_points(
-            self.v0.T,
-            self.v1.T,
-            shear=False,
-            scale=estimate_scale,
-            usesvd=False
+            self.v0.T, self.v1.T, shear=False, scale=estimate_scale, usesvd=False
         )
         # print(f'Estimated transformation: \n{self.tform}')
 
         return self.tform
 
     def extract_params_from_T(self, T: np.ndarray = None):
-        ''' Extract transformation parameters from 4x4 T matrix
+        """Extract transformation parameters from 4x4 T matrix
         --------------
         Parameters:
             - T (4x4 np.ndarray = None): 4x4 transformation matrix. If not provided, self.tform is used.
         Returns: params (dict): transformation parameters.
         --------------
-        '''
+        """
 
         if T is None:
             T = self.tform
@@ -302,27 +308,28 @@ class Absolute_orientation():
         rot = euler_from_matrix(T[:3, :3])
         m = float(1.0)
         prm = {
-            'rx': rot[0],
-            'ry': rot[1],
-            'rz': rot[2],
-            'tx': t[0],
-            'ty': t[1],
-            'tz': t[2],
-            'm': m,
+            "rx": rot[0],
+            "ry": rot[1],
+            "rz": rot[2],
+            "tx": t[0],
+            "ty": t[1],
+            "tz": t[2],
+            "m": m,
         }
 
         return prm
 
-    def estimate_transformation_least_squares(self,
-                                              uncertainty: np.ndarray = None,
-                                              ) -> np.ndarray:
-        ''' Estimate 3D rototranslation with least squares, by using lmfit library.
+    def estimate_transformation_least_squares(
+        self,
+        uncertainty: np.ndarray = None,
+    ) -> np.ndarray:
+        """Estimate 3D rototranslation with least squares, by using lmfit library.
         --------------
-        Parameters: 
+        Parameters:
             - uncertainty (np.array): numpy array of the same dimension of self.v0 and self.v1 matrixes used to scale the residuals. The uncertainty matrix contains the a priori standard deviation of each observation and it is analogous as building a diagonal Q matrix with the variance of the observations along the main diagonal.
         Returns: self.tform (4x4 np.ndarray): Transformation matrix.
         --------------
-        '''
+        """
         # @TODO: storing and returning also covariance matrix and other useful information.
 
         # Estimate approximate values by using estimate_transformation_linear
@@ -331,20 +338,20 @@ class Absolute_orientation():
 
         # Define Parameters to be optimized
         params = Parameters()
-        params.add('rx', value=prm['rx'], vary=True)
-        params.add('ry', value=prm['ry'], vary=True)
-        params.add('rz', value=prm['rz'], vary=True)
-        params.add('tx', value=prm['tx'], vary=True)
-        params.add('ty', value=prm['ty'], vary=True)
-        params.add('tz', value=prm['tz'], vary=True)
-        params.add('m',  value=prm['m'], vary=True)
+        params.add("rx", value=prm["rx"], vary=True)
+        params.add("ry", value=prm["ry"], vary=True)
+        params.add("rz", value=prm["rz"], vary=True)
+        params.add("tx", value=prm["tx"], vary=True)
+        params.add("ty", value=prm["ty"], vary=True)
+        params.add("tz", value=prm["tz"], vary=True)
+        params.add("m", value=prm["m"], vary=True)
 
         if uncertainty is None:
             # Default assigned uncertainty
             uncertainty = np.ones(self.v0.shape)
 
         # Run Optimization!
-        weights = 1. / uncertainty
+        weights = 1.0 / uncertainty
         minimizer = Minimizer(
             compute_residuals,
             params,
@@ -353,22 +360,23 @@ class Absolute_orientation():
                 self.v1,
             ),
             fcn_kws={
-                'weights': weights,
+                "weights": weights,
             },
             scale_covar=True,
         )
-        ls_result = minimizer.minimize(method='leastsq')
+        ls_result = minimizer.minimize(method="leastsq")
         # fit_report(result)
 
         # Print result
         print_results(ls_result, weights)
 
-    def apply_transformation(self,
-                             T: np.ndarray = None,
-                             points3d: np.ndarray = None,
-                             camera: Camera = None,
-                             ) -> np.ndarray:
-        ''' Apply estimated transformation to 3D points and to camera matrices
+    def apply_transformation(
+        self,
+        T: np.ndarray = None,
+        points3d: np.ndarray = None,
+        camera: Camera = None,
+    ) -> np.ndarray:
+        """Apply estimated transformation to 3D points and to camera matrices
         --------------
         Parameters:
             - T (4x4 np.ndarray = None): 4x4 transformation matrix. If not provided, self.tform is used.
@@ -376,8 +384,10 @@ class Absolute_orientation():
             - camera (Camera, default=None): Camera object. If not provided, self.cameras are used.
         Returns: self.v1 (nx3 np.ndarray): transformed points.
         --------------
-        '''
-        assert not(self.v1 is None and points3d is None), f'Points to be transformed not found in self.v1 and not provided. Please provide a set of points to be transformed.'
+        """
+        assert not (
+            self.v1 is None and points3d is None
+        ), f"Points to be transformed not found in self.v1 and not provided. Please provide a set of points to be transformed."
 
         if T is None:
             T = self.tform

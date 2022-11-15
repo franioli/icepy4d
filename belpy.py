@@ -17,7 +17,7 @@ from lib.point_clouds import (
     create_point_cloud,
     write_ply,
 )
-from lib.utils import (
+from lib.utils.utils import (
     create_directory,
     AverageTimer,
     build_dsm,
@@ -224,55 +224,21 @@ for epoch in cfg.proc.epoch_to_process:
             point_clouds=point_clouds,
             targets=targets,
             targets_to_use=targets_to_use,
+            targets_enabled=[True, False],
         )
 
     timer.update("relative orientation")
 
     # Metashape BBA and dense cloud
-    """" TO be organized!"""
+    from lib.metashape.metashape import build_ms_cfg_base
+
     if do_metashape_bba:
-        ms_dir = Path(root_path / f"res/epoch_{epoch}/metashape")
-        ms_cfg = edict(
-            {
-                "project_name": ms_dir / f"belpy_epoch_{epoch}.psx",
-                "im_path": ms_dir / "data/images/",
-                "bundler_file_path": ms_dir / f"data/belpy_epoch_{epoch}.out",
-                "bundler_im_list": ms_dir / "data/im_list.txt",
-                "gcp_filename": ms_dir / "data/gcps.txt",
-                "calib_filename": [
-                    root_path / "res/calib_metashape/belpy_35mm_280722_selfcal_all.xml",
-                    root_path / "res/calib_metashape/belpy_24mm_280722_selfcal_all.xml",
-                ],
-                "im_ext": "jpg",
-                "camera_location": [
-                    [309.261, 301.051, 135.008],  # IMG_1289
-                    [151.962, 99.065, 91.643],  # IMG_2814
-                ],
-                "gcp_accuracy": [0.01, 0.01, 0.01],
-                "cam_accuracy": [0.001, 0.001, 0.001],
-                "prm_to_fix": [
-                    "Cx",
-                    "Cy",
-                    "B1",
-                    "B2",
-                    "K1",
-                    "K2",
-                    "K3",
-                    "K4",
-                    "P1",
-                    "P2",
-                ],
-                "optimize_cameras": True,
-                "build_dense": True,
-                "dense_path": ms_dir,
-                "dense_name": f"dense_epoch_{epoch}.ply",
-                "force_overwrite_projects": True,
-            }
-        )
+        # Temporary function for building configuration dictionary.
+        # Must be moved to a file or other solution.
+        ms_cfg = build_ms_cfg_base(root_path, epoch)
 
         ms = MetashapeProject(ms_cfg, timer)
         ms.process_full_workflow()
-        # timer.update("bundle and dense")
 
     timer.print(f"Epoch {epoch} completed")
     timer_global.update(f"epoch {epoch}")
