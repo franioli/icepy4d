@@ -2,7 +2,6 @@ import numpy as np
 import cv2
 import pickle
 from pathlib import Path
-from easydict import EasyDict as edict
 
 from lib.classes import Camera, Imageds, Features, Targets
 from lib.matching.matching_base import MatchingAndTracking
@@ -18,15 +17,12 @@ from lib.point_clouds import (
     write_ply,
 )
 from lib.utils.utils import (
-    create_directory,
     AverageTimer,
     build_dsm,
     generate_ortophoto,
 )
 from lib.visualization import display_point_cloud
 from lib.import_export.export2bundler import write_bundler_out
-
-from thirdparty.transformations import euler_from_matrix, euler_matrix
 
 from lib.metashape.metashape import MetashapeProject
 
@@ -72,7 +68,7 @@ for epoch in cfg.proc.epoch_to_process:
 
     targets.append(
         Targets(
-            im_file_path=[p1_path, p2_path], obj_file_path="data/target_world_p1.csv"
+            im_file_path=[p1_path, p2_path], obj_file_path="data/targets/target_world_p1.csv"
         )
     )
 
@@ -224,7 +220,7 @@ for epoch in cfg.proc.epoch_to_process:
             point_clouds=point_clouds,
             targets=targets,
             targets_to_use=targets_to_use,
-            targets_enabled=[True, False],
+            targets_enabled=[True, True],
         )
 
     timer.update("relative orientation")
