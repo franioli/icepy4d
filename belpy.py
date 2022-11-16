@@ -160,9 +160,9 @@ for epoch in cfg.proc.epoch_to_process:
     relative_ori.relative_orientation(
         threshold=pydegensac_treshold,
         confidence=0.999999,
-        # scale_factor=np.linalg.norm(
-        #     cfg.georef.camera_centers_world[0] - cfg.georef.camera_centers_world[1]
-        # ),
+        scale_factor=np.linalg.norm(
+            cfg.georef.camera_centers_world[0] - cfg.georef.camera_centers_world[1]
+        ),
     )
     # Store result in camera 1 object
     cameras[cams[1]][epoch] = relative_ori.cameras[1]
@@ -212,13 +212,6 @@ for epoch in cfg.proc.epoch_to_process:
     # write_ply(pcd_epc, f"res/pt_clouds/sparse_pts_t{epoch}.ply")
     write_ply(pcd_epc, epochdir / f"sparse_pts_t{epoch}.ply")
     point_clouds.append(pcd_epc)
-
-    # Visualize point cloud
-    display_point_cloud(
-        point_clouds,
-        [cameras[cams[0]][epoch], cameras[cams[1]][epoch]],
-        plot_scale=0.1,
-    )
 
     # Export results in Bundler format
     if do_export_to_bundler:
