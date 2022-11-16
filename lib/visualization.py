@@ -231,7 +231,7 @@ def display_point_cloud(
         num_cams = len(cameras)
 
         if num_cams < 3:
-            cam_colors = [[1, 0, 0], [0, 0, 1]]
+            cam_colors = [[1, 0, 0], [0, 1, 0]]
         else:
             cam_colors = np.full((num_cams, 3), [1, 0, 0])
 

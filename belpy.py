@@ -24,7 +24,11 @@ from lib.utils.utils import (
 from lib.visualization import display_point_cloud
 from lib.import_export.export2bundler import write_bundler_out
 
-from lib.metashape.metashape import MetashapeProject
+from lib.metashape.metashape import (
+    MetashapeProject,
+    MetashapeReader,
+    build_ms_cfg_base,
+)
 
 timer_global = AverageTimer(newline=True)
 root_path = Path().absolute()
@@ -68,7 +72,8 @@ for epoch in cfg.proc.epoch_to_process:
 
     targets.append(
         Targets(
-            im_file_path=[p1_path, p2_path], obj_file_path="data/targets/target_world_p1.csv"
+            im_file_path=[p1_path, p2_path],
+            obj_file_path="data/targets/target_world_p1.csv",
         )
     )
 
@@ -155,9 +160,9 @@ for epoch in cfg.proc.epoch_to_process:
     relative_ori.relative_orientation(
         threshold=pydegensac_treshold,
         confidence=0.999999,
-        scale_factor=np.linalg.norm(
-            cfg.georef.camera_centers_world[0] - cfg.georef.camera_centers_world[1]
-        ),
+        # scale_factor=np.linalg.norm(
+        #     cfg.georef.camera_centers_world[0] - cfg.georef.camera_centers_world[1]
+        # ),
     )
     # Store result in camera 1 object
     cameras[cams[1]][epoch] = relative_ori.cameras[1]
@@ -208,6 +213,13 @@ for epoch in cfg.proc.epoch_to_process:
     write_ply(pcd_epc, epochdir / f"sparse_pts_t{epoch}.ply")
     point_clouds.append(pcd_epc)
 
+    # Visualize point cloud
+    display_point_cloud(
+        point_clouds,
+        [cameras[cams[0]][epoch], cameras[cams[1]][epoch]],
+        plot_scale=0.1,
+    )
+
     # Export results in Bundler format
     if do_export_to_bundler:
         write_bundler_out(
@@ -226,15 +238,23 @@ for epoch in cfg.proc.epoch_to_process:
     timer.update("relative orientation")
 
     # Metashape BBA and dense cloud
-    from lib.metashape.metashape import build_ms_cfg_base
-
     if do_metashape_bba:
         # Temporary function for building configuration dictionary.
         # Must be moved to a file or other solution.
         ms_cfg = build_ms_cfg_base(root_path, epoch)
+        ms_cfg.build_dense = False
 
         ms = MetashapeProject(ms_cfg, timer)
         ms.process_full_workflow()
+
+        ms_reader = MetashapeReader(
+            metashape_dir=epochdir / "metashape",
+            num_cams=len(cams),
+        )
+        ms_reader.read_calibration_from_file()
+        ms_reader.read_cameras_from_file(
+            epochdir / f"metashape/belpy_epoch_{epoch}_camera_estimated.txt"
+        )
 
     timer.print(f"Epoch {epoch} completed")
     timer_global.update(f"epoch {epoch}")

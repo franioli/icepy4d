@@ -2,6 +2,8 @@ import numpy as np
 import cv2
 import os
 
+"""Deprecated. Moved to import_export folder"""
+
 
 def process_resize(w, h, resize):
     assert len(resize) > 0 and len(resize) <= 2

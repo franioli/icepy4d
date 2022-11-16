@@ -33,7 +33,7 @@ from thirdparty.SuperGluePretrainedNetwork.utils import read_image, frame2tensor
 
 # from lib.sg.matching import Matching
 
-from lib.io import generateTiles
+from lib.tiles import generateTiles
 
 torch.set_grad_enabled(False)
 
