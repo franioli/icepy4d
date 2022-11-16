@@ -30,11 +30,14 @@ import matplotlib.colors as Colors
 import matplotlib.cm as cm
 import matplotlib
 
-matplotlib.use("Agg")
+from typing import List, Union
+from pathlib import Path
 
 from lib.classes import Camera, Features
 from lib.utils.utils import compute_reprojection_error
 from lib.geometry import project_points
+
+matplotlib.use("TkAgg")
 
 """ Misc functions"""
 
@@ -404,6 +407,27 @@ def make_viz_sdr(scale=5):
     rs_obj.points = o3d.utility.Vector3dVector(vertexes)
 
     return rs_obj
+
+
+""" Various plot for paper """
+
+
+def make_focal_length_variation_plot(
+    focals,
+    save_path: Union[str, Path] = None,
+) -> None:
+    epoches_2_process = range(len(focals[0]))
+    n_cams = len(focals)
+    fig, ax = plt.subplots(1, n_cams)
+    for s_id in range(n_cams):
+        ax[s_id].plot(epoches_2_process, focals[s_id], "o")
+        ax[s_id].grid(visible=True, which="both")
+        ax[s_id].set_xlabel("Epoch")
+        ax[s_id].set_ylabel("Focal lenght [px]")
+    if save_path is None:
+        fig.show()
+    else:
+        fig.savefig(save_path)
 
 
 """ Other skatched functions to be implemented"""

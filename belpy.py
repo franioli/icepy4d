@@ -1,7 +1,33 @@
+"""
+MIT License
+
+Copyright (c) 2022 Francesco Ioli
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+"""
+
+#%%
 import numpy as np
 import cv2
 import pickle
 from pathlib import Path
+
 
 from lib.classes import Camera, Imageds, Features, Targets
 from lib.matching.matching_base import MatchingAndTracking
@@ -21,7 +47,10 @@ from lib.utils.utils import (
     build_dsm,
     generate_ortophoto,
 )
-from lib.visualization import display_point_cloud
+from lib.visualization import (
+    display_point_cloud,
+    make_focal_length_variation_plot,
+)
 from lib.import_export.export2bundler import write_bundler_out
 
 from lib.metashape.metashape import (
@@ -84,6 +113,9 @@ cameras[cams[0]], cameras[cams[1]] = [], []
 im_height, im_width = 4000, 6000
 # @TODO: store this information in exif inside an Image Class
 point_clouds = []
+
+# Tmp variable to store only estimated focal lenghts in Metashape
+focals = {0: [], 1: []}
 
 """ Big Loop over epoches """
 
@@ -248,6 +280,8 @@ for epoch in cfg.proc.epoch_to_process:
         ms_reader.read_cameras_from_file(
             epochdir / f"metashape/belpy_epoch_{epoch}_camera_estimated.txt"
         )
+        for i in range(len(cams)):
+            focals[i].append(ms_reader.get_focal_lengths()[i])
 
     timer.print(f"Epoch {epoch} completed")
     timer_global.update(f"epoch {epoch}")
@@ -262,7 +296,10 @@ display_point_cloud(
     plot_scale=10,
 )
 
+# Display estimated focal length variation
+make_focal_length_variation_plot(focals, "res/focal_lenghts.png")
 
+#%%
 """ Compute DSM and orthophotos """
 # @TODO: implement better DSM class
 
