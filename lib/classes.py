@@ -33,6 +33,8 @@ from typing import List, Union
 from scipy import linalg
 from pathlib import Path
 
+from lib.import_export.importing import read_opencv_calibration
+
 # --- Camera ---#
 
 
@@ -280,45 +282,45 @@ class Camera:
 
         return m.astype(float)
 
-    def read_calibration_from_file(self, path):
+    def read_calibration_from_file(self, path: Union[str, Path]) -> None:
         """
-        Read camera internal orientation from file, save in camera class
-        and return them.
+        Read camera internal orientation from file and save in camera class.
         The file must contain the full K matrix and distortion vector,
         according to OpenCV standards, and organized in one line, as follow:
         width height fx 0. cx 0. fy cy 0. 0. 1. k1, k2, p1, p2, [k3, [k4, k5, k6
         Values must be float(include the . after integers) and divided by a
         white space.
         -------
-        Returns:  K, dist
+        Returns: None
         """
-        path = Path(path)
-        if not path.exists():
-            print("Error: calibration filed does not exist.")
-            return None, None
-        with open(path, "r") as f:
-            data = np.loadtxt(f)
-            w = data[0]
-            h = data[1]
-            K = data[2:11].astype(float).reshape(3, 3, order="C")
-            if len(data) == 15:
-                print("Using OPENCV camera model.")
-                dist = data[11:15].astype(float)
-            elif len(data) == 16:
-                print("Using OPENCV camera model + k3")
-                dist = data[11:16].astype(float)
-            elif len(data) == 19:
-                print("Using FULL OPENCV camera model")
-                dist = data[11:19].astype(float)
-            else:
-                print("invalid intrinsics data.")
-                return None, None
-            # TODO: implement other camera models and estimate K from exif.
+        # path = Path(path)
+        # if not path.exists():
+        #     print("Error: calibration filed does not exist.")
+        #     return None, None
+        # with open(path, "r") as f:
+        #     data = np.loadtxt(f)
+        #     w = data[0]
+        #     h = data[1]
+        #     K = data[2:11].astype(float).reshape(3, 3, order="C")
+        #     if len(data) == 15:
+        #         print("Using OPENCV camera model.")
+        #         dist = data[11:15].astype(float)
+        #     elif len(data) == 16:
+        #         print("Using OPENCV camera model + k3")
+        #         dist = data[11:16].astype(float)
+        #     elif len(data) == 19:
+        #         print("Using FULL OPENCV camera model")
+        #         dist = data[11:19].astype(float)
+        #     else:
+        #         print("invalid intrinsics data.")
+        #         return None, None
+        #     # @TODO: implement other camera models and estimate K from exif.
+
+        w, h, K, dist = read_opencv_calibration(path)
         self.width = w
         self.height = h
         self.K = K
         self.dist = dist
-        return K, dist
 
     def get_P_homogeneous(self):
         """
