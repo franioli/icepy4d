@@ -267,7 +267,7 @@ for epoch in cfg.proc.epoch_to_process:
         # Temporary function for building configuration dictionary.
         # Must be moved to a file or other solution.
         ms_cfg = build_ms_cfg_base(root_path, epoch)
-        ms_cfg.build_dense = False
+        # ms_cfg.build_dense = False
 
         ms = MetashapeProject(ms_cfg, timer)
         ms.process_full_workflow()
@@ -286,12 +286,12 @@ for epoch in cfg.proc.epoch_to_process:
         # TEMPORARY!
         # Force settings camera extrinsics computed in Metashape.
         # Improve assignation of camera parameter by setter in Camera Class.
-        cameras[cams[0]][epoch].K = ms_reader.K[1]
-        cameras[cams[0]][epoch].extrinsics = ms_reader.extrinsics[1]
-        cameras[cams[0]][epoch].update_camera_from_extrinsics()
-        cameras[cams[1]][epoch].K = ms_reader.K[0]
-        cameras[cams[1]][epoch].extrinsics = ms_reader.extrinsics[0]
-        cameras[cams[1]][epoch].update_camera_from_extrinsics()
+        # cameras[cams[0]][epoch].K = ms_reader.K[1]
+        # cameras[cams[0]][epoch].extrinsics = ms_reader.extrinsics[1]
+        # cameras[cams[0]][epoch].update_camera_from_extrinsics()
+        # cameras[cams[1]][epoch].K = ms_reader.K[0]
+        # cameras[cams[1]][epoch].extrinsics = ms_reader.extrinsics[0]
+        # cameras[cams[1]][epoch].update_camera_from_extrinsics()
 
     timer.print(f"Epoch {epoch} completed")
     timer_global.update(f"epoch {epoch}")
@@ -310,32 +310,32 @@ display_point_cloud(
 # Display estimated focal length variation
 make_focal_length_variation_plot(focals, "res/focal_lenghts.png")
 
-# Write all sparse point clouds to a single folder
-cx, cy, cz = [], [], []
-for epoch in cfg.proc.epoch_to_process:
-    triangulation = Triangulate(
-        [cameras[cams[0]][epoch], cameras[cams[1]][epoch]],
-        [
-            features[cams[0]][epoch].get_keypoints(),
-            features[cams[1]][epoch].get_keypoints(),
-        ],
-    )
-    points3d = triangulation.triangulate_two_views()
-    triangulation.interpolate_colors_from_image(
-        images[cams[1]][epoch],
-        cameras[cams[1]][epoch],
-        convert_BRG2RGB=True,
-    )
-    point_clouds.append(create_point_cloud(points3d, triangulation.colors))
-    cx.append(cameras[cams[0]][epoch].get_C_from_pose()[0])
-    cy.append(cameras[cams[0]][epoch].get_C_from_pose()[1])
-    cz.append(cameras[cams[0]][epoch].get_C_from_pose()[2])
 
-    write_ply(point_clouds[epoch], f"res/pt_clouds/sparse_pts_t{epoch}.ply")
+# # Write all sparse point clouds to a single folder
+# cx, cy, cz = [], [], []
+# for epoch in cfg.proc.epoch_to_process:
+#     tria ],
+#     )
+#     points3d = triangulation.triangulate_two_views()
+#     triangulation.interpolate_colors_from_image(
+#         images[cams[1]][epoch],
+#         cameras[cams[1]][epoch],
+#         convert_BRG2RGB=True,
+#     )
+#     point_clouds.append(create_point_cloud(points3d, triangulation.colors))
+#     cx.append(cameras[cams[0]][epoch].get_C_from_pose()[0])
+#     cy.append(cameras[cams[0]][epoch].get_C_from_pose()[1])
+#     cz.append(cameras[cams[0]][epoch].get_C_from_pose()[2])
 
-import matplotlib.pyplot as plt
+#     write_ply(point_clouds[epoch], f"res/pt_clouds/sparse_pts_t{epoch}.ply")
 
-fig, ax = plt.subplots(1, 3)
+# import matplotlib.pyplot as plt
+
+# fig, ax = plt.subplots(1, 3)ngulation = Triangulate(
+#         [cameras[cams[0]][epoch], cameras[cams[1]][epoch]],
+#         [
+#             features[cams[0]][epoch].get_keypoints(),
+#             features[cams[1]][epoch].get_keypoints(),
 
 
 #%%
