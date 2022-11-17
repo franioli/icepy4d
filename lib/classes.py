@@ -53,9 +53,17 @@ class CameraNew:
         calib_path: Union[str, Path] = None,
     ):
         """Initialize pinhole camera model
-        All the Camera members are private in order to guarantee consistency between the different possible expression of the exterior orientation. Use ONLY Getter and Setter method to access to Camera parameters from outside the Class.
+        All the Camera members are private in order to guarantee consistency
+        between the different possible expression of the exterior orientation.
+        Use ONLY Getter and Setter method to access to Camera parameters from
+        outside the Class.
 
-        For code safety, use the method "update_extrinsics" to update Camera Exterior Orientataion given a new extrinsics matrix. If you need to update the camera EO from a pose matrix or from R,t, compute the extrinsics matrix first with the methods Camera.pose_to_extrinsics(pose) or Camera.Rt_to_extrinsics(R,t), that return the extrinsics matrix.
+        For code safety, use the method "update_extrinsics" to update Camera
+        Exterior Orientataion given a new extrinsics matrix. If you need to
+        update the camera EO from a pose matrix or from R,t, compute the
+        extrinsics matrix first with the methods Camera.pose_to_extrinsics
+        (pose) or Camera.Rt_to_extrinsics(R,t), that return the extrinsics
+        matrix.
         """
 
         self._w = width  # Image width [px]
