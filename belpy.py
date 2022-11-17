@@ -28,7 +28,7 @@ import cv2
 import pickle
 from pathlib import Path
 
-from lib.base_classes import Camera
+from lib.base_classes.camera import Camera
 
 from lib.classes import Imageds, Features, Targets
 from lib.matching.matching_base import MatchingAndTracking
@@ -64,12 +64,11 @@ timer_global = AverageTimer(newline=True)
 root_path = Path().absolute()
 
 # Parameters to be put in option yaml
-last_match_path = root_path / "res/last_epoch/last_features.pickle"
-do_export_to_bundler = True
-do_metashape_bba = True
-do_metashape_dense = True
-targets_to_use = ["F2", "F4"]  # 'T4',
-pydegensac_treshold = 1
+# last_match_path = root_path / "res/last_epoch/last_features.pickle"
+# do_metashape_bba = True
+# do_metashape_dense = True
+# targets_to_use = ["F2", "F4"]  # 'T4',
+# pydegensac_treshold = 1
 
 # Parse options from yaml file
 cfg_file = root_path / "config/config_base.yaml"
@@ -139,12 +138,12 @@ for epoch in cfg.proc.epoch_to_process:
         )
     elif not features[cams[0]]:
         try:
-            with open(last_match_path, "rb") as f:
+            with open(cfg.paths.last_match_path, "rb") as f:
                 features = pickle.load(f)
                 print("Loaded previous matches")
         except:
             print(
-                f"Features not found in {str(last_match_path)}. Please enable performing matching or provide valid path to already computed matches."
+                f"Features not found in {str(cfg.paths.last_match_path)}. Please enable performing matching or provide valid path to already computed matches."
             )
     else:
         print("Features already loaded.")
@@ -168,18 +167,16 @@ for epoch in cfg.proc.epoch_to_process:
 
     # --- Space resection of Master camera ---#
     # At the first epoch, perform Space resection of the first camera by using GCPs. At all other epoches, set camera 1 EO equal to first one.
-    # if epoch == 0:
-    #     ''' Initialize Single_camera_geometry class with a cameras object'''
-    #     targets_to_use = ['T2','T3','T4','F2' ]
-    #     space_resection = Space_resection(cameras[cams[0]][epoch])
-    #     space_resection.estimate(
-    #         targets[epoch].extract_image_coor_by_label(targets_to_use,cam_id=0),
-    #         targets[epoch].extract_object_coor_by_label(targets_to_use)
-    #         )
-    #     # Store result in camera 0 object
-    #     cameras[cams[0]][epoch] = space_resection.camera
-    # else:
-    #     cameras[cams[0]][epoch] = cameras[cams[0]][0]
+    if cfg.proc.do_space_resection and epoch == 0:
+        """Initialize Single_camera_geometry class with a cameras object"""
+        targets_to_use = ["T2", "T3", "T4", "F2", "F4"]
+        space_resection = Space_resection(cameras[cams[0]][epoch])
+        space_resection.estimate(
+            targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=0),
+            targets[epoch].extract_object_coor_by_label(targets_to_use),
+        )
+        # Store result in camera 0 object
+        cameras[cams[0]][epoch] = space_resection.camera
 
     # --- Perform Relative orientation of the two cameras ---#
     # Initialize Two_view_geometry class with a list containing the two cameras and a list contaning the matched features location on each camera.
@@ -191,7 +188,7 @@ for epoch in cfg.proc.epoch_to_process:
         ],
     )
     relative_ori.relative_orientation(
-        threshold=pydegensac_treshold,
+        threshold=cfg.other.pydegensac_treshold,
         confidence=0.999999,
         scale_factor=np.linalg.norm(
             cfg.georef.camera_centers_world[0] - cfg.georef.camera_centers_world[1]
@@ -246,8 +243,11 @@ for epoch in cfg.proc.epoch_to_process:
     write_ply(pcd_epc, epochdir / f"sparse_pts_t{epoch}.ply")
     point_clouds.append(pcd_epc)
 
-    # Export results in Bundler format
-    if do_export_to_bundler:
+    timer.update("relative orientation")
+
+    # Metashape BBA and dense cloud
+    if cfg.proc.do_metashape_bba:
+        # Export results in Bundler format
         write_bundler_out(
             export_dir=epochdir / "metashape",
             epoches=[epoch],
@@ -261,14 +261,10 @@ for epoch in cfg.proc.epoch_to_process:
             targets_enabled=[True, True],
         )
 
-    timer.update("relative orientation")
-
-    # Metashape BBA and dense cloud
-    if do_metashape_bba:
         # Temporary function for building configuration dictionary.
         # Must be moved to a file or other solution.
         ms_cfg = build_ms_cfg_base(root_path, epoch)
-        ms_cfg.build_dense = False
+        ms_cfg.build_dense = cfg.proc.do_metashape_dense
 
         ms = MetashapeProject(ms_cfg, timer)
         ms.process_full_workflow()

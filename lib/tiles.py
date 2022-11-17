@@ -32,7 +32,7 @@ from typing import List, Union
 
 # from lib.classes import Imageds
 from classes import Imageds
-from classes_new.images import Image
+from base_classes.images import Image
 
 
 def generateTiles(
