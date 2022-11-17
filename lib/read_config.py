@@ -49,6 +49,13 @@ def parse_yaml_cfg(cfg_file: edict) -> edict:
     cfg.paths.results_dir = root_path / Path(cfg.paths.results_dir)
     cfg.paths.last_match_path = root_path / Path(cfg.paths.last_match_path)
 
+    # - Processing options
+    if cfg.proc.do_matching == False and cfg.proc.do_tracking == True:
+        print(
+            "Warning: Invalid combination of options between Matching and Tracking. Tracking was se to enabled, but Matching was not. Disabling Tracking."
+        )
+        cfg.proc.do_tracking == False
+
     # - Image-realted options
     cfg.images.mask_bounding_box = np.array(cfg.images.mask_bounding_box).astype("int")
 

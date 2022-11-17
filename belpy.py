@@ -67,7 +67,7 @@ root_path = Path().absolute()
 # last_match_path = root_path / "res/last_epoch/last_features.pickle"
 # do_metashape_bba = True
 # do_metashape_dense = True
-# targets_to_use = ["F2", "F4"]  # 'T4',
+# cfg.georef.targets_to_use = ["F2", "F4"]  # 'T4',
 # pydegensac_treshold = 1
 
 # Parse options from yaml file
@@ -169,11 +169,13 @@ for epoch in cfg.proc.epoch_to_process:
     # At the first epoch, perform Space resection of the first camera by using GCPs. At all other epoches, set camera 1 EO equal to first one.
     if cfg.proc.do_space_resection and epoch == 0:
         """Initialize Single_camera_geometry class with a cameras object"""
-        targets_to_use = ["T2", "T3", "T4", "F2", "F4"]
+        cfg.georef.targets_to_use = ["T2", "T3", "T4", "F2", "F4"]
         space_resection = Space_resection(cameras[cams[0]][epoch])
         space_resection.estimate(
-            targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=0),
-            targets[epoch].extract_object_coor_by_label(targets_to_use),
+            targets[epoch].extract_image_coor_by_label(
+                cfg.georef.targets_to_use, cam_id=0
+            ),
+            targets[epoch].extract_object_coor_by_label(cfg.georef.targets_to_use),
         )
         # Store result in camera 0 object
         cameras[cams[0]][epoch] = space_resection.camera
@@ -217,10 +219,16 @@ for epoch in cfg.proc.epoch_to_process:
     if cfg.proc.do_coregistration:
         abs_ori = Absolute_orientation(
             (cameras[cams[0]][epoch], cameras[cams[1]][epoch]),
-            points3d_final=targets[epoch].extract_object_coor_by_label(targets_to_use),
+            points3d_final=targets[epoch].extract_object_coor_by_label(
+                cfg.georef.targets_to_use
+            ),
             image_points=(
-                targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=0),
-                targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id=1),
+                targets[epoch].extract_image_coor_by_label(
+                    cfg.georef.targets_to_use, cam_id=0
+                ),
+                targets[epoch].extract_image_coor_by_label(
+                    cfg.georef.targets_to_use, cam_id=1
+                ),
             ),
             camera_centers_world=cfg.georef.camera_centers_world,
         )
@@ -257,7 +265,7 @@ for epoch in cfg.proc.epoch_to_process:
             features=features,
             point_clouds=point_clouds,
             targets=targets,
-            targets_to_use=targets_to_use,
+            targets_to_use=cfg.georef.targets_to_use,
             targets_enabled=[True, True],
         )
 
@@ -269,26 +277,18 @@ for epoch in cfg.proc.epoch_to_process:
         ms = MetashapeProject(ms_cfg, timer)
         ms.process_full_workflow()
 
-        # ms_reader = MetashapeReader(
-        #     metashape_dir=epochdir / "metashape",
-        #     num_cams=len(cams),
-        # )
-        # ms_reader.read_calibration_from_file()
-        # ms_reader.read_cameras_from_file(
-        #     epochdir / f"metashape/belpy_epoch_{epoch}_camera_estimated.txt"
-        # )
-        # for i in range(len(cams)):
-        #     focals[i].append(ms_reader.get_focal_lengths()[i])
+        ms_reader = MetashapeReader(
+            metashape_dir=epochdir / "metashape",
+            num_cams=len(cams),
+        )
+        ms_reader.read_calibration_from_file()
+        ms_reader.read_cameras_from_file(
+            epochdir / f"metashape/belpy_epoch_{epoch}_camera_estimated.txt"
+        )
+        for i in range(len(cams)):
+            focals[i].append(ms_reader.get_focal_lengths()[i])
 
-        # TEMPORARY!
-        # Force settings camera extrinsics computed in Metashape.
-        # Improve assignation of camera parameter by setter in Camera Class.
-        # cameras[cams[0]][epoch].K = ms_reader.K[1]
-        # cameras[cams[0]][epoch].extrinsics = ms_reader.extrinsics[1]
-        # cameras[cams[0]][epoch].update_camera_from_extrinsics()
-        # cameras[cams[1]][epoch].K = ms_reader.K[0]
-        # cameras[cams[1]][epoch].extrinsics = ms_reader.extrinsics[0]
-        # cameras[cams[1]][epoch].update_camera_from_extrinsics()
+        # Assign camera extrinsics and intrinsics estimated in Metashape to Camera Object
 
     timer.print(f"Epoch {epoch} completed")
     timer_global.update(f"epoch {epoch}")
