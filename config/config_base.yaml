@@ -16,7 +16,7 @@ proc:
   epoch_to_process: "all" # [0, 1] # [0] # [0 1]
 
   #- Switches to find and track matches
-  do_matching: false
+  do_matching: true
   do_tracking: true
 
   #- Do space resection of first camera
@@ -28,7 +28,7 @@ proc:
   #- Perform full Bundle Adjustment in Agisoft Metashape and build dense cloud
   # (need Agisoft licence properly configured)
   do_metashape_bba: true
-  do_metashape_dense: false
+  do_metashape_dense: true
 
 #- Image-related options
 images:

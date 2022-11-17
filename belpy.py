@@ -297,15 +297,16 @@ for epoch in cfg.proc.epoch_to_process:
 timer_global.print("All epoches completed")
 
 
-# Visualize point cloud
-display_point_cloud(
-    point_clouds,
-    [cameras[cams[0]][epoch], cameras[cams[1]][epoch]],
-    plot_scale=10,
-)
+if cfg.other.do_viz:
+    # Visualize point cloud
+    display_point_cloud(
+        point_clouds,
+        [cameras[cams[0]][epoch], cameras[cams[1]][epoch]],
+        plot_scale=10,
+    )
 
-# Display estimated focal length variation
-make_focal_length_variation_plot(focals, "res/focal_lenghts.png")
+    # Display estimated focal length variation
+    make_focal_length_variation_plot(focals, "res/focal_lenghts.png")
 
 
 # # Write all sparse point clouds to a single folder
