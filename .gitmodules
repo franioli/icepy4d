@@ -1,3 +1,6 @@
 [submodule "thirdparty/pydegensac"]
 	path = thirdparty/pydegensac
 	url = https://github.com/ducha-aiki/pydegensac.git
+[submodule "tools/collimate_points"]
+	path = tools/collimate_points
+	url = git@github.com:franioli/collimate_points.git
