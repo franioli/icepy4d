@@ -5,7 +5,7 @@ from typing import List, Tuple
 from lmfit import Minimizer, Parameters, fit_report
 from scipy import stats
 
-from lib.classes import Camera
+from lib.classes import CameraNew as Camera
 from lib.sfm.triangulation import Triangulate
 from lib.utils.utils import convert_to_homogeneous, convert_from_homogeneous
 
@@ -400,15 +400,26 @@ class Absolute_orientation:
         self.v1 = convert_from_homogeneous(points_out).T
 
         # Apply transformation to cameras
+        # if camera is None:
+        #     for camera in self.cameras:
+        #         camera.pose = T @ camera.pose
+        #         camera.pose_to_extrinsics()
+        #         camera.update_camera_from_extrinsics()
+        # else:
+        #     camera.pose = T @ camera.pose
+        #     camera.pose_to_extrinsics()
+        #     camera.update_camera_from_extrinsics()
+
+        # With New Camera class
         if camera is None:
             for camera in self.cameras:
-                camera.pose = T @ camera.pose
-                camera.pose_to_extrinsics()
-                camera.update_camera_from_extrinsics()
+                pose = T @ camera.pose
+                extrinsics = camera.pose_to_extrinsics(pose)
+                camera.update_extrinsics(extrinsics)
         else:
-            camera.pose = T @ camera.pose
-            camera.pose_to_extrinsics()
-            camera.update_camera_from_extrinsics()
+            pose = T @ camera.pose
+            extrinsics = camera.pose_to_extrinsics(pose)
+            camera.update_extrinsics(extrinsics)
 
         # print('Cam 1:\n', self.cameras[0].extrinsics)
         # print('Cam 2:\n', self.cameras[1].extrinsics)
