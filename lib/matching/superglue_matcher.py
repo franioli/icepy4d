@@ -23,7 +23,7 @@ from typing import Tuple, Union
 # import lib.utils.images as image_utils
 # from lib.classes.image import Image
 from lib.classes import Imageds, Features
-from lib.config import parse_yaml_cfg
+from lib.read_config import parse_yaml_cfg
 
 from thirdparty.SuperGluePretrainedNetwork.superpoint import SuperPoint
 from thirdparty.SuperGluePretrainedNetwork.superglue import SuperGlue
