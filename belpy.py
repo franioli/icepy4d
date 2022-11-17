@@ -28,8 +28,9 @@ import cv2
 import pickle
 from pathlib import Path
 
+from lib.classes import CameraNew as Camera
 
-from lib.classes import Camera, Imageds, Features, Targets
+from lib.classes import Imageds, Features, Targets
 from lib.matching.matching_base import MatchingAndTracking
 from lib.sfm.two_view_geometry import Two_view_geometry
 from lib.sfm.triangulation import Triangulate
@@ -267,7 +268,7 @@ for epoch in cfg.proc.epoch_to_process:
         # Temporary function for building configuration dictionary.
         # Must be moved to a file or other solution.
         ms_cfg = build_ms_cfg_base(root_path, epoch)
-        # ms_cfg.build_dense = False
+        ms_cfg.build_dense = False
 
         ms = MetashapeProject(ms_cfg, timer)
         ms.process_full_workflow()

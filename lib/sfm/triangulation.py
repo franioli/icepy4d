@@ -25,7 +25,7 @@ SOFTWARE.
 import numpy as np
 from typing import List
 
-from lib.classes import Camera
+from lib.classes import CameraNew as Camera
 from lib.geometry import undistort_points
 from lib.utils.utils import (
     convert_from_homogeneous,

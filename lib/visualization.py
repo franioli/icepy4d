@@ -33,7 +33,9 @@ import matplotlib
 from typing import List, Union
 from pathlib import Path
 
-from lib.classes import Camera, Features
+from lib.classes import CameraNew as Camera
+
+from lib.classes import Features
 from lib.utils.utils import compute_reprojection_error
 from lib.geometry import project_points
 
