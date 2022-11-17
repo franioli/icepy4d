@@ -27,7 +27,7 @@ import cv2
 from typing import List
 
 from lib.classes import Features
-from lib.classes import CameraNew as Camera
+from lib.base_classes.camera import Camera
 
 # from lib.sfm.triangulation import Triangulate
 
