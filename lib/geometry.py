@@ -27,7 +27,7 @@ import numpy as np
 import cv2
 import pydegensac
 
-from lib.classes import CameraNew as Camera
+from lib.base_classes.camera import Camera
 
 
 def estimate_pose(kpts0, kpts1, K0, K1, thresh, conf=0.9999):
