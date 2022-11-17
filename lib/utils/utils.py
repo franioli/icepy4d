@@ -39,7 +39,7 @@ from scipy.interpolate import (
     LinearNDInterpolator,
 )
 
-from lib.classes import CameraNew as Camera
+from lib.base_classes.camera import Camera
 from lib.geometry import project_points
 
 
