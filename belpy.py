@@ -28,7 +28,7 @@ import cv2
 import pickle
 from pathlib import Path
 
-from lib.classes import CameraNew as Camera
+from lib.base_classes import Camera
 
 from lib.classes import Imageds, Features, Targets
 from lib.matching.matching_base import MatchingAndTracking
@@ -103,7 +103,7 @@ for epoch in cfg.proc.epoch_to_process:
     targets.append(
         Targets(
             im_file_path=[p1_path, p2_path],
-            obj_file_path="data/targets/target_world_p1.csv",
+            obj_file_path=cfg.georef.target_dir / "target_world_p1.csv",
         )
     )
 
@@ -273,16 +273,16 @@ for epoch in cfg.proc.epoch_to_process:
         ms = MetashapeProject(ms_cfg, timer)
         ms.process_full_workflow()
 
-        ms_reader = MetashapeReader(
-            metashape_dir=epochdir / "metashape",
-            num_cams=len(cams),
-        )
-        ms_reader.read_calibration_from_file()
-        ms_reader.read_cameras_from_file(
-            epochdir / f"metashape/belpy_epoch_{epoch}_camera_estimated.txt"
-        )
-        for i in range(len(cams)):
-            focals[i].append(ms_reader.get_focal_lengths()[i])
+        # ms_reader = MetashapeReader(
+        #     metashape_dir=epochdir / "metashape",
+        #     num_cams=len(cams),
+        # )
+        # ms_reader.read_calibration_from_file()
+        # ms_reader.read_cameras_from_file(
+        #     epochdir / f"metashape/belpy_epoch_{epoch}_camera_estimated.txt"
+        # )
+        # for i in range(len(cams)):
+        #     focals[i].append(ms_reader.get_focal_lengths()[i])
 
         # TEMPORARY!
         # Force settings camera extrinsics computed in Metashape.

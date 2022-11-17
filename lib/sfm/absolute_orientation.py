@@ -5,7 +5,7 @@ from typing import List, Tuple
 from lmfit import Minimizer, Parameters, fit_report
 from scipy import stats
 
-from lib.classes import CameraNew as Camera
+from lib.base_classes.camera import Camera
 from lib.sfm.triangulation import Triangulate
 from lib.utils.utils import convert_to_homogeneous, convert_from_homogeneous
 
