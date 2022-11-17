@@ -6,8 +6,9 @@ from copy import deepcopy
 from shutil import copy as scopy
 from typing import Union, List
 
+from lib.classes import CameraNew
 from lib.classes import Features, Imageds, Targets
-from lib.utils import create_directory
+from lib.utils.utils import create_directory
 from thirdparty.transformations import euler_from_matrix, euler_matrix
 
 
@@ -21,6 +22,7 @@ def write_bundler_out(
     point_clouds: List[o3d.geometry.PointCloud],
     targets: List[Targets] = [],
     targets_to_use: List[str] = [],
+    targets_enabled: List[bool] = [],
 ) -> None:
     """
     Export solution in Bundler .out format.
@@ -58,7 +60,8 @@ def write_bundler_out(
 
         # Write markers to file
         file = open(out_dir / f"gcps.txt", "w")
-        for target in targets_to_use:
+        targets_enabled = [int(x) for x in targets_enabled]
+        for i, target in enumerate(targets_to_use):
             for i, cam in enumerate(cams):
                 for x in (
                     targets[epoch].extract_object_coor_by_label([target]).squeeze()
@@ -71,13 +74,17 @@ def write_bundler_out(
                 ):
                     file.write(f"{x:.4f} ")
                 file.write(f"{images[cam].get_image_name(epoch)} ")
-                file.write(f"{target}\n")
+                file.write(f"{target} ")
+                if len(targets_enabled) > 0:
+                    file.write(f"{targets_enabled[i]}\n")
         file.close()
 
-        # Create Bundler output fileadd
+        # Create Bundler output file
         num_cams = len(cams)
         num_pts = len(features[cams[0]][epoch])
-        w, h = 6012, 4008
+        # w, h = 6012, 4008
+        w = cameras[cam][epoch].width
+        h = cameras[cam][epoch].height
 
         file = open(out_dir / f"belpy_epoch_{epoch}.out", "w")
         file.write(f"{num_cams} {num_pts}\n")
@@ -86,9 +93,9 @@ def write_bundler_out(
         Rx = euler_matrix(np.pi, 0.0, 0.0)
         for cam in cams:
             cam_ = deepcopy(cameras[cam][epoch])
-            cam_.pose = cam_.pose @ Rx
-            cam_.pose_to_extrinsics()
-
+            pose = cam_.pose @ Rx
+            cam_.update_extrinsics(cam_.pose_to_extrinsics(pose))
+            
             t = cam_.t.squeeze()
             R = cam_.R
             file.write(f"{cam_.K[1,1]:.10f} {cam_.dist[0]:.10f} {cam_.dist[1]:.10f}\n")
