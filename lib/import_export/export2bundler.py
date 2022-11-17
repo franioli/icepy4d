@@ -6,7 +6,7 @@ from copy import deepcopy
 from shutil import copy as scopy
 from typing import Union, List
 
-from lib.classes import CameraNew
+from lib.base_classes.camera import Camera
 from lib.classes import Features, Imageds, Targets
 from lib.utils.utils import create_directory
 from thirdparty.transformations import euler_from_matrix, euler_matrix
@@ -95,7 +95,7 @@ def write_bundler_out(
             cam_ = deepcopy(cameras[cam][epoch])
             pose = cam_.pose @ Rx
             cam_.update_extrinsics(cam_.pose_to_extrinsics(pose))
-            
+
             t = cam_.t.squeeze()
             R = cam_.R
             file.write(f"{cam_.K[1,1]:.10f} {cam_.dist[0]:.10f} {cam_.dist[1]:.10f}\n")
