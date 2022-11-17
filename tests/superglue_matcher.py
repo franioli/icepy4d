@@ -23,16 +23,18 @@ from typing import Tuple, Union
 # import lib.utils.images as image_utils
 # from lib.classes.image import Image
 from lib.classes import Imageds, Features
-from lib.config import parse_yaml_cfg
+from lib.read_config import parse_yaml_cfg
 
 from thirdparty.SuperGluePretrainedNetwork.superpoint import SuperPoint
 from thirdparty.SuperGluePretrainedNetwork.superglue import SuperGlue
 from thirdparty.SuperGluePretrainedNetwork.utils import read_image, frame2tensor
+
 # make_matching_plot, AverageTimer, read_image, vizTileRes
 
 # from lib.sg.matching import Matching
 
-from lib.io import generateTiles
+from lib.tiles import generateTiles
+
 torch.set_grad_enabled(False)
 
 # SuperPoint constants
@@ -48,33 +50,33 @@ DEFAULT_NUM_SINKHORN_ITERATIONS = 20
 
 
 class SuperPoint(torch.nn.Module):
-    """ Image Matching Frontend (SuperPoint + SuperGlue) """
+    """Image Matching Frontend (SuperPoint + SuperGlue)"""
 
     def __init__(self, config={}):
         super().__init__()
-        self.superpoint = SuperPoint(config.get('superpoint', {}))
+        self.superpoint = SuperPoint(config.get("superpoint", {}))
 
     def forward(self, data):
-        """ Run SuperPoint 
+        """Run SuperPoint
         Args:
           data: dictionary with minimal keys: ['image0', 'image1']
         """
 
         # Extract SuperPoint (keypoints, scores, descriptors)
-        pred = self.superpoint({'image': data['image0']})
-        pred = {**pred, **{k+'0': v for k, v in pred0.items()}}
+        pred = self.superpoint({"image": data["image0"]})
+        pred = {**pred, **{k + "0": v for k, v in pred0.items()}}
 
         return pred
 
 
-class SuperPoint_detector_descriptor():
-
-    def __init__(self,
-                 max_keypoints: int = 2048,
-                 keypoint_threshold: float = 0.0001,
-                 use_cuda: bool = True,
-                 #  weights_path: Path = MODEL_WEIGHTS_PATH,
-                 ) -> None:
+class SuperPoint_detector_descriptor:
+    def __init__(
+        self,
+        max_keypoints: int = 2048,
+        keypoint_threshold: float = 0.0001,
+        use_cuda: bool = True,
+        #  weights_path: Path = MODEL_WEIGHTS_PATH,
+    ) -> None:
         """Configures the object.
 
         Args:
@@ -85,10 +87,10 @@ class SuperPoint_detector_descriptor():
         """
         self._use_cuda = use_cuda and torch.cuda.is_available()
         self._config = {
-            'superpoint': {
-                'nms_radius': NMS_RADIUS,
-                'keypoint_threshold': keypoint_threshold,
-                'max_keypoints': max_keypoints,
+            "superpoint": {
+                "nms_radius": NMS_RADIUS,
+                "keypoint_threshold": keypoint_threshold,
+                "max_keypoints": max_keypoints,
             },
         }
 
@@ -113,13 +115,16 @@ class SuperPoint_detector_descriptor():
         descriptors = model_results["descriptors"][0].detach().cpu().numpy()
 
         features = Features
-        features.append_features({
-            'kpts': keypoints,
-            'descr': descriptors,
-            'score': scores,
-        })
+        features.append_features(
+            {
+                "kpts": keypoints,
+                "descr": descriptors,
+                "score": scores,
+            }
+        )
 
         return features
+
 
 # class SuperGlue():
 #     """Implements the SuperGlue matcher -- a pretrained graph neural network using attention."""
@@ -195,12 +200,12 @@ class SuperPoint_detector_descriptor():
 #         print('')
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     import cv2
     from lib.classes import Imageds, Features
 
-    cfg_file = 'config/config_base.yaml'
+    cfg_file = "config/config_base.yaml"
     cfg = parse_yaml_cfg(cfg_file)
 
     cams = cfg.paths.cam_names
@@ -210,8 +215,7 @@ if __name__ == '__main__':
     for cam in cams:
         images[cam] = Imageds(cfg.paths.imdir / cam)
 
-    superpoint_detector = SuperPoint_detector_descriptor(
-        cfg.matching.max_keypoints)
+    superpoint_detector = SuperPoint_detector_descriptor(cfg.matching.max_keypoints)
 
     features = superpoint_detector.detect_and_describe(
         images[cams[0]].get_image_path(0)

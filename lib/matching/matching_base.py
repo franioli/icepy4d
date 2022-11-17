@@ -12,7 +12,7 @@ from pathlib import Path
 from lib.classes import Features
 from lib.matching.match_pairs import match_pair
 from lib.matching.track_matches import track_matches
-from lib.utils import create_directory
+from lib.utils.utils import create_directory
 
 # class MatchingBase(abc):
 
@@ -37,14 +37,11 @@ def MatchingAndTracking(
     features: dict,
 ) -> dict:
 
-    cams = cfg.paths.camera_names
-    for cam in cams:
-        features[cam] = []
-
     # for epoch in cfg.proc.epoch_to_process:
     # print(f"Processing epoch {epoch}...")
 
     epochdir = Path(cfg.paths.results_dir) / f"epoch_{epoch}/matching"
+    cams = cfg.paths.camera_names
 
     # -- Find Matches at current epoch --#
     print(f"Run Superglue to find matches at epoch {epoch}")
@@ -107,7 +104,7 @@ def MatchingAndTracking(
     F, inlMask = pydegensac.findFundamentalMatrix(
         features[cams[0]][epoch].get_keypoints(),
         features[cams[1]][epoch].get_keypoints(),
-        px_th=1.5,
+        px_th=1.0,
         conf=0.99999,
         max_iters=10000,
         laf_consistensy_coef=-1.0,
