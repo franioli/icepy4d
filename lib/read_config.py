@@ -42,9 +42,12 @@ def parse_yaml_cfg(cfg_file: edict) -> edict:
         cfg = edict(yaml.safe_load(file))
 
     # - Data paths
-    cfg.paths.image_dir = Path(cfg.paths.image_dir)
-    cfg.paths.calibration_dir = Path(cfg.paths.calibration_dir)
-    cfg.paths.results_dir = Path(cfg.paths.results_dir)
+    root_path = Path().absolute()
+    cfg.paths.root_path = root_path
+    cfg.paths.image_dir = root_path / Path(cfg.paths.image_dir)
+    cfg.paths.calibration_dir = root_path / Path(cfg.paths.calibration_dir)
+    cfg.paths.results_dir = root_path / Path(cfg.paths.results_dir)
+    cfg.paths.last_match_path = root_path / Path(cfg.paths.last_match_path)
 
     # - Image-realted options
     cfg.images.mask_bounding_box = np.array(cfg.images.mask_bounding_box).astype("int")
