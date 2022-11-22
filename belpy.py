@@ -26,11 +26,16 @@ SOFTWARE.
 import numpy as np
 import cv2
 import pickle
+import gc
 from pathlib import Path
+from copy import deepcopy
 
+# Classes
 from lib.base_classes.camera import Camera
-
+from lib.base_classes.pointCloud import PointCloud
 from lib.classes import Imageds, Features, Targets
+
+# Belpy libraries
 from lib.matching.matching_base import MatchingAndTracking
 from lib.sfm.two_view_geometry import Two_view_geometry
 from lib.sfm.triangulation import Triangulate
@@ -51,9 +56,9 @@ from lib.utils.utils import (
 from lib.visualization import (
     display_point_cloud,
     make_focal_length_variation_plot,
+    plot_features,
 )
 from lib.import_export.export2bundler import write_bundler_out
-
 from lib.metashape.metashape import (
     MetashapeProject,
     MetashapeReader,
@@ -61,17 +66,9 @@ from lib.metashape.metashape import (
 )
 
 timer_global = AverageTimer(newline=True)
-root_path = Path().absolute()
-
-# Parameters to be put in option yaml
-# last_match_path = root_path / "res/last_epoch/last_features.pickle"
-# do_metashape_bba = True
-# do_metashape_dense = True
-# cfg.georef.targets_to_use = ["F2", "F4"]  # 'T4',
-# pydegensac_treshold = 1
 
 # Parse options from yaml file
-cfg_file = root_path / "config/config_base.yaml"
+cfg_file = "config/config_base.yaml"
 cfg = parse_yaml_cfg(cfg_file)
 
 """ Inizialize Variables """
@@ -110,7 +107,7 @@ for epoch in cfg.proc.epoch_to_process:
 # @TODO: build function for variable inizialization
 cameras = dict.fromkeys(cams)
 cameras[cams[0]], cameras[cams[1]] = [], []
-im_height, im_width = 4000, 6000
+im_height, im_width = images[cams[0]][0].shape[:2]
 # @TODO: store this information in exif inside an Image Class
 point_clouds = []
 
@@ -128,7 +125,7 @@ for epoch in cfg.proc.epoch_to_process:
 
     epochdir = Path(cfg.paths.results_dir) / f"epoch_{epoch}"
 
-    """Perform matching and tracking"""
+    # Perform matching and tracking
     if cfg.proc.do_matching:
         features = MatchingAndTracking(
             cfg=cfg,
@@ -238,17 +235,9 @@ for epoch in cfg.proc.epoch_to_process:
             cameras[cam][epoch] = abs_ori.cameras[i]
 
     # Create point cloud and save .ply to disk
-    pcd_epc = create_point_cloud(points3d, triangulation.colors)
+    pcd_epc = PointCloud(points3d, triangulation.colors)
+    # pcd_epc.write_ply(epochdir / f"sparse_pts_t{epoch}.ply")
 
-    # Filter outliers in point cloud with SOR filter
-    if cfg.other.do_SOR_filter:
-        _, ind = pcd_epc.remove_statistical_outlier(nb_neighbors=10, std_ratio=3.0)
-        pcd_epc = pcd_epc.select_by_index(ind)
-        print("Point cloud filtered by Statistical Oulier Removal")
-
-    # Write point cloud to disk and store it in Point Cloud List
-    # write_ply(pcd_epc, f"res/pt_clouds/sparse_pts_t{epoch}.ply")
-    write_ply(pcd_epc, epochdir / f"sparse_pts_t{epoch}.ply")
     point_clouds.append(pcd_epc)
 
     timer.update("relative orientation")
@@ -259,19 +248,19 @@ for epoch in cfg.proc.epoch_to_process:
         write_bundler_out(
             export_dir=epochdir / "metashape",
             epoches=[epoch],
-            images=images,
+            images=deepcopy(images),
             cams=cams,
-            cameras=cameras,
-            features=features,
-            point_clouds=point_clouds,
-            targets=targets,
+            cameras=deepcopy(cameras),
+            features=deepcopy(features),
+            point_clouds=deepcopy(point_clouds),
+            targets=deepcopy(targets),
             targets_to_use=cfg.georef.targets_to_use,
             targets_enabled=[True, True],
         )
 
         # Temporary function for building configuration dictionary.
         # Must be moved to a file or other solution.
-        ms_cfg = build_ms_cfg_base(root_path, epoch)
+        ms_cfg = build_ms_cfg_base(cfg.paths.root_path, epoch)
         ms_cfg.build_dense = cfg.proc.do_metashape_dense
 
         ms = MetashapeProject(ms_cfg, timer)
@@ -288,14 +277,69 @@ for epoch in cfg.proc.epoch_to_process:
         for i in range(len(cams)):
             focals[i].append(ms_reader.get_focal_lengths()[i])
 
-        # Assign camera extrinsics and intrinsics estimated in Metashape to Camera Object
+        # Assign camera extrinsics and intrinsics estimated in Metashape to Camera Object (assignation is done manaully @TODO automatic K and extrinsics matrixes to assign correct camera by camera label)
+
+        new_K = ms_reader.get_K()
+        camera0 = deepcopy(cameras[cams[0]][epoch])
+        camera1 = deepcopy(cameras[cams[1]][epoch])
+
+        camera0.update_K(new_K[1])
+        camera1.update_K(new_K[0])
+        new_extrinsics = ms_reader.get_extrinsics()
+        camera0.update_extrinsics(new_extrinsics[1])
+        camera1.update_extrinsics(new_extrinsics[0])
+
+        # Triangulate again points and update Point Cloud List
+        triangulation = Triangulate(
+            [camera0, camera1],
+            [
+                features[cams[0]][epoch].get_keypoints(),
+                features[cams[1]][epoch].get_keypoints(),
+            ],
+        )
+        points3d = triangulation.triangulate_two_views()
+        triangulation.interpolate_colors_from_image(
+            images[cams[1]][epoch],
+            camera1,
+        )
+        new_pcd = PointCloud(points3d, triangulation.colors)
+        new_pcd.write_ply(f"res/point_clouds/sparse_pts_t{epoch}.ply")
+
+        M = targets[epoch].extract_object_coor_by_label(cfg.georef.targets_to_use)
+        m = camera1.project_point(M)
+        plot_features(images[cams[1]][epoch], m)
+
+        # plot_features(images[cams[0]][epoch], features[cams[0]][epoch].get_keypoints())
+
+        # display_point_cloud(
+        #     new_pcd,  # new_pcd, #point_clouds
+        #     [camera0, camera1],
+        #     plot_scale=20,
+        # )
+
+        # Clean variables
+        # del relative_ori, triangulation, abs_ori, points3d, pcd_epc
+        # del T, new_K, new_extrinsics
+        # del ms_cfg, ms, ms_reader
+        # gc.collect()
 
     timer.print(f"Epoch {epoch} completed")
-    timer_global.update(f"epoch {epoch}")
 
 
-timer_global.print("All epoches completed")
+timer_global.print("Processing completed")
 
+
+# import open3d as o3d
+
+# epoch = 0
+# # pcd = o3d.io.read_point_cloud("res/point_clouds/dense_epoch_0.ply")
+# pcd_uav = o3d.io.read_point_cloud("tmp.ply")
+# display_point_cloud(
+#     [pcd_uav],
+#     [cameras[cams[0]][epoch], cameras[cams[1]][epoch]],
+#     viz_rs=False,
+#     plot_scale=20,
+# )
 
 if cfg.other.do_viz:
     # Visualize point cloud
@@ -307,33 +351,6 @@ if cfg.other.do_viz:
 
     # Display estimated focal length variation
     make_focal_length_variation_plot(focals, "res/focal_lenghts.png")
-
-
-# # Write all sparse point clouds to a single folder
-# cx, cy, cz = [], [], []
-# for epoch in cfg.proc.epoch_to_process:
-#     tria ],
-#     )
-#     points3d = triangulation.triangulate_two_views()
-#     triangulation.interpolate_colors_from_image(
-#         images[cams[1]][epoch],
-#         cameras[cams[1]][epoch],
-#         convert_BRG2RGB=True,
-#     )
-#     point_clouds.append(create_point_cloud(points3d, triangulation.colors))
-#     cx.append(cameras[cams[0]][epoch].get_C_from_pose()[0])
-#     cy.append(cameras[cams[0]][epoch].get_C_from_pose()[1])
-#     cz.append(cameras[cams[0]][epoch].get_C_from_pose()[2])
-
-#     write_ply(point_clouds[epoch], f"res/pt_clouds/sparse_pts_t{epoch}.ply")
-
-# import matplotlib.pyplot as plt
-
-# fig, ax = plt.subplots(1, 3)ngulation = Triangulate(
-#         [cameras[cams[0]][epoch], cameras[cams[1]][epoch]],
-#         [
-#             features[cams[0]][epoch].get_keypoints(),
-#             features[cams[1]][epoch].get_keypoints(),
 
 
 #%%
