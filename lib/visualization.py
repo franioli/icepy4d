@@ -34,6 +34,7 @@ from typing import List, Union
 from pathlib import Path
 
 from lib.base_classes.camera import Camera
+from lib.base_classes.pointCloud import PointCloud
 from lib.classes import Features
 from lib.utils.utils import compute_reprojection_error
 from lib.geometry import project_points
@@ -206,7 +207,7 @@ def draw_epip_lines(img0, img1, lines, pts0, pts1, fast_viz=True):
 
 
 def display_point_cloud(
-    pcd,
+    point_cloud: List[PointCloud],
     cameras: list = None,
     viz_rs: bool = True,
     win_name: str = "Point cloud",
@@ -215,8 +216,7 @@ def display_point_cloud(
     """Display a O3D point cloud
     Parameters
     ----------
-    pcd : O3D obejct
-        Point cloud with n points.
+    pcd : PointCloud obejct
     cameras : List of Camera objects (default = None)
         List of Camera objects, used to visualize the location
         and orientation of the cameras in the plot.
@@ -226,18 +226,19 @@ def display_point_cloud(
     None.
     """
 
-    if type(pcd) == list:
-        plt_objs = pcd
+    if type(point_cloud) == list:
+        plt_objs = [x.pcd for x in point_cloud]
     else:
-        plt_objs = [pcd]
+        plt_objs = [point_cloud.pcd]
 
     if cameras is not None:
         num_cams = len(cameras)
 
         if num_cams < 3:
-            cam_colors = [[1, 0, 0], [0, 1, 0]]
+            cam_colors = [[1, 0, 0], [0, 0, 1]]
         else:
             cam_colors = np.full((num_cams, 3), [1, 0, 0])
+            cam_colors[2:4] = [[0, 0, 1], [0, 0, 1]]
 
         for i, cam in enumerate(cameras):
             plt_objs.append(

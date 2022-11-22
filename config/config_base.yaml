@@ -13,10 +13,10 @@ proc:
   #- Epoches to process
   # It can be either 'all' for processing all the epochs
   # or a list with the epoches to be processed
-  epoch_to_process: "all" # [0, 1] # [0] # [0 1]
+  epoch_to_process: [0] # "all" # [0, 1] # [0] # [0 1]
 
   #- Switches to find and track matches
-  do_matching: true
+  do_matching: false # false #
   do_tracking: true
 
   #- Do space resection of first camera
@@ -28,7 +28,7 @@ proc:
   #- Perform full Bundle Adjustment in Agisoft Metashape and build dense cloud
   # (need Agisoft licence properly configured)
   do_metashape_bba: true
-  do_metashape_dense: true
+  do_metashape_dense: false
 
 #- Image-related options
 images:
@@ -56,12 +56,12 @@ georef:
 #- Other On-Off switches
 other:
   #- visualize outputs
-  do_viz: False
+  do_viz: true
 
   #- Point cloud processing
   do_SOR_filter: False
 
-  #- Threshold for PyDegensac robust estimation in px
+  #- Threshold for PyDegensac robust estimation (in px)
   # (used to reject false matches and compute relative orientation)
   pydegensac_treshold: 1
 
@@ -73,7 +73,7 @@ matching:
   equalize_hist: false
   nms_radius: 4
   keypoint_threshold: 0.0001
-  max_keypoints: 10240 # 4096 #
+  max_keypoints: 10240 #4096 #
   superglue: "outdoor"
   sinkhorn_iterations: 100
   match_threshold: 0.15
@@ -99,7 +99,7 @@ tracking:
   equalize_hist: false
   nms_radius: 3
   keypoint_threshold: 0.005
-  max_keypoints: 4096
+  max_keypoints: 8192
   superglue: "outdoor"
   sinkhorn_iterations: 100
   match_threshold: 0.3

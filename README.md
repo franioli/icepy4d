@@ -39,8 +39,6 @@ Optional
 pip3 install jupyterlab
 ```
 
-If needed
+## Variouss
 
-```bash
-pip install PyQt5
-```
+When using VScode and Matplotlib, use TkAgg as interactive backend.
