@@ -176,7 +176,7 @@ def write_bundler_out(
                     .extract_image_coor_by_label([target], cam_id=i)
                     .squeeze()
                 ):
-                    file.write(f"{x:.4f} ")
+                    file.write(f"{x+0.5:.4f} ")
                 file.write(f"{images[cam].get_image_name(epoch)} ")
                 file.write(f"{target} ")
                 if len(targets_enabled) > 0:

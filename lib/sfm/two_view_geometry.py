@@ -94,7 +94,10 @@ class Two_view_geometry:
         self.features = features
 
     def relative_orientation(
-        self, threshold: float = 1.0, confidence: float = 0.9999, scale_factor=None
+        self,
+        threshold: float = 1.0,
+        confidence: float = 0.9999,
+        scale_factor=None,
     ) -> list:
         """Perform relative orientation with OpenCV recoverPose function
         Parameters
@@ -109,17 +112,14 @@ class Two_view_geometry:
             Scale factor for scaling the two-view-geometry model
         Returns
         -------
-        cameras :
-        valid :
+            valid :
 
         """
 
         # Check if extrinsics matrix of camera 0 is available
-        if self.cameras[0].extrinsics is None:
-            print(
-                "Extrinsics matrix is not available for camera 0. Please, compute it before running Two_view_geometry estimation."
-            )
-            return
+        assert self.cameras[0].extrinsics is not None, print(
+            "Extrinsics matrix is not available for camera 0. Please, compute it before running Two_view_geometry estimation."
+        )
 
         # Estimate Realtive Pose with Essential Matrix
         # R, t make up a tuple that performs a change of basis from the first camera's coordinate system to the second camera's coordinate system.
@@ -142,23 +142,16 @@ class Two_view_geometry:
             )
 
         # Update Camera 1 Extrinsics and Pose relatevely to the world reference system (by multipling the estimated Pose with the Pose of Camera 0)
-        # self.cameras[1].R = R
-        # self.cameras[1].t = t.reshape(3, 1)
-        # self.cameras[1].Rt_to_extrinsics()
-        # self.cameras[1].extrinsics_to_pose()
-        # cam2toWorld = self.cameras[0].pose @ self.cameras[1].pose
-        # self.cameras[1].build_camera_EO(pose=cam2toWorld)
-
-        # With New Camera class
         extrinsics = self.cameras[1].Rt_to_extrinsics(R, t)
         self.cameras[1].update_extrinsics(extrinsics)
         cam2toWorld = self.cameras[0].pose @ self.cameras[1].pose
 
         extrinsics = self.cameras[1].pose_to_extrinsics(cam2toWorld)
         self.cameras[1].update_extrinsics(extrinsics)
-        return self.cameras, valid
 
-    def scale_model_with_baseline(self, baseline_world):
+        return valid
+
+    def get_scale_factor_from_baseline(self, baseline_world: float):
         """Scale model given the camera baseline in thw world reference system
         Parameters
         ----------
@@ -166,21 +159,18 @@ class Two_view_geometry:
             Camera baseline in the world reference system
         Returns
         -------
-        cameras :
-        scale_fct :
+            scale_fct : float
         """
 
-        baseline = np.linalg.norm(
-            self.cameras[0].get_C_from_pose() - self.cameras[1].get_C_from_pose()
-        )
+        baseline = np.linalg.norm(self.cameras[0].C - self.cameras[1].C)
         scale_fct = baseline_world / baseline
 
-        T = np.eye(4)
-        T[0:3, 0:3] = T[0:3, 0:3] * scale_fct
+        # T = np.eye(4)
+        # T[0:3, 0:3] = T[0:3, 0:3] * scale_fct
 
-        # Apply scale to camera extrinsics and update camera proprierties
-        self.cameras[1].pose[:, 3:4] = np.dot(T, self.cameras[1].pose[:, 3:4])
-        self.cameras[1].pose_to_extrinsics()
-        self.cameras[1].update_camera_from_extrinsics()
+        # # Apply scale to camera extrinsics and update camera proprierties
+        # self.cameras[1].pose[:, 3:4] = np.dot(T, self.cameras[1].pose[:, 3:4])
+        # self.cameras[1].pose_to_extrinsics()
+        # self.cameras[1].update_camera_from_extrinsics()
 
-        return self.cameras, scale_fct
+        return scale_fct
