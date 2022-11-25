@@ -70,6 +70,9 @@ def parse_yaml_cfg(cfg_file: edict) -> edict:
         img_ds = Imageds(cfg.paths.image_dir / cams[0])
         n_images = len(img_ds)
         cfg.proc.epoch_to_process = [x for x in range(n_images)]
+    # @TODO: add expansion for range of epoches (e.g., in yaml you can provide first and last epoch of a range)
+    # elif len(cfg.proc.epoch_to_process) > 1:
+    #     pass
     if type(cfg.proc.epoch_to_process) is not list:
         raise ValueError("Invalid input of epoches to process")
 
