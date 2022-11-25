@@ -696,6 +696,7 @@ class Targets:
         delimiter: str = ",",
         header: int = 0,
         column_names: List[str] = None,
+        from_metashape: bool = True,
     ):
         """
         Read image target image coordinates from .txt file in a pandas dataframe
@@ -722,6 +723,11 @@ class Targets:
             print("Error: Input path does not exist.")
             return
         data = pd.read_csv(path, sep=delimiter, header=header)
+
+        # subtract 0.5 px to image coordinates (metashape image RS)
+        if from_metashape:
+            data.x = data.x - 0.5
+            data.y = data.y - 0.5
 
         self.im_coor.insert(camera_id, data)
 

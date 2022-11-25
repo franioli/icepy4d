@@ -114,6 +114,17 @@ point_clouds = []
 # Tmp variable to store only estimated focal lenghts in Metashape
 focals = {0: [], 1: []}
 
+from lib.base_classes.images import Image
+
+epoch_dir_dict = {}
+for epoch in cfg.proc.epoch_to_process:
+    image = Image(images[cams[0]].get_image_path(epoch))
+    epoch_dir_dict[epoch] = Path(
+        (cfg.paths.results_dir)
+        / f"{image.date.year}_{image.date.month:02}_{image.date.day:02}"
+    ).stem
+
+
 """ Big Loop over epoches """
 
 print("Processing started:")
@@ -123,7 +134,8 @@ for epoch in cfg.proc.epoch_to_process:
 
     print(f"\nProcessing epoch {epoch}...")
 
-    epochdir = Path(cfg.paths.results_dir) / f"epoch_{epoch}"
+    epochdir = Path(cfg.paths.results_dir) / epoch_dir_dict[epoch]
+    # epochdir = Path(cfg.paths.results_dir) / f"epoch_{epoch}"
 
     # Perform matching and tracking
     if cfg.proc.do_matching:
@@ -132,6 +144,9 @@ for epoch in cfg.proc.epoch_to_process:
             epoch=epoch,
             images=images,
             features=features,
+            epoch_dict=epoch_dir_dict,
+            # res_dir=epochdir,
+            # prev_epoch_dir=epoch_dir_dict[epoch-1],
         )
     elif not features[cams[0]]:
         try:
@@ -154,12 +169,13 @@ for epoch in cfg.proc.epoch_to_process:
     # Inizialize Camera Intrinsics at every epoch setting them equal to the those of the reference cameras.
     # @TODO: replace append with insert or a more robust data structure...
     for cam in cams:
-        cameras[cam].append(
+        cameras[cam].insert(
+            epoch,
             Camera(
                 width=im_width,
                 height=im_height,
                 calib_path=cfg.paths.calibration_dir / f"{cam}.txt",
-            )
+            ),
         )
 
     # --- Space resection of Master camera ---#
@@ -238,7 +254,7 @@ for epoch in cfg.proc.epoch_to_process:
     pcd_epc = PointCloud(points3d, triangulation.colors)
     # pcd_epc.write_ply(epochdir / f"sparse_pts_t{epoch}.ply")
 
-    point_clouds.append(pcd_epc)
+    point_clouds.insert(epoch, pcd_epc)
 
     timer.update("relative orientation")
 
@@ -260,7 +276,7 @@ for epoch in cfg.proc.epoch_to_process:
 
         # Temporary function for building configuration dictionary.
         # Must be moved to a file or other solution.
-        ms_cfg = build_ms_cfg_base(cfg.paths.root_path, epoch)
+        ms_cfg = build_ms_cfg_base(epochdir, epoch)
         ms_cfg.build_dense = cfg.proc.do_metashape_dense
 
         ms = MetashapeProject(ms_cfg, timer)
@@ -275,39 +291,39 @@ for epoch in cfg.proc.epoch_to_process:
             epochdir / f"metashape/belpy_epoch_{epoch}_camera_estimated.txt"
         )
         for i in range(len(cams)):
-            focals[i].append(ms_reader.get_focal_lengths()[i])
+            focals[i].insert(epoch, ms_reader.get_focal_lengths()[i])
 
         # Assign camera extrinsics and intrinsics estimated in Metashape to Camera Object (assignation is done manaully @TODO automatic K and extrinsics matrixes to assign correct camera by camera label)
 
-        new_K = ms_reader.get_K()
-        camera0 = deepcopy(cameras[cams[0]][epoch])
-        camera1 = deepcopy(cameras[cams[1]][epoch])
+        # new_K = ms_reader.get_K()
+        # camera0 = deepcopy(cameras[cams[0]][epoch])
+        # camera1 = deepcopy(cameras[cams[1]][epoch])
 
-        camera0.update_K(new_K[1])
-        camera1.update_K(new_K[0])
-        new_extrinsics = ms_reader.get_extrinsics()
-        camera0.update_extrinsics(new_extrinsics[1])
-        camera1.update_extrinsics(new_extrinsics[0])
+        # camera0.update_K(new_K[1])
+        # camera1.update_K(new_K[0])
+        # new_extrinsics = ms_reader.get_extrinsics()
+        # camera0.update_extrinsics(new_extrinsics[1])
+        # camera1.update_extrinsics(new_extrinsics[0])
 
-        # Triangulate again points and update Point Cloud List
-        triangulation = Triangulate(
-            [camera0, camera1],
-            [
-                features[cams[0]][epoch].get_keypoints(),
-                features[cams[1]][epoch].get_keypoints(),
-            ],
-        )
-        points3d = triangulation.triangulate_two_views()
-        triangulation.interpolate_colors_from_image(
-            images[cams[1]][epoch],
-            camera1,
-        )
-        new_pcd = PointCloud(points3d, triangulation.colors)
-        new_pcd.write_ply(f"res/point_clouds/sparse_pts_t{epoch}.ply")
+        # # Triangulate again points and update Point Cloud List
+        # triangulation = Triangulate(
+        #     [camera0, camera1],
+        #     [
+        #         features[cams[0]][epoch].get_keypoints(),
+        #         features[cams[1]][epoch].get_keypoints(),
+        #     ],
+        # )
+        # points3d = triangulation.triangulate_two_views()
+        # triangulation.interpolate_colors_from_image(
+        #     images[cams[1]][epoch],
+        #     camera1,
+        # )
+        # new_pcd = PointCloud(points3d, triangulation.colors)
+        # new_pcd.write_ply(f"res/point_clouds/sparse_pts_t{epoch}.ply")
 
-        M = targets[epoch].extract_object_coor_by_label(cfg.georef.targets_to_use)
-        m = camera1.project_point(M)
-        plot_features(images[cams[1]][epoch], m)
+        # M = targets[epoch].extract_object_coor_by_label(cfg.georef.targets_to_use)
+        # m = camera1.project_point(M)
+        # plot_features(images[cams[1]][epoch], m)
 
         # plot_features(images[cams[0]][epoch], features[cams[0]][epoch].get_keypoints())
 
