@@ -116,10 +116,10 @@ focals = {0: [], 1: []}
 
 from lib.base_classes.images import Image
 
-epoch_dir_dict = {}
+epoch_dict = {}
 for epoch in cfg.proc.epoch_to_process:
     image = Image(images[cams[0]].get_image_path(epoch))
-    epoch_dir_dict[epoch] = Path(
+    epoch_dict[epoch] = Path(
         (cfg.paths.results_dir)
         / f"{image.date.year}_{image.date.month:02}_{image.date.day:02}"
     ).stem
@@ -134,7 +134,7 @@ for epoch in cfg.proc.epoch_to_process:
 
     print(f"\nProcessing epoch {epoch}...")
 
-    epochdir = Path(cfg.paths.results_dir) / epoch_dir_dict[epoch]
+    epochdir = Path(cfg.paths.results_dir) / epoch_dict[epoch]
     # epochdir = Path(cfg.paths.results_dir) / f"epoch_{epoch}"
 
     # Perform matching and tracking
@@ -144,9 +144,9 @@ for epoch in cfg.proc.epoch_to_process:
             epoch=epoch,
             images=images,
             features=features,
-            epoch_dict=epoch_dir_dict,
+            epoch_dict=epoch_dict,
             # res_dir=epochdir,
-            # prev_epoch_dir=epoch_dir_dict[epoch-1],
+            # prev_epoch_dir=epoch_dict[epoch-1],
         )
     elif not features[cams[0]]:
         try:
@@ -276,7 +276,7 @@ for epoch in cfg.proc.epoch_to_process:
 
         # Temporary function for building configuration dictionary.
         # Must be moved to a file or other solution.
-        ms_cfg = build_ms_cfg_base(epochdir, epoch)
+        ms_cfg = build_ms_cfg_base(epochdir, epoch_dict, epoch)
         ms_cfg.build_dense = cfg.proc.do_metashape_dense
 
         ms = MetashapeProject(ms_cfg, timer)
@@ -287,51 +287,47 @@ for epoch in cfg.proc.epoch_to_process:
             num_cams=len(cams),
         )
         ms_reader.read_calibration_from_file()
-        ms_reader.read_cameras_from_file(
-            epochdir / f"metashape/belpy_epoch_{epoch}_camera_estimated.txt"
-        )
+        ms_reader.read_cameras_extrinsics()
         for i in range(len(cams)):
             focals[i].insert(epoch, ms_reader.get_focal_lengths()[i])
 
         # Assign camera extrinsics and intrinsics estimated in Metashape to Camera Object (assignation is done manaully @TODO automatic K and extrinsics matrixes to assign correct camera by camera label)
+        new_K = ms_reader.get_K()
+        cameras[cams[0]][epoch].update_K(new_K[1])
+        cameras[cams[1]][epoch].update_K(new_K[0])
 
-        # new_K = ms_reader.get_K()
-        # camera0 = deepcopy(cameras[cams[0]][epoch])
-        # camera1 = deepcopy(cameras[cams[1]][epoch])
+        cameras[cams[0]][epoch].update_extrinsics(
+            ms_reader.extrinsics[images[cams[0]].get_image_stem(epoch)]
+        )
+        cameras[cams[1]][epoch].update_extrinsics(
+            ms_reader.extrinsics[images[cams[1]].get_image_stem(epoch)]
+        )
 
-        # camera0.update_K(new_K[1])
-        # camera1.update_K(new_K[0])
-        # new_extrinsics = ms_reader.get_extrinsics()
-        # camera0.update_extrinsics(new_extrinsics[1])
-        # camera1.update_extrinsics(new_extrinsics[0])
+        # Triangulate again points and update Point Cloud List
+        triangulation = Triangulate(
+            [cameras[cams[0]][epoch], cameras[cams[1]][epoch]],
+            [
+                features[cams[0]][epoch].get_keypoints(),
+                features[cams[1]][epoch].get_keypoints(),
+            ],
+        )
+        points3d = triangulation.triangulate_two_views()
+        triangulation.interpolate_colors_from_image(
+            images[cams[1]][epoch],
+            cameras[cams[1]][epoch],
+        )
+        new_pcd = PointCloud(points3d, triangulation.colors)
+        new_pcd.write_ply(f"res/point_clouds/sparse_pts_t{epoch}.ply")
 
-        # # Triangulate again points and update Point Cloud List
-        # triangulation = Triangulate(
-        #     [camera0, camera1],
-        #     [
-        #         features[cams[0]][epoch].get_keypoints(),
-        #         features[cams[1]][epoch].get_keypoints(),
-        #     ],
-        # )
-        # points3d = triangulation.triangulate_two_views()
-        # triangulation.interpolate_colors_from_image(
-        #     images[cams[1]][epoch],
-        #     camera1,
-        # )
-        # new_pcd = PointCloud(points3d, triangulation.colors)
-        # new_pcd.write_ply(f"res/point_clouds/sparse_pts_t{epoch}.ply")
+        # Replace old point cloud with new one
+        point_clouds[epoch] = new_pcd
 
+        # For testing purposes
         # M = targets[epoch].extract_object_coor_by_label(cfg.georef.targets_to_use)
-        # m = camera1.project_point(M)
+        # m = cameras[cams[1]][epoch].project_point(M)
         # plot_features(images[cams[1]][epoch], m)
 
         # plot_features(images[cams[0]][epoch], features[cams[0]][epoch].get_keypoints())
-
-        # display_point_cloud(
-        #     new_pcd,  # new_pcd, #point_clouds
-        #     [camera0, camera1],
-        #     plot_scale=20,
-        # )
 
         # Clean variables
         # del relative_ori, triangulation, abs_ori, points3d, pcd_epc
