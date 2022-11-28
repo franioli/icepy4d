@@ -212,6 +212,7 @@ def display_point_cloud(
     viz_rs: bool = True,
     win_name: str = "Point cloud",
     plot_scale: int = 5,
+    visible: bool = True,
 ) -> None:
     """Display a O3D point cloud
     Parameters
@@ -221,6 +222,7 @@ def display_point_cloud(
         List of Camera objects, used to visualize the location
         and orientation of the cameras in the plot.
         If None is given, only the point cloud is plotted.
+    visible : set to false to run headless
     Returns
     -------
     None.
@@ -251,14 +253,19 @@ def display_point_cloud(
     if viz_rs:
         plt_objs.append(make_viz_sdr(scale=plot_scale * 2))
 
-    o3d.visualization.draw_geometries(
-        plt_objs,
+    vis = o3d.visualization.Visualizer()
+    vis.create_window(
         window_name=win_name,
         width=1280,
         height=720,
         left=300,
         top=200,
+        visible=visible,
     )
+    for x in plt_objs:
+        vis.add_geometry(x)
+    vis.run()
+    vis.destroy_window()
 
 
 def display_pc_inliers(cloud, ind):
