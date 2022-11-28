@@ -20,7 +20,7 @@ def write_bundler_out_single_epoch(
     cams: List[str],
     cameras: dict,
     features: dict,
-    point_cloud: o3d.geometry.PointCloud,
+    point_cloud: PointCloud,
     targets: Targets = None,
     targets_to_use: List[str] = [],
     targets_enabled: List[bool] = [],

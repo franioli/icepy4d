@@ -132,8 +132,18 @@ def MatchingAndTracking(
     )
     for jj, cam in enumerate(cams):
         features[cam][epoch].save_as_txt(epochdir / f"{im_stems[jj]}_mktps.txt")
-    with open(epochdir / f"{im_stems[0]}_{im_stems[1]}_features.pickle", "wb") as f:
-        pickle.dump(features, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+    # Save current epoch features as pickle file
+    fname = epochdir / f"{im_stems[0]}_{im_stems[1]}_features.pickle"
+    with open(fname, "wb") as f:
+        keys = list(features.keys())
+        feat_epoch = {
+            keys[0]: features[keys[0]][epoch],
+            keys[1]: features[keys[1]][epoch],
+        }
+        pickle.dump(feat_epoch, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+    # Save all features structure in last_epoch folder to resume the process
     last_match_path = create_directory("res/last_epoch")
     with open(last_match_path / "last_features.pickle", "wb") as f:
         pickle.dump(features, f, protocol=pickle.HIGHEST_PROTOCOL)
