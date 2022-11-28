@@ -224,11 +224,6 @@ for epoch in cfg.proc.epoch_to_process:
     points3d = triangulation.triangulate_two_views(
         compute_colors=True, image=images[cams[1]][epoch], cam_id=1
     )
-    # triangulation.interpolate_colors_from_image(
-    #     images[cams[1]][epoch],
-    #     cameras[cams[1]][epoch],
-    #     convert_BRG2RGB=True,
-    # )
 
     # --- Absolute orientation (-> coregistration on stable points) ---#
     if cfg.proc.do_coregistration:
@@ -254,8 +249,6 @@ for epoch in cfg.proc.epoch_to_process:
 
     # Create point cloud and save .ply to disk
     pcd_epc = PointCloud(points3d, triangulation.colors)
-    # pcd_epc.write_ply(epochdir / f"sparse_pts_t{epoch}.ply")
-
     point_clouds.insert(epoch, pcd_epc)
 
     timer.update("relative orientation")
@@ -315,10 +308,6 @@ for epoch in cfg.proc.epoch_to_process:
         points3d = triangulation.triangulate_two_views(
             compute_colors=True, image=images[cams[1]][epoch], cam_id=1
         )
-        # triangulation.interpolate_colors_from_image(
-        #     images[cams[1]][epoch],
-        #     cameras[cams[1]][epoch],
-        # )
         new_pcd = PointCloud(points3d, triangulation.colors)
         new_pcd.write_ply(f"res/point_clouds/sparse_ep_{epoch}_{epoch_dict[epoch]}.ply")
 
