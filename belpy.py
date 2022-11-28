@@ -33,6 +33,7 @@ from copy import deepcopy
 # Classes
 from lib.base_classes.camera import Camera
 from lib.base_classes.pointCloud import PointCloud
+from lib.base_classes.images import Image
 from lib.classes import Imageds, Features, Targets
 
 # Belpy libraries
@@ -113,8 +114,6 @@ point_clouds = []
 
 # Tmp variable to store only estimated focal lenghts in Metashape
 focals = {0: [], 1: []}
-
-from lib.base_classes.images import Image
 
 epoch_dict = {}
 for epoch in cfg.proc.epoch_to_process:
@@ -248,7 +247,7 @@ for epoch in cfg.proc.epoch_to_process:
             cameras[cam][epoch] = abs_ori.cameras[i]
 
     # Create point cloud and save .ply to disk
-    pcd_epc = PointCloud(points3d, triangulation.colors)
+    pcd_epc = PointCloud(points3d=points3d, points_col=triangulation.colors)
     # point_clouds.insert(epoch, pcd_epc)
 
     timer.update("relative orientation")
@@ -309,42 +308,32 @@ for epoch in cfg.proc.epoch_to_process:
         points3d = triangulation.triangulate_two_views(
             compute_colors=True, image=images[cams[1]][epoch], cam_id=1
         )
-        new_pcd = PointCloud(points3d, triangulation.colors)
-        new_pcd.write_ply(f"res/point_clouds/sparse_ep_{epoch}_{epoch_dict[epoch]}.ply")
 
-        # Store point cloud in point_clouds list
-        point_clouds.insert(epoch, new_pcd)
+        # Build new point cloud, save to disk and store it in point_clouds list
+        pcd_epc = PointCloud(points3d=points3d, points_col=triangulation.colors)
+        pcd_epc.write_ply(
+            cfg.paths.results_dir
+            / f"point_clouds/sparse_ep_{epoch}_{epoch_dict[epoch]}.ply"
+        )
+        point_clouds.insert(epoch, pcd_epc)
 
-        # For testing purposes
+        # - For testing purposes
         # M = targets[epoch].extract_object_coor_by_label(cfg.georef.targets_to_use)
         # m = cameras[cams[1]][epoch].project_point(M)
         # plot_features(images[cams[1]][epoch], m)
-
         # plot_features(images[cams[0]][epoch], features[cams[0]][epoch].get_keypoints())
 
         # Clean variables
-        # del relative_ori, triangulation, abs_ori, points3d, pcd_epc
-        # del T, new_K, new_extrinsics
-        # del ms_cfg, ms, ms_reader
-        # gc.collect()
+        del relative_ori, triangulation, abs_ori, points3d, pcd_epc
+        del T, new_K
+        del ms_cfg, ms, ms_reader
+        gc.collect()
 
     timer.print(f"Epoch {epoch} completed")
 
 
 timer_global.print("Processing completed")
 
-
-# import open3d as o3d
-
-# epoch = 0
-# # pcd = o3d.io.read_point_cloud("res/point_clouds/dense_epoch_0.ply")
-# pcd_uav = o3d.io.read_point_cloud("tmp.ply")
-# display_point_cloud(
-#     [pcd_uav],
-#     [cameras[cams[0]][epoch], cameras[cams[1]][epoch]],
-#     viz_rs=False,
-#     plot_scale=20,
-# )
 
 if cfg.other.do_viz:
     # Visualize point cloud
@@ -356,7 +345,6 @@ if cfg.other.do_viz:
 
     # Display estimated focal length variation
     make_focal_length_variation_plot(focals, "res/focal_lenghts.png")
-
 
 #%%
 """ Compute DSM and orthophotos """
