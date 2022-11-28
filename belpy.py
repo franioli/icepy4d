@@ -249,22 +249,23 @@ for epoch in cfg.proc.epoch_to_process:
 
     # Create point cloud and save .ply to disk
     pcd_epc = PointCloud(points3d, triangulation.colors)
-    point_clouds.insert(epoch, pcd_epc)
+    # point_clouds.insert(epoch, pcd_epc)
 
     timer.update("relative orientation")
 
     # Metashape BBA and dense cloud
     if cfg.proc.do_metashape_bba:
         # Export results in Bundler format
+        # @TODO: modify function to work for single epoch data
         write_bundler_out(
             export_dir=epochdir / "metashape",
             epoches=[epoch],
-            images=deepcopy(images),
+            images=images,
             cams=cams,
-            cameras=deepcopy(cameras),
-            features=deepcopy(features),
-            point_clouds=deepcopy(point_clouds),
-            targets=deepcopy(targets),
+            cameras=cameras,
+            features=features,
+            point_cloud=pcd_epc,
+            targets=targets,
             targets_to_use=cfg.georef.targets_to_use,
             targets_enabled=[True, True],
         )
@@ -311,8 +312,8 @@ for epoch in cfg.proc.epoch_to_process:
         new_pcd = PointCloud(points3d, triangulation.colors)
         new_pcd.write_ply(f"res/point_clouds/sparse_ep_{epoch}_{epoch_dict[epoch]}.ply")
 
-        # Replace old point cloud with new one
-        point_clouds[epoch] = new_pcd
+        # Store point cloud in point_clouds list
+        point_clouds.insert(epoch, new_pcd)
 
         # For testing purposes
         # M = targets[epoch].extract_object_coor_by_label(cfg.georef.targets_to_use)
