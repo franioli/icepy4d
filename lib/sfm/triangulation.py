@@ -62,7 +62,9 @@ class Triangulate:
         self,
         views_ids: List[int] = [0, 1],
         approach: str = "iterative_LS_triangulation",
-        compute_colors: bool = True,
+        compute_colors: bool = False,
+        image: np.ndarray = None,
+        cam_id: int = 0,
     ) -> np.ndarray:
 
         if approach == "iterative_LS_triangulation":
@@ -82,8 +84,13 @@ class Triangulate:
 
             self.points3d = pts3d
             if compute_colors:
-                pass
-                # @TODO: call color interpolation directively here.
+                assert (
+                    image is not None and type(image) == np.ndarray
+                ), "Invalid input image for interpolating point colors"
+                self.interpolate_colors_from_image(
+                    image,
+                    self.cameras[cam_id],
+                )
 
             return self.points3d
 

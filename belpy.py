@@ -221,12 +221,14 @@ for epoch in cfg.proc.epoch_to_process:
             features[cams[1]][epoch].get_keypoints(),
         ],
     )
-    points3d = triangulation.triangulate_two_views()
-    triangulation.interpolate_colors_from_image(
-        images[cams[1]][epoch],
-        cameras[cams[1]][epoch],
-        convert_BRG2RGB=True,
+    points3d = triangulation.triangulate_two_views(
+        compute_colors=True, image=images[cams[1]][epoch], cam_id=1
     )
+    # triangulation.interpolate_colors_from_image(
+    #     images[cams[1]][epoch],
+    #     cameras[cams[1]][epoch],
+    #     convert_BRG2RGB=True,
+    # )
 
     # --- Absolute orientation (-> coregistration on stable points) ---#
     if cfg.proc.do_coregistration:
@@ -286,8 +288,7 @@ for epoch in cfg.proc.epoch_to_process:
             metashape_dir=epochdir / "metashape",
             num_cams=len(cams),
         )
-        ms_reader.read_calibration_from_file()
-        ms_reader.read_cameras_extrinsics()
+        ms_reader.read_belpy_outputs()
         for i in range(len(cams)):
             focals[i].insert(epoch, ms_reader.get_focal_lengths()[i])
 
@@ -311,13 +312,15 @@ for epoch in cfg.proc.epoch_to_process:
                 features[cams[1]][epoch].get_keypoints(),
             ],
         )
-        points3d = triangulation.triangulate_two_views()
-        triangulation.interpolate_colors_from_image(
-            images[cams[1]][epoch],
-            cameras[cams[1]][epoch],
+        points3d = triangulation.triangulate_two_views(
+            compute_colors=True, image=images[cams[1]][epoch], cam_id=1
         )
+        # triangulation.interpolate_colors_from_image(
+        #     images[cams[1]][epoch],
+        #     cameras[cams[1]][epoch],
+        # )
         new_pcd = PointCloud(points3d, triangulation.colors)
-        new_pcd.write_ply(f"res/point_clouds/sparse_pts_t{epoch}.ply")
+        new_pcd.write_ply(f"res/point_clouds/sparse_ep_{epoch}_{epoch_dict[epoch]}.ply")
 
         # Replace old point cloud with new one
         point_clouds[epoch] = new_pcd
