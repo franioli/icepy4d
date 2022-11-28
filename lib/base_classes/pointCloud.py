@@ -10,16 +10,24 @@ from lib.utils.utils import create_directory
 class PointCloud:
     def __init__(
         self,
-        points3d: np.ndarray,
+        points3d: np.ndarray = None,
+        pcd_path: str = None,
         points_col=None,
         *scalar_fied: np.ndarray,
         verbose: bool = False,
     ) -> None:
 
-        self.pcd = self.create_point_cloud(points3d, points_col)
+        if points3d is not None:
+            self.pcd = self.create_point_cloud(points3d, points_col)
+        elif pcd_path is not None:
+            self.pcd = o3d.io.read_point_cloud(pcd_path)
         self._verbose = verbose
 
     # Getters
+    def get_pcd(self) -> o3d.geometry.PointCloud:
+        """Get Open3d object"""
+        return self.pcd
+
     def get_points(self) -> np.ndarray:
         """Get point coordinates as nx3 numpy array"""
         return np.asarray(self.pcd.points)
