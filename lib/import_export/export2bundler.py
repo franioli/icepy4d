@@ -126,7 +126,8 @@ def write_bundler_out(
     cams: List[str],
     cameras: dict,
     features: dict,
-    point_clouds: List[PointCloud],
+    # point_clouds: List[PointCloud],
+    point_cloud: PointCloud,
     targets: List[Targets] = [],
     targets_to_use: List[str] = [],
     targets_enabled: List[bool] = [],
@@ -207,8 +208,10 @@ def write_bundler_out(
             file.write(f"{t[0]:.10f} {t[1]:.10f} {t[2]:.10f}\n")
 
         # Write points
-        obj_coor = deepcopy(point_clouds[epoch].get_points())
-        obj_col = deepcopy(point_clouds[epoch].get_colors())
+        obj_coor = deepcopy(point_cloud.get_points())
+        obj_col = deepcopy(point_cloud.get_colors())
+        # obj_coor = deepcopy(point_clouds[epoch].get_points())
+        # obj_col = deepcopy(point_clouds[epoch].get_colors())        
         im_coor = {}
         for cam in cams:
             m = deepcopy(features[cam][epoch].get_keypoints())
