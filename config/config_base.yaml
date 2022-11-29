@@ -1,24 +1,35 @@
 #- Define paths and base settings
-# (they will be converted to pathlib.Path when parsing this yaml file)
+# All pahts MUST be relative to the root folder of Belpy and
+# they will be converted to pathlib.Path when parsing this yaml file)
 paths:
   image_dir: "data/img2022" # "data/img2021" #
   calibration_dir: "data/calib"
   results_dir: "res"
   camera_names: ["p1", "p2"]
+  last_match_path: "res/last_epoch/last_features.pickle"
 
 #- Processing options
 proc:
   #- Epoches to process
-  # It can be either 'all' for processing all the epochs
-  # or a list with the epoches to be processed
-  epoch_to_process: "all" # [0, 1] # [0] # [0 1]
+  # It can be either 'all' for processing all the epochs,
+  # A list of two elements for processing a range of epoches
+  # or a list with all the epoche numbers to be processed
+  epoch_to_process: [0, 2] #"all" # [0, 3] # # [0] #
 
   #- Switches to find and track matches
-  do_matching: false
-  do_tracking: false
+  do_matching: true #true #
+  do_tracking: true
+
+  #- Do space resection of first camera
+  do_space_resection: false
 
   #- If True try to coregister point clouds based on n double points
   do_coregistration: true
+
+  #- Perform full Bundle Adjustment in Agisoft Metashape and build dense cloud
+  # (need Agisoft licence properly configured)
+  do_metashape_bba: true
+  do_metashape_dense: true
 
 #- Image-related options
 images:
@@ -40,13 +51,20 @@ georef:
   target_dir: "data/targets" # "data/targets2021" #
   target_file_ext: ".csv"
 
+  #- Targets to use for Absolute Orientation, Space Resection and Bundle Adjustment
+  targets_to_use: ["F2", "F4"] # 'T4',
+
 #- Other On-Off switches
 other:
   #- visualize outputs
-  do_viz: False
+  do_viz: true
 
   #- Point cloud processing
   do_SOR_filter: False
+
+  #- Threshold for PyDegensac robust estimation (in px)
+  # (used to reject false matches and compute relative orientation)
+  pydegensac_treshold: 1
 
 #- Matching options
 matching:
@@ -56,7 +74,7 @@ matching:
   equalize_hist: false
   nms_radius: 4
   keypoint_threshold: 0.0001
-  max_keypoints: 10240 # 4096 #
+  max_keypoints: 10240 #4096 #
   superglue: "outdoor"
   sinkhorn_iterations: 100
   match_threshold: 0.15
@@ -82,7 +100,7 @@ tracking:
   equalize_hist: false
   nms_radius: 3
   keypoint_threshold: 0.005
-  max_keypoints: 4096
+  max_keypoints: 8192
   superglue: "outdoor"
   sinkhorn_iterations: 100
   match_threshold: 0.3

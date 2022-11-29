@@ -2,8 +2,8 @@ import numpy as np
 
 from pathlib import Path
 
-from lib.classes import Features, Imageds
-
+from lib.base_classes.images import Imageds
+from lib.base_classes.targets import Targets
 
 """
 Export data to file for CALGE

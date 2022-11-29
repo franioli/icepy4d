@@ -1,10 +1,11 @@
 # Specific
 *_old/
 *.old/
-data/img/
 data/2021
+data/img/
 data/img2022/
 data/img2021/
+data/img2022_august/
 data/calib/calib_fullOpenCVmodel.txt
 data/calib/calib_fullOpenCVmodel_matlab.txt
 data/calib/seq2021/
