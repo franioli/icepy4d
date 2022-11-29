@@ -238,7 +238,7 @@ class Image:
         # center_y = img_h_px / 2
 
 
-class ImageDS:
+class Imageds:
     """
     Class to help manage Image datasets
 
@@ -259,7 +259,7 @@ class ImageDS:
         """Check if an image is in the datastore, given the image name"""
         return name in self.files
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx, **args):
         """Read and return the image at position idx in the image datastore"""
         # TODO: add possibility to chose reading between col or grayscale, scale image, crop etc...
         # @TODO change getitem to return path and implement reading function
@@ -279,6 +279,7 @@ class ImageDS:
         # self.shot_time = []
 
     def get_image_list(self, path):
+        # TODO: change name in read image list
         # TODO: add option for including subfolders
         if not os.path.exists(path):
             print("Error: invalid input path.")
@@ -307,7 +308,7 @@ if __name__ == "__main__":
     cams = ["p1", "p2"]
     images = dict.fromkeys(cams)
     for cam in cams:
-        images[cam] = ImageDS(Path("data/img2022") / cam)
+        images[cam] = Imageds(Path("data/img2022") / cam)
 
     im = Image(images["p1"].get_image_path(0))
     print(im)

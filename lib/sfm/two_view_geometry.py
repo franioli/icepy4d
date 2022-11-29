@@ -26,7 +26,7 @@ import numpy as np
 import cv2
 from typing import List
 
-from lib.classes import Features
+from lib.base_classes.features import Features
 from lib.base_classes.camera import Camera
 
 # from lib.sfm.triangulation import Triangulate

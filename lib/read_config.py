@@ -28,7 +28,7 @@ import yaml
 from pathlib import Path
 from easydict import EasyDict as edict
 
-from lib.classes import Imageds
+from lib.base_classes.images import Imageds
 
 # from classes import Imageds
 

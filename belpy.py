@@ -30,11 +30,12 @@ import gc
 from pathlib import Path
 from copy import deepcopy
 
-# Classes
+# Belpy Classes
 from lib.base_classes.camera import Camera
 from lib.base_classes.pointCloud import PointCloud
-from lib.base_classes.images import Image
-from lib.classes import Imageds, Features, Targets
+from lib.base_classes.images import Image, Imageds
+from lib.base_classes.targets import Targets
+from lib.base_classes.features import Features
 
 # Belpy libraries
 from lib.matching.matching_base import MatchingAndTracking
@@ -131,7 +132,7 @@ print("-----------------------")
 timer = AverageTimer(newline=True)
 for epoch in cfg.proc.epoch_to_process:
 
-    print(f"\nProcessing epoch {epoch}...")
+    print(f"\nProcessing epoch {epoch}/{cfg.proc.epoch_to_process[-1]}...")
 
     epochdir = Path(cfg.paths.results_dir) / epoch_dict[epoch]
     # epochdir = Path(cfg.paths.results_dir) / f"epoch_{epoch}"

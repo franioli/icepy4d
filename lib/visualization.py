@@ -35,7 +35,7 @@ from pathlib import Path
 
 from lib.base_classes.camera import Camera
 from lib.base_classes.pointCloud import PointCloud
-from lib.classes import Features
+from lib.base_classes.features import Features
 from lib.utils.utils import compute_reprojection_error
 from lib.geometry import project_points
 

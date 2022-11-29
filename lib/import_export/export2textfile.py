@@ -2,8 +2,8 @@ import numpy as np
 
 from pathlib import Path
 
-from lib.classes import Features, Imageds
-
+from lib.base_classes.features import Features
+from lib.base_classes.images import Imageds
 
 """
 Export keypoints and points3d to file
