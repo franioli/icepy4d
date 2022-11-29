@@ -8,7 +8,9 @@ from typing import Union, List
 
 from lib.base_classes.camera import Camera
 from lib.base_classes.pointCloud import PointCloud
-from lib.classes import Features, Imageds, Targets
+from lib.base_classes.features import Features
+from lib.base_classes.images import Imageds
+from lib.base_classes.targets import Targets
 from lib.utils.utils import create_directory
 from thirdparty.transformations import euler_from_matrix, euler_matrix
 
@@ -211,7 +213,7 @@ def write_bundler_out(
         obj_coor = deepcopy(point_cloud.get_points())
         obj_col = deepcopy(point_cloud.get_colors())
         # obj_coor = deepcopy(point_clouds[epoch].get_points())
-        # obj_col = deepcopy(point_clouds[epoch].get_colors())        
+        # obj_col = deepcopy(point_clouds[epoch].get_colors())
         im_coor = {}
         for cam in cams:
             m = deepcopy(features[cam][epoch].get_keypoints())

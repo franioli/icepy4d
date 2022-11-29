@@ -9,7 +9,7 @@ from typing import List
 from collections import abc
 from pathlib import Path
 
-from lib.classes import Features
+from lib.base_classes.features import Features
 from lib.matching.match_pairs import match_pair
 from lib.matching.track_matches import track_matches
 from lib.utils.utils import create_directory
