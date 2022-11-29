@@ -38,7 +38,11 @@ from thirdparty.triangulation import iterative_LS_triangulation
 
 
 class Triangulate:
-    def __init__(self, cameras: Camera = None, image_points=None) -> None:
+    def __init__(
+        self,
+        cameras: List[Camera] = None,
+        image_points: List[np.ndarray] = None,
+    ) -> None:
         """Inizialize class
         Parameters
         ----------
@@ -46,8 +50,8 @@ class Triangulate:
             cameras is a list of Camera objects instances, each containing at least
             the projection matrix P
         image_points: List
-            image_points is a list of image on nx2 image points array, as
-            [ [x1, y1], [x2, y2],
+            image_points is a list of nx2 np.arrays containing image coordinates of the features on the two images, as
+            [ np.array([x1, y1]), np.array([x2, y2]) ],
         """
         self.cameras = cameras
         self.image_points = image_points
@@ -58,7 +62,9 @@ class Triangulate:
         self,
         views_ids: List[int] = [0, 1],
         approach: str = "iterative_LS_triangulation",
-        compute_colors: bool = True,
+        compute_colors: bool = False,
+        image: np.ndarray = None,
+        cam_id: int = 0,
     ) -> np.ndarray:
 
         if approach == "iterative_LS_triangulation":
@@ -78,8 +84,13 @@ class Triangulate:
 
             self.points3d = pts3d
             if compute_colors:
-                pass
-                # @TODO: call color interpolation directively here.
+                assert (
+                    image is not None and type(image) == np.ndarray
+                ), "Invalid input image for interpolating point colors"
+                self.interpolate_colors_from_image(
+                    image,
+                    self.cameras[cam_id],
+                )
 
             return self.points3d
 

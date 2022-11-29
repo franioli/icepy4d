@@ -1,4 +1,5 @@
 import numpy as np
+import cv2
 
 from typing import List, Union, Tuple
 from scipy import linalg
@@ -64,7 +65,11 @@ class Camera:
 
     @property
     def K(self) -> np.ndarray:
-        """Get Intrinsics matrix"""
+        """Get Intrinsics matrix
+        K = [ fx s  cx ] = [ c   s     xH ] (Forstner notation)
+            | 0  fy cy |   | 0  c(1+m) yH |
+            [ 0  0   1 ]   [ 0   0     1  ]
+        """
         return self._K
 
     @property
@@ -74,39 +79,53 @@ class Camera:
 
     @property
     def extrinsics(self) -> np.ndarray:
-        """Get Extrinsics Matrix (i.e., transformation from world to camera)"""
+        """Get Extrinsics Matrix (i.e., transformation from world to camera)
+        Extrinsics = [ R | t]
+        """
         return self._extrinsics
 
     @property
     def pose(self) -> np.ndarray:
-        """Get Pose Matrix (i.e., transformation from camera to world)"""
+        """Get Pose Matrix (i.e., transformation from camera to world)
+        Pose = [ R' | C ]
+        """
         return self.extrinsics_to_pose()
 
     @property
     def C(self) -> np.ndarray:
-        """Get camera center (i.e., coordinates of the projective centre in world reference system, that is the translation from camera to world)"""
+        """Get camera center (i.e., coordinates of the projective centre in world reference system, that is the translation from camera to world)
+        C = - R' * t
+        """
         pose = self.extrinsics_to_pose()
         return pose[0:3, 3:4]
 
     @property
     def t(self) -> np.ndarray:
-        """Get translation vector (i.e., translation from world to camera)"""
+        """Get translation vector (i.e., translation from world to camera)
+        t = - R * C
+        """
         return self._extrinsics[0:3, 3:4]
 
     @property
     def R(self) -> np.ndarray:
-        """Get rotation matrix (i.e., rotation matrix from world to camera)"""
+        """Get rotation matrix (i.e., rotation matrix from world to camera),
+        where R is the first 3x3 block of the extrinsics matrix that is used to project a point in the world to the camera:
+        x = K * [ R | t ] * X
+        """
         return self._extrinsics[0:3, 0:3]
 
     @property
     def euler_angles(self) -> Tuple[float]:
-        """Get Omega Phi and Kappa rotation angles (rotations from world to camera)"""
-        return self.euler_from_R(self.R)
+        """Get Omega Phi and Kappa rotation angles in degress (rotations from world to camera)"""
+        return np.rad2deg(self.euler_from_R(self.R))
 
     @property
     def P(self) -> np.ndarray:
-        """Get Projective matrix P = K [ R | T ]"""
-        return self.K @ self._extrinsics[0:3, :]
+        """Get Projective matrix P = K [ R | t ]"""
+        RT = np.zeros((3, 4))
+        RT[:, 0:3] = self.R
+        RT[:, 3:4] = self.t
+        return self.K @ RT
 
     # Setters
     def update_K(self, K: np.ndarray) -> None:
@@ -120,6 +139,8 @@ class Camera:
         Note that, for code safety, this is the only method to update the camera Exterior Orientation.
         If you need to update the camera EO from a pose matrix or from R,t, compute the extrinsics matrix first with the method self.pose_to_extrinsics(pose) or Rt_to_extrinsics(R,t)
         """
+        # @TODO implement checks on input
+
         self._extrinsics = extrinsics
 
     # Methods
@@ -171,6 +192,32 @@ class Camera:
         R_block = self.build_block_matrix(R)
 
         return t_block @ R_block
+
+    def project_point(self, points3d: np.ndarray) -> np.ndarray:
+        """Project 3D points to image coordinates. The function makes use of the Projection  matrix P and the non-linear distortion parameters stored in Camera Class.
+        !Warning: This method replicates the project_points function in lib.geometry. However the function project_points can't be imported due to a circular import. If any change to one of the two functions are made, manually update also the other one!
+        -----------
+        Parameters:
+            - points3d (nx3 numpy array)
+        Returns:
+            - projctions (nx2 numpy array): 2D projected points in image coordinates
+        """
+        # Checks points:
+        assert (
+            points3d.shape[1] == 3
+        ), "Wrong size of the input point array. Provide a nx3 numpy array."
+
+        rvec, _ = cv2.Rodrigues(self.R)
+        tvec = self.t
+        m, jacobian = cv2.projectPoints(
+            np.expand_dims(points3d, 1),
+            rvec,
+            tvec,
+            self.K,
+            self.dist,
+        )
+        m = m[:, 0, :]
+        return m.astype("float32")
 
     def factor_P(self) -> Tuple[np.ndarray]:
         """Factorize the camera matrix into K, R, t as P = K[R | t]."""

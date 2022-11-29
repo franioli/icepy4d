@@ -400,17 +400,6 @@ class Absolute_orientation:
         self.v1 = convert_from_homogeneous(points_out).T
 
         # Apply transformation to cameras
-        # if camera is None:
-        #     for camera in self.cameras:
-        #         camera.pose = T @ camera.pose
-        #         camera.pose_to_extrinsics()
-        #         camera.update_camera_from_extrinsics()
-        # else:
-        #     camera.pose = T @ camera.pose
-        #     camera.pose_to_extrinsics()
-        #     camera.update_camera_from_extrinsics()
-
-        # With New Camera class
         if camera is None:
             for camera in self.cameras:
                 pose = T @ camera.pose
