@@ -28,7 +28,7 @@ import yaml
 from pathlib import Path
 from easydict import EasyDict as edict
 
-from lib.classes import Imageds
+from lib.base_classes.images import Imageds
 
 # from classes import Imageds
 
@@ -42,9 +42,19 @@ def parse_yaml_cfg(cfg_file: edict) -> edict:
         cfg = edict(yaml.safe_load(file))
 
     # - Data paths
-    cfg.paths.image_dir = Path(cfg.paths.image_dir)
-    cfg.paths.calibration_dir = Path(cfg.paths.calibration_dir)
-    cfg.paths.results_dir = Path(cfg.paths.results_dir)
+    root_path = Path().absolute()
+    cfg.paths.root_path = root_path
+    cfg.paths.image_dir = root_path / Path(cfg.paths.image_dir)
+    cfg.paths.calibration_dir = root_path / Path(cfg.paths.calibration_dir)
+    cfg.paths.results_dir = root_path / Path(cfg.paths.results_dir)
+    cfg.paths.last_match_path = root_path / Path(cfg.paths.last_match_path)
+
+    # - Processing options
+    if cfg.proc.do_matching == False and cfg.proc.do_tracking == True:
+        print(
+            "Warning: Invalid combination of options between Matching and Tracking. Tracking was se to enabled, but Matching was not. Disabling Tracking."
+        )
+        cfg.proc.do_tracking == False
 
     # - Image-realted options
     cfg.images.mask_bounding_box = np.array(cfg.images.mask_bounding_box).astype("int")
@@ -60,8 +70,16 @@ def parse_yaml_cfg(cfg_file: edict) -> edict:
         img_ds = Imageds(cfg.paths.image_dir / cams[0])
         n_images = len(img_ds)
         cfg.proc.epoch_to_process = [x for x in range(n_images)]
-    if type(cfg.proc.epoch_to_process) is not list:
-        raise ValueError("Invalid input of epoches to process")
+    elif len(cfg.proc.epoch_to_process) == 2:
+        ep_ini = cfg.proc.epoch_to_process[0]
+        ep_fin = cfg.proc.epoch_to_process[1]
+        cfg.proc.epoch_to_process = [x for x in range(ep_ini, ep_fin)]
+    else:
+        assert (
+            type(cfg.proc.epoch_to_process) is list
+        ), "Invalid input of epoches to process"
+    # if type(cfg.proc.epoch_to_process) is not list:
+    # raise ValueError("Invalid input of epoches to process")
 
     validate_cfg(cfg)
 
