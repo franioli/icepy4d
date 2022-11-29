@@ -39,7 +39,7 @@ from scipy.interpolate import (
     LinearNDInterpolator,
 )
 
-from lib.classes import Camera
+from lib.base_classes.camera import Camera
 from lib.geometry import project_points
 
 
@@ -553,7 +553,7 @@ def generate_ortophoto(
     return ortophoto
 
 
-# Timer
+# ---- Timer ---##
 
 
 class AverageTimer:
@@ -595,3 +595,13 @@ class AverageTimer:
         else:
             print(end="\r", flush=True)
         self.reset()
+
+
+# ---- Miscellaneous ---##
+
+
+def PrintMatrix(mat: np.ndarray, num_decimals: int = 3) -> None:
+    for row in mat:
+        for el in row:
+            print(f"{el:= 0.{num_decimals}f}\t", end=" ")
+        print("")

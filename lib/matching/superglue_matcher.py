@@ -22,8 +22,9 @@ from typing import Tuple, Union
 
 # import lib.utils.images as image_utils
 # from lib.classes.image import Image
-from lib.classes import Imageds, Features
-from lib.config import parse_yaml_cfg
+from lib.base_classes.features import Features
+from lib.base_classes.images import Imageds
+from lib.read_config import parse_yaml_cfg
 
 from thirdparty.SuperGluePretrainedNetwork.superpoint import SuperPoint
 from thirdparty.SuperGluePretrainedNetwork.superglue import SuperGlue
@@ -203,7 +204,7 @@ class SuperPoint_detector_descriptor:
 if __name__ == "__main__":
 
     import cv2
-    from lib.classes import Imageds, Features
+    from base_classes.classes_old import Imageds, Features
 
     cfg_file = "config/config_base.yaml"
     cfg = parse_yaml_cfg(cfg_file)
