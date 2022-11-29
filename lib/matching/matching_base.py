@@ -9,10 +9,10 @@ from typing import List
 from collections import abc
 from pathlib import Path
 
-from lib.classes import Features
+from lib.base_classes.features import Features
 from lib.matching.match_pairs import match_pair
 from lib.matching.track_matches import track_matches
-from lib.utils import create_directory
+from lib.utils.utils import create_directory
 
 # class MatchingBase(abc):
 
@@ -35,16 +35,18 @@ def MatchingAndTracking(
     epoch: int,
     images: dict,
     features: dict,
+    epoch_dict: dict,
+    # res_dir: Path,
+    # prev_epoch_dir: Path,
 ) -> dict:
-
-    cams = cfg.paths.camera_names
-    for cam in cams:
-        features[cam] = []
 
     # for epoch in cfg.proc.epoch_to_process:
     # print(f"Processing epoch {epoch}...")
 
-    epochdir = Path(cfg.paths.results_dir) / f"epoch_{epoch}/matching"
+    # epochdir = Path(cfg.paths.results_dir) / f"epoch_{epoch}/matching"
+
+    epochdir = Path(cfg.paths.results_dir) / f"{epoch_dict[epoch]}/matching"
+    cams = cfg.paths.camera_names
 
     # -- Find Matches at current epoch --#
     print(f"Run Superglue to find matches at epoch {epoch}")
@@ -75,7 +77,9 @@ def MatchingAndTracking(
     if cfg.proc.do_tracking and epoch > 0:
         print(f"Track points from epoch {epoch-1} to epoch {epoch}")
 
-        trackoutdir = epochdir / f"from_t{epoch-1}"
+        # trackoutdir = epochdir / f"from_t{epoch-1}"
+        trackoutdir = epochdir / f"from_{epoch_dict[epoch-1]}"
+
         cfg.tracking["output_dir"] = trackoutdir
         pairs = [
             [
@@ -107,7 +111,7 @@ def MatchingAndTracking(
     F, inlMask = pydegensac.findFundamentalMatrix(
         features[cams[0]][epoch].get_keypoints(),
         features[cams[1]][epoch].get_keypoints(),
-        px_th=1.5,
+        px_th=1.0,
         conf=0.99999,
         max_iters=10000,
         laf_consistensy_coef=-1.0,
@@ -128,8 +132,18 @@ def MatchingAndTracking(
     )
     for jj, cam in enumerate(cams):
         features[cam][epoch].save_as_txt(epochdir / f"{im_stems[jj]}_mktps.txt")
-    with open(epochdir / f"{im_stems[0]}_{im_stems[1]}_features.pickle", "wb") as f:
-        pickle.dump(features, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+    # Save current epoch features as pickle file
+    fname = epochdir / f"{im_stems[0]}_{im_stems[1]}_features.pickle"
+    with open(fname, "wb") as f:
+        keys = list(features.keys())
+        feat_epoch = {
+            keys[0]: features[keys[0]][epoch],
+            keys[1]: features[keys[1]][epoch],
+        }
+        pickle.dump(feat_epoch, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+    # Save all features structure in last_epoch folder to resume the process
     last_match_path = create_directory("res/last_epoch")
     with open(last_match_path / "last_features.pickle", "wb") as f:
         pickle.dump(features, f, protocol=pickle.HIGHEST_PROTOCOL)

@@ -13,7 +13,7 @@ from thirdparty.SuperGluePretrainedNetwork.utils import (
     frame2tensor,
     vizTileRes
 )
-from lib.utils import generateTiles
+from lib.utils.utils import generateTiles
 
 torch.set_grad_enabled(False)
 
@@ -189,13 +189,13 @@ def match_pair(pair, maskBB, opt):
     prev0['keypoints0'] = [torch.from_numpy(mkpts0).to(device)]
     prev0['scores0'] = (torch.from_numpy(scores0).to(device),)
     prev0['descriptors0'] = [torch.from_numpy(descriptors0).to(device)]
-    torch.save(prev0, str(matches_path.parent / '{}_tensor_0.pt'.format(matches_path.stem)))
+    # torch.save(prev0, str(matches_path.parent / '{}_tensor_0.pt'.format(matches_path.stem)))
     
     prev1 = {}
     prev1['keypoints0'] = [torch.from_numpy(mkpts1).to(device)]
     prev1['scores0'] = (torch.from_numpy(scores1).to(device),)
     prev1['descriptors0'] = [torch.from_numpy(descriptors1).to(device)]
-    torch.save(prev1, str(matches_path.parent / '{}_tensor_1.pt'.format(matches_path.stem)))
+    # torch.save(prev1, str(matches_path.parent / '{}_tensor_1.pt'.format(matches_path.stem)))
 
 
     if do_viz:
