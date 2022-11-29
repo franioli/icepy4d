@@ -1,4 +1,4 @@
-'''
+"""
 MIT License
 
 Copyright (c) 2022 Francesco Ioli
@@ -20,26 +20,26 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-'''
+"""
 
 import open3d as o3d
 
 from pathlib import Path
 
-from lib.utils import create_directory
+from lib.utils.utils import create_directory
 
 
 def create_point_cloud(points3d, points_col=None, path=None, *scalar_fied):
-    ''' Function to create a point cloud object by using Open3D library.
+    """Function to create a point cloud object by using Open3D library.
     Input:  (nx3, float32) array of points 3D.
-            (nx3, float32) array of color of each point. 
-                Colors are defined in [0,1] range as float numbers. 
-            Path were to save the point cloud to disk in ply format. 
+            (nx3, float32) array of color of each point.
+                Colors are defined in [0,1] range as float numbers.
+            Path were to save the point cloud to disk in ply format.
                 If path is None, the point cloud is not saved to disk.
             Scalar fields: to be implemented.
             #TODO: implement scalar fields.
     Return: Open3D point cloud object
-    '''
+    """
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(points3d)
     if points_col is not None:
@@ -50,7 +50,7 @@ def create_point_cloud(points3d, points_col=None, path=None, *scalar_fied):
 
 
 def write_ply(pcd, path):
-    ''' Write point cloud to disk as .ply
+    """Write point cloud to disk as .ply
 
     Parameters
     ----------
@@ -58,7 +58,7 @@ def write_ply(pcd, path):
     out_path : Path or str of output ply
 
     Returns: None
-    '''
+    """
     path = Path(path)
     create_directory(path.parent)
     o3d.io.write_point_cloud(str(path), pcd)
