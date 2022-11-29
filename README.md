@@ -39,6 +39,6 @@ Optional
 pip3 install jupyterlab
 ```
 
-## Variouss
+## Various
 
 When using VScode and Matplotlib, use TkAgg as interactive backend.
