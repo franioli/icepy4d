@@ -20,7 +20,7 @@ python -c "from osgeo import gdal"
 Install pythorch
 
 ```bash
-pip3 install torch torchvision --extra-index-url <https://download.pytorch.org/whl/cu116>
+pip3 install torch --extra-index-url <https://download.pytorch.org/whl/cu116>
 ```
 
 (Depending on CUDA VERSION, see <https://pytorch.org/get-started/locally/>)
