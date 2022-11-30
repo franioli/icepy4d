@@ -450,17 +450,14 @@ def make_focal_length_variation_plot(
     if save_path is None:
         fig.show()
     else:
-        fig.savefig(save_path)
+        fig.set_size_inches(18.5, 10.5)
+        fig.savefig(save_path, dpi=100)
 
 
 def make_camera_angles_plot(
     cameras,
     save_path: Union[str, Path] = None,
 ):
-    import matplotlib.pyplot as plt
-    import matplotlib
-
-    matplotlib.use("TkAgg")
 
     omega, phi, kappa = {}, {}, {}
     for key, cam_list in cameras.items():
@@ -490,10 +487,12 @@ def make_camera_angles_plot(
         ax[2, i].grid(visible=True, which="both")
         ax[2, i].set_xlabel("Epoch")
         ax[2, i].set_ylabel("Kappa difference [deg]")
-        if save_path is None:
-            fig.show()
-        else:
-            fig.savefig(save_path)
+
+    if save_path is None:
+        fig.show()
+    else:
+        fig.set_size_inches(18.5, 10.5)
+        fig.savefig(save_path, dpi=100)
 
 
 """ Other skatched functions to be implemented"""
