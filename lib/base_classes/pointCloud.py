@@ -28,8 +28,6 @@ import numpy as np
 from pathlib import Path
 from typing import Union
 
-from lib.utils.utils import create_directory
-
 
 class PointCloud:
     def __init__(
@@ -106,5 +104,5 @@ class PointCloud:
 
         Returns: None
         """
-        create_directory(Path(path).parent)
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
         o3d.io.write_point_cloud(str(path), self.pcd)
