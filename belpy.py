@@ -85,7 +85,6 @@ images = init.images
 targets = init.targets
 point_clouds = init.point_clouds
 epoch_dict = init.epoch_dict
-
 focals = {0: [], 1: []}
 
 """ Big Loop over epoches """
@@ -107,8 +106,6 @@ for epoch in cfg.proc.epoch_to_process:
             images=images,
             features=features,
             epoch_dict=epoch_dict,
-            # res_dir=epochdir,
-            # prev_epoch_dir=epoch_dict[epoch-1],
         )
     elif not features[cams[0]]:
         try:
@@ -117,7 +114,14 @@ for epoch in cfg.proc.epoch_to_process:
                 print("Loaded previous matches")
         except:
             print(
-                f"Features not found in {str(cfg.paths.last_match_path)}. Please enable performing matching or provide valid path to already computed matches."
+                f"Features not found in {str(cfg.paths.last_match_path)}. Performing new matching and tracking"
+            )
+            features = MatchingAndTracking(
+                cfg=cfg,
+                epoch=epoch,
+                images=images,
+                features=features,
+                epoch_dict=epoch_dict,
             )
     else:
         print("Features already loaded.")
