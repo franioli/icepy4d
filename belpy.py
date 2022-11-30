@@ -84,6 +84,8 @@ def homography_warping(
     out_path: str = None,
 ) -> np.ndarray:
 
+    print("performing homography warping based on extrinsics matrix...")
+
     # Create deepcopies to not modify original data
     cam_0_ = deepcopy(cam_0)
     cam_1_ = deepcopy(cam_1)
@@ -101,6 +103,7 @@ def homography_warping(
     warped_image = cv2.warpPerspective(image, H, (h, w))
     if out_path is not None:
         cv2.imwrite(out_path, warped_image)
+        print(f"Warped image {out_path.stem} exported correctely")
     else:
         imshow_cv(warped_image, convert_RGB2BRG=False)
 
@@ -111,7 +114,7 @@ timer_global = AverageTimer(newline=True)
 
 # Read options from yaml file
 cfg_file = "config/config_base.yaml"
-cfg = parse_yaml_cfg(cfg_file)
+cfg = parse_yaml_cfg(cfg_file, logger)
 
 """ Inizialize Variables """
 
@@ -171,7 +174,7 @@ for epoch in cfg.proc.epoch_to_process:
 
         except FileNotFoundError as err:
             logger.exception(err.args[0])
-            
+
             print("Performing new matching and tracking...")
             features = MatchingAndTracking(
                 cfg=cfg,
