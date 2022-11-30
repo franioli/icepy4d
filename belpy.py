@@ -71,7 +71,6 @@ from lib.metashape.metashape import (
 
 
 logger = logging.getLogger("Belpy")
-
 timer_global = AverageTimer(newline=True)
 
 # Read options from yaml file
@@ -330,19 +329,6 @@ if cfg.other.do_viz:
     # Display estimated focal length variation
     make_focal_length_variation_plot(focals, "res/focal_lenghts.png")
     make_camera_angles_plot(cameras, "res/angles.png")
-
-
-# Debug
-
-# epoch = 1
-# for epoch in cfg.proc.epoch_to_process:
-#     cam = "p2"
-#     image = images[cam][epoch]
-#     out_path = f"warped/{images[cam].get_image_name(epoch)}"
-#     homography_warping(cameras[cam][0], cameras[cam][epoch], image, out_path)
-
-
-# Camera angles plot
 
 
 #%%
