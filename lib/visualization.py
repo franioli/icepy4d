@@ -41,12 +41,20 @@ from lib.geometry import project_points
 
 matplotlib.use("TkAgg")
 
-""" Misc functions"""
 
+def imshow_cv(
+    img: np.ndarray, win_name: str = None, convert_RGB2BRG: bool = True
+) -> None:
+    """Wrapper for visualizing an image with OpenCV"""
+    if win_name is None:
+        win_name = "image"
+    if convert_RGB2BRG:
+        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
-def get_colors(inp, colormap, vmin=None, vmax=None):
-    norm = plt.Normalize(vmin, vmax)
-    return colormap(norm(inp))
+    cv2.namedWindow(win_name, cv2.WINDOW_NORMAL)
+    cv2.imshow(win_name, img)
+    cv2.waitKey()
+    cv2.destroyAllWindows()
 
 
 """ Visualization of features and matches on images"""
@@ -201,6 +209,14 @@ def draw_epip_lines(img0, img1, lines, pts0, pts1, fast_viz=True):
         # img0 = cv2.drawMarker(img0,tuple(pt0.astype(int)),color,cv2.MARKER_CROSS,3)
         # img1 = cv2.drawMarker(img1,tuple(pt1.astype(int)),color,cv2.MARKER_CROSS,3)
     return img0, img1
+
+
+""" Misc functions"""
+
+
+def get_colors(inp, colormap, vmin=None, vmax=None):
+    norm = plt.Normalize(vmin, vmax)
+    return colormap(norm(inp))
 
 
 """ Visualization of 3D point clouds"""
