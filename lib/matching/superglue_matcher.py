@@ -20,8 +20,6 @@ from easydict import EasyDict as edict
 from pathlib import Path
 from typing import Tuple, Union
 
-# import lib.utils.images as image_utils
-# from lib.classes.image import Image
 from lib.base_classes.features import Features
 from lib.base_classes.images import Imageds
 from lib.read_config import parse_yaml_cfg

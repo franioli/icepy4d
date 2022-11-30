@@ -27,6 +27,8 @@ import numpy as np
 import cv2
 import pickle
 import gc
+import logging
+
 from pathlib import Path
 from copy import deepcopy
 
@@ -68,6 +70,43 @@ from lib.metashape.metashape import (
     build_ms_cfg_base,
 )
 
+
+from lib.utils.utils import PrintMatrix
+from lib.visualization import imshow_cv
+
+logger = logging.getLogger("Belpy")
+
+
+def homography_warping(
+    cam_0: np.ndarray,
+    cam_1: np.ndarray,
+    image: np.ndarray,
+    out_path: str = None,
+) -> np.ndarray:
+
+    # Create deepcopies to not modify original data
+    cam_0_ = deepcopy(cam_0)
+    cam_1_ = deepcopy(cam_1)
+
+    T = np.linalg.inv(cam_0_.pose)
+    cam_0_.update_extrinsics(cam_0_.pose_to_extrinsics(T @ cam_0_.pose))
+    cam_1_.update_extrinsics(cam_1_.pose_to_extrinsics(T @ cam_1_.pose))
+
+    R = cam_1_.R
+    K = cam_1_.K
+    H = (K @ R) @ np.linalg.inv(K)
+
+    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+    w, h = image.shape[:2]
+    warped_image = cv2.warpPerspective(image, H, (h, w))
+    if out_path is not None:
+        cv2.imwrite(out_path, warped_image)
+    else:
+        imshow_cv(warped_image, convert_RGB2BRG=False)
+
+    return cv2.cvtColor(warped_image, cv2.COLOR_BGR2RGB)
+
+
 timer_global = AverageTimer(newline=True)
 
 # Read options from yaml file
@@ -107,15 +146,33 @@ for epoch in cfg.proc.epoch_to_process:
             features=features,
             epoch_dict=epoch_dict,
         )
-    elif not features[cams[0]]:
+    else:
         try:
-            with open(cfg.paths.last_match_path, "rb") as f:
-                features = pickle.load(f)
-                print("Loaded previous matches")
-        except:
-            print(
-                f"Features not found in {str(cfg.paths.last_match_path)}. Performing new matching and tracking"
-            )
+            path = epochdir / "matching"
+            fname = list(path.glob("*.pickle"))
+            if len(fname) < 1:
+                raise FileNotFoundError(
+                    f"No pickle file present in the epoch directory {epochdir}"
+                )
+            if len(fname) > 1:
+                raise FileNotFoundError(
+                    f"More than one pickle file present in the epoch directory {epochdir}"
+                )
+
+            with open(fname[0], "rb") as f:
+                loaded_features = pickle.load(f)
+
+            for cam, feats in loaded_features.items():
+                features[cam].append(feats)
+
+            # with open(cfg.paths.last_match_path, "rb") as f:
+            #     features = pickle.load(f)
+            #     print("Loaded previous matches")
+
+        except FileNotFoundError as err:
+            logger.exception(err.args[0])
+            
+            print("Performing new matching and tracking...")
             features = MatchingAndTracking(
                 cfg=cfg,
                 epoch=epoch,
@@ -123,8 +180,7 @@ for epoch in cfg.proc.epoch_to_process:
                 features=features,
                 epoch_dict=epoch_dict,
             )
-    else:
-        print("Features already loaded.")
+
     timer.update("matching")
 
     """ SfM """
@@ -283,8 +339,12 @@ for epoch in cfg.proc.epoch_to_process:
         del ms_cfg, ms, ms_reader
         gc.collect()
 
-    timer.print(f"Epoch {epoch} completed")
+        cam = "p2"
+        image = images[cam][epoch]
+        out_path = f"res/warped/{images[cam].get_image_name(epoch)}"
+        homography_warping(cameras[cam][0], cameras[cam][epoch], image, out_path)
 
+    timer.print(f"Epoch {epoch} completed")
 
 timer_global.print("Processing completed")
 
@@ -299,6 +359,57 @@ if cfg.other.do_viz:
 
     # Display estimated focal length variation
     make_focal_length_variation_plot(focals, "res/focal_lenghts.png")
+
+
+# Debug
+
+# epoch = 1
+# for epoch in cfg.proc.epoch_to_process:
+#     cam = "p2"
+#     image = images[cam][epoch]
+#     out_path = f"warped/{images[cam].get_image_name(epoch)}"
+#     homography_warping(cameras[cam][0], cameras[cam][epoch], image, out_path)
+
+
+# Camera angles plot
+
+
+def make_camera_angles_plot(cameras):
+    import matplotlib.pyplot as plt
+    import matplotlib
+
+    matplotlib.use("TkAgg")
+
+    omega, phi, kappa = {}, {}, {}
+    for key, cam_list in cameras.items():
+        omega[key] = []
+        phi[key] = []
+        kappa[key] = []
+        for i, cam in enumerate(cam_list):
+            omega[key].append(cam.euler_angles[0])
+            phi[key].append(cam.euler_angles[1])
+            kappa[key].append(cam.euler_angles[2])
+
+    cam_ids = ["p1", "p2"]
+    fig, ax = plt.subplots(3, 2)
+    for i, cam_id in enumerate(cam_ids):
+        epoches = range(len(omega[cam_id]))
+        ax[0, i].plot(epoches, omega[cam_id] - omega[cam_id][0], "o")
+        ax[0, i].grid(visible=True, which="both")
+        ax[0, i].set_xlabel("Epoch")
+        ax[0, i].set_ylabel("Omega difference [deg]")
+
+        ax[1, i].plot(epoches, phi[cam_id] - phi[cam_id][0], "o")
+        ax[1, i].grid(visible=True, which="both")
+        ax[1, i].set_xlabel("Epoch")
+        ax[1, i].set_ylabel("Phi difference [deg]")
+
+        ax[2, i].plot(epoches, kappa[cam_id] - kappa[cam_id][0], "o")
+        ax[2, i].grid(visible=True, which="both")
+        ax[2, i].set_xlabel("Epoch")
+        ax[2, i].set_ylabel("Kappa difference [deg]")
+        fig.show()
+
 
 #%%
 """ Compute DSM and orthophotos """
