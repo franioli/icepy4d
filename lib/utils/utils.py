@@ -31,6 +31,7 @@ import rasterio
 import time
 
 from collections import OrderedDict
+from copy import deepcopy
 from pathlib import Path
 from PIL import Image
 from rasterio.transform import Affine
@@ -41,6 +42,51 @@ from scipy.interpolate import (
 
 from lib.base_classes.camera import Camera
 from lib.geometry import project_points
+from lib.visualization import imshow_cv
+
+
+# ---- Timer ---##
+
+
+class AverageTimer:
+    """Class to help manage printing simple timing of code execution."""
+
+    def __init__(self, smoothing=0.3, newline=False):
+        self.smoothing = smoothing
+        self.newline = newline
+        self.times = OrderedDict()
+        self.will_print = OrderedDict()
+        self.reset()
+
+    def reset(self):
+        now = time.time()
+        self.start = now
+        self.last_time = now
+        for name in self.will_print:
+            self.will_print[name] = False
+
+    def update(self, name="default"):
+        now = time.time()
+        dt = now - self.last_time
+        if name in self.times:
+            dt = self.smoothing * dt + (1 - self.smoothing) * self.times[name]
+        self.times[name] = dt
+        self.will_print[name] = True
+        self.last_time = now
+
+    def print(self, text="Timer"):
+        total = 0.0
+        print("[{}]".format(text), end=" ")
+        for key in self.times:
+            val = self.times[key]
+            if self.will_print[key]:
+                print("%s=%.3f" % (key, val), end=" ")
+                total += val
+        if self.newline:
+            print(flush=True)
+        else:
+            print(end="\r", flush=True)
+        self.reset()
 
 
 # --- File system ---#
@@ -130,6 +176,42 @@ def compute_reprojection_error(observed, projected):
         rmse[i] = compute_rmse(observed[:, i], projected[:, i])
 
     return err, rmse
+
+
+def homography_warping(
+    cam_0: np.ndarray,
+    cam_1: np.ndarray,
+    image: np.ndarray,
+    out_path: str = None,
+    timer: AverageTimer = None,
+) -> np.ndarray:
+
+    print("Performing homography warping based on extrinsics matrix...")
+
+    # Create deepcopies to not modify original data
+    cam_0_ = deepcopy(cam_0)
+    cam_1_ = deepcopy(cam_1)
+
+    T = np.linalg.inv(cam_0_.pose)
+    cam_0_.update_extrinsics(cam_0_.pose_to_extrinsics(T @ cam_0_.pose))
+    cam_1_.update_extrinsics(cam_1_.pose_to_extrinsics(T @ cam_1_.pose))
+
+    R = cam_1_.R
+    K = cam_1_.K
+    H = (K @ R) @ np.linalg.inv(K)
+
+    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+    w, h = image.shape[:2]
+    warped_image = cv2.warpPerspective(image, H, (h, w))
+    if out_path is not None:
+        cv2.imwrite(out_path, warped_image)
+        print(f"Warped image {Path(out_path).stem} exported correctely")
+    else:
+        imshow_cv(warped_image, convert_RGB2BRG=False)
+
+    timer.update("Homography warping")
+
+    return cv2.cvtColor(warped_image, cv2.COLOR_BGR2RGB)
 
 
 # --- Tiles ---#
@@ -330,7 +412,7 @@ def interpolate_point_colors_interp2d(pointxyz, image, P, K=None, dist=None, win
     return col
 
 
-# ---- DSM ---##
+# ---- DSM and orthophotos ---##
 class DSM:
     # @TODO: define new better class
     """Class to store and manage DSM."""
@@ -551,50 +633,6 @@ def generate_ortophoto(
             dst.write(np.moveaxis(ortophoto, -1, 0))
 
     return ortophoto
-
-
-# ---- Timer ---##
-
-
-class AverageTimer:
-    """Class to help manage printing simple timing of code execution."""
-
-    def __init__(self, smoothing=0.3, newline=False):
-        self.smoothing = smoothing
-        self.newline = newline
-        self.times = OrderedDict()
-        self.will_print = OrderedDict()
-        self.reset()
-
-    def reset(self):
-        now = time.time()
-        self.start = now
-        self.last_time = now
-        for name in self.will_print:
-            self.will_print[name] = False
-
-    def update(self, name="default"):
-        now = time.time()
-        dt = now - self.last_time
-        if name in self.times:
-            dt = self.smoothing * dt + (1 - self.smoothing) * self.times[name]
-        self.times[name] = dt
-        self.will_print[name] = True
-        self.last_time = now
-
-    def print(self, text="Timer"):
-        total = 0.0
-        print("[{}]".format(text), end=" ")
-        for key in self.times:
-            val = self.times[key]
-            if self.will_print[key]:
-                print("%s=%.3f" % (key, val), end=" ")
-                total += val
-        if self.newline:
-            print(flush=True)
-        else:
-            print(end="\r", flush=True)
-        self.reset()
 
 
 # ---- Miscellaneous ---##

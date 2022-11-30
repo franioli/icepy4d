@@ -35,8 +35,6 @@ from pathlib import Path
 
 from lib.base_classes.camera import Camera
 from lib.base_classes.pointCloud import PointCloud
-from lib.base_classes.features import Features
-from lib.utils.utils import compute_reprojection_error
 from lib.geometry import project_points
 
 matplotlib.use("TkAgg")
@@ -453,6 +451,49 @@ def make_focal_length_variation_plot(
         fig.show()
     else:
         fig.savefig(save_path)
+
+
+def make_camera_angles_plot(
+    cameras,
+    save_path: Union[str, Path] = None,
+):
+    import matplotlib.pyplot as plt
+    import matplotlib
+
+    matplotlib.use("TkAgg")
+
+    omega, phi, kappa = {}, {}, {}
+    for key, cam_list in cameras.items():
+        omega[key] = []
+        phi[key] = []
+        kappa[key] = []
+        for i, cam in enumerate(cam_list):
+            omega[key].append(cam.euler_angles[0])
+            phi[key].append(cam.euler_angles[1])
+            kappa[key].append(cam.euler_angles[2])
+
+    cam_ids = ["p1", "p2"]
+    fig, ax = plt.subplots(3, 2)
+    for i, cam_id in enumerate(cam_ids):
+        epoches = range(len(omega[cam_id]))
+        ax[0, i].plot(epoches, omega[cam_id] - omega[cam_id][0], "o")
+        ax[0, i].grid(visible=True, which="both")
+        ax[0, i].set_xlabel("Epoch")
+        ax[0, i].set_ylabel("Omega difference [deg]")
+
+        ax[1, i].plot(epoches, phi[cam_id] - phi[cam_id][0], "o")
+        ax[1, i].grid(visible=True, which="both")
+        ax[1, i].set_xlabel("Epoch")
+        ax[1, i].set_ylabel("Phi difference [deg]")
+
+        ax[2, i].plot(epoches, kappa[cam_id] - kappa[cam_id][0], "o")
+        ax[2, i].grid(visible=True, which="both")
+        ax[2, i].set_xlabel("Epoch")
+        ax[2, i].set_ylabel("Kappa difference [deg]")
+        if save_path is None:
+            fig.show()
+        else:
+            fig.savefig(save_path)
 
 
 """ Other skatched functions to be implemented"""
