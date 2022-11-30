@@ -82,6 +82,27 @@ class Inizialization:
         self.cameras = cameras
         return self.cameras
 
+    def init_cameras_new(self) -> List[edict]:
+        cameras = []
+        im_height, im_width = self.images[self.cams[0]][0].shape[:2]
+
+        # Inizialize Camera Intrinsics at every epoch setting them equal to the those of the reference cameras.
+        cam_init = edict()
+        for cam in self.cams:
+            cam_init[cam] = (
+                Camera(
+                    width=im_width,
+                    height=im_height,
+                    calib_path=self.cfg.paths.calibration_dir / f"{cam}.txt",
+                ),
+            )
+
+        for epoch in self.cfg.proc.epoch_to_process:
+            cameras.insert(epoch, cam_init)
+
+        self.cameras = cameras
+        return self.cameras
+
     def init_features(self) -> dict:
         features = dict.fromkeys(self.cams)
         for cam in self.cams:
@@ -127,3 +148,13 @@ class Inizialization:
         self.init_features()
         self.init_targets()
         self.init_point_cloud()
+
+
+if __name__ == "__main__":
+    from lib.read_config import parse_yaml_cfg
+
+    cfg_file = "config/config_base.yaml"
+    cfg = parse_yaml_cfg(cfg_file)
+
+    init = Inizialization(cfg)
+    init.inizialize_belpy()
