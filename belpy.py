@@ -271,7 +271,7 @@ for epoch in cfg.proc.epoch_to_process:
         )
         point_clouds.insert(epoch, pcd_epc)
 
-        # - For testing purposes
+        # - For debugging purposes
         # M = targets[epoch].extract_object_coor_by_label(cfg.georef.targets_to_use)
         # m = cameras[cams[1]][epoch].project_point(M)
         # plot_features(images[cams[1]][epoch], m)

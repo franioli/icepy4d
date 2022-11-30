@@ -75,7 +75,7 @@ matching:
   equalize_hist: false
   nms_radius: 4
   keypoint_threshold: 0.0001
-  max_keypoints: 1024 #4096 #
+  max_keypoints: 4096 # #10240
   superglue: "outdoor"
   sinkhorn_iterations: 100
   match_threshold: 0.15
