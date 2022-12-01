@@ -457,9 +457,14 @@ def make_focal_length_variation_plot(
 def make_camera_angles_plot(
     cameras,
     save_path: Union[str, Path] = None,
+    baseline_epoch: int = None,
 ):
 
-    cam_keys = list(cameras[0].keys())
+    if baseline_epoch:
+        ep0 = baseline_epoch
+    else:
+        ep0 = 0
+    cam_keys = list(cameras[ep0].keys())
     # angles = dict.fromkeys(cam_keys)
     omega, phi, kappa = {}, {}, {}
     for key in cam_keys:
@@ -473,20 +478,26 @@ def make_camera_angles_plot(
             phi[key].append(cam.euler_angles[1])
             kappa[key].append(cam.euler_angles[2])
 
+    if baseline_epoch:
+        for cam_id in cam_keys:
+            omega[cam_id] -= omega[cam_id][0]
+            phi[cam_id] -= phi[cam_id][0]
+            kappa[cam_id] -= kappa[cam_id][0]
+
     fig, ax = plt.subplots(3, 2)
     for i, cam_id in enumerate(cam_keys):
         epoches = range(len(omega[cam_id]))
-        ax[0, i].plot(epoches, omega[cam_id] - omega[cam_id][0], "o")
+        ax[0, i].plot(epoches, omega[cam_id], "o")
         ax[0, i].grid(visible=True, which="both")
         ax[0, i].set_xlabel("Epoch")
         ax[0, i].set_ylabel("Omega difference [deg]")
 
-        ax[1, i].plot(epoches, phi[cam_id] - phi[cam_id][0], "o")
+        ax[1, i].plot(epoches, phi[cam_id], "o")
         ax[1, i].grid(visible=True, which="both")
         ax[1, i].set_xlabel("Epoch")
         ax[1, i].set_ylabel("Phi difference [deg]")
 
-        ax[2, i].plot(epoches, kappa[cam_id] - kappa[cam_id][0], "o")
+        ax[2, i].plot(epoches, kappa[cam_id], "o")
         ax[2, i].grid(visible=True, which="both")
         ax[2, i].set_xlabel("Epoch")
         ax[2, i].set_ylabel("Kappa difference [deg]")
