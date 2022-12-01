@@ -63,8 +63,8 @@ def MatchingAndTracking(
     # Store matches in features structure
     for jj, cam in enumerate(cams):
         # Dict keys are the cameras names, internal list contain epoches
-        features[cam].append(Features())
-        features[cam][epoch].append_features(
+        features[epoch][cam] = Features()
+        features[epoch][cam].append_features(
             {
                 "kpts": matchedPts[jj],
                 "descr": matchedDescriptors[jj],
@@ -92,8 +92,8 @@ def MatchingAndTracking(
             ],
         ]
         prevs = [
-            features[cams[0]][epoch - 1].get_features_as_dict(),
-            features[cams[1]][epoch - 1].get_features_as_dict(),
+            features[epoch - 1][cams[0]].get_features_as_dict(),
+            features[epoch - 1][cams[1]].get_features_as_dict(),
         ]
         # Call actual tracking function
         tracked_cam0, tracked_cam1 = track_matches(
@@ -104,13 +104,13 @@ def MatchingAndTracking(
         # @TODO: clean tracking code
 
         # Store all matches in features structure
-        features[cams[0]][epoch].append_features(tracked_cam0)
-        features[cams[1]][epoch].append_features(tracked_cam1)
+        features[epoch][cams[0]].append_features(tracked_cam0)
+        features[epoch][cams[1]].append_features(tracked_cam1)
 
     # Run Pydegensac to estimate F matrix and reject outliers
     F, inlMask = pydegensac.findFundamentalMatrix(
-        features[cams[0]][epoch].get_keypoints(),
-        features[cams[1]][epoch].get_keypoints(),
+        features[epoch][cams[0]].get_keypoints(),
+        features[epoch][cams[1]].get_keypoints(),
         px_th=1.0,
         conf=0.99999,
         max_iters=10000,
@@ -121,32 +121,33 @@ def MatchingAndTracking(
     )
     print(
         f"Matching at epoch {epoch}: pydegensac found {inlMask.sum()} \
-            inliers ({inlMask.sum()*100/len(features[cams[0]][epoch]):.2f}%)"
+            inliers ({inlMask.sum()*100/len(features[epoch][cams[0]]):.2f}%)"
     )
-    features[cams[0]][epoch].remove_outliers_features(inlMask)
-    features[cams[1]][epoch].remove_outliers_features(inlMask)
+    features[epoch][cams[0]].remove_outliers_features(inlMask)
+    features[epoch][cams[1]].remove_outliers_features(inlMask)
 
     # Write matched points to disk
     im_stems = images[cams[0]].get_image_stem(epoch), images[cams[1]].get_image_stem(
         epoch
     )
     for jj, cam in enumerate(cams):
-        features[cam][epoch].save_as_txt(epochdir / f"{im_stems[jj]}_mktps.txt")
+        features[epoch][cam].save_as_txt(epochdir / f"{im_stems[jj]}_mktps.txt")
 
     # Save current epoch features as pickle file
     fname = epochdir / f"{im_stems[0]}_{im_stems[1]}_features.pickle"
     with open(fname, "wb") as f:
-        keys = list(features.keys())
-        feat_epoch = {
-            keys[0]: features[keys[0]][epoch],
-            keys[1]: features[keys[1]][epoch],
-        }
-        pickle.dump(feat_epoch, f, protocol=pickle.HIGHEST_PROTOCOL)
+        # keys = list(features.keys())
+        # feat_epoch = {
+        #     keys[0]: features[keys[0]][epoch],
+        #     keys[1]: features[keys[1]][epoch],
+        # }
+        # pickle.dump(feat_epoch, f, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(features[epoch], f, protocol=pickle.HIGHEST_PROTOCOL)
 
     # Save all features structure in last_epoch folder to resume the process
-    last_match_path = create_directory("res/last_epoch")
-    with open(last_match_path / "last_features.pickle", "wb") as f:
-        pickle.dump(features, f, protocol=pickle.HIGHEST_PROTOCOL)
+    # last_match_path = create_directory("res/last_epoch")
+    # with open(last_match_path / "last_features.pickle", "wb") as f:
+    #     pickle.dump(features, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     print("Matching completed")
 

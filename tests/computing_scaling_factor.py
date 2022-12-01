@@ -30,8 +30,8 @@ for cam in cams:
 relative_ori = Two_view_geometry(
     [cameras[epoch][cams[0]], cameras[epoch][cams[1]]],
     [
-        features[cams[0]][epoch].get_keypoints(),
-        features[cams[1]][epoch].get_keypoints(),
+        features[epoch][cams[0]].get_keypoints(),
+        features[epoch][cams[1]].get_keypoints(),
     ],
 )
 relative_ori.relative_orientation(
