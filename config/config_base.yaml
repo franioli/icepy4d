@@ -14,10 +14,10 @@ proc:
   # It can be either 'all' for processing all the epochs,
   # A list of two elements for processing a range of epoches
   # or a list with all the epoche numbers to be processed
-  epoch_to_process: [0, 2] #"all" # [0, 3] # # [0] #
+  epoch_to_process: "all" # [0, 2] #  # [0] #
 
   #- Switches to find and track matches
-  do_matching: true #true #
+  do_matching: false #true #
   do_tracking: true
 
   #- Do space resection of first camera
@@ -29,7 +29,7 @@ proc:
   #- Perform full Bundle Adjustment in Agisoft Metashape and build dense cloud
   # (need Agisoft licence properly configured)
   do_metashape_bba: true
-  do_metashape_dense: true
+  do_metashape_dense: false
 
 #- Image-related options
 images:
@@ -50,6 +50,7 @@ georef:
   # Target information must be stored in file one file per image saved with the name of the relative image (with target_file_ext extension)
   target_dir: "data/targets" # "data/targets2021" #
   target_file_ext: ".csv"
+  target_world_file: "target_world_p1.csv"
 
   #- Targets to use for Absolute Orientation, Space Resection and Bundle Adjustment
   targets_to_use: ["F2", "F4"] # 'T4',
@@ -74,7 +75,7 @@ matching:
   equalize_hist: false
   nms_radius: 4
   keypoint_threshold: 0.0001
-  max_keypoints: 10240 #4096 #
+  max_keypoints: 8192 #4096 #  10240
   superglue: "outdoor"
   sinkhorn_iterations: 100
   match_threshold: 0.15
