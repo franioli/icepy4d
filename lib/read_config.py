@@ -24,9 +24,11 @@ SOFTWARE.
 
 import numpy as np
 import yaml
+import logging
 
 from pathlib import Path
 from easydict import EasyDict as edict
+from typing import List
 
 from lib.base_classes.images import Imageds
 
@@ -36,7 +38,7 @@ from lib.base_classes.images import Imageds
 # The dictionary is updated/extended at runtime with the parameters defined by the user in the input yaml config file
 
 
-def parse_yaml_cfg(cfg_file: edict) -> edict:
+def parse_yaml_cfg(cfg_file: edict, logger: logging = None) -> edict:
 
     with open(cfg_file) as file:
         cfg = edict(yaml.safe_load(file))
@@ -51,9 +53,12 @@ def parse_yaml_cfg(cfg_file: edict) -> edict:
 
     # - Processing options
     if cfg.proc.do_matching == False and cfg.proc.do_tracking == True:
-        print(
-            "Warning: Invalid combination of options between Matching and Tracking. Tracking was se to enabled, but Matching was not. Disabling Tracking."
-        )
+        msg = "Warning: Invalid combination of options between Matching and Tracking. Tracking was se to enabled, but Matching was not. Disabling Tracking."
+        if logger is not None:
+            logger.warning(msg)
+        else:
+            print(msg)
+
         cfg.proc.do_tracking == False
 
     # - Image-realted options
@@ -65,21 +70,28 @@ def parse_yaml_cfg(cfg_file: edict) -> edict:
 
     # Check and expand epoches to be processed
     if cfg.proc.epoch_to_process == "all":
+        if logger is not None:
+            logger.warning(
+                "Epoch_to_process set to 'all'. Expanding it based on the images found in image folder."
+            )
         cams = cfg.paths.camera_names
         img_ds = dict.fromkeys(cams)
         img_ds = Imageds(cfg.paths.image_dir / cams[0])
         n_images = len(img_ds)
         cfg.proc.epoch_to_process = [x for x in range(n_images)]
     elif len(cfg.proc.epoch_to_process) == 2:
+        if logger is not None:
+            logger.warning(
+                "Epoch_to_process set to a pair of values. Expanding it for a range of epoches from the first to the second."
+            )
         ep_ini = cfg.proc.epoch_to_process[0]
         ep_fin = cfg.proc.epoch_to_process[1]
         cfg.proc.epoch_to_process = [x for x in range(ep_ini, ep_fin)]
     else:
-        assert (
-            type(cfg.proc.epoch_to_process) is list
-        ), "Invalid input of epoches to process"
-    # if type(cfg.proc.epoch_to_process) is not list:
-    # raise ValueError("Invalid input of epoches to process")
+        raise ValueError("Invalid input of epoches to process")
+    assert isinstance(cfg.proc.epoch_to_process, list) and all(
+        isinstance(element, int) for element in cfg.proc.epoch_to_process
+    ), "Invalid input of epoches to process"
 
     validate_cfg(cfg)
 

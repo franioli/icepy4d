@@ -35,18 +35,24 @@ from pathlib import Path
 
 from lib.base_classes.camera import Camera
 from lib.base_classes.pointCloud import PointCloud
-from lib.base_classes.features import Features
-from lib.utils.utils import compute_reprojection_error
 from lib.geometry import project_points
 
 matplotlib.use("TkAgg")
 
-""" Misc functions"""
 
+def imshow_cv(
+    img: np.ndarray, win_name: str = None, convert_RGB2BRG: bool = True
+) -> None:
+    """Wrapper for visualizing an image with OpenCV"""
+    if win_name is None:
+        win_name = "image"
+    if convert_RGB2BRG:
+        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
-def get_colors(inp, colormap, vmin=None, vmax=None):
-    norm = plt.Normalize(vmin, vmax)
-    return colormap(norm(inp))
+    cv2.namedWindow(win_name, cv2.WINDOW_NORMAL)
+    cv2.imshow(win_name, img)
+    cv2.waitKey()
+    cv2.destroyAllWindows()
 
 
 """ Visualization of features and matches on images"""
@@ -201,6 +207,14 @@ def draw_epip_lines(img0, img1, lines, pts0, pts1, fast_viz=True):
         # img0 = cv2.drawMarker(img0,tuple(pt0.astype(int)),color,cv2.MARKER_CROSS,3)
         # img1 = cv2.drawMarker(img1,tuple(pt1.astype(int)),color,cv2.MARKER_CROSS,3)
     return img0, img1
+
+
+""" Misc functions"""
+
+
+def get_colors(inp, colormap, vmin=None, vmax=None):
+    norm = plt.Normalize(vmin, vmax)
+    return colormap(norm(inp))
 
 
 """ Visualization of 3D point clouds"""
@@ -436,7 +450,49 @@ def make_focal_length_variation_plot(
     if save_path is None:
         fig.show()
     else:
-        fig.savefig(save_path)
+        fig.set_size_inches(18.5, 10.5)
+        fig.savefig(save_path, dpi=100)
+
+
+def make_camera_angles_plot(
+    cameras,
+    save_path: Union[str, Path] = None,
+):
+
+    omega, phi, kappa = {}, {}, {}
+    for key, cam_list in cameras.items():
+        omega[key] = []
+        phi[key] = []
+        kappa[key] = []
+        for i, cam in enumerate(cam_list):
+            omega[key].append(cam.euler_angles[0])
+            phi[key].append(cam.euler_angles[1])
+            kappa[key].append(cam.euler_angles[2])
+
+    cam_ids = ["p1", "p2"]
+    fig, ax = plt.subplots(3, 2)
+    for i, cam_id in enumerate(cam_ids):
+        epoches = range(len(omega[cam_id]))
+        ax[0, i].plot(epoches, omega[cam_id] - omega[cam_id][0], "o")
+        ax[0, i].grid(visible=True, which="both")
+        ax[0, i].set_xlabel("Epoch")
+        ax[0, i].set_ylabel("Omega difference [deg]")
+
+        ax[1, i].plot(epoches, phi[cam_id] - phi[cam_id][0], "o")
+        ax[1, i].grid(visible=True, which="both")
+        ax[1, i].set_xlabel("Epoch")
+        ax[1, i].set_ylabel("Phi difference [deg]")
+
+        ax[2, i].plot(epoches, kappa[cam_id] - kappa[cam_id][0], "o")
+        ax[2, i].grid(visible=True, which="both")
+        ax[2, i].set_xlabel("Epoch")
+        ax[2, i].set_ylabel("Kappa difference [deg]")
+
+    if save_path is None:
+        fig.show()
+    else:
+        fig.set_size_inches(18.5, 10.5)
+        fig.savefig(save_path, dpi=100)
 
 
 """ Other skatched functions to be implemented"""

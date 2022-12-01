@@ -1,3 +1,28 @@
+"""
+MIT License
+
+Copyright (c) 2022 Francesco Ioli
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+"""
+
+
 import numpy as np
 import cv2
 
@@ -24,9 +49,9 @@ class Camera:
     ):
         """Initialize pinhole camera model
         All the Camera members are private in order to guarantee consistency
-        between the different possible expression of the exterior orientation.
-        Use ONLY Getter and Setter method to access to Camera parameters from
-        outside the Class.
+        between the different possible expressions of the exterior orientation.
+
+        Note: use ONLY Getter and Setter methods to access to Camera parameters from outside the Class.
 
         For code safety, use the method "update_extrinsics" to update Camera
         Exterior Orientataion given a new extrinsics matrix. If you need to
@@ -116,8 +141,8 @@ class Camera:
 
     @property
     def euler_angles(self) -> Tuple[float]:
-        """Get Omega Phi and Kappa rotation angles in degress (rotations from world to camera)"""
-        return np.rad2deg(self.euler_from_R(self.R))
+        """Get Omega Phi and Kappa rotation angles, in degress, from Camera Pose matrix (i.e., they are angles from the Camera to the World and they describe the orientation of the camera in the 3D space)"""
+        return np.rad2deg(self.euler_from_R(self.R.T))
 
     @property
     def P(self) -> np.ndarray:
@@ -139,7 +164,16 @@ class Camera:
         Note that, for code safety, this is the only method to update the camera Exterior Orientation.
         If you need to update the camera EO from a pose matrix or from R,t, compute the extrinsics matrix first with the method self.pose_to_extrinsics(pose) or Rt_to_extrinsics(R,t)
         """
-        # @TODO implement checks on input
+        assert extrinsics.shape == (
+            4,
+            4,
+        ), "Wrong dimension of the extrinsics matrix. Please, provide a 4x4 numpy array (extrinsics in homogeneous coordinates)."
+        assert (
+            extrinsics.dtype == np.float64
+        ), "Wrong data type of the extrinsics matrix. Please, provide a numpy array of Double type (np.float64)."
+        assert np.array_equal(
+            extrinsics[3, :], np.array([0.0, 0.0, 0.0, 1.0])
+        ), "Extrinsics must be in homogeneous coordinates (last row of the matrix must be [0 0 0 1]."
 
         self._extrinsics = extrinsics
 
