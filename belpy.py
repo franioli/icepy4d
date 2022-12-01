@@ -126,13 +126,14 @@ for epoch in cfg.proc.epoch_to_process:
             with open(fname[0], "rb") as f:
                 try:
                     loaded_features = pickle.load(f)
+                    features[epoch] = loaded_features
                 except:
                     raise FileNotFoundError(
                         f"Invalid pickle file in epoch directory {epochdir}"
                     )
 
-            for cam, feats in loaded_features.items():
-                features[cam].insert(epoch, feats)
+            # for cam, feats in loaded_features.items():
+            #     features[cam].insert(epoch, feats)
 
             # with open(cfg.paths.last_match_path, "rb") as f:
             #     features = pickle.load(f)
@@ -161,7 +162,7 @@ for epoch in cfg.proc.epoch_to_process:
     if cfg.proc.do_space_resection and epoch == 0:
         """Initialize Single_camera_geometry class with a cameras object"""
         cfg.georef.targets_to_use = ["T2", "T3", "T4", "F2", "F4"]
-        space_resection = Space_resection(cameras[cams[0]][epoch])
+        space_resection = Space_resection(cameras[epoch][cams[0]])
         space_resection.estimate(
             targets[epoch].extract_image_coor_by_label(
                 cfg.georef.targets_to_use, cam_id=0
@@ -169,15 +170,15 @@ for epoch in cfg.proc.epoch_to_process:
             targets[epoch].extract_object_coor_by_label(cfg.georef.targets_to_use),
         )
         # Store result in camera 0 object
-        cameras[cams[0]][epoch] = space_resection.camera
+        cameras[epoch][cams[0]] = space_resection.camera
 
     # --- Perform Relative orientation of the two cameras ---#
     # Initialize Two_view_geometry class with a list containing the two cameras and a list contaning the matched features location on each camera.
     relative_ori = Two_view_geometry(
-        [cameras[cams[0]][epoch], cameras[cams[1]][epoch]],
+        [cameras[epoch][cams[0]], cameras[epoch][cams[1]]],
         [
-            features[cams[0]][epoch].get_keypoints(),
-            features[cams[1]][epoch].get_keypoints(),
+            features[epoch][cams[0]].get_keypoints(),
+            features[epoch][cams[1]].get_keypoints(),
         ],
     )
     relative_ori.relative_orientation(
@@ -188,15 +189,15 @@ for epoch in cfg.proc.epoch_to_process:
         ),
     )
     # Store result in camera 1 object
-    cameras[cams[1]][epoch] = relative_ori.cameras[1]
+    cameras[epoch][cams[1]] = relative_ori.cameras[1]
 
     # --- Triangulate Points ---#
     # Initialize a Triangulate class instance with a list containing the two cameras and a list contaning the matched features location on each camera. Triangulated points are saved as points3d proprierty of the Triangulate object (eg., triangulation.points3d)
     triangulation = Triangulate(
-        [cameras[cams[0]][epoch], cameras[cams[1]][epoch]],
+        [cameras[epoch][cams[0]], cameras[epoch][cams[1]]],
         [
-            features[cams[0]][epoch].get_keypoints(),
-            features[cams[1]][epoch].get_keypoints(),
+            features[epoch][cams[0]].get_keypoints(),
+            features[epoch][cams[1]].get_keypoints(),
         ],
     )
     points3d = triangulation.triangulate_two_views(
@@ -206,7 +207,7 @@ for epoch in cfg.proc.epoch_to_process:
     # --- Absolute orientation (-> coregistration on stable points) ---#
     if cfg.proc.do_coregistration:
         abs_ori = Absolute_orientation(
-            (cameras[cams[0]][epoch], cameras[cams[1]][epoch]),
+            (cameras[epoch][cams[0]], cameras[epoch][cams[1]]),
             points3d_final=targets[epoch].extract_object_coor_by_label(
                 cfg.georef.targets_to_use
             ),
@@ -223,11 +224,10 @@ for epoch in cfg.proc.epoch_to_process:
         T = abs_ori.estimate_transformation_linear(estimate_scale=True)
         points3d = abs_ori.apply_transformation(points3d=points3d)
         for i, cam in enumerate(cams):
-            cameras[cam][epoch] = abs_ori.cameras[i]
+            cameras[epoch][cam] = abs_ori.cameras[i]
 
     # Create point cloud and save .ply to disk
     pcd_epc = PointCloud(points3d=points3d, points_col=triangulation.colors)
-    # point_clouds.insert(epoch, pcd_epc)
 
     timer.update("relative orientation")
 
@@ -266,41 +266,40 @@ for epoch in cfg.proc.epoch_to_process:
 
         # Assign camera extrinsics and intrinsics estimated in Metashape to Camera Object (assignation is done manaully @TODO automatic K and extrinsics matrixes to assign correct camera by camera label)
         new_K = ms_reader.get_K()
-        cameras[cams[0]][epoch].update_K(new_K[1])
-        cameras[cams[1]][epoch].update_K(new_K[0])
+        cameras[epoch][cams[0]].update_K(new_K[1])
+        cameras[epoch][cams[1]].update_K(new_K[0])
 
-        cameras[cams[0]][epoch].update_extrinsics(
+        cameras[epoch][cams[0]].update_extrinsics(
             ms_reader.extrinsics[images[cams[0]].get_image_stem(epoch)]
         )
-        cameras[cams[1]][epoch].update_extrinsics(
+        cameras[epoch][cams[1]].update_extrinsics(
             ms_reader.extrinsics[images[cams[1]].get_image_stem(epoch)]
         )
 
-        # Triangulate again points and update Point Cloud List
+        # Triangulate again points and update Point Cloud dict
         triangulation = Triangulate(
-            [cameras[cams[0]][epoch], cameras[cams[1]][epoch]],
+            [cameras[epoch][cams[0]], cameras[epoch][cams[1]]],
             [
-                features[cams[0]][epoch].get_keypoints(),
-                features[cams[1]][epoch].get_keypoints(),
+                features[epoch][cams[0]].get_keypoints(),
+                features[epoch][cams[1]].get_keypoints(),
             ],
         )
         points3d = triangulation.triangulate_two_views(
             compute_colors=True, image=images[cams[1]][epoch], cam_id=1
         )
 
-        # Build new point cloud, save to disk and store it in point_clouds list
         pcd_epc = PointCloud(points3d=points3d, points_col=triangulation.colors)
         pcd_epc.write_ply(
             cfg.paths.results_dir
             / f"point_clouds/sparse_ep_{epoch}_{epoch_dict[epoch]}.ply"
         )
-        point_clouds.insert(epoch, pcd_epc)
+        point_clouds[epoch] = pcd_epc
 
         # - For debugging purposes
         # M = targets[epoch].extract_object_coor_by_label(cfg.georef.targets_to_use)
-        # m = cameras[cams[1]][epoch].project_point(M)
+        # m = cameras[epoch][cams[1]].project_point(M)
         # plot_features(images[cams[1]][epoch], m)
-        # plot_features(images[cams[0]][epoch], features[cams[0]][epoch].get_keypoints())
+        # plot_features(images[cams[0]][epoch], features[epoch][cams[0]].get_keypoints())
 
         # Clean variables
         del relative_ori, triangulation, abs_ori, points3d, pcd_epc
@@ -308,10 +307,13 @@ for epoch in cfg.proc.epoch_to_process:
         del ms_cfg, ms, ms_reader
         gc.collect()
 
+        ep_ini = cfg.proc.epoch_to_process[0]
         cam = "p2"
         image = images[cam][epoch]
         out_path = f"res/warped/{images[cam].get_image_name(epoch)}"
-        homography_warping(cameras[cam][0], cameras[cam][epoch], image, out_path, timer)
+        homography_warping(
+            cameras[ep_ini][cam], cameras[epoch][cam], image, out_path, timer
+        )
 
     timer.print(f"Epoch {epoch} completed")
 
@@ -322,13 +324,15 @@ if cfg.other.do_viz:
     # Visualize point cloud
     display_point_cloud(
         point_clouds,
-        [cameras[cams[0]][epoch], cameras[cams[1]][epoch]],
+        [cameras[epoch][cams[0]], cameras[epoch][cams[1]]],
         plot_scale=10,
     )
 
     # Display estimated focal length variation
     make_focal_length_variation_plot(focals, "res/focal_lenghts.png")
-    make_camera_angles_plot(cameras, "res/angles.png")
+    make_camera_angles_plot(
+        cameras, "res/angles.png", baseline_epoch=cfg.proc.epoch_to_process[0]
+    )
 
 
 #%%
@@ -365,7 +369,7 @@ if compute_orthophoto_dsm:
                 generate_ortophoto(
                     cv2.cvtColor(images[cam][epoch], cv2.COLOR_BGR2RGB),
                     dsms[epoch],
-                    cameras[cam][epoch],
+                    cameras[epoch][cam],
                     xlim=xlim,
                     ylim=ylim,
                     save_path=fout_name,
