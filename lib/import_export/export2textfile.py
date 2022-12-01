@@ -31,7 +31,7 @@ def export_keypoints(
             # NB: must be manually modified if it contains characters of symbols
             file.write(f"{image_name}\n")
 
-            for id, kpt in enumerate(features[cam][epoch].get_keypoints()):
+            for id, kpt in enumerate(features[epoch][cam].get_keypoints()):
                 x, y = kpt
                 file.write(f"{id},{x},{y} \n")
 
@@ -75,7 +75,7 @@ def export_keypoints_by_image(
             # Write header to file
             file.write("feature_id,x,y\n")
 
-            for id, kpt in enumerate(features[cam][epoch].get_keypoints()):
+            for id, kpt in enumerate(features[epoch][cam].get_keypoints()):
                 x, y = kpt
                 file.write(f"{id},{x},{y}\n")
 

@@ -83,22 +83,22 @@ class Inizialization:
         return self.cameras
 
     def init_cameras_new(self) -> List[edict]:
-        cameras = []
+        cameras = {}
+
+        assert hasattr(
+            self, "images"
+        ), "Images datastore not available yet. Inizialize images first"
         im_height, im_width = self.images[self.cams[0]][0].shape[:2]
 
         # Inizialize Camera Intrinsics at every epoch setting them equal to the those of the reference cameras.
-        cam_init = edict()
-        for cam in self.cams:
-            cam_init[cam] = (
-                Camera(
+        for epoch in self.cfg.proc.epoch_to_process:
+            cameras[epoch] = {}
+            for cam in self.cams:
+                cameras[epoch][cam] = Camera(
                     width=im_width,
                     height=im_height,
                     calib_path=self.cfg.paths.calibration_dir / f"{cam}.txt",
-                ),
-            )
-
-        for epoch in self.cfg.proc.epoch_to_process:
-            cameras.insert(epoch, cam_init)
+                )
 
         self.cameras = cameras
         return self.cameras
@@ -107,6 +107,15 @@ class Inizialization:
         features = dict.fromkeys(self.cams)
         for cam in self.cams:
             features[cam] = []
+
+        self.features = features
+        return self.features
+
+    def init_features_new(self) -> dict:
+        features = {}
+
+        for epoch in self.cfg.proc.epoch_to_process:
+            features[epoch] = dict.fromkeys(self.cams)
 
         self.features = features
         return self.features
@@ -127,7 +136,7 @@ class Inizialization:
             )
 
             targets.append(
-                Targets(
+                Targets(  # self.init_cameras()
                     im_file_path=[p1_path, p2_path],
                     obj_file_path=self.cfg.georef.target_dir
                     / self.cfg.georef.target_world_file,
@@ -137,16 +146,40 @@ class Inizialization:
         self.targets = targets
         return self.targets
 
+    def init_targets_new(self) -> List[Targets]:
+        # Read target image coordinates and object coordinates
+        targets = {}
+        for epoch in self.cfg.proc.epoch_to_process:
+
+            p1_path = self.cfg.georef.target_dir / (
+                self.images[self.cams[0]].get_image_stem(epoch)
+                + self.cfg.georef.target_file_ext
+            )
+
+            p2_path = self.cfg.georef.target_dir / (
+                self.images[self.cams[1]].get_image_stem(epoch)
+                + self.cfg.georef.target_file_ext
+            )
+
+            targets[epoch] = Targets(
+                im_file_path=[p1_path, p2_path],
+                obj_file_path=self.cfg.georef.target_dir
+                / self.cfg.georef.target_world_file,
+            )
+
+        self.targets = targets
+        return self.targets
+
     def init_point_cloud(self) -> List[PointCloud]:
-        self.point_clouds = []
+        self.point_clouds = {}
         return self.point_clouds
 
     def inizialize_belpy(self) -> dict:
         self.init_image_ds()
         self.init_epoch_dict()
-        self.init_cameras()
-        self.init_features()
-        self.init_targets()
+        self.init_cameras_new()
+        self.init_features_new()
+        self.init_targets_new()
         self.init_point_cloud()
 
 
@@ -157,4 +190,7 @@ if __name__ == "__main__":
     cfg = parse_yaml_cfg(cfg_file)
 
     init = Inizialization(cfg)
-    init.inizialize_belpy()
+    init.init_image_ds()
+    init.init_epoch_dict()
+    init.init_cameras_new()
+    init.init_features_new()
