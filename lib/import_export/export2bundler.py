@@ -76,7 +76,7 @@ def write_bundler_out_single_epoch(
 
     # Create Bundler output file
     num_cams = len(cams)
-    num_pts = len(features[cams[0]][epoch])
+    num_pts = len(features[epoch][cams[0]])
     # w, h = 6012, 4008
     w = cameras[epoch][cam].width
     h = cameras[epoch][cam].height
@@ -103,7 +103,7 @@ def write_bundler_out_single_epoch(
     obj_col = (np.asarray(point_cloud.colors) * 255.0).astype(int)
     im_coor = {}
     for cam in cams:
-        m = deepcopy(features[cam][epoch].get_keypoints())
+        m = deepcopy(features[epoch][cam].get_keypoints())
         m[:, 0] = m[:, 0] - w / 2
         m[:, 1] = h / 2 - m[:, 1]
         im_coor[cam] = m
@@ -188,7 +188,7 @@ def write_bundler_out(
 
         # Create Bundler output file
         num_cams = len(cams)
-        num_pts = len(features[cams[0]][epoch])
+        num_pts = len(features[epoch][cams[0]])
         w = cameras[epoch][cam].width
         h = cameras[epoch][cam].height
 
@@ -216,7 +216,7 @@ def write_bundler_out(
         # obj_col = deepcopy(point_clouds[epoch].get_colors())
         im_coor = {}
         for cam in cams:
-            m = deepcopy(features[cam][epoch].get_keypoints())
+            m = deepcopy(features[epoch][cam].get_keypoints())
             # Convert image coordinates to bundler image rs
             m[:, 0] = m[:, 0] - w / 2
             m[:, 1] = h / 2 - m[:, 1]
