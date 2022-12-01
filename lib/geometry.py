@@ -22,10 +22,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-from pathlib import Path
 import numpy as np
 import cv2
 import pydegensac
+
+from pathlib import Path
 
 from lib.base_classes.camera import Camera
 

@@ -1,22 +1,28 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2
-from lib.classes import Imageds
+from lib.base_classes.images import Imageds
 import threading
 
 global ax, _plot_style
 
-images = Imageds('data/img/p2')
-image  = cv2.cvtColor(images[0], cv2.COLOR_BGR2RGB)
-_plot_style = dict(markersize=5, markeredgewidth=2,
-                    markerfacecolor='none', markeredgecolor='r',
-                    marker='x', linestyle='none')
+images = Imageds("data/img/p2")
+image = cv2.cvtColor(images[0], cv2.COLOR_BGR2RGB)
+_plot_style = dict(
+    markersize=5,
+    markeredgewidth=2,
+    markerfacecolor="none",
+    markeredgecolor="r",
+    marker="x",
+    linestyle="none",
+)
 
 coords = []
 
-# 
+#
 DEBOUNCE_DUR = 0.25
 t = None
+
 
 def on_press(event):
     global t
@@ -38,7 +44,7 @@ def on_singleclick(event):
     global t
     print("You single-clicked", event.button, event.xdata, event.ydata)
     t = None
-    
+
 
 # def onclick(event):
 #     global ix, iy
@@ -47,23 +53,20 @@ def on_singleclick(event):
 
 #     global coords
 #     coords.append((ix, iy))
-    
+
 #     ax.plot(ix,iy, **_plot_style)
-    
+
 #     return coords
 
 # while(1):
-    
+
 fig, ax = plt.subplots()
 ax.imshow(image)
-cid = fig.canvas.mpl_connect('button_press_event', on_press)
-    
-
+cid = fig.canvas.mpl_connect("button_press_event", on_press)
 
 
 # xy = targets.get_im_coord(cam)[i]
 # img = cv2.cvtColor(images[cam][i], cv2.COLOR_BGR2RGB)
 # fig, ax = plt.subplots()
-# ax.imshow(img) 
+# ax.imshow(img)
 # ax.plot(xy[0], xy[1], **_plot_style)
-    

@@ -27,6 +27,8 @@ import numpy as np
 import cv2
 import pickle
 import gc
+import logging
+
 from pathlib import Path
 from copy import deepcopy
 
@@ -46,19 +48,19 @@ from lib.sfm.absolute_orientation import (
     Space_resection,
 )
 from lib.read_config import parse_yaml_cfg
-from lib.point_clouds import (
-    create_point_cloud,
-    write_ply,
-)
 from lib.utils.utils import (
     AverageTimer,
+    homography_warping,
     build_dsm,
     generate_ortophoto,
 )
+from lib.utils.inizialize_variables import Inizialization
 from lib.visualization import (
     display_point_cloud,
     make_focal_length_variation_plot,
+    make_camera_angles_plot,
     plot_features,
+    imshow_cv,
 )
 from lib.import_export.export2bundler import write_bundler_out
 from lib.metashape.metashape import (
@@ -67,63 +69,26 @@ from lib.metashape.metashape import (
     build_ms_cfg_base,
 )
 
+
+logger = logging.getLogger("Belpy")
 timer_global = AverageTimer(newline=True)
 
-# Parse options from yaml file
+# Read options from yaml file
 cfg_file = "config/config_base.yaml"
-cfg = parse_yaml_cfg(cfg_file)
+cfg = parse_yaml_cfg(cfg_file, logger)
 
 """ Inizialize Variables """
-# @TODO: put this in an inizialization function
-cams = cfg.paths.camera_names
-features = dict.fromkeys(cams)
-cams = cfg.paths.camera_names
-for cam in cams:
-    features[cam] = []
 
-# Create Image Datastore objects
-images = dict.fromkeys(cams)
-for cam in cams:
-    images[cam] = Imageds(cfg.paths.image_dir / cam)
-
-# Read target image coordinates and object coordinates
-targets = []
-for epoch in cfg.proc.epoch_to_process:
-
-    p1_path = cfg.georef.target_dir / (
-        images[cams[0]].get_image_stem(epoch) + cfg.georef.target_file_ext
-    )
-
-    p2_path = cfg.georef.target_dir / (
-        images[cams[1]].get_image_stem(epoch) + cfg.georef.target_file_ext
-    )
-
-    targets.append(
-        Targets(
-            im_file_path=[p1_path, p2_path],
-            obj_file_path=cfg.georef.target_dir / "target_world_p1.csv",
-        )
-    )
-
-# Cameras
-# @TODO: build function for variable inizialization
-cameras = dict.fromkeys(cams)
-cameras[cams[0]], cameras[cams[1]] = [], []
-im_height, im_width = images[cams[0]][0].shape[:2]
-# @TODO: store this information in exif inside an Image Class
-point_clouds = []
-
-# Tmp variable to store only estimated focal lenghts in Metashape
+init = Inizialization(cfg)
+init.inizialize_belpy()
+cameras = init.cameras
+cams = init.cams
+features = init.features
+images = init.images
+targets = init.targets
+point_clouds = init.point_clouds
+epoch_dict = init.epoch_dict
 focals = {0: [], 1: []}
-
-epoch_dict = {}
-for epoch in cfg.proc.epoch_to_process:
-    image = Image(images[cams[0]].get_image_path(epoch))
-    epoch_dict[epoch] = Path(
-        (cfg.paths.results_dir)
-        / f"{image.date.year}_{image.date.month:02}_{image.date.day:02}"
-    ).stem
-
 
 """ Big Loop over epoches """
 
@@ -135,7 +100,6 @@ for epoch in cfg.proc.epoch_to_process:
     print(f"\nProcessing epoch {epoch}/{cfg.proc.epoch_to_process[-1]}...")
 
     epochdir = Path(cfg.paths.results_dir) / epoch_dict[epoch]
-    # epochdir = Path(cfg.paths.results_dir) / f"epoch_{epoch}"
 
     # Perform matching and tracking
     if cfg.proc.do_matching:
@@ -145,38 +109,52 @@ for epoch in cfg.proc.epoch_to_process:
             images=images,
             features=features,
             epoch_dict=epoch_dict,
-            # res_dir=epochdir,
-            # prev_epoch_dir=epoch_dict[epoch-1],
         )
-    elif not features[cams[0]]:
-        try:
-            with open(cfg.paths.last_match_path, "rb") as f:
-                features = pickle.load(f)
-                print("Loaded previous matches")
-        except:
-            print(
-                f"Features not found in {str(cfg.paths.last_match_path)}. Please enable performing matching or provide valid path to already computed matches."
-            )
     else:
-        print("Features already loaded.")
+        try:
+            path = epochdir / "matching"
+            fname = list(path.glob("*.pickle"))
+            if len(fname) < 1:
+                raise FileNotFoundError(
+                    f"No pickle file found in the epoch directory {epochdir}"
+                )
+            if len(fname) > 1:
+                raise FileNotFoundError(
+                    f"More than one pickle file is present in the epoch directory {epochdir}"
+                )
+
+            with open(fname[0], "rb") as f:
+                try:
+                    loaded_features = pickle.load(f)
+                except:
+                    raise FileNotFoundError(
+                        f"Invalid pickle file in epoch directory {epochdir}"
+                    )
+
+            for cam, feats in loaded_features.items():
+                features[cam].insert(epoch, feats)
+
+            # with open(cfg.paths.last_match_path, "rb") as f:
+            #     features = pickle.load(f)
+            #     print("Loaded previous matches")
+
+        except FileNotFoundError as err:
+            logger.exception(err)
+
+            print("Performing new matching and tracking...")
+            features = MatchingAndTracking(
+                cfg=cfg,
+                epoch=epoch,
+                images=images,
+                features=features,
+                epoch_dict=epoch_dict,
+            )
+
     timer.update("matching")
 
     """ SfM """
 
     print(f"Reconstructing epoch {epoch}...")
-
-    # Initialize Intrinsics
-    # Inizialize Camera Intrinsics at every epoch setting them equal to the those of the reference cameras.
-    # @TODO: replace append with insert or a more robust data structure...
-    for cam in cams:
-        cameras[cam].insert(
-            epoch,
-            Camera(
-                width=im_width,
-                height=im_height,
-                calib_path=cfg.paths.calibration_dir / f"{cam}.txt",
-            ),
-        )
 
     # --- Space resection of Master camera ---#
     # At the first epoch, perform Space resection of the first camera by using GCPs. At all other epoches, set camera 1 EO equal to first one.
@@ -318,7 +296,7 @@ for epoch in cfg.proc.epoch_to_process:
         )
         point_clouds.insert(epoch, pcd_epc)
 
-        # - For testing purposes
+        # - For debugging purposes
         # M = targets[epoch].extract_object_coor_by_label(cfg.georef.targets_to_use)
         # m = cameras[cams[1]][epoch].project_point(M)
         # plot_features(images[cams[1]][epoch], m)
@@ -330,8 +308,12 @@ for epoch in cfg.proc.epoch_to_process:
         del ms_cfg, ms, ms_reader
         gc.collect()
 
-    timer.print(f"Epoch {epoch} completed")
+        cam = "p2"
+        image = images[cam][epoch]
+        out_path = f"res/warped/{images[cam].get_image_name(epoch)}"
+        homography_warping(cameras[cam][0], cameras[cam][epoch], image, out_path, timer)
 
+    timer.print(f"Epoch {epoch} completed")
 
 timer_global.print("Processing completed")
 
@@ -346,6 +328,8 @@ if cfg.other.do_viz:
 
     # Display estimated focal length variation
     make_focal_length_variation_plot(focals, "res/focal_lenghts.png")
+    make_camera_angles_plot(cameras, "res/angles.png")
+
 
 #%%
 """ Compute DSM and orthophotos """

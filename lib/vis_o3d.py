@@ -1,6 +1,7 @@
 import numpy as np
 import open3d as o3d
 
+from typing import List
 from pathlib import Path
 from time import sleep
 from easydict import EasyDict as edict
@@ -8,6 +9,36 @@ from tqdm import tqdm
 
 from lib.base_classes.images import Image, Imageds
 from lib.read_config import parse_yaml_cfg
+from random import randint
+
+
+def read_asci_pc(path):
+    data = np.loadtxt(path, delimiter=",")
+    pts = data[:, 0:3]
+    # cols = data[:, 3:6]
+    # col = np.random.randint(0, 255, (1, 3)) / 255
+    col = np.array([255, 0, 0]).reshape(1, 3) / 255
+    cols = np.repeat(col, pts.shape[0], axis=0)
+
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(pts)
+    pcd.colors = o3d.utility.Vector3dVector(cols)
+
+    return pcd
+
+
+def viz_point_cloud(
+    pcd: str,
+    win_size: List[int] = None,
+):
+    vis = o3d.visualization.Visualizer()
+    if win_size:
+        vis.create_window(width=win_size[0], height=win_size[1])
+    else:
+        vis.create_window()
+    # pcd = o3d.io.read_point_cloud(path, format=format)
+    vis.add_geometry(pcd)
+    # vis.destroy_window()
 
 
 def set_view_options(
@@ -25,7 +56,7 @@ def set_view_options(
     render_opt.load_from_json(render_opt_json)
 
 
-def main(epoch_dict, view, o3d_render_opt_fname):
+def viz_loop(epoch_dict, view, o3d_render_opt_fname, out_dir):
 
     vis = o3d.visualization.Visualizer()
     vis.create_window()  # width=640, height=480)
@@ -39,10 +70,6 @@ def main(epoch_dict, view, o3d_render_opt_fname):
 
     for epoch in tqdm(cfg.proc.epoch_to_process):
         # print(f"Epoch {epoch}")
-
-        out_dir = Path(f"res/vid/view_{view_id}")
-        out_dir.mkdir(parents=True, exist_ok=True)
-
         fname = f"res/point_clouds/dense_ep_{epoch}_{epoch_dict[epoch]}.ply"
         pcd.points = o3d.io.read_point_cloud(fname).points
         pcd.colors = o3d.io.read_point_cloud(fname).colors
@@ -52,6 +79,42 @@ def main(epoch_dict, view, o3d_render_opt_fname):
         vis.poll_events()
         vis.update_renderer()
         screen_name = str(out_dir / f"ep_{epoch}_{epoch_dict[epoch]}.png")
+        vis.capture_screen_image(screen_name)
+
+    vis.destroy_window()
+
+
+def viz_loop_folder(dir, ext, out_dir):
+
+    from glob import glob
+
+    base_pcd = o3d.io.read_point_cloud("/home/francesco/Desktop/pcd_base_loc.ply")
+
+    file_list = sorted(glob(dir + f"/*.{ext}"))
+
+    vis = o3d.visualization.Visualizer()
+    vis.create_window()  # width=640, height=480)
+
+    pcd = read_asci_pc(file_list[0])
+    vis.add_geometry(base_pcd)
+    vis.add_geometry(pcd)
+    json_fname = "/home/francesco/Desktop/o3d_render_options.json"
+    vis.get_render_option().load_from_json(json_fname)
+    # vis.get_render_option()
+    # vis.PointColorOption =
+    vis.poll_events()
+    vis.update_renderer()
+
+    for file in tqdm(file_list):
+        new_pcd = read_asci_pc(file)
+        pcd.points = new_pcd.points
+        pcd.colors = new_pcd.colors
+
+        vis.update_geometry(pcd)
+        vis.poll_events()
+        vis.update_renderer()
+        out_name = Path(file).stem
+        screen_name = f"{out_dir}/{out_name}.png"
         vis.capture_screen_image(screen_name)
 
     vis.destroy_window()
@@ -129,7 +192,22 @@ if __name__ == "__main__":
 
     o3d_render_opt_fname = "res/vid/o3d_render_options.json"
 
-    for view_id, view in enumerate(views):
-        main(epoch_dict, view, o3d_render_opt_fname)
+    # pc_path = "/home/francesco/Desktop/test/sec_000000.asc"
+    # pcd = read_asci_pc(pc_path)
+    # vis = o3d.visualization.Visualizer()
+    # vis.create_window()
+    # vis.add_geometry(pcd)
+    # vis.run()
+    # vis.destroy_window()
+
+    dir = "/home/francesco/Desktop/test"
+    ext = "asc"
+    out_dir = "/home/francesco/Desktop/test_out"
+    viz_loop_folder(dir, ext, out_dir)
+
+    # for view_id, view in enumerate(views):
+    #     out_dir = Path(f"res/vid/view_{view_id}")
+    #     out_dir.mkdir(parents=True, exist_ok=True)
+    #     viz_loop(epoch_dict, view, o3d_render_opt_fname)
 
     print("Done.")
