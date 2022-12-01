@@ -1,4 +1,3 @@
-
 # %% Plot targets
 # #  Plot with matplotlib
 # cam = 1
@@ -10,14 +9,14 @@
 # xy = targets.get_im_coord(cam)[i]
 # img = cv2.cvtColor(images[cam][i], cv2.COLOR_BGR2RGB)
 # fig, ax = plt.subplots()
-# ax.imshow(img) 
+# ax.imshow(img)
 # ax.plot(xy[0], xy[1], **_plot_style)
-    
+
 # %% Save reconstruction
 # with h5py.File("test.hdf5", "w") as f:
 #     dset = f.create_dataset("features", data=features)
-    
-    
+
+
 # dset = h5py.File("test.hdf5", "r")
 # dset.close()
 
@@ -45,7 +44,7 @@
 
 # # o3d.visualization.draw_geometries([pcd[epoch], x])
 
-# %% MESH 
+# %% MESH
 # epoch = 0
 # mesh = []
 
@@ -71,7 +70,7 @@
 #     pcd[epoch].estimate_normals(search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=5, max_nn=10))
 #     mesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(
 #         pcd[epoch], depth=9)
-    
+
 # print(mesh)
 # o3d.visualization.draw_geometries([mesh],
 #                                   zoom=0.664,
@@ -79,17 +78,17 @@
 #                                   lookat=[1.8900, 3.2596, 0.9284],
 #                                   up=[0.2304, -0.8825, 0.4101])
 
-#%% 
+#%%
 # vis = o3d.visualization.VisualizerWithKeyCallback()
 # vis.create_window()
 # vis.get_render_option().background_color = np.asarray([0.4, 0.4, 0.4])
 # view_ctl = vis.get_view_control()
 # vis.add_geometry(pcd[0])
 
-# Rx = o3d.geometry.Geometry3D.get_rotation_matrix_from_axis_angle(np.array([1., 0., 0.], 
+# Rx = o3d.geometry.Geometry3D.get_rotation_matrix_from_axis_angle(np.array([1., 0., 0.],
 #                                                                           dtype='float64')*np.pi)
 # T = np.eye(4)
-# T[0:3,0:3] = Rx 
+# T[0:3,0:3] = Rx
 # pose = T @ cameras[cam0][0].pose
 # cam = view_ctl.convert_to_pinhole_camera_parameters()
 # cam.extrinsic = pose # where T is your matrix
@@ -98,12 +97,12 @@
 # vis.destroy_window()
 
 #%% Viz point cloud with cameras
-#TODO: make wrapper around point cloud plot with cameras
+# TODO: make wrapper around point cloud plot with cameras
 # epoch = 0
 # cam_syms = []
 # cam_colors = [[1,0,0],[0,0,1]]
 # for i, cam in enumerate(cam_names):
-#     cam_syms.append(make_camera_pyramid(cameras[cam][epoch], 
+#     cam_syms.append(make_camera_pyramid(cameras[epoch][cam],
 #                                         cam_colors[i],
 #                                         focal_len_scaled=30,
 #                                         ) )
@@ -125,33 +124,33 @@
 # epoch = 0
 # c0, c1 = cameras[cam0][epoch], cameras[cam1][epoch]
 
-# # Perform rotation of 180deg around X axis   
+# # Perform rotation of 180deg around X axis
 # if rotate_RS:
 #     ang = np.pi
-#     Rx = o3d.geometry.Geometry3D.get_rotation_matrix_from_axis_angle(np.array([1., 0., 0.], 
+#     Rx = o3d.geometry.Geometry3D.get_rotation_matrix_from_axis_angle(np.array([1., 0., 0.],
 #                                                                               dtype='float64')*ang)
 #     # Rotate point clouds
 #     pcd[epoch].rotate(Rx)
-    
+
 #     # Rotatate Cameras and update projection matrixes
 #     T = np.eye(4)
-#     T[0:3,0:3] = Rx 
+#     T[0:3,0:3] = Rx
 #     c0.extrinsics = T @ c0.extrinsics
 #     c0.update_camera_from_extrinsics()
 #     c1.extrinsics = T @ c1.extrinsics
 #     c1.update_camera_from_extrinsics()
-    
+
 #     # for cam in cam_names:
-#         # cameras[cam][epoch].R = np.dot(Rx, cameras[cam][epoch].R)
-#         # cameras[cam][epoch].t = np.dot(Rx, cameras[cam][epoch].t)
-#         # cameras[cam][epoch].compose_P()
-#         # cameras[cam][epoch].C_from_P() 
+#         # cameras[epoch][cam].R = np.dot(Rx, cameras[epoch][cam].R)
+#         # cameras[epoch][cam].t = np.dot(Rx, cameras[epoch][cam].t)
+#         # cameras[epoch][cam].compose_P()
+#         # cameras[epoch][cam].C_from_P()
 #     print('Reference system rotated by 180 degrees around X axis')
-    
+
 # cam_syms = []
 # cam_colors = [[1,0,0],[0,0,1]]
 # for i, cam in enumerate(cam_names):
-#     cam_syms.append(make_camera_pyramid(cameras[cam][epoch],
+#     cam_syms.append(make_camera_pyramid(cameras[epoch][cam],
 #                                         color=cam_colors[i],
 #                                         focal_len_scaled=30,
 #                                         ))
