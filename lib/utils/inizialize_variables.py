@@ -111,6 +111,15 @@ class Inizialization:
         self.features = features
         return self.features
 
+    def init_features_new(self) -> dict:
+        features = {}
+
+        for epoch in self.cfg.proc.epoch_to_process:
+            features[epoch] = dict.fromkeys(self.cams)
+
+        self.features = features
+        return self.features
+
     def init_targets(self) -> List[Targets]:
         # Read target image coordinates and object coordinates
         targets = []
@@ -127,7 +136,7 @@ class Inizialization:
             )
 
             targets.append(
-                Targets(
+                Targets(  # self.init_cameras()
                     im_file_path=[p1_path, p2_path],
                     obj_file_path=self.cfg.georef.target_dir
                     / self.cfg.georef.target_world_file,
@@ -137,17 +146,40 @@ class Inizialization:
         self.targets = targets
         return self.targets
 
+    def init_targets_new(self) -> List[Targets]:
+        # Read target image coordinates and object coordinates
+        targets = {}
+        for epoch in self.cfg.proc.epoch_to_process:
+
+            p1_path = self.cfg.georef.target_dir / (
+                self.images[self.cams[0]].get_image_stem(epoch)
+                + self.cfg.georef.target_file_ext
+            )
+
+            p2_path = self.cfg.georef.target_dir / (
+                self.images[self.cams[1]].get_image_stem(epoch)
+                + self.cfg.georef.target_file_ext
+            )
+
+            targets[epoch] = Targets(
+                im_file_path=[p1_path, p2_path],
+                obj_file_path=self.cfg.georef.target_dir
+                / self.cfg.georef.target_world_file,
+            )
+
+        self.targets = targets
+        return self.targets
+
     def init_point_cloud(self) -> List[PointCloud]:
-        self.point_clouds = []
+        self.point_clouds = {}
         return self.point_clouds
 
     def inizialize_belpy(self) -> dict:
         self.init_image_ds()
         self.init_epoch_dict()
-        # self.init_cameras()
         self.init_cameras_new()
-        self.init_features()
-        self.init_targets()
+        self.init_features_new()
+        self.init_targets_new()
         self.init_point_cloud()
 
 
@@ -161,3 +193,4 @@ if __name__ == "__main__":
     init.init_image_ds()
     init.init_epoch_dict()
     init.init_cameras_new()
+    init.init_features_new()

@@ -30,7 +30,7 @@ import matplotlib.colors as Colors
 import matplotlib.cm as cm
 import matplotlib
 
-from typing import List, Union
+from typing import List, Union, Dict
 from pathlib import Path
 
 from lib.base_classes.camera import Camera
@@ -221,8 +221,8 @@ def get_colors(inp, colormap, vmin=None, vmax=None):
 
 
 def display_point_cloud(
-    point_cloud: List[PointCloud],
-    cameras: list = None,
+    point_cloud: Union[PointCloud, Dict[int, PointCloud]],
+    cameras: List[Camera] = None,
     viz_rs: bool = True,
     win_name: str = "Point cloud",
     plot_scale: int = 5,
@@ -242,8 +242,8 @@ def display_point_cloud(
     None.
     """
 
-    if type(point_cloud) == list:
-        plt_objs = [x.pcd for x in point_cloud]
+    if isinstance(point_cloud, dict):
+        plt_objs = [x.pcd for x in list(point_cloud.values())]
     else:
         plt_objs = [point_cloud.pcd]
 
@@ -459,19 +459,22 @@ def make_camera_angles_plot(
     save_path: Union[str, Path] = None,
 ):
 
+    cam_keys = list(cameras[0].keys())
+    # angles = dict.fromkeys(cam_keys)
     omega, phi, kappa = {}, {}, {}
-    for key, cam_list in cameras.items():
+    for key in cam_keys:
         omega[key] = []
         phi[key] = []
         kappa[key] = []
-        for i, cam in enumerate(cam_list):
+
+    for ep, cam_dict in cameras.items():
+        for key, cam in cam_dict.items():
             omega[key].append(cam.euler_angles[0])
             phi[key].append(cam.euler_angles[1])
             kappa[key].append(cam.euler_angles[2])
 
-    cam_ids = ["p1", "p2"]
     fig, ax = plt.subplots(3, 2)
-    for i, cam_id in enumerate(cam_ids):
+    for i, cam_id in enumerate(cam_keys):
         epoches = range(len(omega[cam_id]))
         ax[0, i].plot(epoches, omega[cam_id] - omega[cam_id][0], "o")
         ax[0, i].grid(visible=True, which="both")
