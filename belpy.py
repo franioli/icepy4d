@@ -307,10 +307,13 @@ for epoch in cfg.proc.epoch_to_process:
         del ms_cfg, ms, ms_reader
         gc.collect()
 
+        ep_ini = cfg.proc.epoch_to_process[0]
         cam = "p2"
         image = images[cam][epoch]
         out_path = f"res/warped/{images[cam].get_image_name(epoch)}"
-        homography_warping(cameras[0][cam], cameras[epoch][cam], image, out_path, timer)
+        homography_warping(
+            cameras[ep_ini][cam], cameras[epoch][cam], image, out_path, timer
+        )
 
     timer.print(f"Epoch {epoch} completed")
 
@@ -327,7 +330,9 @@ if cfg.other.do_viz:
 
     # Display estimated focal length variation
     make_focal_length_variation_plot(focals, "res/focal_lenghts.png")
-    make_camera_angles_plot(cameras, "res/angles.png")
+    make_camera_angles_plot(
+        cameras, "res/angles.png", baseline_epoch=cfg.proc.epoch_to_process[0]
+    )
 
 
 #%%
