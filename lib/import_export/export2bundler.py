@@ -78,8 +78,8 @@ def write_bundler_out_single_epoch(
     num_cams = len(cams)
     num_pts = len(features[cams[0]][epoch])
     # w, h = 6012, 4008
-    w = cameras[cam][epoch].width
-    h = cameras[cam][epoch].height
+    w = cameras[epoch][cam].width
+    h = cameras[epoch][cam].height
 
     file = open(out_dir / f"belpy_epoch_{epoch}.out", "w")
     file.write(f"{num_cams} {num_pts}\n")
@@ -87,7 +87,7 @@ def write_bundler_out_single_epoch(
     # Write cameras
     Rx = euler_matrix(np.pi, 0.0, 0.0)
     for cam in cams:
-        cam_ = deepcopy(cameras[cam][epoch])
+        cam_ = deepcopy(cameras[epoch][cam])
         pose = cam_.pose @ Rx
         cam_.update_extrinsics(cam_.pose_to_extrinsics(pose))
 
@@ -189,8 +189,8 @@ def write_bundler_out(
         # Create Bundler output file
         num_cams = len(cams)
         num_pts = len(features[cams[0]][epoch])
-        w = cameras[cam][epoch].width
-        h = cameras[cam][epoch].height
+        w = cameras[epoch][cam].width
+        h = cameras[epoch][cam].height
 
         file = open(out_dir / f"belpy_epoch_{epoch}.out", "w")
         file.write(f"{num_cams} {num_pts}\n")
@@ -198,7 +198,7 @@ def write_bundler_out(
         # Write cameras
         Rx = euler_matrix(np.pi, 0.0, 0.0)
         for cam in cams:
-            cam_ = deepcopy(cameras[cam][epoch])
+            cam_ = deepcopy(cameras[epoch][cam])
             pose = cam_.pose @ Rx
             cam_.update_extrinsics(cam_.pose_to_extrinsics(pose))
 
