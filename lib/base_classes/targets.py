@@ -27,6 +27,7 @@ import cv2
 import pickle
 import numpy as np
 import pandas as pd
+import logging
 
 # import exifread
 from typing import List, Union, Tuple
@@ -45,7 +46,13 @@ class Targets:
         Targets.obj_coor: nx3 array of XYZ object coordinates(it can be empty)
     """
 
-    def __init__(self, cam_id=None, im_file_path=None, obj_file_path=None):
+    def __init__(
+        self,
+        cam_id=None,
+        im_file_path=None,
+        obj_file_path=None,
+        logger: logging = None,
+    ):
         self.reset_targets()
 
         # If im_coord_path is provided, read image coordinates from file
@@ -101,6 +108,7 @@ class Targets:
         """
         Return image coordinates of the targets on the images given a list of target labels
         """
+        # try:
         coor = []
         for lab in labels:
             if cam_id is not None:
@@ -114,6 +122,8 @@ class Targets:
                 return None
 
         return np.concatenate(coor, axis=0)
+        # except:
+        #     pass
 
     def extract_object_coor_by_label(
         self,

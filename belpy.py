@@ -206,18 +206,13 @@ for epoch in cfg.proc.epoch_to_process:
 
     # --- Absolute orientation (-> coregistration on stable points) ---#
     if cfg.proc.do_coregistration:
+        targets_abs_ori = ["F2"]  # cfg.georef.targets_to_use
         abs_ori = Absolute_orientation(
             (cameras[epoch][cams[0]], cameras[epoch][cams[1]]),
-            points3d_final=targets[epoch].extract_object_coor_by_label(
-                cfg.georef.targets_to_use
-            ),
+            points3d_final=targets[epoch].extract_object_coor_by_label(targets_abs_ori),
             image_points=(
-                targets[epoch].extract_image_coor_by_label(
-                    cfg.georef.targets_to_use, cam_id=0
-                ),
-                targets[epoch].extract_image_coor_by_label(
-                    cfg.georef.targets_to_use, cam_id=1
-                ),
+                targets[epoch].extract_image_coor_by_label(targets_abs_ori, cam_id=0),
+                targets[epoch].extract_image_coor_by_label(targets_abs_ori, cam_id=1),
             ),
             camera_centers_world=cfg.georef.camera_centers_world,
         )
@@ -315,6 +310,14 @@ for epoch in cfg.proc.epoch_to_process:
             cameras[ep_ini][cam], cameras[epoch][cam], image, out_path, timer
         )
 
+        if cfg.other.do_viz:
+            make_focal_length_variation_plot(focals, "res/focal_lenghts.png")
+            make_camera_angles_plot(
+                cameras,
+                "res/angles.png",
+                current_epoch=epoch,
+            )
+
     timer.print(f"Epoch {epoch} completed")
 
 timer_global.print("Processing completed")
@@ -331,7 +334,9 @@ if cfg.other.do_viz:
     # Display estimated focal length variation
     make_focal_length_variation_plot(focals, "res/focal_lenghts.png")
     make_camera_angles_plot(
-        cameras, "res/angles.png", baseline_epoch=cfg.proc.epoch_to_process[0]
+        cameras,
+        "res/angles_diff.png",
+        baseline_epoch=cfg.proc.epoch_to_process[0],
     )
 
 
