@@ -4,7 +4,7 @@ function [points] = collimate_points_in_dir(im_dir, varargin)
 %  
 %  points = collimate_points_in_dir(im_dir_path, npts=1, axLims=axLims, printPoints=false);
 % 
-%  eg. points = collimate_points_in_dir('../data/img/p2', npts=1, search_win = 15, out_path = 'targets_p2.txt');
+%  eg. points = collimate_points_in_dir('../data/img/p2', im_ext='.jpg', npts=1, search_win = 15, out_path = 'targets_p2.txt');
 % 
 
 %% Prase input

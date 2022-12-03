@@ -198,7 +198,7 @@ def homography_warping(
 
     R = cam_1_.R
     K = cam_1_.K
-    H = (K @ R) @ np.linalg.inv(K)
+    H = (cam_0_.K @ R) @ np.linalg.inv(K)
 
     image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
     w, h = image.shape[:2]
