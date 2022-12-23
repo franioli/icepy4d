@@ -17,7 +17,7 @@ proc:
   epoch_to_process: "all" #[0, 2] #   # [0] #
 
   #- Switches to find and track matches
-  do_matching: true #true #
+  do_matching: False #true #
   do_tracking: true
 
   #- Do space resection of first camera
@@ -29,7 +29,12 @@ proc:
   #- Perform full Bundle Adjustment in Agisoft Metashape and build dense cloud
   # (need Agisoft licence properly configured)
   do_metashape_bba: true
-  do_metashape_dense: false
+  do_metashape_dense: true
+
+  # Warp images of one camera based on the exterior orientation estimated in BBA
+  # Zero translation between cameras at different epoches, but rotation only, is assumed to estimate homography transformation
+  do_homography_warping: true
+  camera_to_warp: "p2"
 
 #- Image-related options
 images:
@@ -54,7 +59,7 @@ georef:
   target_world_file: "target_world_p1.csv"
 
   #- Targets to use for Absolute Orientation, Space Resection and Bundle Adjustment
-  targets_to_use: ["F2", "T2"] #, "F10" # "F4",
+  targets_to_use: ["F2", "T2", "F11"] #, "F10" # "F4",
 
 #- Other On-Off switches
 other:
