@@ -1,29 +1,33 @@
+#%%
 import os
 import gc
 import psutil
 
+import numpy as np
 import pandas as pd
-from matplotlib import pyplot as plt
 
+from matplotlib import pyplot as plt
+from multiprocessing import Process
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 from tqdm import tqdm
 
 import cloudComPy as cc  # import the CloudComPy module
 
 
 PCD_DIR = Path("res/point_clouds")
+PCD_PATTERN = "dense*.ply"
 TSTEP = 3
 VERBOSE = False
 GRID_STEP = 0.2
-DIR = "z"
-FOUT = "cloudcompy/DOD_res_z_20cm.csv.csv"
+DIR = "z"  # "x"  #
+FOUT = "cloudcompy/DOD_res_z_20cm.csv"  # "cloudcompy/DOD_res_x_20cm.csv"  #
 
 
 class DOD:
-    def __init__(self, pcd_list: List[str]) -> None:
-        self.pcd0_name = pcd_list[0]
-        self.pcd1_name = pcd_list[1]
+    def __init__(self, pcd_pair: Tuple[str]) -> None:
+        self.pcd0_name = pcd_pair[0]
+        self.pcd1_name = pcd_pair[1]
         self.pcd0 = cc.loadPointCloud(self.pcd0_name)
         self.pcd1 = cc.loadPointCloud(self.pcd1_name)
 
@@ -58,7 +62,7 @@ class DOD:
 
         if not isOk:
             raise RuntimeError(
-                f"Unable to compute volume variation between point clouds {str(self.pcd_list[0])} and {str(self.pcd_list[1])}"
+                f"Unable to compute volume variation between point clouds {str(self.pcd_pair[0])} and {str(self.pcd_pair[1])}"
             )
 
     def print_result(self) -> None:
@@ -102,33 +106,96 @@ class DOD:
             )
 
     @staticmethod
-    def read_results_from_file(fname: str) -> pd.DataFrame:
-        df = pd.read_csv(fname, sep=",", header=1)
+    def read_results_from_file(
+        fname: str, sep: str = ",", header: int = 0
+    ) -> pd.DataFrame:
+        df = pd.read_csv(fname, sep=sep, header=header)
         return df
 
 
-assert PCD_DIR.is_dir(), "Directory does not exists."
-pcd_lst = sorted(PCD_DIR.glob("dense*.ply"))
+def make_pairs(pcd_list: List[Path], step: int = 1) -> dict:
+    pair_dict = {}
+    for i in range(len(pcd_list) - step):
+        pair_dict[i] = (str(pcd_list[i]), str(pcd_list[i + step]))
+    return pair_dict
 
-# Compute volumes
-volume = []
-for i in tqdm(range(len(pcd_lst) - TSTEP)):
-    volum_diff = DOD([str(pcd_lst[i]), str(pcd_lst[i + TSTEP])])
-    volum_diff.compute_volume(direction=DIR, grid_step=GRID_STEP)
-    # volum_diff.print_result()
-    volum_diff.write_result_to_file(FOUT, mode="a+")
-    volume.append(volum_diff.report.volume)
+
+#%%
+
+# Read point cloud list
+assert PCD_DIR.is_dir(), "Directory does not exists."
+pcd_list = sorted(PCD_DIR.glob(PCD_PATTERN))
+pairs = make_pairs(pcd_list, TSTEP)
+
+# pcd_dict = {}
+# pcd_dict['epoch'] = pcd_list[0].stem[9:11]
+# pcd_dict['date_ground'] = pcd_list[0].stem[12:]
+# pcd_dict = dict.fromkeys(list(map(lambda path: path.stem[9:11], pcd_list)))
+# pcd_dict = {k,v for k,v in enumerate(pcd_list)}
+
+# Big Loop: Compute volumes
+results = {}
+for iter, pair in tqdm(pairs.items()):
+    dod = DOD(pair)
+    dod.compute_volume(direction=DIR, grid_step=GRID_STEP)
+    dod.write_result_to_file(FOUT, mode="a+")
+    results[iter] = dod.report.volume
+    if VERBOSE:
+        dod.print_result()
 
     # Free memory and clear pointers
-    volum_diff.clear()
-    del volum_diff
+    dod.clear()
+    del dod
     gc.collect()
-    # print(f"Memory usage: {psutil.Process(os.getpid()).memory_info().rss / 1024**2:.1f} MB")
-
-# Read volume results from file and make plot
-
+    if VERBOSE:
+        print(
+            f"Memory usage: {psutil.Process(os.getpid()).memory_info().rss / 1024**2:.1f} MB"
+        )
 print("done.")
 
-# df = DOD.read_results_from_file("volume_computation_res.csv")
-# volume = df.iloc[:, 3].to_numpy()
-plt.plot(volume)
+# Plot
+volumes = list(results.values())
+fig, ax = plt.subplots(1, 1)
+ax.plot(volumes)
+ax.set_xlabel("epoch")
+ax.set_ylabel("m^3")
+ax.set_title(f"Volume difference with step of {TSTEP} days")
+ax.grid(visible=True, color="k", linestyle="-", linewidth=0.2)
+fig.savefig(Path(FOUT).parent / (Path(FOUT).stem + ".jpg"), dpi=300)
+
+#%% With Parallel computing
+# from multiprocessing import Pool
+
+
+# def do_iter(
+#     iter: int,
+#     pcd_pair: Tuple,
+#     # out_dict: dict,
+#     # step: int = TSTEP,
+#     # direction: str = DIR,
+#     # grid_step: float = GRID_STEP,
+# ):
+#     dod = DOD(pcd_pair)
+#     dod.compute_volume(direction=DIR, grid_step=GRID_STEP)
+#     dod.write_result_to_file(FOUT, mode="a+")
+#     dod.print_result()
+#     volume[iter] = dod.report.volume
+#     dod.clear()
+#     del dod
+#     gc.collect()
+
+
+# volume = {}
+# pairs = make_pairs(pcd_list, TSTEP)
+# # res = map(do_iter, pairs)
+
+# p = Pool(4)
+
+#%% Read volume results from file and make plot
+# df = DOD.read_results_from_file(FOUT)
+# volumes = df.volume.to_numpy()
+
+# fig, ax = plt.subplots(1, 1)
+# ax.plot(volumes)
+# ax.set_xlabel("day")
+# ax.set_ylabel("m^3")
