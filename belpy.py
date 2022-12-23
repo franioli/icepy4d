@@ -132,13 +132,6 @@ for epoch in cfg.proc.epoch_to_process:
                         f"Invalid pickle file in epoch directory {epochdir}"
                     )
 
-            # for cam, feats in loaded_features.items():
-            #     features[cam].insert(epoch, feats)
-
-            # with open(cfg.paths.last_match_path, "rb") as f:
-            #     features = pickle.load(f)
-            #     print("Loaded previous matches")
-
         except FileNotFoundError as err:
             logger.exception(err)
 
@@ -286,7 +279,7 @@ for epoch in cfg.proc.epoch_to_process:
         pcd_epc = PointCloud(points3d=points3d, points_col=triangulation.colors)
         pcd_epc.write_ply(
             cfg.paths.results_dir
-            / f"point_clouds/sparse_ep_{epoch}_{epoch_dict[epoch]}.ply"
+            / f"point_clouds/sparse_ep_{epoch:02}_{epoch_dict[epoch]}.ply"
         )
         point_clouds[epoch] = pcd_epc
 
@@ -302,14 +295,17 @@ for epoch in cfg.proc.epoch_to_process:
         del ms_cfg, ms, ms_reader
         gc.collect()
 
-        ep_ini = cfg.proc.epoch_to_process[0]
-        cam = "p2"
-        image = images[cam][epoch]
-        out_path = f"res/warped/{images[cam].get_image_name(epoch)}"
-        homography_warping(
-            cameras[ep_ini][cam], cameras[epoch][cam], image, out_path, timer
-        )
+        # Homograpghy warping
+        if cfg.proc.do_homography_warping:
+            ep_ini = cfg.proc.epoch_to_process[0]
+            cam = cfg.proc.camera_to_warp
+            image = images[cam][epoch]
+            out_path = f"res/warped/{images[cam].get_image_name(epoch)}"
+            homography_warping(
+                cameras[ep_ini][cam], cameras[epoch][cam], image, out_path, timer
+            )
 
+        # Plots
         if cfg.other.do_viz:
             make_focal_length_variation_plot(focals, "res/focal_lenghts.png")
             make_camera_angles_plot(

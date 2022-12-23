@@ -1,28 +1,17 @@
 # Specific
 *_old/
 *.old/
-data/2021
-data/img/
+data/img*/
 data/img2022/
 data/img2021/
 data/img2022_august/
-data/calib/calib_fullOpenCVmodel.txt
-data/calib/calib_fullOpenCVmodel_matlab.txt
 data/calib/seq2021/
-data/belvedere_20220728_sparse_LOC.ply
 res/
-res_seq2021/
-res_2021/
 tests/PSMNet/dataset
-tests/sfm/epoch0/
-tests/sfm/images/
-tests/ms_bba/
 tests/tmp/
-simulaCalge/
-metashape/
 
 # VScode
-.vscode/
+# .vscode/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
