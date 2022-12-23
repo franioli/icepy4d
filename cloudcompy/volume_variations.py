@@ -7,7 +7,6 @@ import numpy as np
 import pandas as pd
 
 from matplotlib import pyplot as plt
-from multiprocessing import Process
 from pathlib import Path
 from typing import List, Tuple
 from tqdm import tqdm
@@ -18,7 +17,7 @@ import cloudComPy as cc  # import the CloudComPy module
 PCD_DIR = Path("res/point_clouds")
 PCD_PATTERN = "dense*.ply"
 TSTEP = 3
-VERBOSE = False
+VERBOSE = True
 GRID_STEP = 0.2
 DIR = "z"  # "x"  #
 FOUT = "cloudcompy/DOD_res_z_20cm.csv"  # "cloudcompy/DOD_res_x_20cm.csv"  #
@@ -26,16 +25,14 @@ FOUT = "cloudcompy/DOD_res_z_20cm.csv"  # "cloudcompy/DOD_res_x_20cm.csv"  #
 
 class DOD:
     def __init__(self, pcd_pair: Tuple[str]) -> None:
-        self.pcd0_name = pcd_pair[0]
-        self.pcd1_name = pcd_pair[1]
-        self.pcd0 = cc.loadPointCloud(self.pcd0_name)
-        self.pcd1 = cc.loadPointCloud(self.pcd1_name)
+        self.pcd_pair = pcd_pair
+        self.pcd0 = cc.loadPointCloud(self.pcd_pair[0])
+        self.pcd1 = cc.loadPointCloud(self.pcd_pair[1])
 
     def compute_volume(
         self,
         direction: str = "z",
         grid_step: float = 1,
-        verbose: bool = False,
     ) -> None:
         assert direction in [
             "x",
@@ -78,6 +75,9 @@ class DOD:
         )
 
     def clear(self):
+        """
+        clear Free memory occupied by the loaded point clouds
+        """
         cc.deleteEntity(self.pcd0)
         cc.deleteEntity(self.pcd1)
 
@@ -87,7 +87,7 @@ class DOD:
 
         Args:
             fname (str): _description_
-            mode (str, optional): _description_. Defaults to "w".
+            mode (str, optional): _description_. Defaults to "a+".
         """
 
         if Path(fname).exists() and mode in ["a", "a+"]:
@@ -102,7 +102,7 @@ class DOD:
                     "pcd0,pcd1,volume,addedVolume,removedVolume,surface,matchingPercent,averageNeighborsPerCell\n"
                 )
             f.write(
-                f"{self.pcd0_name},{self.pcd1_name},{self.report.volume:.4f},{self.report.addedVolume:.4f},{self.report.removedVolume:.4f},{self.report.surface:.4f},{self.report.matchingPercent:.1f}{self.report.averageNeighborsPerCell:.1f}\n"
+                f"{self.pcd_pair[0]},{self.pcd_pair[0]},{self.report.volume:.4f},{self.report.addedVolume:.4f},{self.report.removedVolume:.4f},{self.report.surface:.4f},{self.report.matchingPercent:.1f}{self.report.averageNeighborsPerCell:.1f}\n"
             )
 
     @staticmethod
@@ -164,8 +164,8 @@ ax.grid(visible=True, color="k", linestyle="-", linewidth=0.2)
 fig.savefig(Path(FOUT).parent / (Path(FOUT).stem + ".jpg"), dpi=300)
 
 #%% With Parallel computing
+# from multiprocessing import Process
 # from multiprocessing import Pool
-
 
 # def do_iter(
 #     iter: int,
