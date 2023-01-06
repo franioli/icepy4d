@@ -1,4 +1,5 @@
 import numpy as np
+import time
 
 # import scipy.ndimage
 from scipy import signal
@@ -303,42 +304,44 @@ def perftest(A, B, Twidths=np.arange(190, 210), Addwidths=np.arange(25, 38), N=1
 
 
 if __name__ == "__main__":
-    # test code
-    from geoimread import geoimread
-    import matplotlib.pyplot as plt  # noqa
+    pass
 
-    # Read the data
-    fA = "https://storage.googleapis.com/gcp-public-data-landsat/LC08/01/023/001/LC08_L1TP_023001_20150708_20170407_01_T1/LC08_L1TP_023001_20150708_20170407_01_T1_B8.TIF"
-    fB = "https://storage.googleapis.com/gcp-public-data-landsat/LC08/01/023/001/LC08_L1TP_023001_20160710_20170323_01_T1/LC08_L1TP_023001_20160710_20170323_01_T1_B8.TIF"
+    # # test code
+    # from geoimread import geoimread
+    # import matplotlib.pyplot as plt  # noqa
 
-    A = geoimread(
-        fA, roi_x=[-30.19], roi_y=[81.245], roi_crs={"init": "EPSG:4326"}, buffer=10000
-    )
-    B = geoimread(
-        fB, roi_x=[-30.19], roi_y=[81.245], roi_crs={"init": "EPSG:4326"}, buffer=10000
-    )
+    # # Read the data
+    # fA = "https://storage.googleapis.com/gcp-public-data-landsat/LC08/01/023/001/LC08_L1TP_023001_20150708_20170407_01_T1/LC08_L1TP_023001_20150708_20170407_01_T1_B8.TIF"
+    # fB = "https://storage.googleapis.com/gcp-public-data-landsat/LC08/01/023/001/LC08_L1TP_023001_20160710_20170323_01_T1/LC08_L1TP_023001_20160710_20170323_01_T1_B8.TIF"
 
-    import time
+    # A = geoimread(
+    #     fA, roi_x=[-30.19], roi_y=[81.245], roi_crs={"init": "EPSG:4326"}, buffer=10000
+    # )
+    # B = geoimread(
+    #     fB, roi_x=[-30.19], roi_y=[81.245], roi_crs={"init": "EPSG:4326"}, buffer=10000
+    # )
 
-    #    from templatematch import templatematch  # noqa
+    # import time
 
-    time1 = time.time()
-    r = templatematch(A, B, TemplateWidth=128, SearchWidth=128 + 62)
-    time2 = time.time()
-    ##
+    # #    from templatematch import templatematch  # noqa
 
-    from matplotlib import pyplot as plt  # noqa
+    # time1 = time.time()
+    # r = templatematch(A, B, TemplateWidth=128, SearchWidth=128 + 62)
+    # time2 = time.time()
+    # ##
 
-    ax = plt.axes()
-    A.plot.imshow(cmap="gray", add_colorbar=False)
-    ax.set_aspect("equal")
-    ax.autoscale(tight=True)
+    # from matplotlib import pyplot as plt  # noqa
 
-    r.clean()
-    r.plot(x=A.x, y=A.y)
+    # ax = plt.axes()
+    # A.plot.imshow(cmap="gray", add_colorbar=False)
+    # ax.set_aspect("equal")
+    # ax.autoscale(tight=True)
 
-    print("Time", (time2 - time1) * 1000.0)
-    # plt.hist(r.du.ravel())
+    # r.clean()
+    # r.plot(x=A.x, y=A.y)
 
-    print(np.nanmean(r.du.ravel()))
-    print(np.nanmean(r.dv.ravel()))
+    # print("Time", (time2 - time1) * 1000.0)
+    # # plt.hist(r.du.ravel())
+
+    # print(np.nanmean(r.du.ravel()))
+    # print(np.nanmean(r.dv.ravel()))

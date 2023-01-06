@@ -25,75 +25,36 @@ class MatchResult:
         self.snr = peakCorr / meanAbsCorr
         self.method = method
 
-    def clean(self, maxstrain=0.1, minsnr=1.02):
-        # assume that pu and pv are arranged in a regular grid.
-        # TODO: input checking...
-        resolution = np.abs(
-            self.pu[1, 1] - self.pu[0, 0]
-        )  # assume constant resolution in all directions...
-        strain = (
-            np.sqrt(
-                (self.du - medfilt2d(self.du)) ** 2
-                + (self.dv - medfilt2d(self.dv)) ** 2
-            )
-            / resolution
-        )
-        #        ix = np.logical_or(
-        #            strain > maxstrain, self.snr < minsnr
-        #        )  # skip nans to avoid warnings
-        ix = np.logical_or(
-            np.greater(strain, maxstrain, where=~np.isnan(strain)),
-            np.less(self.snr, minsnr, where=~np.isnan(strain)),
-        )
-        ix = np.logical_or(ix, np.isnan(strain))
-        self.du[ix] = np.nan
-        self.dv[ix] = np.nan
 
-    def plot(self, x=None, y=None, alpha=0.7):
-        px = self.pu
-        py = self.pv
-        dx = 1.0
-        dy = 1.0
-        if x is not None:
-            px = interp1d(np.arange(0, x.shape[0]), x, fill_value="extrapolate")(px)
-            dx = float(x[1] - x[0])
-        if y is not None:
-            py = interp1d(np.arange(0, y.shape[0]), y, fill_value="extrapolate")(py)
-            dy = float(y[1] - y[0])
-
-        C = np.sqrt(self.du**2 + self.dv**2)
-
-        plt.pcolormesh(get_corners(px), get_corners(py), C, alpha=alpha)
-        plt.colorbar()
-        plt.quiver(px, py, self.du * dx, self.dv * dy)
-
-    # TODO add more methods to plot and clean results....
+def forient(img):
+    f = np.array(
+        [[1.0, 0.0, 0.0 + 1.0j], [0.0, 0.0, 0.0], [0.0 - 1.0j, 0.0, -1.0]], np.complex64
+    )
+    r = signal.convolve2d(img, f, mode="same")
+    m = np.abs(r)
+    m[m == 0] = 1
+    r = np.divide(r, m)
+    return r
 
 
-def get_corners(pu):
-    # helper function to generate inputs for pcolormesh
-    pu_extend = np.zeros((pu.shape[0] + 2, pu.shape[1] + 2))
-    pu_extend[1:-1, 1:-1] = pu  # fill up with original values
-    # fill in extra endpoints
-    pu_extend[:, 0] = pu_extend[:, 1] + (pu_extend[:, 1] - pu_extend[:, 2])
-    pu_extend[:, -1] = pu_extend[:, -2] + (pu_extend[:, -2] - pu_extend[:, -3])
-    pu_extend[0, :] = pu_extend[1, :] + (pu_extend[1, :] - pu_extend[2, :])
-    pu_extend[-1, :] = pu_extend[-2, :] + (pu_extend[-2, :] - pu_extend[-3, :])
-    # calculate the corner points
-    # return scipy.signal.convolve2d(pu_extend, np.ones((2, 2)/4), mode='valid')  # TODO: remove dependency
-    return (
-        pu_extend[0:-1, 0:-1]
-        + pu_extend[0:-1, 1:]
-        + pu_extend[1:, 0:-1]
-        + pu_extend[1:, 1:]
-    ) / 4.0
+class TemplateMatch:
+    def __init__(
+        self,
+        A: np.ndarray,
+        B: np.ndarray,
+        method: str = "NCC",
+    ) -> None:
+        pass
+
+    def match(self):
+        pass
 
 
-def templatematch(
+def OC(
     A,
     B,
-    pu=None,
-    pv=None,
+    pu,
+    pv,
     TemplateWidth=128,
     SearchWidth=128 + 16,
     Initialdu=0,
@@ -101,7 +62,7 @@ def templatematch(
 ):
     """Feature tracking by template matching
 
-    Usage : r = templatematch(A, B, TemplateWidth=64, SearchWidth=128)
+    Usage : r = OC(A, B, TemplateWidth=64, SearchWidth=128)
 
     Notes : Currently only orientation correlation is implemented.
 
@@ -109,8 +70,8 @@ def templatematch(
     ----------
     A, B : matrix_like
         Two images as 2d-matrices.
-    pu, pv : array_like, optional
-        Pixel coordinates in image A that you would like to find in image B (default is to drape a grid over A)
+    pu, pv : array_like
+        Pixel coordinates in image A that you would like to find in image B
     TemplateWidth : int, optional
         pixel-size of the small templates being cut from image A.
     SearchWidth : int, optional
@@ -132,23 +93,10 @@ def templatematch(
         A = forient(A)
         B = forient(B)
 
-    if pu is None:
-        pu = np.arange(
-            SearchWidth / 2,
-            A.shape[1] - SearchWidth / 2 + TemplateWidth / 2,
-            TemplateWidth / 2,
-        )
-        pv = np.arange(
-            SearchWidth / 2,
-            A.shape[0] - SearchWidth / 2 + TemplateWidth / 2,
-            TemplateWidth / 2,
-        )
-        pu, pv = np.meshgrid(pu, pv)
-
-    du = np.full(pu.shape, np.nan)  # np.empty(pu.shape) * np.nan
-    dv = np.full(pu.shape, np.nan)  #
-    peakCorr = np.full(pu.shape, np.nan)  #
-    meanAbsCorr = np.full(pu.shape, np.nan)  #
+    du = np.full(pu.shape, np.nan)
+    dv = np.full(pu.shape, np.nan)
+    peakCorr = np.full(pu.shape, np.nan)
+    meanAbsCorr = np.full(pu.shape, np.nan)
     if np.isscalar(Initialdu):
         Initialdu = np.zeros(pu.shape) + Initialdu
     if np.isscalar(Initialdv):
@@ -157,9 +105,7 @@ def templatematch(
     if np.any(np.iscomplex(B)):
         B = np.conj(B)
 
-    SearchHeight = (
-        SearchWidth  # TODO: Clean-up. Dont support heights in python version.
-    )
+    SearchHeight = SearchWidth
     TemplateHeight = TemplateWidth
 
     # PREPARE PYFFTW:
@@ -172,9 +118,6 @@ def templatematch(
     )
     CC_sz = np.add(AArot90.shape, BB.shape) - 1
     CC = pyfftw.empty_aligned(CC_sz, dtype="complex64", order="C", n=None)
-    # fT = pyfftw.empty_aligned(sz, dtype='complex64', order='C', n=None)
-    # fB = pyfftw.empty_aligned(sz, dtype='complex64', order='C', n=None)
-    #
     fft2AA = pyfftw.builders.fft2(
         AArot90, s=CC_sz, overwrite_input=True, auto_contiguous=True
     )
@@ -200,120 +143,83 @@ def templatematch(
     C_vv = np.arange(-wkeep[0], wkeep[0] + 1)
     # -----------------------------------------------------
 
-    for ii, u in np.ndenumerate(pu):
-        p = np.array([u, pv[ii]])
+    p = np.array([pu, pv])
 
-        initdu = Initialdu[ii]
-        initdv = Initialdv[ii]
-        # Actual pixel centre might differ from (pu, pv) because of rounding
-        #
-        Acenter = np.round(p) - (TemplateWidth / 2 % 1)
-        Bcenter = np.round(p + np.array([initdu, initdv])) - (
-            SearchWidth / 2 % 1
-        )  # centre coordinate of search region
+    initdu = Initialdu
+    initdv = Initialdv
+    # Actual pixel centre might differ from (pu, pv) because of rounding
 
-        # we should return coords that was actually used:
-        pu[ii] = Acenter[0]
-        pv[ii] = Acenter[1]
-        initdu = Bcenter[0] - Acenter[0]  # actual offset
-        initdv = Bcenter[1] - Acenter[1]
-        if np.isnan(p[0] + p[1]):
-            continue
-        try:
-            Brows = (Bcenter[1] + (-SearchHeight / 2, SearchHeight / 2)).astype(
-                "int"
-            )  # TODO: check "+1"
-            Bcols = (Bcenter[0] + (-SearchWidth / 2, SearchWidth / 2)).astype("int")
-            Arows = (Acenter[1] + (-TemplateHeight / 2, TemplateHeight / 2)).astype(
-                "int"
-            )
-            Acols = (Acenter[0] + (-TemplateWidth / 2, TemplateWidth / 2)).astype("int")
-            if Brows[0] < 0 or Arows[0] < 0 or Bcols[0] < 0 or Acols[0] < 0:
-                continue
-            if (
-                Brows[1] >= B.shape[0]
-                or Arows[1] >= A.shape[0]
-                or Bcols[1] >= B.shape[1]
-                or Acols[1] >= A.shape[1]
-            ):
-                continue  # handled by exception
-            BB[:, :] = B[Brows[0] : Brows[1], Bcols[0] : Bcols[1]]
-            AArot90[:, :] = np.rot90(A[Arows[0] : Arows[1], Acols[0] : Acols[1]], 2)
-        except IndexError:
-            continue
+    Acenter = np.round(p) - (TemplateWidth / 2 % 1)
+    Bcenter = np.round(p + np.array([initdu, initdv])) - (
+        SearchWidth / 2 % 1
+    )  # centre coordinate of search region
 
-        # --------------- CCF ------------------
-        fT = fft2AA(AArot90)
-        fB = fft2BB(BB)
-        fT[:] = np.multiply(fB, fT)
-        CC = np.real(ifft2CC(fT))
+    # we should return coords that was actually used:
+    pu = Acenter[0]
+    pv = Acenter[1]
+    initdu = Bcenter[0] - Acenter[0]  # actual offset
+    initdv = Bcenter[1] - Acenter[1]
+    if np.isnan(p[0] + p[1]):
+        return None
+    try:
+        Brows = (Bcenter[1] + (-SearchHeight / 2, SearchHeight / 2)).astype(
+            "int"
+        )  # TODO: check "+1"
+        Bcols = (Bcenter[0] + (-SearchWidth / 2, SearchWidth / 2)).astype("int")
+        Arows = (Acenter[1] + (-TemplateHeight / 2, TemplateHeight / 2)).astype("int")
+        Acols = (Acenter[0] + (-TemplateWidth / 2, TemplateWidth / 2)).astype("int")
+        if Brows[0] < 0 or Arows[0] < 0 or Bcols[0] < 0 or Acols[0] < 0:
+            return None
+        if (
+            Brows[1] >= B.shape[0]
+            or Arows[1] >= A.shape[0]
+            or Bcols[1] >= B.shape[1]
+            or Acols[1] >= A.shape[1]
+        ):
+            return None  # handled by exception
+        BB[:, :] = B[Brows[0] : Brows[1], Bcols[0] : Bcols[1]]
+        AArot90[:, :] = np.rot90(A[Arows[0] : Arows[1], Acols[0] : Acols[1]], 2)
+    except IndexError:
+        return None  # because we dont trust peak if at edge of domain.
 
-        C = CC[C_rows[0] : C_rows[1], C_cols[0] : C_cols[1]]
+    # --------------- CCF ------------------
+    fT = fft2AA(AArot90)
+    fB = fft2BB(BB)
+    fT[:] = np.multiply(fB, fT)
+    CC = np.real(ifft2CC(fT))
 
-        # --------------------------------------
+    C = CC[C_rows[0] : C_rows[1], C_cols[0] : C_cols[1]]
 
-        mix = np.unravel_index(np.argmax(C), C.shape)
-        Cmax = C[mix[0], mix[1]]
-        meanAbsCorr[ii] = np.mean(abs(C))
-        edgedist = np.min([mix, np.subtract(C.shape, mix) - 1])
-        if edgedist == 0:
-            continue  # because we dont trust peak if at edge of domain.
-        else:
-            ww = np.amin((edgedist, 4))
-            c = C[mix[0] - ww : mix[0] + ww + 1, mix[1] - ww : mix[1] + ww + 1]
-            [uu, vv] = np.meshgrid(
-                C_uu[mix[1] - ww : mix[1] + ww + 1], C_vv[mix[0] - ww : mix[0] + ww + 1]
-            )
+    # --------------------------------------
 
-            # simple, fast, and excellent performance for landsat test images.
-            c = c - np.mean(abs(c.ravel()))
-            c[c < 0] = 0
-            c = c / np.sum(c)
-            mix = (np.sum(np.multiply(vv, c)), np.sum(np.multiply(uu, c)))
-        du[ii] = mix[1] + initdu
-        dv[ii] = mix[0] + initdv
-        peakCorr[ii] = Cmax
+    mix = np.unravel_index(np.argmax(C), C.shape)
+    Cmax = C[mix[0], mix[1]]
+    meanAbsCorr = np.mean(abs(C))
+    edgedist = np.min([mix, np.subtract(C.shape, mix) - 1])
+    if edgedist == 0:
+        return None  # because we dont trust peak if at edge of domain.
+    else:
+        ww = np.amin((edgedist, 4))
+        c = C[mix[0] - ww : mix[0] + ww + 1, mix[1] - ww : mix[1] + ww + 1]
+        [uu, vv] = np.meshgrid(
+            C_uu[mix[1] - ww : mix[1] + ww + 1], C_vv[mix[0] - ww : mix[0] + ww + 1]
+        )
+
+        # simple, fast, and excellent performance for landsat test images.
+        c = c - np.mean(abs(c.ravel()))
+        c[c < 0] = 0
+        c = c / np.sum(c)
+        mix = (np.sum(np.multiply(vv, c)), np.sum(np.multiply(uu, c)))
+    du = mix[1] + initdu
+    dv = mix[0] + initdv
+    peakCorr = Cmax
+
     return MatchResult(pu, pv, du, dv, peakCorr, meanAbsCorr, method="OC")
 
 
-def forient(img):
-    f = np.array(
-        [[1.0, 0.0, 0.0 + 1.0j], [0.0, 0.0, 0.0], [0.0 - 1.0j, 0.0, -1.0]], np.complex64
-    )
-    r = signal.convolve2d(img, f, mode="same")
-    m = np.abs(r)
-    m[m == 0] = 1
-    r = np.divide(r, m)
-    return r
-
-
-def perftest(A, B, Twidths=np.arange(190, 210), Addwidths=np.arange(25, 38), N=100):
-    pu = np.linspace(300 + A.shape[1], A.shape[1] - 300, N)
-    pv = np.linspace(300 + A.shape[0], A.shape[0] - 300, N)
-    (Twidths, Addwidths) = np.meshgrid(Twidths, Addwidths)
-    Ctime = np.full(Twidths.shape, np.nan)
-    A = forient(A)
-    B = forient(B)
-    for ii, Twidth in np.ndenumerate(Twidths):
-        Addwidth = Addwidths[ii]
-        time1 = time.time()
-        r = templatematch(
-            A, B, pu=pu, pv=pv, TemplateWidth=Twidth, SearchWidth=Twidth + Addwidth
-        )
-        time2 = time.time()
-        Ctime[ii] = time2 - time1
-        print(Ctime[ii])
-
-    plt.pcolor(Twidths, Addwidths, np.log(Ctime))
-    plt.xlabel("Templatewidth")
-    plt.colorbar()
-    return (Twidths, Addwidths, Ctime)
-
-
 if __name__ == "__main__":
-    # test code
-    # from geoimread import geoimread
-    import matplotlib.pyplot as plt  # noqa
+
+    import matplotlib.pyplot as plt
 
     import time
     import cv2
@@ -370,23 +276,10 @@ if __name__ == "__main__":
     epoch = 0
     dt = 1
     roi_buffer = 128
-    target = "T2"
+    targets_to_use = ["F2"]  # , "F11"
 
     template_width = 12
     search_width = 2 * template_width
-
-    # t = targets[epoch].extract_image_coor_by_label([target], cam_id)[0]
-
-    # roi = [
-    #     int(t[0]) - roi_buffer,
-    #     int(t[1]) - roi_buffer,
-    #     int(t[0]) + roi_buffer,
-    #     int(t[1]) + roi_buffer,
-    # ]
-    # t_roi = np.array([t[0] - roi[0], t[1] - roi[1]])
-
-    # A = images[cams[cam_id]][epoch][roi[1] : roi[3], roi[0] : roi[2]]
-    # B = images[cams[cam_id]][epoch + dt][roi[1] : roi[3], roi[0] : roi[2]]
 
     # #  Viz template on starting image
     # # template_coor = [
@@ -403,7 +296,7 @@ if __name__ == "__main__":
     # # cv2.destroyAllWindows()
 
     # time1 = time.time()
-    # r = templatematch(
+    # r = OC(
     #     cv2.cvtColor(A, cv2.COLOR_RGB2GRAY),
     #     cv2.cvtColor(B, cv2.COLOR_RGB2GRAY),
     #     np.array(t_roi[0]),
@@ -437,9 +330,9 @@ if __name__ == "__main__":
     diff = {}
     diff_noCC = {}
 
-    for epoch in tqdm(cfg.proc.epoch_to_process):
+    for epoch in tqdm(range(2)):  # cfg.proc.epoch_to_process
 
-        t = targets[epoch].extract_image_coor_by_label([target], cam_id)[0]
+        t = targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id).squeeze()
 
         roi = [
             int(t[0]) - roi_buffer,
@@ -452,7 +345,7 @@ if __name__ == "__main__":
         A = images[cams[cam_id]][0][roi[1] : roi[3], roi[0] : roi[2]]
         B = images[cams[cam_id]][epoch][roi[1] : roi[3], roi[0] : roi[2]]
 
-        r = templatematch(
+        r = OC(
             cv2.cvtColor(A, cv2.COLOR_RGB2GRAY),
             cv2.cvtColor(B, cv2.COLOR_RGB2GRAY),
             np.array(t_roi[0]),
@@ -465,12 +358,12 @@ if __name__ == "__main__":
         dv = r.dv.ravel()[0]
 
         t_est[epoch] = np.array([t[0] + du, t[1] + dv])
-        t_meas = targets[epoch].extract_image_coor_by_label([target], cam_id)[0]
+        t_meas = targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id)[0]
 
         diff[epoch] = t_meas - t_est[epoch]
 
         diff_noCC[epoch] = (
-            t_meas - targets[0].extract_image_coor_by_label([target], cam_id)[0]
+            t_meas - targets[0].extract_image_coor_by_label(targets_to_use, cam_id)[0]
         )
 
         # with Image.open(images[cams[cam_id]].get_image_path(epoch)) as im:
@@ -489,7 +382,9 @@ if __name__ == "__main__":
         # cv2.imwrite("tmp/" + images[cams[cam_id]].get_image_name(epoch), img)
 
     diff = np.stack((diff.values()))
-    print_stats(diff)
+    nans = np.isnan(diff[:, 0])
+    print(f"{sum(nans)} invalid features")
+    print_stats(diff[~nans, :])
 
     print("Without CC tracking:")
     diff_noCC = np.stack((diff_noCC.values()))
