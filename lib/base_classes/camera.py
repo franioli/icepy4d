@@ -25,6 +25,7 @@ SOFTWARE.
 
 import numpy as np
 import cv2
+import logging
 
 from typing import List, Union, Tuple
 from scipy import linalg
@@ -46,6 +47,7 @@ class Camera:
         t: np.ndarray = None,
         extrinsics: np.ndarray = None,
         calib_path: Union[str, Path] = None,
+        logger: logging = None,
     ):
         """Initialize pinhole camera model
         All the Camera members are private in order to guarantee consistency

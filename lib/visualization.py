@@ -30,8 +30,9 @@ import matplotlib.colors as Colors
 import matplotlib.cm as cm
 import matplotlib
 
-from typing import List, Union
+from typing import List, Union, Dict
 from pathlib import Path
+from copy import deepcopy
 
 from lib.base_classes.camera import Camera
 from lib.base_classes.pointCloud import PointCloud
@@ -221,8 +222,8 @@ def get_colors(inp, colormap, vmin=None, vmax=None):
 
 
 def display_point_cloud(
-    point_cloud: List[PointCloud],
-    cameras: list = None,
+    point_cloud: Union[PointCloud, Dict[int, PointCloud]],
+    cameras: List[Camera] = None,
     viz_rs: bool = True,
     win_name: str = "Point cloud",
     plot_scale: int = 5,
@@ -242,8 +243,8 @@ def display_point_cloud(
     None.
     """
 
-    if type(point_cloud) == list:
-        plt_objs = [x.pcd for x in point_cloud]
+    if isinstance(point_cloud, dict):
+        plt_objs = [x.pcd for x in list(point_cloud.values())]
     else:
         plt_objs = [point_cloud.pcd]
 
@@ -457,36 +458,74 @@ def make_focal_length_variation_plot(
 def make_camera_angles_plot(
     cameras,
     save_path: Union[str, Path] = None,
+    baseline_epoch: int = None,
+    current_epoch: int = None,
 ):
 
-    omega, phi, kappa = {}, {}, {}
-    for key, cam_list in cameras.items():
-        omega[key] = []
-        phi[key] = []
-        kappa[key] = []
-        for i, cam in enumerate(cam_list):
-            omega[key].append(cam.euler_angles[0])
-            phi[key].append(cam.euler_angles[1])
-            kappa[key].append(cam.euler_angles[2])
+    cameras_plt = deepcopy(cameras)
 
-    cam_ids = ["p1", "p2"]
+    if baseline_epoch is not None:
+        ep0 = baseline_epoch
+    else:
+        ep0 = 0
+
+    if current_epoch is not None:
+        epoches = range(ep0, current_epoch + 1)
+    else:
+        epoches = range(ep0, len(cameras_plt))
+
+    cam_keys = list(cameras_plt[ep0].keys())
+    angles_keys = ["omega", "phi", "kappa"]
+    angles = dict.fromkeys(cam_keys)
+    for key in cam_keys:
+        angles[key] = {}
+        for angle in angles_keys:
+            angles[key][angle] = []
+
+    for ep, cam_dict in cameras_plt.items():
+        if ep in epoches:
+            for cam_key, cam in cam_dict.items():
+                for i, angle_key in enumerate(angles_keys):
+                    angles[cam_key][angle_key].append(cam.euler_angles[i])
+
+    if baseline_epoch is not None:
+        for cam_key in cam_keys:
+            for i, angle_key in enumerate(angles_keys):
+                angles[cam_key][angle_key] -= angles[cam_key][angle_key][ep0]
+
     fig, ax = plt.subplots(3, 2)
-    for i, cam_id in enumerate(cam_ids):
-        epoches = range(len(omega[cam_id]))
-        ax[0, i].plot(epoches, omega[cam_id] - omega[cam_id][0], "o")
-        ax[0, i].grid(visible=True, which="both")
-        ax[0, i].set_xlabel("Epoch")
-        ax[0, i].set_ylabel("Omega difference [deg]")
+    if baseline_epoch is not None:
+        fig.suptitle(
+            f"Attitude angles of the two cameras_plt - differences with respect to epoch {baseline_epoch}"
+        )
+    else:
+        fig.suptitle(f"Attitude angles of the two cameras")
+    for i, cam_key in enumerate(cam_keys):
+        for k, angle_key in enumerate(angles_keys):
+            ax[k, i].plot(epoches, angles[cam_key][angle_key], "o")
+            ax[k, i].grid(visible=True, which="both")
+            ax[k, i].set_xlabel("Epoch")
+            ax[k, i].set_ylabel(f"{angle_key} [deg]")
+            ax[k, i].set_title(f"Camera {cam_key}")
+    fig.tight_layout(pad=0.05)
 
-        ax[1, i].plot(epoches, phi[cam_id] - phi[cam_id][0], "o")
-        ax[1, i].grid(visible=True, which="both")
-        ax[1, i].set_xlabel("Epoch")
-        ax[1, i].set_ylabel("Phi difference [deg]")
+    # fig, ax = plt.subplots(3, 2)
+    # for i, cam_id in enumerate(cam_keys):
+    #     epoches = range(len(omega[cam_id]))
+    #     ax[0, i].plot(epoches, omega[cam_id], "o")
+    #     ax[0, i].grid(visible=True, which="both")
+    #     ax[0, i].set_xlabel("Epoch")
+    #     ax[0, i].set_ylabel("Omega difference [deg]")
 
-        ax[2, i].plot(epoches, kappa[cam_id] - kappa[cam_id][0], "o")
-        ax[2, i].grid(visible=True, which="both")
-        ax[2, i].set_xlabel("Epoch")
-        ax[2, i].set_ylabel("Kappa difference [deg]")
+    #     ax[1, i].plot(epoches, phi[cam_id], "o")
+    #     ax[1, i].grid(visible=True, which="both")
+    #     ax[1, i].set_xlabel("Epoch")
+    #     ax[1, i].set_ylabel("Phi difference [deg]")
+
+    #     ax[2, i].plot(epoches, kappa[cam_id], "o")
+    #     ax[2, i].grid(visible=True, which="both")
+    #     ax[2, i].set_xlabel("Epoch")
+    #     ax[2, i].set_ylabel("Kappa difference [deg]")
 
     if save_path is None:
         fig.show()
