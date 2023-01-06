@@ -55,7 +55,7 @@ def export_keypoints_for_calge(
             # NB: must be manually modified if it contains characters of symbols
             file.write(f"{image_name}\n")
 
-            for id, kpt in enumerate(features[cam][epoch].get_keypoints()):
+            for id, kpt in enumerate(features[epoch][cam].get_keypoints()):
                 x, y = kpt
 
                 # If pixel_size_micron is not empty, convert image coordinates from x-y (row,column) image coordinate system to xi-eta image coordinate system (origin at the center of the image, xi towards right, eta upwards)

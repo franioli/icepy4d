@@ -27,6 +27,7 @@ import cv2
 import pickle
 import numpy as np
 import pandas as pd
+import logging
 
 # import exifread
 from typing import List, Union, Tuple
@@ -44,7 +45,10 @@ class Features:
         Features.descr: mxn array of descriptors(note that descriptors are stored columnwise)
         Features.score: nx1 array with feature score"""
 
-    def __init__(self):
+    def __init__(
+        self,
+        logger: logging = None,
+    ):
         self.reset_fetures()
 
     def __len__(self):

@@ -23,6 +23,7 @@ SOFTWARE.
 """
 
 import os
+import logging
 from pathlib import Path
 from typing import List, Union
 from datetime import datetime
@@ -244,7 +245,11 @@ class Imageds:
 
     """
 
-    def __init__(self, path=None):
+    def __init__(
+        self,
+        path=None,
+        logger: logging = None,
+    ):
         # TODO: implement labels in datastore
         if not hasattr(self, "files"):
             self.reset_imageds()

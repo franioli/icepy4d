@@ -22,6 +22,19 @@
       "console": "integratedTerminal",
       "justMyCode": true,
       "env": { "PYTHONPATH": "${workspaceFolder}" }
+    },
+    {
+      "name": "Python: cloudcompy",
+      "type": "python",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "env": {
+        "PYTHONPATH": "${command:python.interpreterPath}:${workspaceFolder}:/home/francesco/CloudComPy/lib/cloudcompare:/home/francesco/CloudComPy/doc/PythonAPI_test",
+        "LD_LIBRARY_PATH": "/home/francesco/anaconda3/envs/CloudComPy310/lib:/home/francesco/CloudComPy/lib/cloudcompare:/home/francesco/CloudComPy/lib/cloudcompare/plugins",
+        "PATH": "/home/francesco/CloudComPy/bin"
+      }
     }
   ]
 }
