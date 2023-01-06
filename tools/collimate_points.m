@@ -50,15 +50,12 @@ for jj = 1:length(p)
 end
 
 if printPoints
-    ptsOutFig = figure("Name",'Collimated points', 'Units','normalized', 'Position',[0 0 1 1]); 
+    figure("Name",'Collimated points', 'Units','normalized', 'Position',[0 0 1 1]); 
     imshow(im); hold on;
     plot(points(:,1), points(:,2), 'gx');
 end
 
 if nargout == 1
     varargout = {points};
-else
-    varargout = {points};
-end
 
 end
