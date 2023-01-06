@@ -30,7 +30,6 @@ import gc
 import logging
 
 from pathlib import Path
-from copy import deepcopy
 
 # Belpy Classes
 from lib.base_classes.camera import Camera
