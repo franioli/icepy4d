@@ -87,7 +87,7 @@ images = init.images
 targets = init.targets
 point_clouds = init.point_clouds
 epoch_dict = init.epoch_dict
-focals = {0: [], 1: []}
+focals = init.focals_dict
 
 """ Big Loop over epoches """
 
