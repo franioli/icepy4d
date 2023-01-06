@@ -268,9 +268,10 @@ class Imageds:
         """Read and return the image at position idx in the image datastore"""
         # TODO: add possibility to chose reading between col or grayscale, scale image, crop etc...
         # @TODO change getitem to return path and implement reading function
+    
         img = read_image(os.path.join(self.folder[idx], self.files[idx]))
-        if img is not None:
-            print(f"Loaded image {self.files[idx]}")
+        assert img is not None, f"Unable to read image {self.files[idx]}"
+    
         return img
 
     def reset_imageds(self):
