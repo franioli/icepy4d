@@ -14,10 +14,10 @@ proc:
   # It can be either 'all' for processing all the epochs,
   # A list of two integers for processing a range of epoches
   # or a list with the epoche numbers to be processed
-  epoch_to_process: "all" #[0, 2] #   # [0] #
+  epoch_to_process: [0, 2] # "all" #   # [0] #
 
   #- Switches to find and track matches
-  do_matching: False #true #
+  do_matching: true #true #
   do_tracking: true
 
   #- Do space resection of first camera
@@ -122,4 +122,4 @@ tracking:
   writeTile2Disk: false
   do_viz_tile: false
   rowDivisor: 2
-  colDivisor: 4
+  colDivisor: 3
