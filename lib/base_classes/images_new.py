@@ -297,7 +297,7 @@ class ImageDS:
         return self.files[idx].name
 
     def read_image(self, idx: int) -> Image:
-        """Return image at position idx as Image instance, containing both exif and value data (accessible by value proprierty, e.g., img.value)"""
+        """Return image at position idx as Image instance, containing both exif and value data (accessible by value proprierty, e.g., image.value)"""
         image = Image(self.files[idx])
         image.read_image()
         return image
@@ -324,6 +324,8 @@ class ImageDS:
         pattern = f"{rec_patt}*{ext_patt}"
 
         self.files = sorted(self.folder.glob(pattern))
+        if len(self.files) == 0:
+            print(f"No images found in folder {self.folder}")
 
     def get_image_path(self, idx: int) -> Path:
         """Return path of the image at position idx in datastore as Pathlib"""
@@ -336,10 +338,11 @@ class ImageDS:
     def write_exif_to_csv(
         self, filename: str, sep: str = ",", header: bool = True
     ) -> None:
+        assert self.folder.is_dir(), "Empty Image Datastore."
         file = open(filename, "w")
         if header:
             file.write("epoch,name,date,time\n")
-        for i, img_path in enumerate(images.files):
+        for i, img_path in enumerate(self.files):
             img = Image(img_path)
             name = img_path.name
             date = img.date
@@ -351,27 +354,34 @@ class ImageDS:
 if __name__ == "__main__":
     """Test classes"""
 
-    images = ImageDS("data/img2022/p1")
+    # images = ImageDS("data/img2022/p1")
 
-    # Get image name
-    images[0]
+    # # Get image name
+    # images[0]
 
-    # Get image stem
-    images.get_image_stem(0)
+    # # Get image stem
+    # images.get_image_stem(0)
 
-    # Get image path
-    images.get_image_path(0)
+    # # Get image path
+    # images.get_image_path(0)
 
-    # Get image as Image object and extect date and time
-    img = images.read_image(0)
-    img.date
-    img.time
+    # # Get image as Image object and extect date and time
+    # img = images.read_image(0)
+    # img.date
+    # img.time
 
-    # Read image as numpy array
-    image = images.read_image(0).value
+    # # Read image as numpy array
+    # image = images.read_image(0).value
 
-    # Write exif to csv file
-    filename = "test.csv"
-    images.write_exif_to_csv(filename)
+    # # Write exif to csv file
+    # filename = "test.csv"
+    # images.write_exif_to_csv(filename)
+
+    # cams = ["p1", "p2"]
+    # for cam in cams:
+    cam = "p2"
+    images = {}
+    images[cam] = ImageDS(Path("data/img2021") / cam)
+    images[cam].write_exif_to_csv(f"data/img2021/image_list_{cam}.csv")
 
     print("Done")
