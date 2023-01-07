@@ -3,12 +3,11 @@ Inspired from pyimgraft https://github.com/grinsted/pyimgraft
 """
 
 import numpy as np
+import pyfftw
 
 from scipy import signal
-
 from scipy.signal import medfilt2d
 from scipy.interpolate import interp1d
-import pyfftw
 from matplotlib import pyplot as plt
 
 pyfftw.config.PLANNER_EFFORT = "FFTW_MEASURE"
@@ -42,9 +41,32 @@ class TemplateMatch:
         self,
         A: np.ndarray,
         B: np.ndarray,
-        method: str = "NCC",
+        xy: np.ndarray,
+        method: str = "OC",
+        TemplateWidth: int = 128,
+        SearchWidth: int = 128 + 16,
+        Initialdu: int = 0,
+        Initialdv: int = 0,
     ) -> None:
-        pass
+        """
+        TemplateMatch: Feature tracking by template matching
+
+        Args:
+            A (np.ndarray): image A as 2D nunpy array
+            B (np.ndarray): image B as 2D nunpy array
+            xy (np.ndarray): Pixel coordinates in image A that you would like to find in image B
+            method (str, optional): Correlation method. Defaults to "OC".
+            TemplateWidth (int, optional): pixel-size of the small templates being cut from image A. Defaults to 128.
+            SearchWidth (int, optional): pixel-size of the search region within image B. Defaults to 128+16.
+            Initialdu (int, optional):  An initial guess of the displacement in x direction. The search window will be offset by this. Defaults to 0.
+            Initialdv (int, optional): An initial guess of the displacement in y direction. The search window will be offset by this. Defaults to 0.
+        """
+        assert (
+            len(A.shape) == 2 and len(B.shape) == 2
+        ), "Invalid input images. Provide grayscale images."
+
+        self.A = A
+        self.B = B
 
     def match(self):
         pass
@@ -84,10 +106,6 @@ def OC(
         result : MatchResult
 
     """
-
-    assert (
-        len(A.shape) == 2 and len(B.shape) == 2
-    ), "Invalid input images. Provide grayscale images."
 
     if not np.any(np.iscomplex(A)):  # always do Orientation correlation!
         A = forient(A)
@@ -231,6 +249,18 @@ if __name__ == "__main__":
     from lib.read_config import parse_yaml_cfg
     from lib.utils.inizialize_variables import Inizialization
 
+    class stats:
+        def __init__(self, x: np.ndarray) -> None:
+            self.x = x
+            self.compute_stats()
+
+        def compute_stats(self) -> None:
+            rmse_ = lambda x: np.sqrt((x[:, 0] ** 2).mean())
+            rmse = np.array(list(map(rmse_, self.x)))
+
+        def print_stats(self) -> None:
+            pass
+
     def print_stats(x) -> None:
         """
         print_stats Print statistics on residuals
@@ -263,14 +293,9 @@ if __name__ == "__main__":
     cfg = parse_yaml_cfg(cfg_file)
     init = Inizialization(cfg)
     init.inizialize_belpy()
-    cameras = init.cameras
     cams = init.cams
-    features = init.features
     images = init.images
     targets = init.targets
-    point_clouds = init.point_clouds
-    epoch_dict = init.epoch_dict
-    focals = init.focals_dict
 
     cam_id = 0
     epoch = 0
@@ -278,72 +303,47 @@ if __name__ == "__main__":
     roi_buffer = 128
     targets_to_use = ["F2"]  # , "F11"
 
-    template_width = 12
-    search_width = 2 * template_width
+    template_width = 16
+    search_width = 64
 
-    # #  Viz template on starting image
-    # # template_coor = [
-    # #     (int(t_roi[0] - template_width), int(t_roi[1] - template_width)),
-    # #     (int(t_roi[0] + template_width), int(t_roi[1] + template_width)),
-    # # ]
-    # # win_name = "template"
-    # # img = deepcopy(A)
-    # # cv2.circle(img, (t_roi[0], int(t_roi[1])), 0, (0, 255, 0), -1)
-    # # cv2.rectangle(img, template_coor[0], template_coor[1], (0, 255, 0), 1)
-    # # cv2.namedWindow(win_name, cv2.WINDOW_NORMAL)
-    # # cv2.imshow(win_name, img)
-    # # cv2.waitKey()
-    # # cv2.destroyAllWindows()
-
-    # time1 = time.time()
-    # r = OC(
-    #     cv2.cvtColor(A, cv2.COLOR_RGB2GRAY),
-    #     cv2.cvtColor(B, cv2.COLOR_RGB2GRAY),
-    #     np.array(t_roi[0]),
-    #     np.array(t_roi[1]),
-    #     TemplateWidth=template_width,
-    #     SearchWidth=search_width,
-    # )
-    # time2 = time.time()
-    # print("Time", (time2 - time1) * 1000.0)
-
-    # du = r.du.ravel()[0]
-    # dv = r.dv.ravel()[0]
-
-    # t_est = np.array([t[0] + du, t[1] + dv])
-    # t_meas = targets[epoch+dt].extract_image_coor_by_label([target], cam_id)[0]
-    # t_diff = t_meas - t_est
-
-    # fig, ax = plt.subplots(1, 2)
-    # ax[0].imshow(A)
-    # ax[0].scatter(t_roi[0], t_roi[1], s=50, c="r", marker="+")
-    # ax[0].set_aspect("equal")
-    # ax[1].imshow(B)
-    # ax[1].scatter(t_roi[0] + du, t_roi[1] + dv, s=50, c="r", marker="+")
-    # ax[1].set_aspect("equal")
-
-    # # plt.hist(r.du.ravel())
-    # # print(np.nanmean(r.du.ravel()))
-    # # print(np.nanmean(r.dv.ravel()))
+    debug_viz = False
+    debug = True
 
     t_est = {}
     diff = {}
     diff_noCC = {}
 
-    for epoch in tqdm(range(2)):  # cfg.proc.epoch_to_process
+    for epoch in tqdm(cfg.proc.epoch_to_process):  # tqdm(range(1, 2)):  #
 
         t = targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id).squeeze()
 
+        t_int = np.round(t).astype(int)
         roi = [
-            int(t[0]) - roi_buffer,
-            int(t[1]) - roi_buffer,
-            int(t[0]) + roi_buffer,
-            int(t[1]) + roi_buffer,
+            int(t_int[0]) - roi_buffer,
+            int(t_int[1]) - roi_buffer,
+            int(t_int[0]) + roi_buffer,
+            int(t_int[1]) + roi_buffer,
         ]
         t_roi = np.array([t[0] - roi[0], t[1] - roi[1]])
+        t_roi_int = np.round(t_roi).astype(int)
 
         A = images[cams[cam_id]][0][roi[1] : roi[3], roi[0] : roi[2]]
         B = images[cams[cam_id]][epoch][roi[1] : roi[3], roi[0] : roi[2]]
+
+        #  Viz template on starting image
+        if debug_viz:
+            template_coor = [
+                (t_roi_int[0] - template_width, t_roi_int[1] - template_width),
+                (t_roi_int[0] + template_width, t_roi_int[1] + template_width),
+            ]
+            win_name = "template"
+            img = cv2.cvtColor(deepcopy(A), cv2.COLOR_BGR2RGB)
+            cv2.circle(img, (t_roi_int[0], t_roi_int[1]), 0, (0, 255, 0), -1)
+            cv2.rectangle(img, template_coor[0], template_coor[1], (0, 255, 0), 1)
+            cv2.namedWindow(win_name, cv2.WINDOW_NORMAL)
+            cv2.imshow(win_name, img)
+            cv2.waitKey()
+            cv2.destroyAllWindows()
 
         r = OC(
             cv2.cvtColor(A, cv2.COLOR_RGB2GRAY),
@@ -354,32 +354,43 @@ if __name__ == "__main__":
             SearchWidth=search_width,
         )
 
-        du = r.du.ravel()[0]
-        dv = r.dv.ravel()[0]
+        t_est[epoch] = np.array([t[0] + r.du, t[1] + r.dv])
 
-        t_est[epoch] = np.array([t[0] + du, t[1] + dv])
-        t_meas = targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id)[0]
+        if debug:
+            t_meas = targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id)[
+                0
+            ]
+            diff[epoch] = t_meas - t_est[epoch]
+            diff_noCC[epoch] = (
+                t_meas
+                - targets[0].extract_image_coor_by_label(targets_to_use, cam_id)[0]
+            )
 
-        diff[epoch] = t_meas - t_est[epoch]
+            img = cv2.imread(images[cams[cam_id]].get_image_path(epoch))
+            cv2.drawMarker(
+                img,
+                (
+                    np.round(t_est[epoch][0]).astype(int),
+                    np.round(t_est[epoch][1]).astype(int),
+                ),
+                (255, 0, 0),
+                cv2.MARKER_CROSS,
+                1,
+            )
+            cv2.imwrite("tmp/" + images[cams[cam_id]].get_image_name(epoch), img)
+            # with Image.open(images[cams[cam_id]].get_image_path(epoch)) as im:
+            #     draw = ImageDraw.Draw(im)
+            #     draw.ellipse(list(np.concatenate((t_est[epoch],t_est[epoch]))), outline=(255,0,0), width=1)
+            #     im.save('test.jpg', "JPEG")
 
-        diff_noCC[epoch] = (
-            t_meas - targets[0].extract_image_coor_by_label(targets_to_use, cam_id)[0]
-        )
-
-        # with Image.open(images[cams[cam_id]].get_image_path(epoch)) as im:
-        #     draw = ImageDraw.Draw(im)
-        #     draw.ellipse(list(np.concatenate((t_est[epoch],t_est[epoch]))), outline=(255,0,0), width=1)
-        #     im.save('test.jpg', "JPEG")
-
-        # img = cv2.imread(images[cams[cam_id]].get_image_path(epoch))
-        # cv2.drawMarker(
-        #     img,
-        #     (int(t_est[epoch][0]), int(t_est[epoch][1])),
-        #     (255, 0, 0),
-        #     cv2.MARKER_CROSS,
-        #     1,
-        # )
-        # cv2.imwrite("tmp/" + images[cams[cam_id]].get_image_name(epoch), img)
+        if debug_viz:
+            fig, ax = plt.subplots(1, 2)
+            ax[0].imshow(A)
+            ax[0].scatter(t_roi[0], t_roi[1], s=50, c="r", marker="+")
+            ax[0].set_aspect("equal")
+            ax[1].imshow(B)
+            ax[1].scatter(t_roi[0] + r.du, t_roi[1] + r.dv, s=50, c="r", marker="+")
+            ax[1].set_aspect("equal")
 
     diff = np.stack((diff.values()))
     nans = np.isnan(diff[:, 0])
