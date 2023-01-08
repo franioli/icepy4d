@@ -29,7 +29,7 @@ from typing import List, Union
 
 from lib.base_classes.camera import Camera
 from lib.base_classes.pointCloud import PointCloud
-from lib.base_classes.images_new import Image, ImageDS
+from lib.base_classes.images import Image, ImageDS
 from lib.base_classes.targets import Targets
 from lib.base_classes.features import Features
 
@@ -45,6 +45,9 @@ class Inizialization:
         images = dict.fromkeys(self.cams)
         for cam in self.cams:
             images[cam] = ImageDS(self.cfg.paths.image_dir / cam)
+            images[cam].write_exif_to_csv(
+                self.cfg.paths.image_dir / f"image_list_{cam}.csv"
+            )
 
         self.images = images
         return self.images
