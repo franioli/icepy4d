@@ -9,7 +9,7 @@ from typing import Union, List
 from lib.base_classes.camera import Camera
 from lib.base_classes.pointCloud import PointCloud
 from lib.base_classes.features import Features
-from lib.base_classes.images import Imageds
+from lib.base_classes.images import ImageDS
 from lib.base_classes.targets import Targets
 from lib.utils.utils import create_directory
 from thirdparty.transformations import euler_from_matrix, euler_matrix
@@ -46,7 +46,7 @@ def write_bundler_out_single_epoch(
     # Write im_list.txt in the same directory
     file = open(out_dir / f"im_list.txt", "w")
     for cam in cams:
-        file.write(f"{images[cam].get_image_name(epoch)}\n")
+        file.write(f"{images[cam][epoch]}\n")
     file.close()
 
     # Copy images in subdirectory "images"
@@ -54,7 +54,7 @@ def write_bundler_out_single_epoch(
         im_out_dir = create_directory(out_dir / "images")
         scopy(
             images[cam].get_image_path(epoch),
-            im_out_dir / images[cam].get_image_name(epoch),
+            im_out_dir / images[cam][epoch],
         )
 
     # Write markers to file
@@ -68,7 +68,7 @@ def write_bundler_out_single_epoch(
                 targets[epoch].extract_image_coor_by_label([target], cam_id=i).squeeze()
             ):
                 file.write(f"{x:.4f} ")
-            file.write(f"{images[cam].get_image_name(epoch)} ")
+            file.write(f"{images[cam][epoch]} ")
             file.write(f"{target} ")
             if len(targets_enabled) > 0:
                 file.write(f"{targets_enabled[i]}\n")
@@ -154,7 +154,7 @@ def write_bundler_out(
         # Write im_list.txt in the same directory
         file = open(out_dir / f"im_list.txt", "w")
         for cam in cams:
-            file.write(f"{images[cam].get_image_name(epoch)}\n")
+            file.write(f"{images[cam][epoch]}\n")
         file.close()
 
         # Copy images in subdirectory "images"
@@ -162,7 +162,7 @@ def write_bundler_out(
             im_out_dir = create_directory(out_dir / "images")
             scopy(
                 images[cam].get_image_path(epoch),
-                im_out_dir / images[cam].get_image_name(epoch),
+                im_out_dir / images[cam][epoch],
             )
 
         # Write markers to file
@@ -180,7 +180,7 @@ def write_bundler_out(
                     .squeeze()
                 ):
                     file.write(f"{x+0.5:.4f} ")
-                file.write(f"{images[cam].get_image_name(epoch)} ")
+                file.write(f"{images[cam][epoch]} ")
                 file.write(f"{target} ")
                 if len(targets_enabled) > 0:
                     file.write(f"{targets_enabled[i]}\n")

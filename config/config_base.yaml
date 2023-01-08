@@ -17,7 +17,7 @@ proc:
   epoch_to_process: "all" # [0, 2] #   # [0] #
 
   #- Switches to find and track matches
-  do_matching: false #true #
+  do_matching: true #true #
   do_tracking: true
 
   #- Do space resection of first camera
@@ -95,8 +95,8 @@ matching:
   useTile: true
   writeTile2Disk: false
   do_viz_tile: false
-  rowDivisor: 3
-  colDivisor: 4
+  rowDivisor: 2
+  colDivisor: 3
   overlap: 400
 
 #- Tracking options
