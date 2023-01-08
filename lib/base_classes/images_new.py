@@ -377,11 +377,10 @@ if __name__ == "__main__":
     # filename = "test.csv"
     # images.write_exif_to_csv(filename)
 
-    # cams = ["p1", "p2"]
-    # for cam in cams:
-    cam = "p2"
+    cams = ["p1", "p2"]
     images = {}
-    images[cam] = ImageDS(Path("data/img2021") / cam)
-    images[cam].write_exif_to_csv(f"data/img2021/image_list_{cam}.csv")
+    for cam in cams:
+        images[cam] = ImageDS(Path("data/img2021") / cam)
+        images[cam].write_exif_to_csv(f"data/img2021/image_list_{cam}.csv")
 
     print("Done")
