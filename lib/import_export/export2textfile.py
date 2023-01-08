@@ -3,7 +3,7 @@ import numpy as np
 from pathlib import Path
 
 from lib.base_classes.features import Features
-from lib.base_classes.images import Imageds
+from lib.base_classes.images import ImageDS
 
 """
 Export keypoints and points3d to file
@@ -13,7 +13,7 @@ Export keypoints and points3d to file
 def export_keypoints(
     filename: str,
     features: Features,
-    imageds: Imageds,
+    imageds: ImageDS,
     epoch: int = None,
 ) -> None:
     if epoch is not None:
@@ -25,7 +25,7 @@ def export_keypoints(
         file.write("image_name, feature_id, x, y\n")
 
         for cam in cams:
-            image_name = imageds[cam].get_image_name(epoch)
+            image_name = imageds[cam][epoch]
 
             # Write image name line
             # NB: must be manually modified if it contains characters of symbols
@@ -59,7 +59,7 @@ def export_points3D(
 
 def export_keypoints_by_image(
     features: Features,
-    imageds: Imageds,
+    imageds: ImageDS,
     path: str = "./",
     epoch: int = None,
 ) -> None:

@@ -34,7 +34,7 @@ from pathlib import Path
 # Belpy Classes
 from lib.base_classes.camera import Camera
 from lib.base_classes.pointCloud import PointCloud
-from lib.base_classes.images import Image, Imageds
+from lib.base_classes.images_new import Image, ImageDS
 from lib.base_classes.targets import Targets
 from lib.base_classes.features import Features
 
@@ -87,7 +87,7 @@ images = init.images
 targets = init.targets
 point_clouds = init.point_clouds
 epoch_dict = init.epoch_dict
-focals = {0: [], 1: []}
+focals = init.focals_dict
 
 """ Big Loop over epoches """
 
@@ -193,7 +193,7 @@ for epoch in cfg.proc.epoch_to_process:
         ],
     )
     points3d = triangulation.triangulate_two_views(
-        compute_colors=True, image=images[cams[1]][epoch], cam_id=1
+        compute_colors=True, image=images[cams[1]].read_image(epoch).value, cam_id=1
     )
 
     # --- Absolute orientation (-> coregistration on stable points) ---#
@@ -272,7 +272,7 @@ for epoch in cfg.proc.epoch_to_process:
             ],
         )
         points3d = triangulation.triangulate_two_views(
-            compute_colors=True, image=images[cams[1]][epoch], cam_id=1
+            compute_colors=True, image=images[cams[1]].read_image(epoch).value, cam_id=1
         )
 
         pcd_epc = PointCloud(points3d=points3d, points_col=triangulation.colors)
@@ -285,8 +285,8 @@ for epoch in cfg.proc.epoch_to_process:
         # - For debugging purposes
         # M = targets[epoch].extract_object_coor_by_label(cfg.georef.targets_to_use)
         # m = cameras[epoch][cams[1]].project_point(M)
-        # plot_features(images[cams[1]][epoch], m)
-        # plot_features(images[cams[0]][epoch], features[epoch][cams[0]].get_keypoints())
+        # plot_features(images[cams[1]].read_image(epoch).value, m)
+        # plot_features(images[cams[0]].read_image(epoch).value, features[epoch][cams[0]].get_keypoints())
 
         # Clean variables
         del relative_ori, triangulation, abs_ori, points3d, pcd_epc
@@ -298,8 +298,8 @@ for epoch in cfg.proc.epoch_to_process:
         if cfg.proc.do_homography_warping:
             ep_ini = cfg.proc.epoch_to_process[0]
             cam = cfg.proc.camera_to_warp
-            image = images[cam][epoch]
-            out_path = f"res/warped/{images[cam].get_image_name(epoch)}"
+            image = images[cams[1]].read_image(epoch).value
+            out_path = f"res/warped/{images[cam][epoch]}"
             homography_warping(
                 cameras[ep_ini][cam], cameras[epoch][cam], image, out_path, timer
             )
@@ -367,7 +367,9 @@ if compute_orthophoto_dsm:
             fout_name = f"res/ortofoto/ortofoto_app_cam_{cam}_epc_{epoch}.tif"
             ortofoto[cam].append(
                 generate_ortophoto(
-                    cv2.cvtColor(images[cam][epoch], cv2.COLOR_BGR2RGB),
+                    cv2.cvtColor(
+                        images[cam].read_image(epoch).value, cv2.COLOR_BGR2RGB
+                    ),
                     dsms[epoch],
                     cameras[epoch][cam],
                     xlim=xlim,

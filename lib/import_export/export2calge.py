@@ -2,7 +2,7 @@ import numpy as np
 
 from pathlib import Path
 
-from lib.base_classes.images import Imageds
+from lib.base_classes.images import ImageDS
 from lib.base_classes.targets import Targets
 
 """
@@ -13,7 +13,7 @@ Export data to file for CALGE
 def export_keypoints_for_calge(
     filename: str,
     features: Features,
-    imageds: Imageds,
+    imageds: ImageDS,
     epoch: int = None,
     pixel_size_micron: float = None,
 ) -> None:
@@ -30,7 +30,7 @@ def export_keypoints_for_calge(
     Args:
         filename (str): path of the output csv file
         features (calsses.Features):
-        imageds (calsses.Imageds):
+        imageds (calsses.ImageDS):
         epoch (int, default = None):
         pixel_size_micron (float, default = None) [micron]
     """
@@ -49,7 +49,7 @@ def export_keypoints_for_calge(
             file.write("image_name, feature_id, x, y\n")
 
         for cam in cams:
-            image_name = imageds[cam].get_image_name(epoch)
+            image_name = imageds[cam][epoch]
 
             # Write image name line
             # NB: must be manually modified if it contains characters of symbols

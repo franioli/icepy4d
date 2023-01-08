@@ -7,7 +7,7 @@ from time import sleep
 from easydict import EasyDict as edict
 from tqdm import tqdm
 
-from lib.base_classes.images import Image, Imageds
+from lib.base_classes.images import Image, ImageDS
 from lib.read_config import parse_yaml_cfg
 from random import randint
 
@@ -137,7 +137,7 @@ if __name__ == "__main__":
     # Create Image Datastore objects
     images = dict.fromkeys(cams)
     for cam in cams:
-        images[cam] = Imageds(cfg.paths.image_dir / cam)
+        images[cam] = ImageDS(cfg.paths.image_dir / cam)
 
     epoch_dict = {}
     for epoch in cfg.proc.epoch_to_process:

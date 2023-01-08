@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Tuple, Union
 
 from lib.base_classes.features import Features
-from lib.base_classes.images import Imageds
+from lib.base_classes.images import ImageDS
 from lib.read_config import parse_yaml_cfg
 
 from thirdparty.SuperGluePretrainedNetwork.superpoint import SuperPoint
@@ -202,7 +202,7 @@ class SuperPoint_detector_descriptor:
 if __name__ == "__main__":
 
     import cv2
-    from base_classes.classes_old import Imageds, Features
+    from base_classes.classes_old import ImageDS, Features
 
     cfg_file = "config/config_base.yaml"
     cfg = parse_yaml_cfg(cfg_file)
@@ -212,7 +212,7 @@ if __name__ == "__main__":
     # Create Image Datastore objects
     images = dict.fromkeys(cams)
     for cam in cams:
-        images[cam] = Imageds(cfg.paths.imdir / cam)
+        images[cam] = ImageDS(cfg.paths.imdir / cam)
 
     superpoint_detector = SuperPoint_detector_descriptor(cfg.matching.max_keypoints)
 

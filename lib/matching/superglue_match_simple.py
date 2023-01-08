@@ -120,7 +120,7 @@ if __name__ == "__main__":
     print("test matching")
 
     from tiles import Tiles
-    from base_classes.images import Image, Imageds
+    from base_classes.images import Image, ImageDS
 
     matching_config = "config/opt_matching.json"
     with open(
@@ -128,7 +128,7 @@ if __name__ == "__main__":
     ) as f:
         opt_matching = json.load(f)
 
-    images = Imageds(Path("images"))
+    images = ImageDS(Path("images"))
 
     img0, img1 = images[0], images[1]
     im0_path, im1_path = images.get_image_path(0), images.get_image_path(1)
