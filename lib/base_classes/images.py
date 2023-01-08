@@ -299,12 +299,16 @@ class ImageDS:
         return self
 
     def __next__(self):
-        while self._elem <= len(self):
+        while self._elem < len(self):
             file = self.files[self._elem - 1]
             self._elem += 1
             return file
         else:
+            self._elem
             raise StopIteration
+
+    def reset_iterator(self) -> None:
+        self._elem = 0
 
     def read_image(self, idx: int) -> Image:
         """Return image at position idx as Image instance, containing both exif and value data (accessible by value proprierty, e.g., image.value)"""
