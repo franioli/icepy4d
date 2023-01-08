@@ -1,12 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2
-from lib.base_classes.images import Imageds
+from lib.base_classes.images import ImageDS
 import threading
 
 global ax, _plot_style
 
-images = Imageds("data/img/p2")
+images = ImageDS("data/img/p2")
 image = cv2.cvtColor(images[0], cv2.COLOR_BGR2RGB)
 _plot_style = dict(
     markersize=5,

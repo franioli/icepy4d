@@ -48,7 +48,7 @@ def imshow_cv(
     if win_name is None:
         win_name = "image"
     if convert_RGB2BRG:
-        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
     cv2.namedWindow(win_name, cv2.WINDOW_NORMAL)
     cv2.imshow(win_name, img)

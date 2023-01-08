@@ -30,9 +30,9 @@ from pathlib import Path
 from easydict import EasyDict as edict
 from typing import List
 
-from lib.base_classes.images import Imageds
+from lib.base_classes.images import ImageDS
 
-# from classes import Imageds
+# from classes import ImageDS
 
 # This file defines a dictionary, cfg, which includes the default parameters of the pipeline.
 # The dictionary is updated/extended at runtime with the parameters defined by the user in the input yaml config file
@@ -76,7 +76,7 @@ def parse_yaml_cfg(cfg_file: edict, logger: logging = None) -> edict:
             )
         cams = cfg.paths.camera_names
         img_ds = dict.fromkeys(cams)
-        img_ds = Imageds(cfg.paths.image_dir / cams[0])
+        img_ds = ImageDS(cfg.paths.image_dir / cams[0])
         n_images = len(img_ds)
         cfg.proc.epoch_to_process = [x for x in range(n_images)]
     elif len(cfg.proc.epoch_to_process) == 2:
@@ -102,7 +102,7 @@ def validate_cfg(cfg: edict) -> None:
     cams = cfg.paths.camera_names
     images = dict.fromkeys(cams)
     for cam in cams:
-        images[cam] = Imageds(cfg.paths.image_dir / cam)
+        images[cam] = ImageDS(cfg.paths.image_dir / cam)
 
     # Check that number of images is the same for every camera
     for i in range(1, len(cams)):

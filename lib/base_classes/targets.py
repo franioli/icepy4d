@@ -48,7 +48,6 @@ class Targets:
 
     def __init__(
         self,
-        cam_id=None,
         im_file_path=None,
         obj_file_path=None,
         logger: logging = None,
@@ -96,9 +95,12 @@ class Targets:
         else:
             self.obj_coor = np.append(self.obj_coor, new_obj_coor, axis=0)
 
-    def get_target_labels(self, labels: List[str], cam_id=None):
-        """ """
-        pass
+    def get_target_labels(self, cam_id=None):
+        """Return target labels as a list"""
+        if cam_id is not None:
+            return list(self.im_coor[cam_id].label)
+        else:
+            return [list(self.im_coor[x].label) for x, _ in enumerate(self.im_coor)]
 
     def extract_image_coor_by_label(
         self,
@@ -108,6 +110,7 @@ class Targets:
         """
         Return image coordinates of the targets on the images given a list of target labels
         """
+        # TODO: implements checks on input parameters
         # try:
         coor = []
         for lab in labels:
@@ -118,7 +121,7 @@ class Targets:
                 else:
                     print(f"Warning: target {lab} is not present.")
             else:
-                print("provide cam id")
+                print("Unable to detect camera id. Please, provide cam id.")
                 return None
 
         return np.concatenate(coor, axis=0)
