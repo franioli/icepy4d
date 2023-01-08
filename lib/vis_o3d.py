@@ -7,7 +7,7 @@ from time import sleep
 from easydict import EasyDict as edict
 from tqdm import tqdm
 
-from lib.base_classes.images import Image, ImageDS
+from  import Image, ImageDS
 from lib.read_config import parse_yaml_cfg
 from random import randint
 
