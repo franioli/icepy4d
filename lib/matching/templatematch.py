@@ -244,7 +244,6 @@ if __name__ == "__main__":
 
     from copy import deepcopy
     from tqdm import tqdm
-    from PIL import Image, ImageDraw
 
     from lib.read_config import parse_yaml_cfg
     from lib.utils.inizialize_variables import Inizialization
@@ -377,7 +376,7 @@ if __name__ == "__main__":
                 cv2.MARKER_CROSS,
                 1,
             )
-            cv2.imwrite("tmp/" + images[cams[cam_id]].get_image_name(epoch), img)
+            cv2.imwrite("tmp/" + images[cams[cam_id]][epoch], img)
             # with Image.open(images[cams[cam_id]].get_image_path(epoch)) as im:
             #     draw = ImageDraw.Draw(im)
             #     draw.ellipse(list(np.concatenate((t_est[epoch],t_est[epoch]))), outline=(255,0,0), width=1)
