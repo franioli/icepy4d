@@ -354,28 +354,28 @@ class ImageDS:
 if __name__ == "__main__":
     """Test classes"""
 
-    # images = ImageDS("data/img2022/p1")
+    images = ImageDS("data/img2022/p1")
 
-    # # Get image name
-    # images[0]
+    # Get image name
+    images[0]
 
-    # # Get image stem
-    # images.get_image_stem(0)
+    # Get image stem
+    images.get_image_stem(0)
 
-    # # Get image path
-    # images.get_image_path(0)
+    # Get image path
+    images.get_image_path(0)
 
-    # # Get image as Image object and extect date and time
-    # img = images.read_image(0)
-    # img.date
-    # img.time
+    # Get image as Image object and extect date and time
+    img = images.read_image(0)
+    img.date
+    img.time
 
-    # # Read image as numpy array
-    # image = images.read_image(0).value
+    # Read image as numpy array
+    image = images.read_image(0).value
 
-    # # Write exif to csv file
-    # filename = "test.csv"
-    # images.write_exif_to_csv(filename)
+    # Write exif to csv file
+    filename = "test.csv"
+    images.write_exif_to_csv(filename)
 
     cams = ["p1", "p2"]
     images = {}
