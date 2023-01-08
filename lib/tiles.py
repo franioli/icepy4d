@@ -30,7 +30,7 @@ import numpy as np
 from pathlib import Path
 from typing import List, Union
 
-from base_classes.images import Image, Imageds
+from base_classes.images import Image, ImageDS
 
 
 def generateTiles(
@@ -186,7 +186,7 @@ class Tiler:
 if __name__ == "__main__":
     """Test classes"""
 
-    images = Imageds(Path("data/img2022/p1"))
+    images = ImageDS(Path("data/img2022/p1"))
     img = Image(images.get_image_path(0))
 
     tile_grid = (2, 1)

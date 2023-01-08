@@ -29,7 +29,7 @@ from typing import List, Union
 
 from lib.base_classes.camera import Camera
 from lib.base_classes.pointCloud import PointCloud
-from lib.base_classes.images import Image, Imageds
+from lib.base_classes.images_new import Image, ImageDS
 from lib.base_classes.targets import Targets
 from lib.base_classes.features import Features
 
@@ -40,11 +40,11 @@ class Inizialization:
         self.cfg = cfg
         self.cams = self.cfg.paths.camera_names
 
-    def init_image_ds(self) -> List[Imageds]:
+    def init_image_ds(self) -> dict:
         # Create Image Datastore objects
         images = dict.fromkeys(self.cams)
         for cam in self.cams:
-            images[cam] = Imageds(self.cfg.paths.image_dir / cam)
+            images[cam] = ImageDS(self.cfg.paths.image_dir / cam)
 
         self.images = images
         return self.images
@@ -55,40 +55,20 @@ class Inizialization:
             image = Image(self.images[self.cams[0]].get_image_path(epoch))
             epoch_dict[epoch] = Path(
                 (self.cfg.paths.results_dir)
-                / f"{image.date.year}_{image.date.month:02}_{image.date.day:02}"
+                / f"{image.get_datetime().year}_{image.get_datetime().month:02}_{image.get_datetime().day:02}"
             ).stem
 
         self.epoch_dict = epoch_dict
         return self.epoch_dict
 
     def init_cameras(self) -> dict:
-        cameras = dict.fromkeys(self.cams)
-        cameras[self.cams[0]], cameras[self.cams[1]] = [], []
-        im_height, im_width = self.images[self.cams[0]][0].shape[:2]
-
-        # Inizialize Camera Intrinsics at every epoch setting them equal to the those of the reference cameras.
-        for epoch in self.cfg.proc.epoch_to_process:
-
-            for cam in self.cams:
-                cameras[cam].insert(
-                    epoch,
-                    Camera(
-                        width=im_width,
-                        height=im_height,
-                        calib_path=self.cfg.paths.calibration_dir / f"{cam}.txt",
-                    ),
-                )
-
-        self.cameras = cameras
-        return self.cameras
-
-    def init_cameras_new(self) -> List[edict]:
         cameras = {}
 
         assert hasattr(
             self, "images"
         ), "Images datastore not available yet. Inizialize images first"
-        im_height, im_width = self.images[self.cams[0]][0].shape[:2]
+        img = Image(self.images[self.cams[0]].get_image_path(0))
+        im_height, im_width = img.height, img.width
 
         # Inizialize Camera Intrinsics at every epoch setting them equal to the those of the reference cameras.
         for epoch in self.cfg.proc.epoch_to_process:
@@ -104,14 +84,6 @@ class Inizialization:
         return self.cameras
 
     def init_features(self) -> dict:
-        features = dict.fromkeys(self.cams)
-        for cam in self.cams:
-            features[cam] = []
-
-        self.features = features
-        return self.features
-
-    def init_features_new(self) -> dict:
         features = {}
 
         for epoch in self.cfg.proc.epoch_to_process:
@@ -120,33 +92,7 @@ class Inizialization:
         self.features = features
         return self.features
 
-    def init_targets(self) -> List[Targets]:
-        # Read target image coordinates and object coordinates
-        targets = []
-        for epoch in self.cfg.proc.epoch_to_process:
-
-            p1_path = self.cfg.georef.target_dir / (
-                self.images[self.cams[0]].get_image_stem(epoch)
-                + self.cfg.georef.target_file_ext
-            )
-
-            p2_path = self.cfg.georef.target_dir / (
-                self.images[self.cams[1]].get_image_stem(epoch)
-                + self.cfg.georef.target_file_ext
-            )
-
-            targets.append(
-                Targets(  # self.init_cameras()
-                    im_file_path=[p1_path, p2_path],
-                    obj_file_path=self.cfg.georef.target_dir
-                    / self.cfg.georef.target_world_file,
-                )
-            )
-
-        self.targets = targets
-        return self.targets
-
-    def init_targets_new(self) -> List[Targets]:
+    def init_targets(self) -> dict:
         # Read target image coordinates and object coordinates
         targets = {}
         for epoch in self.cfg.proc.epoch_to_process:
@@ -174,13 +120,17 @@ class Inizialization:
         self.point_clouds = {}
         return self.point_clouds
 
+    def init_focals_dict(self) -> dict:
+        self.focals_dict = {0: [], 1: []}
+
     def inizialize_belpy(self) -> dict:
         self.init_image_ds()
         self.init_epoch_dict()
-        self.init_cameras_new()
-        self.init_features_new()
-        self.init_targets_new()
+        self.init_cameras()
+        self.init_features()
+        self.init_targets()
         self.init_point_cloud()
+        self.init_focals_dict()
 
 
 if __name__ == "__main__":
@@ -192,5 +142,5 @@ if __name__ == "__main__":
     init = Inizialization(cfg)
     init.init_image_ds()
     init.init_epoch_dict()
-    init.init_cameras_new()
-    init.init_features_new()
+    init.init_cameras()
+    init.init_features()

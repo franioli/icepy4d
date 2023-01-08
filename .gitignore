@@ -9,6 +9,7 @@ data/calib/seq2021/
 res/
 tests/PSMNet/dataset
 tests/tmp/
+tmp/
 
 # VScode
 # .vscode/
