@@ -35,7 +35,7 @@ from typing import List, Union
 from lib.base_classes.images import ImageDS
 from lib.base_classes.targets import Targets
 
-from lib.matching.templatematch import TemplateMatch, Stats
+from lib.matching.templatematch import TemplateMatch, Stats, MatchResult
 from lib.read_config import parse_yaml_cfg
 from lib.utils.utils import AverageTimer
 from lib.utils.inizialize_variables import Inizialization
@@ -144,6 +144,8 @@ class TrackTargets:
             search_width=self.search_width,
         )
         r = tm.match()
+
+        # Print result to std out
         if self.verbose:
             if r:
                 print(
@@ -151,6 +153,12 @@ class TrackTargets:
                 )
             else:
                 print("Target not found")
+
+        # Create output image with the tracked target marked
+        # TODO: pass output folder param to class
+        if self.debug_viz:
+            if r:
+                self.viz_result("tmp/out", r)
 
         self.results[self._cur_target][self._iter] = r
         del self._A, self._B, tm, r
@@ -183,6 +191,22 @@ class TrackTargets:
             self._iter = 0
             self._cur_target += 1
 
+    def viz_result(self, out_dir: Union[str, Path], res: MatchResult) -> None:
+
+        out_dir = Path(out_dir)
+        x_est = self.patch_centers[self._cur_target, 0] + res.du
+        y_est = self.patch_centers[self._cur_target, 1] + res.dv
+
+        img = cv2.imread(str(self.images.get_image_path(self._iter)))
+        cv2.drawMarker(
+            img,
+            (np.round(x_est).astype(int), np.round(y_est).astype(int)),
+            (255, 0, 0),
+            cv2.MARKER_CROSS,
+            1,
+        )
+        cv2.imwrite(str(out_dir / self.images[self._iter]), img)
+
     def write_results_to_file(
         self,
         folder: Union[str, Path],
@@ -200,15 +224,20 @@ class TrackTargets:
             f = open(folder / f"{image.stem}.{format}", "w")
             f.write(f"label{sep}x{sep}y\n")
             for i in range(num_targets):
-                x_est = self.patch_centers[i, 0] + self.results[i][ep].du
-                y_est = self.patch_centers[i, 1] + self.results[i][ep].dv
-                f.write(f"{targets_name[i]}{sep}{x_est:.4f}{sep}{y_est:.4f}\n")
+                if self.results[i][ep]:
+                    x_est = self.patch_centers[i, 0] + self.results[i][ep].du
+                    y_est = self.patch_centers[i, 1] + self.results[i][ep].dv
+                    f.write(f"{targets_name[i]}{sep}{x_est:.4f}{sep}{y_est:.4f}\n")
+                else:
+                    print(
+                        f"Writing output error: target {targets_name[i]} not found on image {image.stem}"
+                    )
             f.close()
 
 
 if __name__ == "__main__":
 
-    cfg_file = "config/config_base.yaml"
+    cfg_file = "config/config_2021.yaml"
     cfg = parse_yaml_cfg(cfg_file)
     init = Inizialization(cfg)
     init.inizialize_belpy()
@@ -216,10 +245,10 @@ if __name__ == "__main__":
     images = init.images
     targets = init.targets
 
-    cam_id = 0
-    epoch = 0
+    # cam_id = 0
+    cam_id = 1
     patch_width = 256
-    targets_to_use = ["F2", "F11"]  #
+    targets_to_use = ["F2", "F12"]  #
 
     template_width = 16
     search_width = 64
@@ -240,6 +269,7 @@ if __name__ == "__main__":
         patch_centers=targets_coord,
         template_width=16,
         search_width=64,
+        debug_viz=True,
     )
     # tracking.viz_template()
     # tracking.track()
