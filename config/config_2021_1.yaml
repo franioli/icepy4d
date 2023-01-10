@@ -1,0 +1,125 @@
+#- Define paths and base settings
+# All pahts MUST be relative to the root folder of Belpy and
+# they will be converted to pathlib.Path when parsing this yaml file)
+paths:
+  image_dir: "data/img2021" # "data/img2021" #
+  calibration_dir: "data/calib"
+  results_dir: "res"
+  camera_names: ["p1", "p2"]
+  last_match_path: "res/last_epoch/last_features.pickle"
+
+#- Processing options
+proc:
+  #- Epoches to process
+  # It can be either 'all' for processing all the epochs,
+  # A list of two integers for processing a range of epoches
+  # or a list with the epoche numbers to be processed
+  epoch_to_process: [0, 52] # "all" #[0, 2] #    # [0] #
+
+  #- Switches to find and track matches
+  do_matching: true #true #
+  do_tracking: true
+
+  #- Do space resection of first camera
+  do_space_resection: false
+
+  #- If True try to coregister point clouds based on n double points
+  do_coregistration: true
+
+  #- Perform full Bundle Adjustment in Agisoft Metashape and build dense cloud
+  # (need Agisoft licence properly configured)
+  do_metashape_bba: true
+  do_metashape_dense: true
+
+  # Warp images of one camera based on the exterior orientation estimated in BBA
+  # Zero translation between cameras at different epoches, but rotation only, is assumed to estimate homography transformation
+  do_homography_warping: true
+  camera_to_warp: "p2"
+
+#- Image-related options
+images:
+  #- Bounding box for processing the images from the two cameras
+  # It must be a list of list of lists (one list for each camera)
+  # with the min/max coordinates as [xmin ymin xmax ymax]
+  # mask_bounding_box: [[1000, 1500, 5600, 3700], [100, 1800, 4700, 4000]]
+  mask_bounding_box: [[900, 1000, 5600, 3900], [200, 1200, 4900, 4000]]
+
+#- Georeferencing (i.e. absolute orientation) information
+georef:
+  #- Camera centers obtained from Metashape model in July [m]
+  camera_centers_world: [
+      [151.962, 99.065, 91.643], # p1
+      [309.261, 301.051, 135.008], # p2
+    ]
+
+  #- Targets' information
+  # Target information must be stored in file one file per image saved with the name of the relative image (with target_file_ext extension)
+  target_dir: "data/targets_2021" # "data/targets2021" #
+  target_file_ext: ".csv"
+  target_world_file: "target_world_p1.csv"
+
+  #- Targets to use for Absolute Orientation, Space Resection and Bundle Adjustment
+  targets_to_use: ["F2", "F13"] #, "F10" # "F4",
+
+#- Other On-Off switches
+other:
+  #- visualize outputs
+  do_viz: true
+
+  #- Point cloud processing
+  do_SOR_filter: False
+
+  #- Threshold for PyDegensac robust estimation (in px)
+  # (used to reject false matches and compute relative orientation)
+  pydegensac_treshold: 1
+
+#- Matching options
+matching:
+  output_dir: "./"
+  resize: [-1]
+  resize_float: true
+  equalize_hist: false
+  nms_radius: 3
+  keypoint_threshold: 0.0001
+  max_keypoints: 8192 #4096 #  10240
+  superglue: "outdoor"
+  sinkhorn_iterations: 100
+  match_threshold: 0.10
+  viz: false
+  viz_extension: "png"
+  fast_viz: false
+  opencv_display: false
+  show_keypoints: false
+  cache: false
+  force_cpu: false
+  useTile: true
+  writeTile2Disk: false
+  do_viz_tile: true
+  rowDivisor: 2
+  colDivisor: 3
+  overlap: 400
+
+#- Tracking options
+tracking:
+  output_dir: "./"
+  resize: [-1]
+  resize_float: true
+  equalize_hist: false
+  nms_radius: 3
+  keypoint_threshold: 0.005
+  max_keypoints: 8192
+  superglue: "outdoor"
+  sinkhorn_iterations: 100
+  match_threshold: 0.3
+  viz: false
+  viz_extension: "png"
+  fast_viz: false
+  opencv_display: false
+  show_keypoints: false
+  cache: false
+  force_cpu: false
+  useTile: true
+  writeTile2Disk: false
+  do_viz_tile: false
+  rowDivisor: 2
+  colDivisor: 3
