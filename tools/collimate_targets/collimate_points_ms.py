@@ -32,6 +32,10 @@ def write_markers_one_cam_per_file() -> None:
                 if cur_cam == camera:
                     x, y = projections[cur_cam].coord
 
+                    # subtract 0.5 px to image coordinates (metashape image RS)
+                    x -= 0.5
+                    y -= 0.5
+
                     # writing output to file
                     file.write(f"{marker_name},{x:.4f},{y:.4f}\n")
         file.close()
