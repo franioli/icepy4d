@@ -293,8 +293,22 @@ class ImageDS:
 
     def __getitem__(self, idx: int) -> str:
         """Return image name (including extension) at position idx in datastore"""
-
         return self.files[idx].name
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        while self._elem < len(self):
+            file = self.files[self._elem - 1]
+            self._elem += 1
+            return file
+        else:
+            self._elem
+            raise StopIteration
+
+    def reset_iterator(self) -> None:
+        self._elem = 0
 
     def read_image(self, idx: int) -> Image:
         """Return image at position idx as Image instance, containing both exif and value data (accessible by value proprierty, e.g., image.value)"""
@@ -307,6 +321,7 @@ class ImageDS:
         self.files = None
         self.folder = None
         self.ext = None
+        self._elem = 0
 
     def read_image_list(self, recursive: bool = None) -> None:
         assert self.folder.is_dir(), "Error: invalid image directory."
@@ -373,14 +388,20 @@ if __name__ == "__main__":
     # Read image as numpy array
     image = images.read_image(0).value
 
-    # Write exif to csv file
-    filename = "test.csv"
-    images.write_exif_to_csv(filename)
+    # Test ImageDS iterator
+    print(next(images))
+    print(next(images))
+    for i in images:
+        print(i)
 
-    cams = ["p1", "p2"]
-    images = {}
-    for cam in cams:
-        images[cam] = ImageDS(Path("data/img2021") / cam)
-        images[cam].write_exif_to_csv(f"data/img2021/image_list_{cam}.csv")
+    # Write exif to csv file
+    # filename = "test.csv"
+    # images.write_exif_to_csv(filename)
+
+    # cams = ["p1", "p2"]
+    # images = {}
+    # for cam in cams:
+    #     images[cam] = ImageDS(Path("data/img2021") / cam)
+    #     images[cam].write_exif_to_csv(f"data/img2021/image_list_{cam}.csv")
 
     print("Done")

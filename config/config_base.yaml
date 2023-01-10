@@ -6,7 +6,7 @@ paths:
   calibration_dir: "data/calib"
   results_dir: "res"
   camera_names: ["p1", "p2"]
-  last_match_path: "res/last_epoch/last_features.pickle"
+  # last_match_path: "res/last_epoch/last_features.pickle" #Deprecated parameter
 
 #- Processing options
 proc:
@@ -14,10 +14,10 @@ proc:
   # It can be either 'all' for processing all the epochs,
   # A list of two integers for processing a range of epoches
   # or a list with the epoche numbers to be processed
-  epoch_to_process: [0, 2] #"all" #    # [0] #
+  epoch_to_process: "all" #[0, 2] #  [0] #
 
   #- Switches to find and track matches
-  do_matching: true #true #
+  do_matching: false
   do_tracking: true
 
   #- Do space resection of first camera
@@ -33,7 +33,7 @@ proc:
 
   # Warp images of one camera based on the exterior orientation estimated in BBA
   # Zero translation between cameras at different epoches, but rotation only, is assumed to estimate homography transformation
-  do_homography_warping: true
+  do_homography_warping: false
   camera_to_warp: "p2"
 
 #- Image-related options
@@ -56,10 +56,10 @@ georef:
   # Target information must be stored in file one file per image saved with the name of the relative image (with target_file_ext extension)
   target_dir: "data/targets" # "data/targets2021" #
   target_file_ext: ".csv"
-  target_world_file: "target_world_p1.csv"
+  target_world_file: "target_world.csv"
 
   #- Targets to use for Absolute Orientation, Space Resection and Bundle Adjustment
-  targets_to_use: ["F2", "T2", "F11"] #, "F10" # "F4",
+  targets_to_use: ["F2", "T2", "F11"]
 
 #- Other On-Off switches
 other:
