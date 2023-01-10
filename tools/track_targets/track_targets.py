@@ -34,11 +34,9 @@ from typing import List, Union
 
 from lib.base_classes.images import ImageDS
 from lib.base_classes.targets import Targets
-
 from lib.matching.templatematch import TemplateMatch, Stats, MatchResult
-from lib.read_config import parse_yaml_cfg
+from lib.utils.initialization import parse_yaml_cfg, Inizialization
 from lib.utils.utils import AverageTimer
-from lib.utils.inizialize_variables import Inizialization
 
 
 class TrackTargets:
