@@ -17,7 +17,7 @@ proc:
   epoch_to_process: "all" #[0, 2] #    # [0] #
 
   #- Switches to find and track matches
-  do_matching: true #true #
+  do_matching: false #true #
   do_tracking: true
 
   #- Do space resection of first camera
@@ -33,7 +33,7 @@ proc:
 
   # Warp images of one camera based on the exterior orientation estimated in BBA
   # Zero translation between cameras at different epoches, but rotation only, is assumed to estimate homography transformation
-  do_homography_warping: true
+  do_homography_warping: false
   camera_to_warp: "p2"
 
 #- Image-related options

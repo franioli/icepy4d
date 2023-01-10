@@ -32,9 +32,7 @@ from typing import List
 
 from lib.base_classes.images import ImageDS
 
-# from classes import ImageDS
-
-# This file defines a dictionary, cfg, which includes the default parameters of the pipeline.
+# This file defines the dictionary cfg which includes the default parameters of the pipeline.
 # The dictionary is updated/extended at runtime with the parameters defined by the user in the input yaml config file
 
 

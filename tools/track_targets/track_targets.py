@@ -46,16 +46,19 @@ class TrackTargets:
         self,
         images: ImageDS,
         patch_centers: List[np.ndarray],
+        out_dir: str,
         patch_width: int = 512,
         method: str = "OC",
         template_width: int = 32,
         search_width: int = 128,
         base_epoch: int = 0,
+        target_names: List[str] = None,
         verbose: bool = True,
         debug_viz: bool = False,
     ) -> None:
 
         self.images = images
+        self.out_dir = Path(out_dir)
         self.patch_centers = patch_centers
         self.patch_width = patch_width
         self.method = method
@@ -63,6 +66,7 @@ class TrackTargets:
         self.search_width = search_width
         self.base_epoch = base_epoch
 
+        self.target_names = target_names
         self.verbose = verbose
         self.debug_viz = debug_viz
 
@@ -87,6 +91,12 @@ class TrackTargets:
             raise StopIteration
 
     def extract_pathes(self, epoch: int = None) -> None:
+        """
+        extract_pathes Extract image patches for template matching.
+
+        Args:
+            epoch (int, optional): index of the image of ImageDS in which the target has to be search. If None, self._iter will be used. Defaults to None.
+        """
         # Coordinates of the center of the patch in full image
         if epoch is not None:
             iter = epoch
@@ -134,6 +144,9 @@ class TrackTargets:
         del img
 
     def track_single_epoch(self) -> None:
+        """
+        track_single_epoch method to actual perform feature tracking on next image
+        """
         self.extract_pathes()
         tm = TemplateMatch(
             A=cv2.cvtColor(self._A, cv2.COLOR_RGB2GRAY),
@@ -158,7 +171,7 @@ class TrackTargets:
         # TODO: pass output folder param to class
         if self.debug_viz:
             if r:
-                self.viz_result("tmp/out", r)
+                self.viz_result(self.out_dir, r)
 
         self.results[self._cur_target][self._iter] = r
         del self._A, self._B, tm, r
@@ -169,7 +182,8 @@ class TrackTargets:
         track Perform tracking of the patch in all the following epoches by calling TemplateMatch
         """
 
-        print(f"\tEpoch {self._iter}... ", end=" ")
+        print(f"\tEpoch {self._iter} - image: {self.images[self._iter]}... ", end=" ")
+
         self.track_single_epoch()
 
         # Go to next epoch and call track recursively
@@ -183,41 +197,79 @@ class TrackTargets:
         """
         track_all_targets run tracking for all the targets that are present in self.patch_centers
         """
+        timer = AverageTimer(newline=True)
+
         num_targets = self.patch_centers.shape[0]
         while self._cur_target < num_targets:
-            print(f"Tracking target {self._cur_target}")
+            if self.target_names is not None:
+                target_name = self.target_names[self._cur_target]
+            else:
+                target_name = self._cur_target
+            print(f"Tracking target {target_name}")
             self.results[self._cur_target] = {}
             self.track()
+            timer.update(f"target {target_name}")
+
             self._iter = 0
             self._cur_target += 1
 
+        # Write targets to csv files
+        self.write_results_to_file(self.out_dir, self.target_names)
+
     def viz_result(self, out_dir: Union[str, Path], res: MatchResult) -> None:
+        """
+        viz_result Visualize the tracked point on the image B patch and write image to disk
 
-        out_dir = Path(out_dir)
-        x_est = self.patch_centers[self._cur_target, 0] + res.du
-        y_est = self.patch_centers[self._cur_target, 1] + res.dv
-
-        img = cv2.imread(str(self.images.get_image_path(self._iter)))
+        Args:
+            out_dir (Union[str, Path]): output directory where to save image
+            res (MatchResult): MatchResult instance containing template matching result
+        """
+        out_dir = Path(out_dir) / "img"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        x_est = res.pu + res.du
+        y_est = res.pv + res.dv
+        img = deepcopy(cv2.cvtColor(self._B, cv2.COLOR_RGB2BGR))
         cv2.drawMarker(
             img,
             (np.round(x_est).astype(int), np.round(y_est).astype(int)),
-            (255, 0, 0),
+            (0, 255, 0),
             cv2.MARKER_CROSS,
-            1,
+            2,
         )
-        cv2.imwrite(str(out_dir / self.images[self._iter]), img)
+        im_name = self.images.get_image_stem(self._iter)
+        ext = self.images.get_image_path(self._iter).suffix
+        if self.target_names is not None:
+            target_name = self.target_names[self._cur_target]
+        else:
+            target_name = self._cur_target
+        cv2.imwrite(
+            str(out_dir / f"{im_name}_{target_name}{ext}"),
+            img,
+        )
 
     def write_results_to_file(
         self,
         folder: Union[str, Path],
-        targets_name: List[str],
+        targets_name: List[str] = None,
         format: str = "csv",
         sep: str = ",",
     ) -> None:
+        """
+        write_results_to_file Write (full) image coordinates of the tracked target to csv file
+
+        Args:
+            folder (Union[str, Path]): output folder
+            targets_name (List[str], optional): List containing the target names. If None, a numeric index will be used. Defaults to "None".
+            format (str, optional): output file format. Defaults to "csv".
+            sep (str, optional): field separator. Defaults to ",".
+        """
+
         folder = Path(folder)
         self._cur_target = 0
         self._iter = 0
         num_targets = self.patch_centers.shape[0]
+        if targets_name is None:
+            targets_name = [x for x in range(num_targets)]
 
         self.images.reset_iterator()
         for ep, image in enumerate(self.images):
@@ -237,6 +289,7 @@ class TrackTargets:
 
 if __name__ == "__main__":
 
+    # Parameters
     cfg_file = "config/config_2021.yaml"
     cfg = parse_yaml_cfg(cfg_file)
     init = Inizialization(cfg)
@@ -245,35 +298,45 @@ if __name__ == "__main__":
     images = init.images
     targets = init.targets
 
-    # cam_id = 0
-    cam_id = 1
-    patch_width = 256
-    targets_to_use = ["F2", "F12"]  #
+    targets_to_use = ["F2", "F13"]
 
+    patch_width = 256
     template_width = 16
     search_width = 64
 
     debug_viz = False
     debug = True
 
-    t_est = {}
-    diff = {}
-    diff_noCC = {}
+    for cam_id, cam in enumerate(cams):
+        print(f"Processing camera {cam}")
 
-    targets_coord = np.zeros((len(targets_to_use), 2))
-    for i, t in enumerate(targets_to_use):
-        targets_coord[i] = targets[0].extract_image_coor_by_label([t], cam_id).squeeze()
+        # Initialize dictionaries for storing results
+        t_est = {}
+        diff = {}
+        diff_noCC = {}
 
-    tracking = TrackTargets(
-        images=images[cams[cam_id]],
-        patch_centers=targets_coord,
-        template_width=16,
-        search_width=64,
-        debug_viz=True,
-    )
-    # tracking.viz_template()
-    # tracking.track()
-    tracking.track_all_targets()
-    tracking.write_results_to_file("tmp/out", targets_to_use)
+        # Define nx2 array with image coordinates of the targets to track
+        # in the form of:
+        # [x1, y1],
+        # [x2, y2]...
+        # You can create it manually or use Target class
+        targets_coord = np.zeros((len(targets_to_use), 2))
+        for i, t in enumerate(targets_to_use):
+            targets_coord[i] = (
+                targets[0].extract_image_coor_by_label([t], cam_id).squeeze()
+            )
 
-    print("")
+        # Define TrackTargets object and run tracking
+        tracking = TrackTargets(
+            images=images[cams[cam_id]],
+            patch_centers=targets_coord,
+            out_dir="tools/track_target/2021_01",
+            target_names=targets_to_use,
+            patch_width=512,
+            template_width=16,
+            search_width=128,
+            debug_viz=True,
+        )
+        tracking.track_all_targets()
+
+        print("Done.")

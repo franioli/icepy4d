@@ -84,6 +84,7 @@ def build_ms_cfg_base(dir: Path, epoch_dict: dict, epoch: int) -> edict:
             "optimize_cameras": True,
             "build_dense": True,
             "dense_downscale_image": 1,
+            "depth_filter": "AggressiveFiltering",
             "dense_path": Path("res/point_clouds"),  # ms_dir,
             "dense_name": f"dense_ep_{epoch:02}_{epoch_dict[epoch]}.ply",
             "force_overwrite_projects": True,
@@ -175,10 +176,33 @@ class MetashapeProject:
     def solve_bundle(self) -> None:
         self.doc.chunk.optimizeCameras(fit_f=True, tiepoint_covariance=True)
 
-    def build_dense_cloud(self, save_cloud: bool = True) -> None:
+    def build_dense_cloud(
+        self, save_cloud: bool = True, depth_filter: str = "ModerateFiltering"
+    ) -> None:
+        """
+        build_dense_cloud
+
+        Args:
+            save_cloud (bool, optional): Save point cloud to disk. Defaults to True.
+            depth_filter (str, optional): Depth filtering mode in [NoFiltering, MildFiltering, ModerateFiltering, AggressiveFiltering]. Defaults to "moderate".
+        """
+        
+        if depth_filter == "NoFiltering,":
+            filter = Metashape.FilterMode.NoFiltering
+        elif depth_filter == "MildFiltering,":
+            filter = Metashape.FilterMode.MildFiltering
+        elif depth_filter == "ModerateFiltering":
+            filter = Metashape.FilterMode.ModerateFiltering
+        elif depth_filter == "AggressiveFiltering":
+            filter = Metashape.FilterMode.AggressiveFiltering
+        else:
+            print(
+                "Error: invalid choise of depth filtering. Choose one in [NoFiltering, MildFiltering, ModerateFiltering, AggressiveFiltering]"
+            )
+
         self.doc.chunk.buildDepthMaps(
             downscale=self.cfg.dense_downscale_image,
-            filter_mode=Metashape.FilterMode.ModerateFiltering,
+            filter_mode=filter,
             reuse_depth=False,
             max_neighbors=16,
             subdivide_task=True,
@@ -296,7 +320,10 @@ class MetashapeProject:
         if self.timer:
             self.timer.update("bundle")
         if self.cfg.build_dense:
-            self.build_dense_cloud()
+            if self.cfg.depth_filter:
+                self.build_dense_cloud(depth_filter=self.cfg.depth_filter)
+            else:
+                self.build_dense_cloud()
             if self.timer:
                 self.timer.update("dense")
         self.export_camera_extrinsics()
