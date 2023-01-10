@@ -6,10 +6,10 @@ from pathlib import Path
 from time import sleep
 from easydict import EasyDict as edict
 from tqdm import tqdm
+from random import randint
 
 from lib.base_classes.images import Image, ImageDS
-from lib.read_config import parse_yaml_cfg
-from random import randint
+from lib.utils.initialization import parse_yaml_cfg, Inizialization
 
 
 def read_asci_pc(path):

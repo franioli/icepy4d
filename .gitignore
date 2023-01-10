@@ -2,14 +2,12 @@
 *_old/
 *.old/
 data/img*/
-data/img2022/
-data/img2021/
-data/img2022_august/
-data/calib/seq2021/
 res/
-tests/PSMNet/dataset
-tests/tmp/
 tmp/
+tools/track_targets/results/
+tools/collimate_targets/data/
+tools/collimate_targets/targets/
+sandbox/
 
 # VScode
 # .vscode/
