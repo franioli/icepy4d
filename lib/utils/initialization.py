@@ -41,8 +41,8 @@ from lib.base_classes.features import Features
 # The dictionary is updated/extended at runtime with the parameters defined by the user in the input yaml config file
 
 
-def parse_yaml_cfg(cfg_file: edict, logger: logging = None) -> edict:
-    
+def parse_yaml_cfg(cfg_file: edict) -> edict:
+
     with open(cfg_file) as file:
         cfg = edict(yaml.safe_load(file))
 
@@ -57,10 +57,7 @@ def parse_yaml_cfg(cfg_file: edict, logger: logging = None) -> edict:
     # - Processing options
     if cfg.proc.do_matching == False and cfg.proc.do_tracking == True:
         msg = "Warning: Invalid combination of options between Matching and Tracking. Tracking was se to enabled, but Matching was not. Disabling Tracking."
-        if logger is not None:
-            logger.warning(msg)
-        else:
-            print(msg)
+        logging.warning(msg)
 
         cfg.proc.do_tracking == False
 
@@ -73,25 +70,25 @@ def parse_yaml_cfg(cfg_file: edict, logger: logging = None) -> edict:
 
     # Check and expand epoches to be processed
     if cfg.proc.epoch_to_process == "all":
-        if logger is not None:
-            logger.warning(
-                "Epoch_to_process set to 'all'. Expanding it based on the images found in image folder."
-            )
+        logging.warning(
+            "Epoch_to_process set to 'all'. Expanding it based on the images found in image folder."
+        )
         cams = cfg.paths.camera_names
         img_ds = dict.fromkeys(cams)
         img_ds = ImageDS(cfg.paths.image_dir / cams[0])
         n_images = len(img_ds)
         cfg.proc.epoch_to_process = [x for x in range(n_images)]
     elif len(cfg.proc.epoch_to_process) == 2:
-        if logger is not None:
-            logger.warning(
-                "Epoch_to_process set to a pair of values. Expanding it for a range of epoches from the first to the second."
-            )
+        logging.warning(
+            "Epoch_to_process set to a pair of values. Expanding it for a range of epoches from the first to the second."
+        )
         ep_ini = cfg.proc.epoch_to_process[0]
         ep_fin = cfg.proc.epoch_to_process[1]
         cfg.proc.epoch_to_process = [x for x in range(ep_ini, ep_fin)]
     else:
-        raise ValueError("Invalid input of epoches to process")
+        msg = "Invalid input of epoches to process"
+        logging.error(msg)
+        raise ValueError(msg)
     assert isinstance(cfg.proc.epoch_to_process, list) and all(
         isinstance(element, int) for element in cfg.proc.epoch_to_process
     ), "Invalid input of epoches to process"
@@ -122,7 +119,10 @@ def print_cfg(cfg) -> None:
 
 
 class Inizialization:
-    def __init__(self, cfg: edict) -> None:
+    def __init__(
+        self,
+        cfg: edict,
+    ) -> None:
 
         self.cfg = cfg
         self.cams = self.cfg.paths.camera_names

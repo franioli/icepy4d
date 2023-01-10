@@ -264,15 +264,15 @@ class ImageDS:
         folder: Union[str, Path],
         ext: str = None,
         recursive: bool = False,
-        logger: logging = None,
+        logging: logging = None,
     ) -> None:
         self.reset_imageds()
 
         self.folder = Path(folder)
         if not self.folder.exists():
             msg = "Error: invalid input path."
-            if logger is not None:
-                logger.error(msg)
+            if logging is not None:
+                logging.error(msg)
             else:
                 print(msg)
             return

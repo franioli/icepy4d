@@ -354,7 +354,7 @@ if __name__ == "__main__":
 
         print(f"\tEpoch {epoch}... ", end=" ")
 
-        t = targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id).squeeze()
+        t = targets[epoch].get_image_coor_by_label(targets_to_use, cam_id).squeeze()
 
         t_int = np.round(t).astype(int)
         roi = [
@@ -401,13 +401,10 @@ if __name__ == "__main__":
         # t_est[epoch] = np.array([r.pu + roi[0] + r.du, r.pv + roi[1] + r.dv])
 
         if debug:
-            t_meas = targets[epoch].extract_image_coor_by_label(targets_to_use, cam_id)[
-                0
-            ]
+            t_meas = targets[epoch].get_image_coor_by_label(targets_to_use, cam_id)[0]
             diff[epoch] = t_meas - t_est[epoch]
             diff_noCC[epoch] = (
-                t_meas
-                - targets[0].extract_image_coor_by_label(targets_to_use, cam_id)[0]
+                t_meas - targets[0].get_image_coor_by_label(targets_to_use, cam_id)[0]
             )
 
             print(
