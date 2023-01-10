@@ -47,7 +47,7 @@ class Camera:
         t: np.ndarray = None,
         extrinsics: np.ndarray = None,
         calib_path: Union[str, Path] = None,
-        logger: logging = None,
+        logging: logging = None,
     ):
         """Initialize pinhole camera model
         All the Camera members are private in order to guarantee consistency

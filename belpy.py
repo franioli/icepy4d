@@ -46,7 +46,7 @@ from lib.sfm.absolute_orientation import (
     Absolute_orientation,
     Space_resection,
 )
-from lib.utils.initialization import parse_yaml_cfg, Inizialization, Inizialization
+from lib.utils.initialization import parse_yaml_cfg, Inizialization
 from lib.utils.utils import (
     AverageTimer,
     homography_warping,
@@ -60,7 +60,8 @@ from lib.visualization import (
     plot_features,
     imshow_cv,
 )
-from lib.import_export.export2bundler import write_bundler_out
+
+# from lib.import_export.export2bundler import write_bundler_out
 from lib.metashape.metashape import (
     MetashapeProject,
     MetashapeReader,
@@ -70,10 +71,13 @@ from lib.metashape.metashape import (
 # CFG_FILE = "config/config_base.yaml"
 CFG_FILE = "config/config_2021_1.yaml"
 
+# Set logging level
+LOG_LEVEL = logging.WARNING
+logging.basicConfig(format="%(asctime)s | %(levelname)s: %(message)s", level=LOG_LEVEL)
+
 # Read options from yaml file
-logger = logging.getLogger("Belpy")
 timer_global = AverageTimer(newline=True)
-cfg = parse_yaml_cfg(CFG_FILE, logger)
+cfg = parse_yaml_cfg(CFG_FILE)
 
 """ Inizialize Variables """
 
@@ -131,7 +135,7 @@ for epoch in cfg.proc.epoch_to_process:
                     )
 
         except FileNotFoundError as err:
-            logger.exception(err)
+            logging.exception(err)
 
             print("Performing new matching and tracking...")
             features = MatchingAndTracking(
@@ -152,13 +156,10 @@ for epoch in cfg.proc.epoch_to_process:
     # At the first epoch, perform Space resection of the first camera by using GCPs. At all other epoches, set camera 1 EO equal to first one.
     if cfg.proc.do_space_resection and epoch == 0:
         """Initialize Single_camera_geometry class with a cameras object"""
-        cfg.georef.targets_to_use = ["T2", "T3", "T4", "F2", "F4"]
         space_resection = Space_resection(cameras[epoch][cams[0]])
         space_resection.estimate(
-            targets[epoch].extract_image_coor_by_label(
-                cfg.georef.targets_to_use, cam_id=0
-            ),
-            targets[epoch].extract_object_coor_by_label(cfg.georef.targets_to_use),
+            targets[epoch].get_image_coor_by_label(cfg.georef.targets_to_use, cam_id=0),
+            targets[epoch].get_object_coor_by_label(cfg.georef.targets_to_use),
         )
         # Store result in camera 0 object
         cameras[epoch][cams[0]] = space_resection.camera
@@ -197,20 +198,31 @@ for epoch in cfg.proc.epoch_to_process:
 
     # --- Absolute orientation (-> coregistration on stable points) ---#
     if cfg.proc.do_coregistration:
-        targets_abs_ori = ["F2"]  # cfg.georef.targets_to_use
-        abs_ori = Absolute_orientation(
-            (cameras[epoch][cams[0]], cameras[epoch][cams[1]]),
-            points3d_final=targets[epoch].extract_object_coor_by_label(targets_abs_ori),
-            image_points=(
-                targets[epoch].extract_image_coor_by_label(targets_abs_ori, cam_id=0),
-                targets[epoch].extract_image_coor_by_label(targets_abs_ori, cam_id=1),
-            ),
-            camera_centers_world=cfg.georef.camera_centers_world,
-        )
-        T = abs_ori.estimate_transformation_linear(estimate_scale=True)
-        points3d = abs_ori.apply_transformation(points3d=points3d)
-        for i, cam in enumerate(cams):
-            cameras[epoch][cam] = abs_ori.cameras[i]
+        try:
+            abs_ori = Absolute_orientation(
+                (cameras[epoch][cams[0]], cameras[epoch][cams[1]]),
+                points3d_final=targets[epoch].get_object_coor_by_label(
+                    cfg.georef.targets_to_use
+                ),
+                image_points=(
+                    targets[epoch].get_image_coor_by_label(
+                        cfg.georef.targets_to_use, cam_id=0
+                    ),
+                    targets[epoch].get_image_coor_by_label(
+                        cfg.georef.targets_to_use, cam_id=1
+                    ),
+                ),
+                camera_centers_world=cfg.georef.camera_centers_world,
+            )
+            T = abs_ori.estimate_transformation_linear(estimate_scale=True)
+            points3d = abs_ori.apply_transformation(points3d=points3d)
+            for i, cam in enumerate(cams):
+                cameras[epoch][cam] = abs_ori.cameras[i]
+        except ValueError as err:
+            logging.error(
+                "Absolute orientation not succeded. Not enough targets available. Skipping to the next epoch."
+            )
+            continue
 
     # Create point cloud and save .ply to disk
     pcd_epc = PointCloud(points3d=points3d, points_col=triangulation.colors)
@@ -220,11 +232,15 @@ for epoch in cfg.proc.epoch_to_process:
     # Metashape BBA and dense cloud
     if cfg.proc.do_metashape_bba:
         # Export results in Bundler format
-        # @TODO: modify function to work for single epoch data
-        write_bundler_out(
+
+        from lib.import_export.export2bundler import write_bundler_out_one_epoch
+
+        # TODO: Finishing to implement export one epoch function.
+        im_dict = {cam: images[cam].get_image_path(epoch) for cam in cams}
+        write_bundler_out_one_epoch(
             export_dir=epochdir / "metashape",
-            epoches=[epoch],
-            images=images,
+            epoch=epoch,
+            im_dict=im_dict,
             cams=cams,
             cameras=cameras,
             features=features,
@@ -233,6 +249,19 @@ for epoch in cfg.proc.epoch_to_process:
             targets_to_use=cfg.georef.targets_to_use,
             targets_enabled=[True, True],
         )
+
+        # write_bundler_out(
+        #     export_dir=epochdir / "metashape",
+        #     epoches=[epoch],
+        #     images=images,
+        #     cams=cams,
+        #     cameras=cameras,
+        #     features=features,
+        #     point_cloud=pcd_epc,
+        #     targets=targets,
+        #     targets_to_use=cfg.georef.targets_to_use,
+        #     targets_enabled=[True, True],
+        # )
 
         # Temporary function for building configuration dictionary.
         # Must be moved to a file or other solution.
@@ -281,7 +310,7 @@ for epoch in cfg.proc.epoch_to_process:
         point_clouds[epoch] = pcd_epc
 
         # - For debugging purposes
-        # M = targets[epoch].extract_object_coor_by_label(cfg.georef.targets_to_use)
+        # M = targets[epoch].get_object_coor_by_label(cfg.georef.targets_to_use)
         # m = cameras[epoch][cams[1]].project_point(M)
         # plot_features(images[cams[1]].read_image(epoch).value, m)
         # plot_features(images[cams[0]].read_image(epoch).value, features[epoch][cams[0]].get_keypoints())

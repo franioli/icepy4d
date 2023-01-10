@@ -203,22 +203,31 @@ def print_results(
 
 
 class Absolute_orientation:
-    # @TODO: Apply transformation also to cameras!
     def __init__(
         self,
         cameras: Tuple[Camera],
-        points3d_final: np.ndarray = None,
+        points3d_final: np.ndarray,
         points3d_orig: np.ndarray = None,
         image_points: Tuple[np.ndarray] = None,
         camera_centers_world: Tuple[np.ndarray] = None,
     ) -> None:
+        """
+        __init__ Initialize Absolute Orientation class
 
+        Args:
+            cameras (Tuple[Camera]): Tuple containing Camera objects
+            points3d_final (np.ndarray, optional): nx3 array containing object coordinates in final reference system.
+            points3d_orig (np.ndarray, optional): nx3 array containing object coordinates in original reference system (to be transformed by the estimated Helmert transformation). It is possible to omit this, if image coordinates of the corresponding points to be triangulated are provided. Defaults to None.
+            image_points (Tuple[np.ndarray], optional): Tuple of numpy nx2 array containing image points to be trinagulated. If provided, a linear triangulation is computed and the resulting 3D points will be used for points3d_orig. Defaults to None.
+            camera_centers_world (Tuple[np.ndarray], optional): Tuple of nx3 array containing camera centers in final reference system. If provided, they are concatenate to points3d_final. Defaults to None.
+
+        """
         self.cameras = cameras
-        if points3d_final is not None:
+        if points3d_final is not None and points3d_final.shape[1] == 3:
             self.v1 = points3d_final
         else:
             raise ValueError(
-                "Missing input for points in world reference system. Please, provide the their 3D coordinates in nx3 numpy array."
+                "Missing or wrong input for points in world reference system. Please, provide the their 3D coordinates in nx3 numpy array."
             )
         if points3d_orig is not None:
             self.v0 = points3d_orig
@@ -271,7 +280,6 @@ class Absolute_orientation:
 
     def triangulate_image_points(self, image_points: List[np.ndarray]) -> np.ndarray:
         #  @TODO: add possibility of using multiple cameras
-
         triangulation = Triangulate(
             self.cameras,
             image_points,

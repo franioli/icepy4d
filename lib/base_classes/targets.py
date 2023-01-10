@@ -50,7 +50,6 @@ class Targets:
         self,
         im_file_path=None,
         obj_file_path=None,
-        logger: logging = None,
     ):
         self.reset_targets()
 
@@ -102,48 +101,66 @@ class Targets:
         else:
             return [list(self.im_coor[x].label) for x, _ in enumerate(self.im_coor)]
 
-    def extract_image_coor_by_label(
+    def get_image_coor_by_label(
         self,
         labels: List[str],
-        cam_id: int = None,
+        cam_id: int,
     ) -> np.ndarray:
         """
-        Return image coordinates of the targets on the images given a list of target labels
+        get_image_coor_by_label Get image coordinates of the targets on the images given a list of target labels
+
+        Args:
+            labels (List[str]): List containing the targets' label to extract
+            cam_id (int): numeric (integer) id of the camera for which the image coordinates are asked.
+
+        Returns:
+            np.ndarray: nx2 array containing image coordinates of the selected targets
         """
-        # TODO: implements checks on input parameters
-        # try:
+
         coor = []
         for lab in labels:
-            if cam_id is not None:
-                selected = self.im_coor[cam_id][self.im_coor[cam_id]["label"] == lab]
-                if not selected.empty:
-                    coor.append(np.float32(selected.iloc[:, 1:]))
-                else:
-                    print(f"Warning: target {lab} is not present.")
+            selected = self.im_coor[cam_id][self.im_coor[cam_id]["label"] == lab]
+            if not selected.empty:
+                coor.append(selected.iloc[:, 1:].to_numpy())
             else:
-                print("Unable to detect camera id. Please, provide cam id.")
-                return None
+                logging.warning(f"Warning: target {lab} is not present.")
 
-        return np.concatenate(coor, axis=0)
-        # except:
-        #     pass
+        # If at least one target was found, concatenate arrays to return nx3 array containing world coordinates
+        if coor:
+            return np.concatenate(coor, axis=0)
+        else:
+            msg = "No targets with the provided labels found."
+            logging.error(msg)
+            raise ValueError(msg)
 
-    def extract_object_coor_by_label(
+    def get_object_coor_by_label(
         self,
         labels: List[str],
     ) -> np.ndarray:
         """
-        Return object coordinates of the targets on the images given a list of target labels
+        get_object_coor_by_label Get object coordinates of the targets on the images given a list of target labels
+
+        Args:
+            labels (List[str]): List containing the targets' label to extract
+
+        Returns:
+            np.ndarray: nx3 array containing object coordinates of the selected targets
         """
         coor = []
         for lab in labels:
             selected = self.obj_coor[self.obj_coor["label"] == lab]
             if not selected.empty:
-                coor.append(np.float32(selected.iloc[:, 1:]))
+                coor.append(selected.iloc[:, 1:].to_numpy())
             else:
-                print(f"Warning: target {lab} is not present.")
+                logging.warning(f"Warning: target {lab} is not present.")
 
-        return np.concatenate(coor, axis=0)
+        # If at least one target was found, concatenate arrays to return nx3 array containing world coordinates
+        if coor:
+            return np.concatenate(coor, axis=0)
+        else:
+            msg = "No targets with the provided labels found."
+            logging.error(msg)
+            raise ValueError(msg)
 
     def read_im_coord_from_txt(
         self,
@@ -151,8 +168,6 @@ class Targets:
         path=None,
         delimiter: str = ",",
         header: int = 0,
-        column_names: List[str] = None,
-        from_metashape: bool = True,
     ):
         """
         Read image target image coordinates from .txt file in a pandas dataframe
@@ -180,11 +195,6 @@ class Targets:
             return
         data = pd.read_csv(path, sep=delimiter, header=header)
 
-        # subtract 0.5 px to image coordinates (metashape image RS)
-        if from_metashape:
-            data.x = data.x - 0.5
-            data.y = data.y - 0.5
-
         self.im_coor.insert(camera_id, data)
 
     def read_obj_coord_from_txt(
@@ -192,7 +202,6 @@ class Targets:
         path=None,
         delimiter: str = ",",
         header: int = 0,
-        column_names: List[str] = None,
     ):
         """
         Read image target image coordinates from .txt file in a pandas dataframe
@@ -230,4 +239,19 @@ class Targets:
 
 if __name__ == "__main__":
     """Test classes"""
-    pass
+
+    from lib.utils.initialization import parse_yaml_cfg, Inizialization
+
+    CFG_FILE = "config/config_2021_1.yaml"
+    cfg = parse_yaml_cfg(CFG_FILE)
+
+    init = Inizialization(cfg)
+    init.inizialize_belpy()
+    cams = init.cams
+    images = init.images
+    targets = init.targets
+
+    epoch = 0
+    tt = cfg.georef.targets_to_use
+    obj = targets[epoch].get_object_coor_by_label(["F1", "F2"])
+    image_points = targets[epoch].get_image_coor_by_label(tt, cam_id=0)
