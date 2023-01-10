@@ -288,7 +288,7 @@ class TrackTargets:
 if __name__ == "__main__":
 
     # Parameters
-    cfg_file = "config/config_2021.yaml"
+    cfg_file = "config/config_2021_1.yaml"
     cfg = parse_yaml_cfg(cfg_file)
     init = Inizialization(cfg)
     init.inizialize_belpy()
@@ -320,9 +320,7 @@ if __name__ == "__main__":
         # You can create it manually or use Target class
         targets_coord = np.zeros((len(targets_to_use), 2))
         for i, t in enumerate(targets_to_use):
-            targets_coord[i] = (
-                targets[0].extract_image_coor_by_label([t], cam_id).squeeze()
-            )
+            targets_coord[i] = targets[0].get_image_coor_by_label([t], cam_id).squeeze()
 
         # Define TrackTargets object and run tracking
         tracking = TrackTargets(

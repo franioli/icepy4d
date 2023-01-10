@@ -47,7 +47,7 @@ class Features:
 
     def __init__(
         self,
-        logger: logging = None,
+        logging: logging = None,
     ):
         self.reset_fetures()
 
