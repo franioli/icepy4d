@@ -10,6 +10,9 @@ res/
 tests/PSMNet/dataset
 tests/tmp/
 tmp/
+tools/track_targets/results/
+tools/collimate_targets/data/
+tools/collimate_targets/targets/
 
 # VScode
 # .vscode/
