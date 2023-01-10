@@ -46,14 +46,13 @@ from lib.sfm.absolute_orientation import (
     Absolute_orientation,
     Space_resection,
 )
-from lib.read_config import parse_yaml_cfg
+from lib.utils.initialization import parse_yaml_cfg, Inizialization, Inizialization
 from lib.utils.utils import (
     AverageTimer,
     homography_warping,
     build_dsm,
     generate_ortophoto,
 )
-from lib.utils.inizialize_variables import Inizialization
 from lib.visualization import (
     display_point_cloud,
     make_focal_length_variation_plot,
@@ -68,13 +67,13 @@ from lib.metashape.metashape import (
     build_ms_cfg_base,
 )
 
-
-logger = logging.getLogger("Belpy")
-timer_global = AverageTimer(newline=True)
+# CFG_FILE = "config/config_base.yaml"
+CFG_FILE = "config/config_2021_1.yaml"
 
 # Read options from yaml file
-cfg_file = "config/config_base.yaml"
-cfg = parse_yaml_cfg(cfg_file, logger)
+logger = logging.getLogger("Belpy")
+timer_global = AverageTimer(newline=True)
+cfg = parse_yaml_cfg(CFG_FILE, logger)
 
 """ Inizialize Variables """
 
@@ -277,8 +276,7 @@ for epoch in cfg.proc.epoch_to_process:
 
         pcd_epc = PointCloud(points3d=points3d, points_col=triangulation.colors)
         pcd_epc.write_ply(
-            cfg.paths.results_dir
-            / f"point_clouds/sparse_ep_{epoch:02}_{epoch_dict[epoch]}.ply"
+            cfg.paths.results_dir / f"point_clouds/sparse_{epoch_dict[epoch]}.ply"
         )
         point_clouds[epoch] = pcd_epc
 
