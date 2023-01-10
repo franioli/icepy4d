@@ -42,7 +42,7 @@ from lib.base_classes.features import Features
 
 
 def parse_yaml_cfg(cfg_file: edict, logger: logging = None) -> edict:
-
+    
     with open(cfg_file) as file:
         cfg = edict(yaml.safe_load(file))
 
@@ -116,6 +116,7 @@ def validate_cfg(cfg: edict) -> None:
 
 
 def print_cfg(cfg) -> None:
+    # TODO: implement printing of configuration
     for key, value in cfg.items():
         print(key + " : " + str(value))
 
