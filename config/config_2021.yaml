@@ -2,7 +2,7 @@
 # All pahts MUST be relative to the root folder of Belpy and
 # they will be converted to pathlib.Path when parsing this yaml file)
 paths:
-  image_dir: "data/img2021" # "data/img2021" #
+  image_dir: "data/img2021/prima_di_rotazione" # "data/img2021" #
   calibration_dir: "data/calib"
   results_dir: "res"
   camera_names: ["p1", "p2"]
