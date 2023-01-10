@@ -324,8 +324,7 @@ if __name__ == "__main__":
     from copy import deepcopy
     from tqdm import tqdm
 
-    from lib.read_config import parse_yaml_cfg
-    from lib.utils.inizialize_variables import Inizialization
+    from lib.utils.initialization import parse_yaml_cfg, Inizialization
 
     cfg_file = "config/config_base.yaml"
     cfg = parse_yaml_cfg(cfg_file)
