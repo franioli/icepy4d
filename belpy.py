@@ -69,12 +69,13 @@ from lib.metashape.metashape import (
 )
 
 
-logger = logging.getLogger("Belpy")
-timer_global = AverageTimer(newline=True)
+# CFG_FILE = "config/config_base.yaml"
+CFG_FILE = "config/config_2021_1.yaml"
 
 # Read options from yaml file
-cfg_file = "config/config_base.yaml"
-cfg = parse_yaml_cfg(cfg_file, logger)
+logger = logging.getLogger("Belpy")
+timer_global = AverageTimer(newline=True)
+cfg = parse_yaml_cfg(CFG_FILE, logger)
 
 """ Inizialize Variables """
 
