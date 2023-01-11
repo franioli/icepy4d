@@ -310,6 +310,11 @@ class MetashapeProject:
                         f.write(f"{prm} ")
                     f.close()
 
+    def expand_region(self, resize_fct: float) -> None:
+        self.doc.chunk.resetRegion()
+        self.doc.chunk.region.size = resize_fct * self.doc.chunk.region.size
+        # new_reg_size = Metashape.Vector([reg_size[0] * mul_fct[0],  reg_size[1] * mul_fct[1], reg_size[2] * mul_fct[2]])
+
     def process_full_workflow(self) -> bool:
         self.create_project()
         self.add_images()
@@ -319,6 +324,7 @@ class MetashapeProject:
         if self.timer:
             self.timer.update("bundle")
         if self.cfg.build_dense:
+            self.expand_region(resize_fct=100.0)
             if self.cfg.depth_filter:
                 self.build_dense_cloud(depth_filter=self.cfg.depth_filter)
             else:
