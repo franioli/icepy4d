@@ -1,0 +1,3 @@
+[submodule "thirdparty/CameraSensorSizeDatabase"]
+	path = thirdparty/CameraSensorSizeDatabase
+	url = git@github.com:openMVG/CameraSensorSizeDatabase.git
