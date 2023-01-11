@@ -71,12 +71,13 @@ from lib.metashape.metashape import (
 # CFG_FILE = "config/config_base.yaml"
 CFG_FILE = "config/config_2021_1.yaml"
 
-# Set logging level
+# Create logger and set logging level
 LOG_LEVEL = logging.WARNING
 logging.basicConfig(
     format="%(asctime)s | '%(funcName)s', line %(lineno)d - %(levelname)s: %(message)s",
     level=LOG_LEVEL,
 )
+logger = logging.getLogger(__name__)
 
 # Read options from yaml file
 timer_global = AverageTimer(newline=True)
@@ -139,7 +140,7 @@ for epoch in cfg.proc.epoch_to_process:
                     )
 
         except FileNotFoundError as err:
-            logging.exception(err)
+            logger.exception(err)
 
             print("Performing new matching and tracking...")
             features = MatchingAndTracking(
@@ -223,7 +224,7 @@ for epoch in cfg.proc.epoch_to_process:
             for i, cam in enumerate(cams):
                 cameras[epoch][cam] = abs_ori.cameras[i]
         except ValueError as err:
-            logging.error(
+            logger.error(
                 "Absolute orientation not succeded. Not enough targets available. Skipping to the next epoch."
             )
             continue
