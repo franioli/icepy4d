@@ -8,8 +8,9 @@ from pathlib import Path
 
 import pandas as pd
 
-ASSETS_ROOT = Path(__file__).resolve().parent.parent.parent / "assets"
-DEFAULT_SENSOR_DB_PATH = ASSETS_ROOT / "camera_details" / "sensor_database.csv"
+DEFAULT_SENSOR_DB_PATH = (
+    Path("thirdparty/CameraSensorSizeDatabase") / "sensor_database.csv"
+)
 
 
 class SensorWidthDatabase:
@@ -39,9 +40,13 @@ class SensorWidthDatabase:
         lower_make = make.split()[0].lower()
         lower_model = model.lower()
 
-        selection_condition = (self.df["CameraMaker"] == lower_make) & (self.df["CameraModel"] == lower_model)
+        selection_condition = (self.df["CameraMaker"] == lower_make) & (
+            self.df["CameraModel"] == lower_model
+        )
         selected = self.df.loc[selection_condition, "SensorWidth(mm)"]
         if len(selected) != 1:
-            raise LookupError(f"make='{make}' and model='{model}' not found in sensor database")
+            raise LookupError(
+                f"make='{make}' and model='{model}' not found in sensor database"
+            )
 
         return self.df.loc[selection_condition, "SensorWidth(mm)"].values[0]

@@ -29,6 +29,7 @@ import logging
 from easydict import EasyDict as edict
 from pathlib import Path
 from typing import List, Union
+from datetime import datetime
 
 from lib.base_classes.camera import Camera
 from lib.base_classes.pointCloud import PointCloud
@@ -56,9 +57,9 @@ def parse_yaml_cfg(cfg_file: edict) -> edict:
 
     # - Processing options
     if cfg.proc.do_matching == False and cfg.proc.do_tracking == True:
-        msg = "Warning: Invalid combination of options between Matching and Tracking. Tracking was se to enabled, but Matching was not. Disabling Tracking."
-        logging.warning(msg)
-
+        logging.warning(
+            "Invalid combination of Matching and Tracking options. Tracking was se to enabled, but Matching was not. Disabling Tracking."
+        )
         cfg.proc.do_tracking == False
 
     # - Image-realted options
@@ -139,7 +140,7 @@ class Inizialization:
         self.images = images
         return self.images
 
-    def init_epoch_dict(self) -> dict:
+    def init_epoch_dict_old(self) -> dict:
         epoch_dict = {}
         for epoch in self.cfg.proc.epoch_to_process:
             image = Image(self.images[self.cams[0]].get_image_path(epoch))
@@ -148,6 +149,22 @@ class Inizialization:
                 / f"{image.get_datetime().year}_{image.get_datetime().month:02}_{image.get_datetime().day:02}"
             ).stem
 
+        self.epoch_dict = epoch_dict
+        return self.epoch_dict
+
+    def init_epoch_dict(self) -> dict:
+        """
+        init_epoch_dict Build dictonary containing pairs of epoch and dates, as follows:
+        {0: "2021_01_01", 1: "2021_01_02" ...}
+
+        Returns:
+            dict: epoc_dict
+        """
+        epoch_dict = {}
+        for epoch in range(len(self.images[self.cams[0]])):
+            date_str = self.images[self.cams[0]].get_image_date(epoch)
+            date = datetime.strptime(date_str, "%Y:%m:%d")
+            epoch_dict[epoch] = f"{date.year}_{date.month:02}_{date.day:02}"
         self.epoch_dict = epoch_dict
         return self.epoch_dict
 

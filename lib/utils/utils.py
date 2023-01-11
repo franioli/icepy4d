@@ -29,6 +29,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import rasterio
 import time
+import logging
 
 from collections import OrderedDict
 from copy import deepcopy
@@ -45,7 +46,7 @@ from lib.geometry import project_points
 from lib.visualization import imshow_cv
 
 
-# ---- Timer ---##
+# ---- Timer and Logger---##
 
 
 class AverageTimer:
