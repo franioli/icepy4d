@@ -3,6 +3,7 @@ import cv2
 import json
 import pickle
 import pydegensac
+import logging
 
 from easydict import EasyDict as edict
 from typing import List
@@ -13,6 +14,8 @@ from lib.base_classes.features import Features
 from lib.matching.match_pairs import match_pair
 from lib.matching.track_matches import track_matches
 from lib.utils.utils import create_directory
+
+logger = logging.getLogger(__name__)
 
 # class MatchingBase(abc):
 
@@ -91,21 +94,42 @@ def MatchingAndTracking(
                 images[cams[1]].get_image_path(epoch),
             ],
         ]
-        prevs = [
-            features[epoch - 1][cams[0]].get_features_as_dict(),
-            features[epoch - 1][cams[1]].get_features_as_dict(),
-        ]
-        # Call actual tracking function
-        tracked_cam0, tracked_cam1 = track_matches(
-            pairs, cfg.images.mask_bounding_box, prevs, cfg.tracking
-        )
-        # @TODO: keep track of the epoch in which feature is matched
-        # @TODO: Check bounding box in tracking
-        # @TODO: clean tracking code
 
-        # Store all matches in features structure
-        features[epoch][cams[0]].append_features(tracked_cam0)
-        features[epoch][cams[1]].append_features(tracked_cam1)
+        # If features from previous epoch are not already present in features object (e.g. when the process started from and epoch different that 0), try to load them from disk. If it fails, skip tracking.
+        if epoch - 1 not in features.keys():
+            path = Path(cfg.paths.results_dir) / f"{epoch_dict[epoch-1]}/matching"
+            logger.warning(
+                f"Feature from previous epoch not available in Features object. Try to load it from disk at {path}"
+            )
+            try:
+                fname = list(path.glob("*.pickle"))
+                try:
+                    with open(fname[0], "rb") as f:
+                        loaded_features = pickle.load(f)
+                except:
+                    raise FileNotFoundError(f"Invalid pickle file in {path}.")
+                features[epoch - 1] = loaded_features
+            except FileNotFoundError as err:
+                logger.error(err)
+
+        if epoch - 1 in features.keys():
+            prevs = [features[epoch - 1][cam].get_features_as_dict() for cam in cams]
+
+            # Call actual tracking function
+            tracked_cam0, tracked_cam1 = track_matches(
+                pairs, cfg.images.mask_bounding_box, prevs, cfg.tracking
+            )
+            # @TODO: keep track of the epoch in which feature is matched
+            # @TODO: Check bounding box in tracking
+            # @TODO: clean tracking code
+
+            # Store all matches in features structure
+            features[epoch][cams[0]].append_features(tracked_cam0)
+            features[epoch][cams[1]].append_features(tracked_cam1)
+        else:
+            logger.warning(
+                f"Skipping tracking from epoch {epoch_dict[epoch-1]} to {epoch_dict[epoch]}"
+            )
 
     # Run Pydegensac to estimate F matrix and reject outliers
     F, inlMask = pydegensac.findFundamentalMatrix(

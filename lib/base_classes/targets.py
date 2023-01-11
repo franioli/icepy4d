@@ -36,6 +36,8 @@ from pathlib import Path
 
 from lib.import_export.importing import read_opencv_calibration
 
+logger = logging.getLogger(__name__)
+
 
 class Targets:
     """
@@ -123,14 +125,14 @@ class Targets:
             if not selected.empty:
                 coor.append(selected.iloc[:, 1:].to_numpy())
             else:
-                logging.warning(f"Warning: target {lab} is not present.")
+                logger.warning(f"Warning: target {lab} is not present.")
 
         # If at least one target was found, concatenate arrays to return nx3 array containing world coordinates
         if coor:
             return np.concatenate(coor, axis=0)
         else:
             msg = "No targets with the provided labels found."
-            logging.error(msg)
+            logger.error(msg)
             raise ValueError(msg)
 
     def get_object_coor_by_label(
@@ -152,20 +154,20 @@ class Targets:
             if not selected.empty:
                 coor.append(selected.iloc[:, 1:].to_numpy())
             else:
-                logging.warning(f"Warning: target {lab} is not present.")
+                logger.warning(f"Warning: target {lab} is not present.")
 
         # If at least one target was found, concatenate arrays to return nx3 array containing world coordinates
         if coor:
             return np.concatenate(coor, axis=0)
         else:
             msg = "No targets with the provided labels found."
-            logging.error(msg)
+            logger.error(msg)
             raise ValueError(msg)
 
     def read_im_coord_from_txt(
         self,
-        camera_id=None,
-        path=None,
+        camera_id,
+        path,
         delimiter: str = ",",
         header: int = 0,
     ):
@@ -180,19 +182,16 @@ class Targets:
             target_1,1000,2000
             target_2,2000,3000
         """
-        if camera_id is None:
-            print(
-                "Error: missing camera id. Impossible to assign the target\
-                  coordinates to the correct camera"
-            )
-            return
-        if path is None:
-            print("Error: missing path argument.")
-            return
+        assert isinstance(
+            camera_id, int
+        ), "Missing or invalid camera id. Impossible to assign the target coordinates to the correct camera"
+
         path = Path(path)
         if not path.exists():
-            print("Error: Input path does not exist.")
-            return
+            msg = f"Error: Input path {path} does not exist."
+            logger.error(msg)
+            raise FileNotFoundError(msg)
+
         data = pd.read_csv(path, sep=delimiter, header=header)
 
         self.im_coor.insert(camera_id, data)
@@ -214,13 +213,13 @@ class Targets:
             target_1,1000,2000,3000
             target_1,2000,3000,3000
         """
-        if path is None:
-            print("Error: missing path argument.")
-            return
+
         path = Path(path)
         if not path.exists():
-            print("Error: Input path does not exist.")
-            return
+            msg = f"Error: Input path {path} does not exist."
+            logger.error(msg)
+            raise FileNotFoundError(msg)
+
         data = pd.read_csv(path, sep=delimiter, header=header)
 
         self.append_obj_cord(data)

@@ -340,6 +340,7 @@ for epoch in cfg.proc.epoch_to_process:
             make_camera_angles_plot(
                 cameras,
                 "res/angles.png",
+                baseline_epoch=cfg.proc.epoch_to_process[0],
                 current_epoch=epoch,
             )
 
