@@ -32,7 +32,7 @@ import cv2
 import exifread
 import numpy as np
 
-# from lib.utils.sensor_width_database import SensorWidthDatabase
+from lib.utils.sensor_width_database import SensorWidthDatabase
 
 
 def read_image(
@@ -100,6 +100,13 @@ def process_resize(w, h, resize):
 
 class Image:
     def __init__(self, path: Union[str, Path], image: np.ndarray = None) -> None:
+        """
+        __init__ Create Image object
+
+        Args:
+            path (Union[str, Path]): path to the image
+            image (np.ndarray, optional): Numpy array containing pixel values. If provided, they are stored in self._value_array and they are accessible from outside the class with Image.value. Defaults to None.
+        """
 
         self._path = Path(path)
         self._value_array = None
@@ -119,6 +126,9 @@ class Image:
         """
         if self._height:
             return int(self._height)
+        else:
+            logging.error("Image height not available. Read it from exif first")
+            return None
 
     @property
     def width(self) -> int:
@@ -127,6 +137,9 @@ class Image:
         """
         if self._width:
             return int(self._width)
+        else:
+            logging.error("Image width not available. Read it from exif first")
+            return None
 
     @property
     def path(self) -> str:
@@ -140,14 +153,21 @@ class Image:
         return self._exif_data
 
     @property
-    def date(self):
+    def date(self) -> str:
+        """
+        date Returns the date of the image from exif as a string
+        """
         if self._date_time is not None:
             return self._date_time.strftime("%Y:%m:%d")
         else:
             print("No exif data available.")
 
     @property
-    def time(self):
+    def time(self) -> str:
+        """
+        time Returns the time of the image from exif as a string
+
+        """
         if self._date_time is not None:
             return self._date_time.strftime("%H:%M:%S")
         else:
@@ -155,7 +175,9 @@ class Image:
 
     @property
     def value(self) -> np.ndarray:
-        """Returns the image as numpy array"""
+        """
+        Returns the image (pixel values) as numpy array
+        """
         if self._value_array is not None:
             return self._value_array
         else:
@@ -225,10 +247,10 @@ class Image:
         ]
         return patch
 
-    def get_intrinsics_from_exif(self) -> None:
+    def get_intrinsics_from_exif(self) -> np.ndarray:
         """Constructs the camera intrinsics from exif tag.
 
-        Equation: focal_px=max(w_px,h_px)∗focal_mm / ccdw_mm
+        Equation: focal_px=max(w_px,h_px)*focal_mm / ccdw_mm
 
         Ref:
         - https://github.com/colmap/colmap/blob/e3948b2098b73ae080b97901c3a1f9065b976a45/src/util/bitmap.cc#L282
@@ -236,21 +258,43 @@ class Image:
         - https://photo.stackexchange.com/questions/40865/how-can-i-get-the-image-sensor-dimensions-in-mm-to-get-circle-of-confusion-from # noqa: E501
 
         Returns:
-            intrinsics matrix (3x3).
+            K (np.ndarray): intrinsics matrix (3x3 numpy array).
         """
-        # if self._exif_data is None or len(self._exif_data) == 0:
-        #     return None
-        # focal_length_mm = self.exif_data.get("FocalLength")
-        # sensor_width_mm = Image.sensor_width_db.lookup(
-        #     self._exif_data.get("Make"),
-        #     self._exif_data.get("Model"),
-        # )
-        # img_w_px = self._width
-        # img_h_px = self._height
-        # focal_length_px = max(img_h_px, img_w_px) * \
-        #     focal_length_mm / sensor_width_mm
-        # center_x = img_w_px / 2
-        # center_y = img_h_px / 2
+        if self._exif_data is None or len(self._exif_data) == 0:
+            try:
+                self.read_exif()
+            except OSError:
+                logging.error("Unable to read exif data.")
+                return None
+        try:
+            focal_length_mm = float(self._exif_data["EXIF FocalLength"].printable)
+        except OSError:
+            logging.error("Focal length non found in exif data.")
+            return None
+        try:
+            sensor_width_db = SensorWidthDatabase()
+            sensor_width_mm = sensor_width_db.lookup(
+                self._exif_data["Image Make"].printable,
+                self._exif_data["Image Model"].printable,
+            )
+        except OSError:
+            logging.error("Unable to get sensor size in mm from sensor database")
+            return None
+
+        img_w_px = self.width
+        img_h_px = self.height
+        focal_length_px = max(img_h_px, img_w_px) * focal_length_mm / sensor_width_mm
+        center_x = img_w_px / 2
+        center_y = img_h_px / 2
+        K = np.array(
+            [
+                [focal_length_px, 0.0, center_x],
+                [0.0, focal_length_px, center_y],
+                [0.0, 0.0, 1.0],
+            ],
+            dtype=float,
+        )
+        return K
 
 
 class ImageDS:
@@ -308,12 +352,6 @@ class ImageDS:
             self._elem
             raise StopIteration
 
-    def read_image(self, idx: int) -> Image:
-        """Return image at position idx as Image instance, containing both exif and value data (accessible by value proprierty, e.g., image.value)"""
-        image = Image(self.files[idx])
-        image.read_image()
-        return image
-
     def reset_imageds(self) -> None:
         """Initialize image datastore"""
         self.files = None
@@ -337,8 +375,36 @@ class ImageDS:
         pattern = f"{rec_patt}*{ext_patt}"
 
         self.files = sorted(self.folder.glob(pattern))
+
         if len(self.files) == 0:
-            print(f"No images found in folder {self.folder}")
+            logging.error(f"No images found in folder {self.folder}")
+            return
+        try:
+            self.read_dates()
+        except OSError as err:
+            logging.exception(err)
+
+    def read_image(self, idx: int) -> Image:
+        """Return image at position idx as Image instance, containing both exif and value data (accessible by value proprierty, e.g., image.value)"""
+        image = Image(self.files[idx])
+        image.read_image()
+        return image
+
+    def read_dates(self) -> None:
+        """
+        read_dates Read date and time for all the images in ImageDS from exif.
+        """
+        assert self.files, "No image in ImageDS. Please read image list first"
+        self._dates, self._times = {}, {}
+        try:
+            for id, im in enumerate(self.files):
+                image = Image(im)
+                self._dates[id] = image.date
+                self._times[id] = image.time
+        except:
+            logging.error("Unable to read image dates and time from exif.")
+            self._dates, self._times = {}, {}
+            return
 
     def get_image_path(self, idx: int) -> Path:
         """Return path of the image at position idx in datastore as Pathlib"""
@@ -347,6 +413,14 @@ class ImageDS:
     def get_image_stem(self, idx: int) -> str:
         """Return name without extension(stem) of the image at position idx in datastore"""
         return self.files[idx].stem
+
+    def get_image_date(self, idx: int) -> str:
+        """Return name without extension(stem) of the image at position idx in datastore"""
+        return self._dates[idx]
+
+    def get_image_time(self, idx: int) -> str:
+        """Return name without extension(stem) of the image at position idx in datastore"""
+        return self._times[idx]
 
     def write_exif_to_csv(
         self, filename: str, sep: str = ",", header: bool = True
@@ -369,19 +443,24 @@ if __name__ == "__main__":
 
     images = ImageDS("data/img2022/p1")
 
+    # Read image dates and times
+    # images.read_dates()
+    print(images.get_image_date(0))
+    print(images.get_image_time(0))
+
     # Get image name
-    images[0]
+    print(images[0])
 
     # Get image stem
-    images.get_image_stem(0)
+    print(images.get_image_stem(0))
 
     # Get image path
-    images.get_image_path(0)
+    print(images.get_image_path(0))
 
     # Get image as Image object and extect date and time
     img = images.read_image(0)
-    img.date
-    img.time
+    print(img.date)
+    print(img.time)
 
     # Read image as numpy array
     image = images.read_image(0).value
@@ -391,6 +470,11 @@ if __name__ == "__main__":
     print(next(images))
     for i in images:
         print(i)
+
+    # Build intrinics from exif
+    image = images.read_image(0)
+    K = image.get_intrinsics_from_exif()
+    print(K)
 
     # Write exif to csv file
     # filename = "test.csv"
