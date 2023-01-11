@@ -2,22 +2,50 @@ from pathlib import Path
 import numpy as np
 import matplotlib.cm as cm
 import torch
+import cv2
 
-from thirdparty.SuperGluePretrainedNetwork.matching import Matching
-from thirdparty.SuperGluePretrainedNetwork.utils import (
+from thirdparty.SuperGluePretrainedNetwork.models.matching import Matching
+from thirdparty.SuperGluePretrainedNetwork.models.utils import (
     make_matching_plot,
     AverageTimer,
-    read_image,
+    process_resize,
     frame2tensor,
 )
 from lib.utils.utils import generateTiles
 
 torch.set_grad_enabled(False)
 
-# import matplotlib
-# matplotlib.use('Qt5Agg')
-# @matplotlib inline
-import matplotlib.pyplot as plt
+# @TODO: This function is a duplicate of the one in match_pairs!!!
+# It is a replacement of the SuperGlue one because of the different input parametets.
+# This must be fixed! Only ONE read_image function must exist!
+# (There is also read_image function implemented from scratch in Belpy)
+def read_image(
+    path, device, resize=-1, rotation=0, resize_float=True, crop=[], equalize_hist=False
+):
+    image = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
+    if image is None:
+        return None, None, None
+    w, h = image.shape[1], image.shape[0]
+    w_new, h_new = process_resize(w, h, resize)
+    scales = (float(w) / float(w_new), float(h) / float(h_new))
+
+    if equalize_hist:
+        image = cv2.equalizeHist(image)
+
+    if resize_float:
+        image = cv2.resize(image.astype("float32"), (w_new, h_new))
+    else:
+        image = cv2.resize(image, (w_new, h_new)).astype("float32")
+
+    if rotation != 0:
+        image = np.rot90(image, k=rotation)
+        if rotation % 2:
+            scales = scales[::-1]
+    if np.any(crop):
+        image = image[crop[1] : crop[3], crop[0] : crop[2]]
+
+    inp = frame2tensor(image, device)
+    return image, inp, scales
 
 
 def track_matches(pairs, maskBB, prevs, opt):
