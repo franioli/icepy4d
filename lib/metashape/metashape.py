@@ -48,13 +48,12 @@ from thirdparty.transformations import euler_matrix
 
 
 def build_ms_cfg_base(dir: Path, epoch_dict: dict, epoch: int) -> edict:
-    # ms_dir = dir / f"res/epoch_{epoch}/metashape"
     ms_dir = dir / f"metashape"
     cfg = edict(
         {
-            "project_name": ms_dir / f"belpy_ep_{epoch}_{epoch_dict[epoch]}.psx",
+            "project_name": ms_dir / f"{epoch_dict[epoch]}.psx",
             "im_path": ms_dir / "data/images/",
-            "bundler_file_path": ms_dir / f"data/belpy_epoch_{epoch}.out",
+            "bundler_file_path": ms_dir / f"data/{epoch_dict[epoch]}.out",
             "bundler_im_list": ms_dir / "data/im_list.txt",
             "gcp_filename": ms_dir / "data/gcps.txt",
             "calib_filenames": [
@@ -85,7 +84,7 @@ def build_ms_cfg_base(dir: Path, epoch_dict: dict, epoch: int) -> edict:
             "build_dense": True,
             "dense_downscale_image": 1,
             "depth_filter": "AggressiveFiltering",
-            "dense_path": Path("res/point_clouds"),  # ms_dir,
+            "dense_path": Path("res/point_clouds"),
             "dense_name": f"dense_{epoch_dict[epoch]}_ep_{epoch:02}.ply",
             "force_overwrite_projects": True,
         }
@@ -186,7 +185,7 @@ class MetashapeProject:
             save_cloud (bool, optional): Save point cloud to disk. Defaults to True.
             depth_filter (str, optional): Depth filtering mode in [NoFiltering, MildFiltering, ModerateFiltering, AggressiveFiltering]. Defaults to "moderate".
         """
-        
+
         if depth_filter == "NoFiltering,":
             filter = Metashape.FilterMode.NoFiltering
         elif depth_filter == "MildFiltering,":
