@@ -73,7 +73,10 @@ CFG_FILE = "config/config_2021_1.yaml"
 
 # Set logging level
 LOG_LEVEL = logging.WARNING
-logging.basicConfig(format="%(asctime)s | %(levelname)s: %(message)s", level=LOG_LEVEL)
+logging.basicConfig(
+    format="%(asctime)s | '%(funcName)s', line %(lineno)d - %(levelname)s: %(message)s",
+    level=LOG_LEVEL,
+)
 
 # Read options from yaml file
 timer_global = AverageTimer(newline=True)
@@ -93,13 +96,14 @@ epoch_dict = init.epoch_dict
 focals = init.focals_dict
 
 """ Big Loop over epoches """
-
-print("Processing started:")
+print("\nProcessing started:")
 print("-----------------------")
 timer = AverageTimer(newline=True)
 for epoch in cfg.proc.epoch_to_process:
 
-    print(f"\nProcessing epoch {epoch}/{cfg.proc.epoch_to_process[-1]}...")
+    print(
+        f"\nProcessing epoch {epoch}/{cfg.proc.epoch_to_process[-1]} - {epoch_dict[epoch]}..."
+    )
 
     epochdir = Path(cfg.paths.results_dir) / epoch_dict[epoch]
 
@@ -238,14 +242,13 @@ for epoch in cfg.proc.epoch_to_process:
         # TODO: Finishing to implement export one epoch function.
         im_dict = {cam: images[cam].get_image_path(epoch) for cam in cams}
         write_bundler_out_one_epoch(
-            export_dir=epochdir / "metashape",
-            epoch=epoch,
+            export_dir=epochdir,
             im_dict=im_dict,
             cams=cams,
-            cameras=cameras,
-            features=features,
+            cameras=cameras[epoch],
+            features=features[epoch],
             point_cloud=pcd_epc,
-            targets=targets,
+            targets=targets[epoch],
             targets_to_use=cfg.georef.targets_to_use,
             targets_enabled=[True, True],
         )

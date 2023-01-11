@@ -1,6 +1,7 @@
 import numpy as np
 import open3d as o3d
 import os
+import logging
 
 from pathlib import Path
 from copy import deepcopy
@@ -127,13 +128,12 @@ from thirdparty.transformations import euler_from_matrix, euler_matrix
 
 def write_bundler_out_one_epoch(
     export_dir: Union[str, Path],
-    epoch: int,
     im_dict: List[Path],
     cams: List[str],
     cameras: dict,
     features: dict,
     point_cloud: PointCloud,
-    targets: Targets = [],
+    targets: Targets = None,
     targets_to_use: List[str] = [],
     targets_enabled: List[bool] = [],
 ) -> None:
@@ -151,7 +151,8 @@ def write_bundler_out_one_epoch(
     print("Exporting results in Bundler format...")
 
     export_dir = Path(export_dir)
-    out_dir = export_dir / "data"
+    date = export_dir.name
+    out_dir = export_dir / "metashape" / "data"
 
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -171,35 +172,55 @@ def write_bundler_out_one_epoch(
             os.symlink(src, dst)
 
     # Write markers to file
-    file = open(out_dir / f"gcps.txt", "w")
-    targets_enabled = [int(x) for x in targets_enabled]
-    for i, target in enumerate(targets_to_use):
-        for i, cam in enumerate(cams):
-            for x in targets[epoch].get_object_coor_by_label([target]).squeeze():
-                file.write(f"{x:.4f} ")
-            for x in (
-                targets[epoch].get_image_coor_by_label([target], cam_id=i).squeeze()
-            ):
-                file.write(f"{x+0.5:.4f} ")
-            file.write(f"{im_dict[cam].name} ")
-            file.write(f"{target} ")
-            if len(targets_enabled) > 0:
-                file.write(f"{targets_enabled[i]}\n")
-    file.close()
+    if targets is not None:
+        assert (
+            targets_to_use
+        ), "Provide a list with the names of the targets to use as targets_to_use argument"
+        if targets_enabled:
+            assert len(targets_enabled) == len(
+                targets_to_use
+            ), "Invalid argument targets_enabled. Arguments targets_to_use and targets_enabled must have the same length."
+
+        file = open(out_dir / f"gcps.txt", "w")
+        targets_enabled = [int(x) for x in targets_enabled]
+        for i, target in enumerate(targets_to_use):
+            for i, cam in enumerate(cams):
+                # Try to read the target information. If some piece of information (image coords or objects coords) is missing (ValueError raised), skip the target and move to the next one
+                try:
+                    obj_coor = targets.get_object_coor_by_label([target]).squeeze()
+                    im_coor = targets.get_image_coor_by_label(
+                        [target], cam_id=i
+                    ).squeeze()
+                except ValueError as err:
+                    logging.error(
+                        f"Target {target} not found on image {im_dict[cam].name}. Skipped."
+                    )
+                    continue
+
+                for x in obj_coor:
+                    file.write(f"{x:.4f} ")
+                for x in im_coor:
+                    file.write(f"{x+0.5:.4f} ")
+                file.write(f"{im_dict[cam].name} ")
+                file.write(f"{target} ")
+                if targets_enabled:
+                    file.write(f"{targets_enabled[i]}\n")
+
+        file.close()
 
     # Create Bundler output file
     num_cams = len(cams)
-    num_pts = len(features[epoch][cams[0]])
-    w = cameras[epoch][cam].width
-    h = cameras[epoch][cam].height
+    num_pts = len(features[cams[0]])
+    w = cameras[cam].width
+    h = cameras[cam].height
 
-    file = open(out_dir / f"belpy_epoch_{epoch}.out", "w")
+    file = open(out_dir / f"{date}.out", "w")
     file.write(f"{num_cams} {num_pts}\n")
 
     # Write cameras
     Rx = euler_matrix(np.pi, 0.0, 0.0)
     for cam in cams:
-        cam_ = deepcopy(cameras[epoch][cam])
+        cam_ = deepcopy(cameras[cam])
         pose = cam_.pose @ Rx
         cam_.update_extrinsics(cam_.pose_to_extrinsics(pose))
 
@@ -215,7 +236,7 @@ def write_bundler_out_one_epoch(
     obj_col = deepcopy(point_cloud.get_colors())
     im_coor = {}
     for cam in cams:
-        m = deepcopy(features[epoch][cam].get_keypoints())
+        m = deepcopy(features[cam].get_keypoints())
         # Convert image coordinates to bundler image rs
         m[:, 0] = m[:, 0] - w / 2
         m[:, 1] = h / 2 - m[:, 1]
