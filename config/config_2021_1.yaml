@@ -17,7 +17,7 @@ proc:
   epoch_to_process: [0, 53] # "all" #  #[0, 2] #
 
   #- Switches to find and track matches
-  do_matching: true
+  do_matching: false
   do_tracking: true
 
   #- Do space resection of first camera
