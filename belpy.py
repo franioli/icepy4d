@@ -28,6 +28,7 @@ import cv2
 import pickle
 import gc
 import logging
+import shutil
 
 from pathlib import Path
 
@@ -73,16 +74,16 @@ print("Low-cost stereo photogrammetry for 4D glacier monitoring ")
 print("2022 - Francesco Ioli - francesco.ioli@polimi.it")
 print("===========================================================\n")
 
-
+# Old config files
 # CFG_FILE = "config/config_base.yaml"
 # CFG_FILE = "config/config_2021_1.yaml"
 # CFG_FILE = "config/config_2022_2.yaml"
 # CFG_FILE = "config/config_2022_summer.yaml"
 
-CFG_FILE = "config/config_block_1.yaml"
+# CFG_FILE = "config/config_block_1.yaml"
 # CFG_FILE = "config/config_block_2.yaml"
 # CFG_FILE = "config/config_block_3.yaml"
-# CFG_FILE = "config/config_block_4.yaml"
+CFG_FILE = "config/config_block_4.yaml"
 
 # Create logger and set logging level
 LOG_LEVEL = logging.WARNING
@@ -93,6 +94,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Read options from yaml file
+print(f"Configuration file: {Path(CFG_FILE).stem}")
 timer_global = AverageTimer(newline=True)
 cfg = parse_yaml_cfg(CFG_FILE)
 
@@ -251,6 +253,11 @@ for epoch in cfg.proc.epoch_to_process:
     if cfg.proc.do_metashape_bba:
         # Export results in Bundler format
 
+        # If a metashape folder is already present, delete it completely and start a new metashape project
+        metashape_path = epochdir / "metashape"
+        if metashape_path.exists():
+            shutil.rmtree(metashape_path, ignore_errors=True)
+
         im_dict = {cam: images[cam].get_image_path(epoch) for cam in cams}
         write_bundler_out(
             export_dir=epochdir,
@@ -344,16 +351,17 @@ for epoch in cfg.proc.epoch_to_process:
 
     timer.print(f"Epoch {epoch} completed")
 
-timer_global.print("Processing completed")
+
+timer_global.update("SfM")
 
 
 if cfg.other.do_viz:
     # Visualize point cloud
-    display_point_cloud(
-        point_clouds,
-        [cameras[epoch][cams[0]], cameras[epoch][cams[1]]],
-        plot_scale=10,
-    )
+    # display_point_cloud(
+    #     point_clouds,
+    #     [cameras[epoch][cams[0]], cameras[epoch][cams[1]]],
+    #     plot_scale=10,
+    # )
 
     # Display estimated focal length variation
     make_focal_length_variation_plot(focals, "res/focal_lenghts.png")
@@ -363,6 +371,9 @@ if cfg.other.do_viz:
         baseline_epoch=cfg.proc.epoch_to_process[0],
     )
 
+
+timer_global.update("Visualization")
+timer_global.print("Processing completed")
 
 #%%
 """ Compute DSM and orthophotos """

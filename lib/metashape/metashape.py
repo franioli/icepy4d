@@ -25,6 +25,7 @@ SOFTWARE.
 import numpy as np
 import pandas as pd
 import Metashape
+import shutil
 
 # import matplotlib.pyplot as plt
 
@@ -45,6 +46,8 @@ from lib.utils.utils import AverageTimer
 from lib.import_export.importing import read_opencv_calibration
 
 from thirdparty.transformations import euler_matrix
+
+REGION_RESIZE_FCT = 10.0
 
 
 def build_ms_cfg_base(dir: Path, epoch_dict: dict, epoch: int) -> edict:
@@ -111,7 +114,12 @@ class MetashapeProject:
         return str(self.cfg.project_name)
 
     def create_project(self) -> None:
-        pass
+        # # If the project already exists and the option force_overwrite_projects is on, remove completely the old project
+        # prj_path = Path(self.project_path)
+        # if prj_path.exists() and self.cfg.force_overwrite_projects:
+        #     prj_path.unlink()
+        #     prj_files_dir = prj_path.parent / (prj_path.stem + ".files")
+        #     shutil.rmtree(prj_files_dir, ignore_errors=True)
         self.doc = create_new_project(self.project_path)
         if self.cfg.force_overwrite_projects:
             self.doc.read_only = False
@@ -122,7 +130,6 @@ class MetashapeProject:
         print(f"Created project {self.project_name}.")
 
     def add_images(self) -> None:
-
         p = self.cfg.im_path.glob("*." + self.cfg.im_ext)
         images = [str(x) for x in p if x.is_file()]
         self.doc.chunk.addPhotos(images)
@@ -324,7 +331,7 @@ class MetashapeProject:
         if self.timer:
             self.timer.update("bundle")
         if self.cfg.build_dense:
-            self.expand_region(resize_fct=100.0)
+            self.expand_region(resize_fct=REGION_RESIZE_FCT)
             if self.cfg.depth_filter:
                 self.build_dense_cloud(depth_filter=self.cfg.depth_filter)
             else:
