@@ -60,8 +60,7 @@ from lib.visualization import (
     plot_features,
     imshow_cv,
 )
-
-# from lib.import_export.export2bundler import write_bundler_out
+from lib.import_export.export2bundler import write_bundler_out
 from lib.metashape.metashape import (
     MetashapeProject,
     MetashapeReader,
@@ -69,7 +68,9 @@ from lib.metashape.metashape import (
 )
 
 # CFG_FILE = "config/config_base.yaml"
-CFG_FILE = "config/config_2021_1.yaml"
+
+# CFG_FILE = "config/config_2021_1.yaml"
+CFG_FILE = "config/config_2022_3.yaml"
 
 # Create logger and set logging level
 LOG_LEVEL = logging.WARNING
@@ -238,11 +239,8 @@ for epoch in cfg.proc.epoch_to_process:
     if cfg.proc.do_metashape_bba:
         # Export results in Bundler format
 
-        from lib.import_export.export2bundler import write_bundler_out_one_epoch
-
-        # TODO: Finishing to implement export one epoch function.
         im_dict = {cam: images[cam].get_image_path(epoch) for cam in cams}
-        write_bundler_out_one_epoch(
+        write_bundler_out(
             export_dir=epochdir,
             im_dict=im_dict,
             cams=cams,
@@ -251,21 +249,8 @@ for epoch in cfg.proc.epoch_to_process:
             point_cloud=pcd_epc,
             targets=targets[epoch],
             targets_to_use=cfg.georef.targets_to_use,
-            targets_enabled=[True, True],
+            targets_enabled=[True for el in cfg.georef.targets_to_use],
         )
-
-        # write_bundler_out(
-        #     export_dir=epochdir / "metashape",
-        #     epoches=[epoch],
-        #     images=images,
-        #     cams=cams,
-        #     cameras=cameras,
-        #     features=features,
-        #     point_cloud=pcd_epc,
-        #     targets=targets,
-        #     targets_to_use=cfg.georef.targets_to_use,
-        #     targets_enabled=[True, True],
-        # )
 
         # Temporary function for building configuration dictionary.
         # Must be moved to a file or other solution.
