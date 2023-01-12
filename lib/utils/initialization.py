@@ -107,7 +107,7 @@ def validate_cfg(cfg: edict) -> None:
 
     # Check that number of images is the same for every camera
     for i in range(1, len(cams)):
-        if len(images[cams[i]]) is not len(images[cams[i - 1]]):
+        if len(images[cams[i]]) != len(images[cams[i - 1]]):
             raise ValueError("Error: different number of images per camera")
         else:
             print("Image datastores created successfully.")

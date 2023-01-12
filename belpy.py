@@ -67,10 +67,22 @@ from lib.metashape.metashape import (
     build_ms_cfg_base,
 )
 
-# CFG_FILE = "config/config_base.yaml"
+print("\n===========================================================")
+print("Belpy")
+print("Low-cost stereo photogrammetry for 4D glacier monitoring ")
+print("2022 - Francesco Ioli - francesco.ioli@polimi.it")
+print("===========================================================\n")
 
+
+# CFG_FILE = "config/config_base.yaml"
 # CFG_FILE = "config/config_2021_1.yaml"
-CFG_FILE = "config/config_2022_3.yaml"
+# CFG_FILE = "config/config_2022_2.yaml"
+# CFG_FILE = "config/config_2022_summer.yaml"
+
+CFG_FILE = "config/config_block_1.yaml"
+# CFG_FILE = "config/config_block_2.yaml"
+# CFG_FILE = "config/config_block_3.yaml"
+# CFG_FILE = "config/config_block_4.yaml"
 
 # Create logger and set logging level
 LOG_LEVEL = logging.WARNING
