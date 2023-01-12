@@ -42,7 +42,7 @@ from lib.base_classes.features import Features
 # The dictionary is updated/extended at runtime with the parameters defined by the user in the input yaml config file
 
 
-def parse_yaml_cfg(cfg_file: edict) -> edict:
+def parse_yaml_cfg(cfg_file: Union[str, Path]) -> edict:
 
     with open(cfg_file) as file:
         cfg = edict(yaml.safe_load(file))
