@@ -241,7 +241,7 @@ class TrackTargets:
         else:
             target_name = self._cur_target
         cv2.imwrite(
-            str(out_dir / f"{im_name}_{target_name}{ext}"),
+            str(out_dir / f"{target_name}_{im_name}{ext}"),
             img,
         )
 
@@ -269,7 +269,6 @@ class TrackTargets:
         if targets_name is None:
             targets_name = [x for x in range(num_targets)]
 
-        self.images.reset_iterator()
         for ep, image in enumerate(self.images):
             f = open(folder / f"{image.stem}.{format}", "w")
             f.write(f"label{sep}x{sep}y\n")
@@ -283,56 +282,66 @@ class TrackTargets:
                         f"Writing output error: target {targets_name[i]} not found on image {image.stem}"
                     )
             f.close()
+        print("Targets files saved correctely.")
 
 
 if __name__ == "__main__":
 
+    # TODO: implement tracking from and to a specific epoch
+
     # Parameters
-    cfg_file = "config/config_2021_1.yaml"
-    cfg = parse_yaml_cfg(cfg_file)
-    init = Inizialization(cfg)
-    init.inizialize_belpy()
-    cams = init.cams
-    images = init.images
-    targets = init.targets
+    OUT_DIR = "tools/track_targets/block_3/results"
 
-    targets_to_use = ["F2", "F13"]
+    TARGETS_DIR = "tools/track_targets/block_3/data/targets"
+    TARGETS_IMAGES_FNAMES = ["IMG_2637.csv", "IMG_1112.csv"]
+    TARGETS_WORLD_FNAME = "target_world.csv"
+    IM_DIR = "tools/track_targets/block_3/data/images"
 
-    patch_width = 256
+    cams = ["p1", "p2"]
+    targets_to_track = ["F2", "F13"]
+
+    patch_width = 512
     template_width = 16
     search_width = 64
 
-    debug_viz = False
-    debug = True
+    debug_viz = True
+    verbose = True
+
+    targets_image_paths = [Path(TARGETS_DIR) / fname for fname in TARGETS_IMAGES_FNAMES]
+    targets = Targets(
+        im_file_path=targets_image_paths,
+        obj_file_path=Path(TARGETS_DIR) / TARGETS_WORLD_FNAME,
+    )
 
     for cam_id, cam in enumerate(cams):
         print(f"Processing camera {cam}")
 
-        # Initialize dictionaries for storing results
-        t_est = {}
-        diff = {}
-        diff_noCC = {}
+        images = ImageDS(Path(IM_DIR) / cam)
 
         # Define nx2 array with image coordinates of the targets to track
         # in the form of:
         # [x1, y1],
         # [x2, y2]...
         # You can create it manually or use Target class
-        targets_coord = np.zeros((len(targets_to_use), 2))
-        for i, t in enumerate(targets_to_use):
-            targets_coord[i] = targets[0].get_image_coor_by_label([t], cam_id).squeeze()
+        targets_coord = np.zeros((len(targets_to_track), 2))
+        for i, target in enumerate(targets_to_track):
+            targets_coord[i] = targets.get_image_coor_by_label(
+                [target], cam_id
+            ).squeeze()
 
         # Define TrackTargets object and run tracking
         tracking = TrackTargets(
-            images=images[cams[cam_id]],
+            images=images,
             patch_centers=targets_coord,
-            out_dir="tools/track_target/2021_01",
-            target_names=targets_to_use,
-            patch_width=512,
-            template_width=16,
-            search_width=128,
-            debug_viz=True,
+            out_dir=OUT_DIR,
+            target_names=targets_to_track,
+            patch_width=patch_width,
+            template_width=template_width,
+            search_width=search_width,
+            debug_viz=debug_viz,
+            verbose=verbose,
         )
+        # tracking.viz_template()
         tracking.track_all_targets()
 
         print("Done.")

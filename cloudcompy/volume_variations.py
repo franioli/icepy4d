@@ -20,7 +20,7 @@ TSTEP = 3
 VERBOSE = True
 GRID_STEP = 0.2
 DIR = "z"  # "x"  #
-FOUT = "cloudcompy/DOD_res_z_20cm.csv"  # "cloudcompy/DOD_res_x_20cm.csv"  #
+FOUT = "cloudcompy/DOD_res_x_20cm.csv"  # "cloudcompy/DOD_res_x_20cm.csv"  #
 
 
 class DOD:
@@ -31,7 +31,7 @@ class DOD:
 
     def compute_volume(
         self,
-        direction: str = "z",
+        direction: str = "x",
         grid_step: float = 1,
     ) -> None:
         assert direction in [
@@ -102,7 +102,7 @@ class DOD:
                     "pcd0,pcd1,volume,addedVolume,removedVolume,surface,matchingPercent,averageNeighborsPerCell\n"
                 )
             f.write(
-                f"{self.pcd_pair[0]},{self.pcd_pair[0]},{self.report.volume:.4f},{self.report.addedVolume:.4f},{self.report.removedVolume:.4f},{self.report.surface:.4f},{self.report.matchingPercent:.1f}{self.report.averageNeighborsPerCell:.1f}\n"
+                f"{self.pcd_pair[0]},{self.pcd_pair[1]},{self.report.volume:.4f},{self.report.addedVolume:.4f},{self.report.removedVolume:.4f},{self.report.surface:.4f},{self.report.matchingPercent:.1f},{self.report.averageNeighborsPerCell:.1f}\n"
             )
 
     @staticmethod

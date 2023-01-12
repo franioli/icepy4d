@@ -82,8 +82,8 @@ print("===========================================================\n")
 
 # CFG_FILE = "config/config_block_1.yaml"
 # CFG_FILE = "config/config_block_2.yaml"
-# CFG_FILE = "config/config_block_3.yaml"
-CFG_FILE = "config/config_block_4.yaml"
+CFG_FILE = "config/config_block_3.yaml"
+# CFG_FILE = "config/config_block_4.yaml"
 
 # Create logger and set logging level
 LOG_LEVEL = logging.WARNING
@@ -94,9 +94,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Read options from yaml file
-print(f"Configuration file: {Path(CFG_FILE).stem}")
+cfg_file = Path(CFG_FILE)
+print(f"Configuration file: {cfg_file.stem}")
 timer_global = AverageTimer(newline=True)
-cfg = parse_yaml_cfg(CFG_FILE)
+cfg = parse_yaml_cfg(cfg_file)
 
 """ Inizialize Variables """
 
@@ -115,11 +116,13 @@ focals = init.focals_dict
 print("\nProcessing started:")
 print("-----------------------")
 timer = AverageTimer(newline=True)
+iter = 0
 for epoch in cfg.proc.epoch_to_process:
 
     print(
-        f"\nProcessing epoch {epoch}/{cfg.proc.epoch_to_process[-1]} - {epoch_dict[epoch]}..."
+        f"\nProcessing epoch {epoch} [{iter}/{cfg.proc.epoch_to_process[-1]}] - {epoch_dict[epoch]}..."
     )
+    iter += 1
 
     epochdir = Path(cfg.paths.results_dir) / epoch_dict[epoch]
 
@@ -341,10 +344,12 @@ for epoch in cfg.proc.epoch_to_process:
 
         # Plots
         if cfg.other.do_viz:
-            make_focal_length_variation_plot(focals, "res/focal_lenghts.png")
+            make_focal_length_variation_plot(
+                focals, f"res/focal_lenghts_{cfg_file.stem}.png"
+            )
             make_camera_angles_plot(
                 cameras,
-                "res/angles.png",
+                f"res/angles_{cfg_file.stem}.png",
                 baseline_epoch=cfg.proc.epoch_to_process[0],
                 current_epoch=epoch,
             )
