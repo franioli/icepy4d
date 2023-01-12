@@ -1,7 +1,9 @@
 # Specific
 *_old/
 *.old/
+data/img/
 data/img*/
+data/targets/
 data/targets*/
 res/
 tmp/
