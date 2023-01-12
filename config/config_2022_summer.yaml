@@ -2,7 +2,7 @@
 # All pahts MUST be relative to the root folder of Belpy and
 # they will be converted to pathlib.Path when parsing this yaml file)
 paths:
-  image_dir: "data/img2021" # "data/img2021" #
+  image_dir: "data/img2022_summer" # "data/img2021" #
   calibration_dir: "data/calib"
   results_dir: "res"
   camera_names: ["p1", "p2"]
@@ -14,7 +14,7 @@ proc:
   # It can be either 'all' for processing all the epochs,
   # A list of two integers for processing a range of epoches
   # or a list with the epoche numbers to be processed
-  epoch_to_process: [52, 59] # "all" #  #[0, 2] #
+  epoch_to_process: "all" #[0, 2] # [0] #
 
   #- Switches to find and track matches
   do_matching: true
@@ -54,12 +54,12 @@ georef:
 
   #- Targets' information
   # Target information must be stored in file one file per image saved with the name of the relative image (with target_file_ext extension)
-  target_dir: "data/targets2021" # "data/targets2021" #
+  target_dir: "data/targets2022_summer" # "data/targets2021" #
   target_file_ext: ".csv"
   target_world_file: "target_world.csv"
 
   #- Targets to use for Absolute Orientation, Space Resection and Bundle Adjustment
-  targets_to_use: ["F2", "F13"]
+  targets_to_use: ["F2", "T2"]
 
 #- Other On-Off switches
 other:
@@ -94,7 +94,7 @@ matching:
   force_cpu: false
   useTile: true
   writeTile2Disk: false
-  do_viz_tile: true
+  do_viz_tile: false
   rowDivisor: 2
   colDivisor: 3
   overlap: 400

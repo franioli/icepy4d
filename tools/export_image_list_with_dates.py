@@ -29,12 +29,14 @@ from lib.base_classes.images import ImageDS, Image
 
 if __name__ == "__main__":
 
-    IM_DIR = "data/img2022_all"
-    CAMS = ["p1", "p2"]
+    ROOT_DIR = "data/img"
+    IM_DIR_LIST = ["p1", "p2"]
+    IM_EXT = "jpg"
 
-    folder = Path(IM_DIR)
-    for cam in CAMS:
-        images = ImageDS(folder / cam)
-        images.write_exif_to_csv(folder / f"image_list_{cam}.csv")
+    ROOT_DIR = Path(ROOT_DIR)
+    for dir in IM_DIR_LIST:
+        folder = ROOT_DIR / dir
+        images = ImageDS(folder, ext=IM_EXT)
+        images.write_exif_to_csv(ROOT_DIR / f"image_list_{dir}.csv")
 
     print("Done")

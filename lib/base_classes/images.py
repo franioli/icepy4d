@@ -311,6 +311,17 @@ class ImageDS:
         ext: str = None,
         recursive: bool = False,
     ) -> None:
+        """
+        __init__ _summary_
+
+        Args:
+            folder (Union[str, Path]): _description_
+            ext (str, optional): _description_. Defaults to None.
+            recursive (bool, optional): _description_. Defaults to False.
+
+        Raises:
+            IsADirectoryError: _description_
+        """
         self.reset_imageds()
 
         self.folder = Path(folder)

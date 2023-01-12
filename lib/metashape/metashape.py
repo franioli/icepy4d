@@ -85,7 +85,7 @@ def build_ms_cfg_base(dir: Path, epoch_dict: dict, epoch: int) -> edict:
             "dense_downscale_image": 1,
             "depth_filter": "AggressiveFiltering",
             "dense_path": Path("res/point_clouds"),
-            "dense_name": f"dense_{epoch_dict[epoch]}_ep_{epoch:02}.ply",
+            "dense_name": f"dense_{epoch_dict[epoch]}.ply",
             "force_overwrite_projects": True,
         }
     )
