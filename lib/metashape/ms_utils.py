@@ -76,7 +76,7 @@ def create_new_project(
     doc = Metashape.Document()
     doc.read_only = read_only
     create_new_chunk(doc, chunk_name)
-    # save_project(doc, project_name)
+    save_project(doc, project_name)
 
     return doc
 
