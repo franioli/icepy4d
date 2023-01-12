@@ -2,6 +2,7 @@
 *_old/
 *.old/
 data/img*/
+data/targets*/
 res/
 tmp/
 tools/track_targets/results/
