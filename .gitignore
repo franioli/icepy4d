@@ -7,7 +7,8 @@ data/targets/
 data/targets*/
 res/
 tmp/
-tools/track_targets/results/
+tools/track_targets/block_1/
+tools/track_targets/block_3/
 tools/collimate_targets/data/
 tools/collimate_targets/targets/
 sandbox/
