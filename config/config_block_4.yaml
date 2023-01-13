@@ -4,7 +4,7 @@
 paths:
   image_dir: "data/img"
   calibration_dir: "data/calib"
-  results_dir: "test"
+  results_dir: "res"
   camera_names: ["p1", "p2"]
 
 #- Processing options
@@ -16,7 +16,7 @@ proc:
   epoch_to_process: [254, 339] # "all" #
 
   #- Switches to find and track matches
-  do_matching: false
+  do_matching: true
   do_tracking: true
 
   #- Do space resection of first camera
@@ -34,6 +34,8 @@ proc:
   # Zero translation between cameras at different epoches, but rotation only, is assumed to estimate homography transformation
   do_homography_warping: false
   camera_to_warp: "p2"
+
+  save_sparse_cloud: false
 
 #- Image-related options
 images:
@@ -74,51 +76,82 @@ other:
 
 #- Matching options
 matching:
-  output_dir: "./"
   resize: [-1]
-  resize_float: true
-  equalize_hist: false
-  nms_radius: 3
   keypoint_threshold: 0.0001
   max_keypoints: 8192 #4096 #  10240
   superglue: "outdoor"
-  sinkhorn_iterations: 100
   match_threshold: 0.10
-  viz: false
-  viz_extension: "png"
-  fast_viz: false
-  opencv_display: false
-  show_keypoints: false
-  cache: false
+  viz_matches: true
+  fast_viz: true
   force_cpu: false
   useTile: true
   writeTile2Disk: false
-  do_viz_tile: false
+  do_viz_tile: true
   rowDivisor: 2
   colDivisor: 3
   overlap: 400
 
 #- Tracking options
 tracking:
-  output_dir: "./"
   resize: [-1]
-  resize_float: true
-  equalize_hist: false
-  nms_radius: 3
   keypoint_threshold: 0.005
   max_keypoints: 8192
   superglue: "outdoor"
-  sinkhorn_iterations: 100
   match_threshold: 0.3
-  viz: false
-  viz_extension: "png"
+  viz_matches: false
   fast_viz: false
-  opencv_display: false
-  show_keypoints: false
-  cache: false
   force_cpu: false
   useTile: true
   writeTile2Disk: false
   do_viz_tile: false
   rowDivisor: 2
   colDivisor: 3
+
+#- Metashape parameters for Bundle Adjustment and Dense Matching
+# Note that to use Metashape, you need a license properly configured and you need to enable do_metashape_processing in Proc section of this yaml file.
+metashape:
+  # Processing parameters:
+  optimize_cameras: true
+  build_dense: true
+
+  # List containing camera location. Note, that the order may differ from that of Belpy, because Metashape imports the cameras based on alphabetic order of the images that they belong to (e.g., IMG_1289.jpg that belongs to p2 comes before IMG_2814.jpg that belongs to p1!)
+  #TODO: fix camera ordering issue in Metashape.
+  camera_location: [
+      [309.261, 301.051, 135.008], # p2
+      [151.962, 99.065, 91.643], # p1
+    ]
+
+  # A-priori accuracy [x, y, z] of cameras and GCPs
+  camera_accuracy: [0.001, 0.001, 0.001]
+  gcp_accuracy: [0.01, 0.01, 0.01]
+
+  # List containing interior orientation parameters' to fix (all the remaining parameters are adjusted). Parameters' names are:
+  # ["F", "Cx", "Cy", "B1", "B2", "K1", "K2", "K3", "K4", "P1", "P2"]
+  # Leave empy if all the parameters should be estimated
+  camera_prm_to_fix:
+    ["Cx", "Cy", "B1", "B2", "K1", "K2", "K3", "K4", "P1", "P2"]
+
+  # List containing the camera calibration .xml filenames (in Agisoft default format). The list must be in the same order of Metashape camera_location!
+  calib_filenames:
+    [
+      "data/calib/belpy_35mm_280722_selfcal_all_metashape.xml",
+      "data/calib/belpy_24mm_280722_selfcal_all_metashape.xml",
+    ]
+
+  # Factor for downscaling images in depth maps computation ("Dense accuracy")
+  # 1 = use full resulution images ("Ultra High")
+  # 2 = half resolution ("High")
+  # 4 = 1/4 resolution ("Medium")
+  # 8 = 1/8 resolution ("Low")
+  # 16 = 1/16 resolution ("Lowest")
+  dense_downscale_factor: 1
+
+  # Depth maps filtering: choose between:
+  # [NoFiltering, MildFiltering, ModerateFiltering, AggressiveFiltering]
+  depth_filter: "ModerateFiltering"
+
+  # Use Omega Phi Kappa angle convention in Metashape
+  use_omega_phi_kappa: true
+
+  # Force overwite a project if it already exists or was not properly closed
+  force_overwrite_projects: true
