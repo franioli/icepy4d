@@ -50,51 +50,44 @@ from thirdparty.transformations import euler_matrix
 REGION_RESIZE_FCT = 10.0
 
 
-def build_ms_cfg_base(cfg: edict, dir: Path, epoch_dict: dict, epoch: int) -> edict:
-    ms_dir = dir / f"metashape"
-    cfg = edict(
-        {
-            "project_name": ms_dir / f"{epoch_dict[epoch]}.psx",
-            "im_path": ms_dir / "data/images/",
-            "bundler_file_path": ms_dir / f"data/{epoch_dict[epoch]}.out",
-            "bundler_im_list": ms_dir / "data/im_list.txt",
-            "gcp_filename": ms_dir / "data/gcps.txt",
-            "calib_filenames": [
-                "data/calib/p1.xml",
-                "data/calib/p2.xml",
-                "data/calib/p3.xml",
-            ],
-            "im_ext": "jpg",  # "tif",  #
-            "camera_location": [
-                [657556.5, 5209658.9, 2686.3],  # IMG_1289
-                [656781.5, 5211263.8, 2722.8],  # IMG_2814
-            ],
-            "gcp_accuracy": [0.01, 0.01, 0.01],
-            "cam_accuracy": [0.001, 0.001, 0.001],
-            "prm_to_fix": [
-                "F",
-                "Cx",
-                "Cy",
-                "B1",
-                "B2",
-                "K1",
-                "K2",
-                "K3",
-                "K4",
-                "P1",
-                "P2",
-            ],
-            "use_opk": True,
-            "optimize_cameras": True,
-            "build_dense": True,
-            "dense_downscale_image": 1,
-            "depth_filter": "ModerateFiltering",
-            "dense_path": cfg.paths.results_dir / "point_clouds",
-            "dense_name": f"dense_{epoch_dict[epoch]}.ply",
-            "force_overwrite_projects": True,
-        }
-    )
-    return cfg
+def build_metashape_cfg(cfg: edict, epoch_dict: dict, epoch: int) -> edict:
+    ms_cfg = edict()
+
+    # Paths
+    ms_cfg.dir = cfg.paths.results_dir / f"{epoch_dict[epoch]}/metashape"
+    ms_cfg.project_path = ms_cfg.dir / f"{epoch_dict[epoch]}.psx"
+    ms_cfg.im_path = ms_cfg.dir / "data/images"
+    ms_cfg.im_ext = cfg.paths.image_extension
+    ms_cfg.bundler_file_path = ms_cfg.dir / f"data/{epoch_dict[epoch]}.out"
+    ms_cfg.bundler_im_list = ms_cfg.dir / "data/im_list.txt"
+    ms_cfg.gcp_filename = ms_cfg.dir / "data/gcps.txt"
+    ms_cfg.calib_filenames = cfg.metashape.calib_filenames
+    ms_cfg.dense_path = cfg.paths.results_dir / "point_clouds"
+    ms_cfg.dense_name = f"dense_{epoch_dict[epoch]}.ply"
+
+    # Processing parameters
+    ms_cfg.optimize_cameras = cfg.metashape.optimize_cameras
+    ms_cfg.build_dense = cfg.metashape.build_dense
+
+    # Camera location
+    ms_cfg.camera_location = cfg.metashape.camera_location
+
+    # A-priori observation accuracy
+    ms_cfg.cam_accuracy = cfg.metashape.camera_accuracy
+    ms_cfg.gcp_accuracy = cfg.metashape.gcp_accuracy
+
+    # Interior orientation parameters
+    ms_cfg.prm_to_fix = cfg.metashape.camera_prm_to_fix
+
+    # Dense matching
+    ms_cfg.dense_downscale_image = cfg.metashape.dense_downscale_factor
+    ms_cfg.depth_filter = cfg.metashape.depth_filter
+
+    # Other parameters
+    ms_cfg.use_opk = cfg.metashape.use_omega_phi_kappa
+    ms_cfg.force_overwrite_projects = cfg.metashape.force_overwrite_projects
+
+    return ms_cfg
 
 
 class MetashapeProject:
@@ -108,12 +101,12 @@ class MetashapeProject:
         self.timer = timer
 
     @property
-    def project_name(self) -> str:
-        return str(self.cfg.project_name.name)
+    def project_path(self) -> str:
+        return str(self.cfg.project_path.name)
 
     @property
     def project_path(self) -> str:
-        return str(self.cfg.project_name)
+        return str(self.cfg.project_path)
 
     def create_project(self) -> None:
         # # If the project already exists and the option force_overwrite_projects is on, remove completely the old project
@@ -129,7 +122,7 @@ class MetashapeProject:
             self.doc.chunk.euler_angles = Metashape.EulerAnglesOPK
 
         # self.chunk = self.doc.chunk
-        print(f"Created project {self.project_name}.")
+        print(f"Created project {self.project_path}.")
 
     def add_images(self) -> None:
         p = self.cfg.im_path.glob("*." + self.cfg.im_ext)
@@ -165,8 +158,9 @@ class MetashapeProject:
             cal.load(str(self.cfg.calib_filenames[i]))
             sensor.user_calib = cal
             sensor.fixed_calibration = True
-            if self.cfg.prm_to_fix:
-                sensor.fixed_params = self.cfg.prm_to_fix
+            # if self.cfg.prm_to_fix:
+            sensor.fixed_params = self.cfg.prm_to_fix
+            
             print(f"sensor {sensor} loaded.")
 
     def add_gcps(self) -> None:
@@ -238,8 +232,8 @@ class MetashapeProject:
 
     def export_camera_estimated(self, path: str = None):
         if path is None:
-            path = self.cfg.project_name.parent / (
-                self.cfg.project_name.stem + "_camera_estimated.txt"
+            path = self.cfg.project_path.parent / (
+                self.cfg.project_path.stem + "_camera_estimated.txt"
             )
         self.doc.chunk.exportReference(
             path=str(path),
@@ -250,7 +244,7 @@ class MetashapeProject:
 
     def export_camera_extrinsics(self, dir: Union[str, Path] = None):
         if dir is None:
-            dir = self.cfg.project_name.parent / "camera_estimated_extrinsics"
+            dir = self.cfg.project_path.parent / "camera_estimated_extrinsics"
         else:
             dir = Path(dir)
         dir.mkdir(parents=True, exist_ok=True)
@@ -281,7 +275,7 @@ class MetashapeProject:
         self, export_dir: str = None, format: str = "opencv", save_as_txt: bool = True
     ):
         if export_dir is None:
-            export_dir = self.cfg.project_name.parent
+            export_dir = self.cfg.project_path.parent
         if format == "opencv":
             cal_fmt = Metashape.CalibrationFormat.CalibrationFormatOpenCV
 
@@ -508,7 +502,7 @@ if __name__ == "__main__":
 
     # Old code for focals plot
     #     for id in range(2):
-    #         path = str(cfg.project_name.parent / f"sensor_{id}_calib.txt")
+    #         path = str(cfg.project_path.parent / f"sensor_{id}_calib.txt")
     #         with open(path, "r") as f:
     #             line = f.readline(-1)
     #             f = float(line.split()[2])
