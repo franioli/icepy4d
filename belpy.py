@@ -314,9 +314,10 @@ for epoch in cfg.proc.epoch_to_process:
         )
 
         pcd_epc = PointCloud(points3d=points3d, points_col=triangulation.colors)
-        # pcd_epc.write_ply(
-        #     cfg.paths.results_dir / f"point_clouds/sparse_{epoch_dict[epoch]}.ply"
-        # )
+        if cfg.proc.save_sparse_cloud:
+            pcd_epc.write_ply(
+                cfg.paths.results_dir / f"point_clouds/sparse_{epoch_dict[epoch]}.ply"
+            )
         point_clouds[epoch] = pcd_epc
 
         # - For debugging purposes
