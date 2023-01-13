@@ -48,7 +48,7 @@ def imshow_cv(
     if win_name is None:
         win_name = "image"
     if convert_RGB2BRG:
-        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
     cv2.namedWindow(win_name, cv2.WINDOW_NORMAL)
     cv2.imshow(win_name, img)
@@ -480,18 +480,25 @@ def make_camera_angles_plot(
     for key in cam_keys:
         angles[key] = {}
         for angle in angles_keys:
-            angles[key][angle] = []
+            angles[key][angle] = {}
 
     for ep, cam_dict in cameras_plt.items():
         if ep in epoches:
             for cam_key, cam in cam_dict.items():
-                for i, angle_key in enumerate(angles_keys):
-                    angles[cam_key][angle_key].append(cam.euler_angles[i])
+                omega = cam.euler_angles[0]
+                phi = cam.euler_angles[1]
+                kappa = cam.euler_angles[2]
+                angles[cam_key]["omega"][ep] = omega
+                angles[cam_key]["phi"][ep] = phi
+                angles[cam_key]["kappa"][ep] = kappa
 
-    if baseline_epoch is not None:
-        for cam_key in cam_keys:
-            for i, angle_key in enumerate(angles_keys):
-                angles[cam_key][angle_key] -= angles[cam_key][angle_key][ep0]
+                if baseline_epoch is not None:
+                    omega0 = angles[cam_key]["omega"][ep0]
+                    phi0 = angles[cam_key]["phi"][ep0]
+                    kappa0 = angles[cam_key]["kappa"][ep0]
+                    angles[cam_key]["omega"][ep] -= omega0
+                    angles[cam_key]["phi"][ep] -= phi0
+                    angles[cam_key]["kappa"][ep] -= kappa0
 
     fig, ax = plt.subplots(3, 2)
     if baseline_epoch is not None:
@@ -501,31 +508,24 @@ def make_camera_angles_plot(
     else:
         fig.suptitle(f"Attitude angles of the two cameras")
     for i, cam_key in enumerate(cam_keys):
-        for k, angle_key in enumerate(angles_keys):
-            ax[k, i].plot(epoches, angles[cam_key][angle_key], "o")
-            ax[k, i].grid(visible=True, which="both")
-            ax[k, i].set_xlabel("Epoch")
-            ax[k, i].set_ylabel(f"{angle_key} [deg]")
-            ax[k, i].set_title(f"Camera {cam_key}")
+        ax[0, i].plot(epoches, list(angles[cam_key]["omega"].values()), "o")
+        ax[0, i].grid(visible=True, which="both")
+        ax[0, i].set_xlabel("Epoch")
+        ax[0, i].set_ylabel(f"Omega [deg]")
+        ax[0, i].set_title(f"Camera {cam_key}")
+
+        ax[1, i].plot(epoches, list(angles[cam_key]["phi"].values()), "o")
+        ax[1, i].grid(visible=True, which="both")
+        ax[1, i].set_xlabel("Epoch")
+        ax[1, i].set_ylabel(f"Phi [deg]")
+        ax[1, i].set_title(f"Camera {cam_key}")
+
+        ax[2, i].plot(epoches, list(angles[cam_key]["kappa"].values()), "o")
+        ax[2, i].grid(visible=True, which="both")
+        ax[2, i].set_xlabel("Epoch")
+        ax[2, i].set_ylabel(f"Kappa [deg]")
+        ax[2, i].set_title(f"Camera {cam_key}")
     fig.tight_layout(pad=0.05)
-
-    # fig, ax = plt.subplots(3, 2)
-    # for i, cam_id in enumerate(cam_keys):
-    #     epoches = range(len(omega[cam_id]))
-    #     ax[0, i].plot(epoches, omega[cam_id], "o")
-    #     ax[0, i].grid(visible=True, which="both")
-    #     ax[0, i].set_xlabel("Epoch")
-    #     ax[0, i].set_ylabel("Omega difference [deg]")
-
-    #     ax[1, i].plot(epoches, phi[cam_id], "o")
-    #     ax[1, i].grid(visible=True, which="both")
-    #     ax[1, i].set_xlabel("Epoch")
-    #     ax[1, i].set_ylabel("Phi difference [deg]")
-
-    #     ax[2, i].plot(epoches, kappa[cam_id], "o")
-    #     ax[2, i].grid(visible=True, which="both")
-    #     ax[2, i].set_xlabel("Epoch")
-    #     ax[2, i].set_ylabel("Kappa difference [deg]")
 
     if save_path is None:
         fig.show()

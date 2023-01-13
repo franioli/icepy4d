@@ -1,21 +1,90 @@
 import numpy as np
 import matplotlib.cm as cm
 import torch
+import cv2
 
 from pathlib import Path
 from easydict import EasyDict as edict
 
-from thirdparty.SuperGluePretrainedNetwork.matching import Matching
-from thirdparty.SuperGluePretrainedNetwork.utils import (
+from thirdparty.SuperGluePretrainedNetwork.models.matching import Matching
+from thirdparty.SuperGluePretrainedNetwork.models.utils import (
     make_matching_plot, 
     AverageTimer, 
-    read_image, 
     frame2tensor,
-    vizTileRes
+    process_resize
 )
 from lib.utils.utils import generateTiles
 
 torch.set_grad_enabled(False)
+
+# @TODO: This function is a duplicate of the one in track_matches!!!
+# It is a replacement of the SuperGlue one because of the different input parametets.
+# This must be fixed! Only ONE read_image function must exist!
+# (There is also read_image function implemented from scratch in Belpy)
+def read_image(path, device, resize=-1, rotation=0, resize_float=True, crop=[], equalize_hist=False):
+    image = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
+    if image is None:
+        return None, None, None
+    w, h = image.shape[1], image.shape[0]
+    w_new, h_new = process_resize(w, h, resize)
+    scales = (float(w) / float(w_new), float(h) / float(h_new))
+
+    if equalize_hist:
+        image = cv2.equalizeHist(image)
+
+    if resize_float:
+        image = cv2.resize(image.astype('float32'), (w_new, h_new))
+    else:
+        image = cv2.resize(image, (w_new, h_new)).astype('float32')
+
+    if rotation != 0:
+        image = np.rot90(image, k=rotation)
+        if rotation % 2:
+            scales = scales[::-1]
+    if np.any(crop):
+       image = image[ crop[1]:crop[3],crop[0]:crop[2] ]
+       
+    inp = frame2tensor(image, device)
+    return image, inp, scales 
+
+
+def vizTileRes(viz_path, pred, image0, image1, matching, timer, opt):
+
+    kpts0, kpts1 = pred['keypoints0'], pred['keypoints1']       
+    matches0 = pred['matches0']
+    conf = pred['matching_scores0']
+    
+    # Keep the matching keypoints and descriptors.
+    valid = matches0 > -1
+    mkpts0 = kpts0[valid]
+    mkpts1 = kpts1[matches0[valid]]
+    mconf = conf[valid]
+    
+    # Visualize the matches.
+    color = cm.jet(mconf)
+    text = [
+        'SuperGlue',
+        'Keypoints: {}:{}'.format(len(kpts0), len(kpts1)),
+        'Matches: {}'.format(len(mkpts0)),
+    ]
+    
+    # Display extra parameter info.
+    k_thresh = matching.superpoint.config['keypoint_threshold']
+    m_thresh = matching.superglue.config['match_threshold']
+    small_text = [
+        'Keypoint Threshold: {:.4f}'.format(k_thresh),
+        'Match Threshold: {:.2f}'.format(m_thresh),
+        'Image Pair: {}:{}'.format( opt['imstem0'], opt['imstem1']),
+    ]
+    
+    make_matching_plot(
+        image0, image1, kpts0, kpts1, mkpts0, mkpts1, color,
+        text, viz_path, opt['show_keypoints'],
+        opt['fast_viz'], opt['opencv_display'], 'Matches', small_text)
+    
+    timer.update('viz_match')
+
+
 
 def match_pair(pair, maskBB, opt):
     

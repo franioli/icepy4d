@@ -1,3 +1,6 @@
-[submodule "thirdparty/pydegensac"]
-	path = thirdparty/pydegensac
-	url = https://github.com/ducha-aiki/pydegensac.git
+[submodule "thirdparty/CameraSensorSizeDatabase"]
+	path = thirdparty/CameraSensorSizeDatabase
+	url = git@github.com:openMVG/CameraSensorSizeDatabase.git
+[submodule "thirdparty/SuperGluePretrainedNetwork"]
+	path = thirdparty/SuperGluePretrainedNetwork
+	url = git@github.com:magicleap/SuperGluePretrainedNetwork.git
