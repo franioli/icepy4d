@@ -35,6 +35,8 @@ proc:
   do_homography_warping: false
   camera_to_warp: "p2"
 
+  save_sparse_cloud: false
+
 #- Image-related options
 images:
   #- Bounding box for processing the images from the two cameras
