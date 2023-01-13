@@ -36,6 +36,8 @@ from pathlib import Path
 
 from lib.import_export.importing import read_opencv_calibration
 
+logger = logging.getLogger(__name__)
+
 
 class Targets:
     """
@@ -48,10 +50,8 @@ class Targets:
 
     def __init__(
         self,
-        cam_id=None,
         im_file_path=None,
         obj_file_path=None,
-        logger: logging = None,
     ):
         self.reset_targets()
 
@@ -96,60 +96,80 @@ class Targets:
         else:
             self.obj_coor = np.append(self.obj_coor, new_obj_coor, axis=0)
 
-    def get_target_labels(self, labels: List[str], cam_id=None):
-        """ """
-        pass
+    def get_target_labels(self, cam_id=None):
+        """Return target labels as a list"""
+        if cam_id is not None:
+            return list(self.im_coor[cam_id].label)
+        else:
+            return [list(self.im_coor[x].label) for x, _ in enumerate(self.im_coor)]
 
-    def extract_image_coor_by_label(
+    def get_image_coor_by_label(
         self,
         labels: List[str],
-        cam_id: int = None,
+        cam_id: int,
     ) -> np.ndarray:
         """
-        Return image coordinates of the targets on the images given a list of target labels
+        get_image_coor_by_label Get image coordinates of the targets on the images given a list of target labels
+
+        Args:
+            labels (List[str]): List containing the targets' label to extract
+            cam_id (int): numeric (integer) id of the camera for which the image coordinates are asked.
+
+        Returns:
+            np.ndarray: nx2 array containing image coordinates of the selected targets
         """
-        # try:
+
         coor = []
         for lab in labels:
-            if cam_id is not None:
-                selected = self.im_coor[cam_id][self.im_coor[cam_id]["label"] == lab]
-                if not selected.empty:
-                    coor.append(np.float32(selected.iloc[:, 1:]))
-                else:
-                    print(f"Warning: target {lab} is not present.")
+            selected = self.im_coor[cam_id][self.im_coor[cam_id]["label"] == lab]
+            if not selected.empty:
+                coor.append(selected.iloc[:, 1:].to_numpy())
             else:
-                print("provide cam id")
-                return None
+                logger.warning(f"Warning: target {lab} is not present.")
 
-        return np.concatenate(coor, axis=0)
-        # except:
-        #     pass
+        # If at least one target was found, concatenate arrays to return nx3 array containing world coordinates
+        if coor:
+            return np.concatenate(coor, axis=0)
+        else:
+            msg = "No targets with the provided labels found."
+            logger.error(msg)
+            raise ValueError(msg)
 
-    def extract_object_coor_by_label(
+    def get_object_coor_by_label(
         self,
         labels: List[str],
     ) -> np.ndarray:
         """
-        Return object coordinates of the targets on the images given a list of target labels
+        get_object_coor_by_label Get object coordinates of the targets on the images given a list of target labels
+
+        Args:
+            labels (List[str]): List containing the targets' label to extract
+
+        Returns:
+            np.ndarray: nx3 array containing object coordinates of the selected targets
         """
         coor = []
         for lab in labels:
             selected = self.obj_coor[self.obj_coor["label"] == lab]
             if not selected.empty:
-                coor.append(np.float32(selected.iloc[:, 1:]))
+                coor.append(selected.iloc[:, 1:].to_numpy())
             else:
-                print(f"Warning: target {lab} is not present.")
+                logger.warning(f"Warning: target {lab} is not present.")
 
-        return np.concatenate(coor, axis=0)
+        # If at least one target was found, concatenate arrays to return nx3 array containing world coordinates
+        if coor:
+            return np.concatenate(coor, axis=0)
+        else:
+            msg = "No targets with the provided labels found."
+            logger.error(msg)
+            raise ValueError(msg)
 
     def read_im_coord_from_txt(
         self,
-        camera_id=None,
-        path=None,
+        camera_id,
+        path,
         delimiter: str = ",",
         header: int = 0,
-        column_names: List[str] = None,
-        from_metashape: bool = True,
     ):
         """
         Read image target image coordinates from .txt file in a pandas dataframe
@@ -162,25 +182,17 @@ class Targets:
             target_1,1000,2000
             target_2,2000,3000
         """
-        if camera_id is None:
-            print(
-                "Error: missing camera id. Impossible to assign the target\
-                  coordinates to the correct camera"
-            )
-            return
-        if path is None:
-            print("Error: missing path argument.")
-            return
+        assert isinstance(
+            camera_id, int
+        ), "Missing or invalid camera id. Impossible to assign the target coordinates to the correct camera"
+
         path = Path(path)
         if not path.exists():
-            print("Error: Input path does not exist.")
-            return
-        data = pd.read_csv(path, sep=delimiter, header=header)
+            msg = f"Error: Input path {path} does not exist."
+            logger.error(msg)
+            raise FileNotFoundError(msg)
 
-        # subtract 0.5 px to image coordinates (metashape image RS)
-        if from_metashape:
-            data.x = data.x - 0.5
-            data.y = data.y - 0.5
+        data = pd.read_csv(path, sep=delimiter, header=header)
 
         self.im_coor.insert(camera_id, data)
 
@@ -189,7 +201,6 @@ class Targets:
         path=None,
         delimiter: str = ",",
         header: int = 0,
-        column_names: List[str] = None,
     ):
         """
         Read image target image coordinates from .txt file in a pandas dataframe
@@ -202,13 +213,13 @@ class Targets:
             target_1,1000,2000,3000
             target_1,2000,3000,3000
         """
-        if path is None:
-            print("Error: missing path argument.")
-            return
+
         path = Path(path)
         if not path.exists():
-            print("Error: Input path does not exist.")
-            return
+            msg = f"Error: Input path {path} does not exist."
+            logger.error(msg)
+            raise FileNotFoundError(msg)
+
         data = pd.read_csv(path, sep=delimiter, header=header)
 
         self.append_obj_cord(data)
@@ -227,4 +238,19 @@ class Targets:
 
 if __name__ == "__main__":
     """Test classes"""
-    pass
+
+    from lib.utils.initialization import parse_yaml_cfg, Inizialization
+
+    CFG_FILE = "config/config_2021_1.yaml"
+    cfg = parse_yaml_cfg(CFG_FILE)
+
+    init = Inizialization(cfg)
+    init.inizialize_belpy()
+    cams = init.cams
+    images = init.images
+    targets = init.targets
+
+    epoch = 0
+    tt = cfg.georef.targets_to_use
+    obj = targets[epoch].get_object_coor_by_label(["F1", "F2"])
+    image_points = targets[epoch].get_image_coor_by_label(tt, cam_id=0)

@@ -32,7 +32,9 @@ import cv2
 import exifread
 import numpy as np
 
-# from lib.utils.sensor_width_database import SensorWidthDatabase
+from lib.utils.sensor_width_database import SensorWidthDatabase
+
+logger = logging.getLogger(__name__)
 
 
 def read_image(
@@ -100,8 +102,15 @@ def process_resize(w, h, resize):
 
 class Image:
     def __init__(self, path: Union[str, Path], image: np.ndarray = None) -> None:
+        """
+        __init__ Create Image object
 
-        self._path = path
+        Args:
+            path (Union[str, Path]): path to the image
+            image (np.ndarray, optional): Numpy array containing pixel values. If provided, they are stored in self._value_array and they are accessible from outside the class with Image.value. Defaults to None.
+        """
+
+        self._path = Path(path)
         self._value_array = None
         self._width = None
         self._height = None
@@ -119,6 +128,9 @@ class Image:
         """
         if self._height:
             return int(self._height)
+        else:
+            logger.error("Image height not available. Read it from exif first")
+            return None
 
     @property
     def width(self) -> int:
@@ -127,6 +139,9 @@ class Image:
         """
         if self._width:
             return int(self._width)
+        else:
+            logger.error("Image width not available. Read it from exif first")
+            return None
 
     @property
     def path(self) -> str:
@@ -140,30 +155,53 @@ class Image:
         return self._exif_data
 
     @property
-    def date(self):
-        return self._date_time
+    def date(self) -> str:
+        """
+        date Returns the date of the image from exif as a string
+        """
+        if self._date_time is not None:
+            return self._date_time.strftime("%Y:%m:%d")
+        else:
+            print("No exif data available.")
 
-    def get_image(self) -> np.ndarray:
-        """Returns the image"""
+    @property
+    def time(self) -> str:
+        """
+        time Returns the time of the image from exif as a string
+
+        """
+        if self._date_time is not None:
+            return self._date_time.strftime("%H:%M:%S")
+        else:
+            print("No exif data available.")
+
+    @property
+    def value(self) -> np.ndarray:
+        """
+        Returns the image (pixel values) as numpy array
+        """
         if self._value_array is not None:
             return self._value_array
         else:
             return self.read_image(self._path)
 
+    def get_datetime(self):
+        return self._date_time
+
     def read_image(
         self,
-        path: Union[str, Path],
+        # path: Union[str, Path],
         col: bool = True,
         resize: List[int] = [-1],
         crop: List[int] = None,
     ) -> None:
         """Wrapper around the function read_image to be a class method."""
-        path = Path(path)
-        if path.exists():
-            self._value_array = read_image(path, col, resize, crop)
+        # path = Path(path)
+        if self.path.exists():
+            self._value_array = read_image(self.path, col, resize, crop)
             self.read_exif()
         else:
-            print(f"Input paht {path} not valid.")
+            print(f"Input paht {self.path} not valid.")
 
     def clean_image(self) -> None:
         self._value_array = None
@@ -177,25 +215,46 @@ class Image:
         except:
             print("No exif data available.")
 
-        # Set image size
+        # Get image size
         if (
             "Image ImageWidth" in self._exif_data.keys()
             and "Image ImageLength" in self._exif_data.keys()
         ):
             self._width = self._exif_data["Image ImageWidth"].printable
             self._height = self._exif_data["Image ImageLength"].printable
+        elif (
+            "EXIF ExifImageWidth" in self._exif_data.keys()
+            and "EXIF ExifImageLength" in self._exif_data.keys()
+        ):
+            self._width = self._exif_data["EXIF ExifImageWidth"].printable
+            self._height = self._exif_data["EXIF ExifImageLength"].printable
+        else:
+            logger.error(
+                "Image width and height found in exif. Try to load the image and get image size from numpy array"
+            )
+            try:
+                img = Image(self.path)
+                self.height, self.width = img.height, img.width
 
-        # Set Image Datetime
+            except:
+                raise RuntimeError("Unable to get image dimensions.")
+
+        # Get Image Date and Time
+        self._date_time_fmt = "%Y:%m:%d %H:%M:%S"
         if "Image DateTime" in self._exif_data.keys():
-            date_fmt = "%Y:%m:%d %H:%M:%S"
             date_str = self._exif_data["Image DateTime"].printable
-            self._date_time = datetime.strptime(date_str, date_fmt)
+        elif "EXIF DateTimeOriginal" in self._exif_data.keys():
+            date_str = self._exif_data["EXIF DateTimeOriginal"].printable
+        else:
+            print("Date not available in exif.")
+            return
+        self._date_time = datetime.strptime(date_str, self._date_time_fmt)
 
-    def extract_patch(self, limits: dict) -> np.ndarray:
+    def extract_patch(self, limits: List[int]) -> np.ndarray:
         """Extract image patch
         Parameters
         __________
-        - limits (dict): dictionary containing the index of the tile (in row-major order, C-style) and a list of the bounding box coordinates as: {0,[xmin, xmax, ymin, ymax]}
+        - limits (List[int]): List containing the bounding box coordinates as: [xmin, xmax, ymin, ymax]
         __________
         Return: patch (np.ndarray)
         """
@@ -206,10 +265,10 @@ class Image:
         ]
         return patch
 
-    def get_intrinsics_from_exif(self) -> None:
+    def get_intrinsics_from_exif(self) -> np.ndarray:
         """Constructs the camera intrinsics from exif tag.
 
-        Equation: focal_px=max(w_px,h_px)∗focal_mm / ccdw_mm
+        Equation: focal_px=max(w_px,h_px)*focal_mm / ccdw_mm
 
         Ref:
         - https://github.com/colmap/colmap/blob/e3948b2098b73ae080b97901c3a1f9065b976a45/src/util/bitmap.cc#L282
@@ -217,103 +276,239 @@ class Image:
         - https://photo.stackexchange.com/questions/40865/how-can-i-get-the-image-sensor-dimensions-in-mm-to-get-circle-of-confusion-from # noqa: E501
 
         Returns:
-            intrinsics matrix (3x3).
+            K (np.ndarray): intrinsics matrix (3x3 numpy array).
         """
+        if self._exif_data is None or len(self._exif_data) == 0:
+            try:
+                self.read_exif()
+            except OSError:
+                logger.error("Unable to read exif data.")
+                return None
+        try:
+            focal_length_mm = float(self._exif_data["EXIF FocalLength"].printable)
+        except OSError:
+            logger.error("Focal length non found in exif data.")
+            return None
+        try:
+            sensor_width_db = SensorWidthDatabase()
+            sensor_width_mm = sensor_width_db.lookup(
+                self._exif_data["Image Make"].printable,
+                self._exif_data["Image Model"].printable,
+            )
+        except OSError:
+            logger.error("Unable to get sensor size in mm from sensor database")
+            return None
 
-        # if self._exif_data is None or len(self._exif_data) == 0:
-        #     return None
-
-        # focal_length_mm = self.exif_data.get("FocalLength")
-
-        # sensor_width_mm = Image.sensor_width_db.lookup(
-        #     self._exif_data.get("Make"),
-        #     self._exif_data.get("Model"),
-        # )
-
-        # img_w_px = self._width
-        # img_h_px = self._height
-        # focal_length_px = max(img_h_px, img_w_px) * \
-        #     focal_length_mm / sensor_width_mm
-
-        # center_x = img_w_px / 2
-        # center_y = img_h_px / 2
+        img_w_px = self.width
+        img_h_px = self.height
+        focal_length_px = max(img_h_px, img_w_px) * focal_length_mm / sensor_width_mm
+        center_x = img_w_px / 2
+        center_y = img_h_px / 2
+        K = np.array(
+            [
+                [focal_length_px, 0.0, center_x],
+                [0.0, focal_length_px, center_y],
+                [0.0, 0.0, 1.0],
+            ],
+            dtype=float,
+        )
+        return K
 
 
-class Imageds:
+class ImageDS:
     """
-    Class to help manage Image datasets
+    Class to manage Image datasets for multi epoch
 
     """
 
     def __init__(
         self,
-        path=None,
-        logger: logging = None,
-    ):
-        # TODO: implement labels in datastore
-        if not hasattr(self, "files"):
-            self.reset_imageds()
-        if path is not None:
-            self.get_image_list(path)
+        folder: Union[str, Path],
+        ext: str = None,
+        recursive: bool = False,
+    ) -> None:
+        """
+        __init__ _summary_
 
-    def __len__(self):
+        Args:
+            folder (Union[str, Path]): _description_
+            ext (str, optional): _description_. Defaults to None.
+            recursive (bool, optional): _description_. Defaults to False.
+
+        Raises:
+            IsADirectoryError: _description_
+        """
+        self.reset_imageds()
+
+        self.folder = Path(folder)
+        if not self.folder.exists():
+            msg = f"Error: invalid input path {self.folder}"
+            logger.error(msg)
+            raise IsADirectoryError(msg)
+        if ext is not None:
+            self.ext = ext
+        self.recursive = recursive
+
+        self.read_image_list(self.folder)
+
+    def __len__(self) -> int:
         """Get number of images in the datastore"""
         return len(self.files)
 
-    def __contains__(self, name):
+    def __contains__(self, name: str) -> bool:
         """Check if an image is in the datastore, given the image name"""
-        return name in self.files
+        files = [x.name for x in self.files]
+        return name in files
 
-    def __getitem__(self, idx, **args):
-        """Read and return the image at position idx in the image datastore"""
-        # TODO: add possibility to chose reading between col or grayscale, scale image, crop etc...
-        # @TODO change getitem to return path and implement reading function
-        img = read_image(os.path.join(self.folder[idx], self.files[idx]))
-        if img is not None:
-            print(f"Loaded image {self.files[idx]}")
-        return img
+    def __getitem__(self, idx: int) -> str:
+        """Return image name (including extension) at position idx in datastore"""
+        return self.files[idx].name
 
-    def reset_imageds(self):
+    def __iter__(self):
+        self._elem = 0
+        return self
+
+    def __next__(self):
+        while self._elem < len(self):
+            file = self.files[self._elem]
+            self._elem += 1
+            return file
+        else:
+            self._elem
+            raise StopIteration
+
+    def reset_imageds(self) -> None:
         """Initialize image datastore"""
-        self.files = []
-        self.folder = []
-        self.ext = []
-        self.label = []
-        # self.size = []
-        # self.shot_date = []
-        # self.shot_time = []
+        self.files = None
+        self.folder = None
+        self.ext = None
+        self._elem = 0
 
-    def get_image_list(self, path):
-        # TODO: change name in read image list
-        # TODO: add option for including subfolders
-        if not os.path.exists(path):
-            print("Error: invalid input path.")
+    def read_image_list(self, recursive: bool = None) -> None:
+        assert self.folder.is_dir(), "Error: invalid image directory."
+
+        if recursive is not None:
+            self.recursive = recursive
+        if self.recursive:
+            rec_patt = "**/"
+        else:
+            rec_patt = ""
+        if self.ext is not None:
+            ext_patt = f".{self.ext}"
+        else:
+            ext_patt = ""
+        pattern = f"{rec_patt}*{ext_patt}"
+
+        self.files = sorted(self.folder.glob(pattern))
+
+        if len(self.files) == 0:
+            logger.error(f"No images found in folder {self.folder}")
             return
-        d = os.listdir(path)
-        d.sort()
-        self.files = d
-        self.folder = [path] * len(d)
+        try:
+            self.read_dates()
+        except OSError as err:
+            logger.exception(err)
 
-    def get_image_name(self, idx):
-        """Return image name at position idx in datastore"""
+    def read_image(self, idx: int) -> Image:
+        """Return image at position idx as Image instance, containing both exif and value data (accessible by value proprierty, e.g., image.value)"""
+        image = Image(self.files[idx])
+        image.read_image()
+        return image
+
+    def read_dates(self) -> None:
+        """
+        read_dates Read date and time for all the images in ImageDS from exif.
+        """
+        assert self.files, "No image in ImageDS. Please read image list first"
+        self._dates, self._times = {}, {}
+        try:
+            for id, im in enumerate(self.files):
+                image = Image(im)
+                self._dates[id] = image.date
+                self._times[id] = image.time
+        except:
+            logger.error("Unable to read image dates and time from exif.")
+            self._dates, self._times = {}, {}
+            return
+
+    def get_image_path(self, idx: int) -> Path:
+        """Return path of the image at position idx in datastore as Pathlib"""
         return self.files[idx]
 
-    def get_image_path(self, idx):
-        """Return full path of the image at position idx in datastore"""
-        return os.path.join(self.folder[idx], self.files[idx])
-
-    def get_image_stem(self, idx):
+    def get_image_stem(self, idx: int) -> str:
         """Return name without extension(stem) of the image at position idx in datastore"""
-        return Path(self.files[idx]).stem
+        return self.files[idx].stem
+
+    def get_image_date(self, idx: int) -> str:
+        """Return name without extension(stem) of the image at position idx in datastore"""
+        return self._dates[idx]
+
+    def get_image_time(self, idx: int) -> str:
+        """Return name without extension(stem) of the image at position idx in datastore"""
+        return self._times[idx]
+
+    def write_exif_to_csv(
+        self, filename: str, sep: str = ",", header: bool = True
+    ) -> None:
+        assert self.folder.is_dir(), "Empty Image Datastore."
+        file = open(filename, "w")
+        if header:
+            file.write("epoch,name,date,time\n")
+        for i, img_path in enumerate(self.files):
+            img = Image(img_path)
+            name = img_path.name
+            date = img.date
+            time = img.time
+            file.write(f"{i}{sep}{name}{sep}{date}{sep}{time}\n")
+        file.close()
 
 
 if __name__ == "__main__":
     """Test classes"""
 
-    cams = ["p1", "p2"]
-    images = dict.fromkeys(cams)
-    for cam in cams:
-        images[cam] = Imageds(Path("data/img2022") / cam)
+    images = ImageDS("data/img2022/p1")
 
-    im = Image(images["p1"].get_image_path(0))
-    print(im)
+    # Read image dates and times
+    # images.read_dates()
+    print(images.get_image_date(0))
+    print(images.get_image_time(0))
+
+    # Get image name
+    print(images[0])
+
+    # Get image stem
+    print(images.get_image_stem(0))
+
+    # Get image path
+    print(images.get_image_path(0))
+
+    # Get image as Image object and extect date and time
+    img = images.read_image(0)
+    print(img.date)
+    print(img.time)
+
+    # Read image as numpy array
+    image = images.read_image(0).value
+
+    # Test ImageDS iterator
+    print(next(images))
+    print(next(images))
+    for i in images:
+        print(i)
+
+    # Build intrinics from exif
+    image = images.read_image(0)
+    K = image.get_intrinsics_from_exif()
+    print(K)
+
+    # Write exif to csv file
+    # filename = "test.csv"
+    # images.write_exif_to_csv(filename)
+
+    # cams = ["p1", "p2"]
+    # images = {}
+    # for cam in cams:
+    #     images[cam] = ImageDS(Path("data/img2021") / cam)
+    #     images[cam].write_exif_to_csv(f"data/img2021/image_list_{cam}.csv")
+
+    print("Done")
