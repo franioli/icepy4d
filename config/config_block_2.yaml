@@ -36,7 +36,7 @@ proc:
   camera_to_warp: "p2"
 
   save_sparse_cloud: false
-  
+
 #- Image-related options
 images:
   #- Bounding box for processing the images from the two cameras
@@ -145,8 +145,13 @@ metashape:
   # 8 = 1/8 resolution ("Low")
   # 16 = 1/16 resolution ("Lowest")
   dense_downscale_factor: 1
-  # Force overwite a project if it already exists or was not properly closed
-  force_overwrite_projects: true
+
+  # Depth maps filtering: choose between:
+  # [NoFiltering, MildFiltering, ModerateFiltering, AggressiveFiltering]
+  depth_filter: "ModerateFiltering"
+
+  # Use Omega Phi Kappa angle convention in Metashape
+  use_omega_phi_kappa: true
 
   # Force overwite a project if it already exists or was not properly closed
   force_overwrite_projects: true
