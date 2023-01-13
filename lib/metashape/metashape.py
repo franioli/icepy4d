@@ -25,6 +25,7 @@ SOFTWARE.
 import numpy as np
 import pandas as pd
 import Metashape
+import shutil
 
 # import matplotlib.pyplot as plt
 
@@ -46,29 +47,32 @@ from lib.import_export.importing import read_opencv_calibration
 
 from thirdparty.transformations import euler_matrix
 
+REGION_RESIZE_FCT = 10.0
 
-def build_ms_cfg_base(dir: Path, epoch_dict: dict, epoch: int) -> edict:
-    # ms_dir = dir / f"res/epoch_{epoch}/metashape"
+
+def build_ms_cfg_base(cfg: edict, dir: Path, epoch_dict: dict, epoch: int) -> edict:
     ms_dir = dir / f"metashape"
     cfg = edict(
         {
-            "project_name": ms_dir / f"belpy_ep_{epoch}_{epoch_dict[epoch]}.psx",
+            "project_name": ms_dir / f"{epoch_dict[epoch]}.psx",
             "im_path": ms_dir / "data/images/",
-            "bundler_file_path": ms_dir / f"data/belpy_epoch_{epoch}.out",
+            "bundler_file_path": ms_dir / f"data/{epoch_dict[epoch]}.out",
             "bundler_im_list": ms_dir / "data/im_list.txt",
             "gcp_filename": ms_dir / "data/gcps.txt",
             "calib_filenames": [
-                "data/calib/belpy_35mm_280722_selfcal_all_metashape.xml",
-                "data/calib/belpy_24mm_280722_selfcal_all_metashape.xml",
+                "data/calib/p1.xml",
+                "data/calib/p2.xml",
+                "data/calib/p3.xml",
             ],
             "im_ext": "jpg",  # "tif",  #
             "camera_location": [
-                [309.261, 301.051, 135.008],  # IMG_1289
-                [151.962, 99.065, 91.643],  # IMG_2814
+                [657556.5, 5209658.9, 2686.3],  # IMG_1289
+                [656781.5, 5211263.8, 2722.8],  # IMG_2814
             ],
             "gcp_accuracy": [0.01, 0.01, 0.01],
             "cam_accuracy": [0.001, 0.001, 0.001],
             "prm_to_fix": [
+                "F",
                 "Cx",
                 "Cy",
                 "B1",
@@ -84,8 +88,9 @@ def build_ms_cfg_base(dir: Path, epoch_dict: dict, epoch: int) -> edict:
             "optimize_cameras": True,
             "build_dense": True,
             "dense_downscale_image": 1,
-            "dense_path": Path("res/point_clouds"),  # ms_dir,
-            "dense_name": f"dense_ep_{epoch:02}_{epoch_dict[epoch]}.ply",
+            "depth_filter": "ModerateFiltering",
+            "dense_path": cfg.paths.results_dir / "point_clouds",
+            "dense_name": f"dense_{epoch_dict[epoch]}.ply",
             "force_overwrite_projects": True,
         }
     )
@@ -111,7 +116,12 @@ class MetashapeProject:
         return str(self.cfg.project_name)
 
     def create_project(self) -> None:
-        pass
+        # # If the project already exists and the option force_overwrite_projects is on, remove completely the old project
+        # prj_path = Path(self.project_path)
+        # if prj_path.exists() and self.cfg.force_overwrite_projects:
+        #     prj_path.unlink()
+        #     prj_files_dir = prj_path.parent / (prj_path.stem + ".files")
+        #     shutil.rmtree(prj_files_dir, ignore_errors=True)
         self.doc = create_new_project(self.project_path)
         if self.cfg.force_overwrite_projects:
             self.doc.read_only = False
@@ -122,7 +132,6 @@ class MetashapeProject:
         print(f"Created project {self.project_name}.")
 
     def add_images(self) -> None:
-
         p = self.cfg.im_path.glob("*." + self.cfg.im_ext)
         images = [str(x) for x in p if x.is_file()]
         self.doc.chunk.addPhotos(images)
@@ -175,10 +184,33 @@ class MetashapeProject:
     def solve_bundle(self) -> None:
         self.doc.chunk.optimizeCameras(fit_f=True, tiepoint_covariance=True)
 
-    def build_dense_cloud(self, save_cloud: bool = True) -> None:
+    def build_dense_cloud(
+        self, save_cloud: bool = True, depth_filter: str = "ModerateFiltering"
+    ) -> None:
+        """
+        build_dense_cloud
+
+        Args:
+            save_cloud (bool, optional): Save point cloud to disk. Defaults to True.
+            depth_filter (str, optional): Depth filtering mode in [NoFiltering, MildFiltering, ModerateFiltering, AggressiveFiltering]. Defaults to "moderate".
+        """
+
+        if depth_filter == "NoFiltering":
+            filter = Metashape.FilterMode.NoFiltering
+        elif depth_filter == "MildFiltering":
+            filter = Metashape.FilterMode.MildFiltering
+        elif depth_filter == "ModerateFiltering":
+            filter = Metashape.FilterMode.ModerateFiltering
+        elif depth_filter == "AggressiveFiltering":
+            filter = Metashape.FilterMode.AggressiveFiltering
+        else:
+            print(
+                "Error: invalid choise of depth filtering. Choose one in [NoFiltering, MildFiltering, ModerateFiltering, AggressiveFiltering]"
+            )
+
         self.doc.chunk.buildDepthMaps(
             downscale=self.cfg.dense_downscale_image,
-            filter_mode=Metashape.FilterMode.ModerateFiltering,
+            filter_mode=filter,
             reuse_depth=False,
             max_neighbors=16,
             subdivide_task=True,
@@ -287,6 +319,11 @@ class MetashapeProject:
                         f.write(f"{prm} ")
                     f.close()
 
+    def expand_region(self, resize_fct: float) -> None:
+        self.doc.chunk.resetRegion()
+        self.doc.chunk.region.size = resize_fct * self.doc.chunk.region.size
+        # new_reg_size = Metashape.Vector([reg_size[0] * mul_fct[0],  reg_size[1] * mul_fct[1], reg_size[2] * mul_fct[2]])
+
     def process_full_workflow(self) -> bool:
         self.create_project()
         self.add_images()
@@ -296,7 +333,11 @@ class MetashapeProject:
         if self.timer:
             self.timer.update("bundle")
         if self.cfg.build_dense:
-            self.build_dense_cloud()
+            self.expand_region(resize_fct=REGION_RESIZE_FCT)
+            if self.cfg.depth_filter:
+                self.build_dense_cloud(depth_filter=self.cfg.depth_filter)
+            else:
+                self.build_dense_cloud()
             if self.timer:
                 self.timer.update("dense")
         self.export_camera_extrinsics()

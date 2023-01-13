@@ -28,14 +28,14 @@ import cv2
 import pickle
 import gc
 import logging
+import shutil
 
 from pathlib import Path
-from copy import deepcopy
 
 # Belpy Classes
 from lib.base_classes.camera import Camera
 from lib.base_classes.pointCloud import PointCloud
-from lib.base_classes.images import Image, Imageds
+from lib.base_classes.images import Image, ImageDS
 from lib.base_classes.targets import Targets
 from lib.base_classes.features import Features
 
@@ -47,14 +47,13 @@ from lib.sfm.absolute_orientation import (
     Absolute_orientation,
     Space_resection,
 )
-from lib.read_config import parse_yaml_cfg
+from lib.utils.initialization import parse_yaml_cfg, Inizialization
 from lib.utils.utils import (
     AverageTimer,
     homography_warping,
     build_dsm,
     generate_ortophoto,
 )
-from lib.utils.inizialize_variables import Inizialization
 from lib.visualization import (
     display_point_cloud,
     make_focal_length_variation_plot,
@@ -69,13 +68,36 @@ from lib.metashape.metashape import (
     build_ms_cfg_base,
 )
 
+print("\n===========================================================")
+print("Belpy")
+print("Low-cost stereo photogrammetry for 4D glacier monitoring ")
+print("2022 - Francesco Ioli - francesco.ioli@polimi.it")
+print("===========================================================\n")
 
-logger = logging.getLogger("Belpy")
-timer_global = AverageTimer(newline=True)
+# Old config files
+# CFG_FILE = "config/config_base.yaml"
+# CFG_FILE = "config/config_2021_1.yaml"
+# CFG_FILE = "config/config_2022_2.yaml"
+# CFG_FILE = "config/config_2022_summer.yaml"
+
+# CFG_FILE = "config/config_block_1.yaml"
+# CFG_FILE = "config/config_block_2.yaml"
+# CFG_FILE = "config/config_block_3.yaml"
+CFG_FILE = "config/config_block_4.yaml"
+
+# Create logger and set logging level
+LOG_LEVEL = logging.WARNING
+logging.basicConfig(
+    format="%(asctime)s | '%(filename)s -> %(funcName)s', line %(lineno)d - %(levelname)s: %(message)s",
+    level=LOG_LEVEL,
+)
+logger = logging.getLogger(__name__)
 
 # Read options from yaml file
-cfg_file = "config/config_base.yaml"
-cfg = parse_yaml_cfg(cfg_file, logger)
+cfg_file = Path(CFG_FILE)
+print(f"Configuration file: {cfg_file.stem}")
+timer_global = AverageTimer(newline=True)
+cfg = parse_yaml_cfg(cfg_file)
 
 """ Inizialize Variables """
 
@@ -88,16 +110,19 @@ images = init.images
 targets = init.targets
 point_clouds = init.point_clouds
 epoch_dict = init.epoch_dict
-focals = {0: [], 1: []}
+focals = init.focals_dict
 
 """ Big Loop over epoches """
-
-print("Processing started:")
+print("\nProcessing started:")
 print("-----------------------")
 timer = AverageTimer(newline=True)
+iter = 0
 for epoch in cfg.proc.epoch_to_process:
 
-    print(f"\nProcessing epoch {epoch}/{cfg.proc.epoch_to_process[-1]}...")
+    print(
+        f"\nProcessing epoch {epoch} [{iter}/{cfg.proc.epoch_to_process[-1]-cfg.proc.epoch_to_process[0]}] - {epoch_dict[epoch]}..."
+    )
+    iter += 1
 
     epochdir = Path(cfg.paths.results_dir) / epoch_dict[epoch]
 
@@ -154,13 +179,10 @@ for epoch in cfg.proc.epoch_to_process:
     # At the first epoch, perform Space resection of the first camera by using GCPs. At all other epoches, set camera 1 EO equal to first one.
     if cfg.proc.do_space_resection and epoch == 0:
         """Initialize Single_camera_geometry class with a cameras object"""
-        cfg.georef.targets_to_use = ["T2", "T3", "T4", "F2", "F4"]
         space_resection = Space_resection(cameras[epoch][cams[0]])
         space_resection.estimate(
-            targets[epoch].extract_image_coor_by_label(
-                cfg.georef.targets_to_use, cam_id=0
-            ),
-            targets[epoch].extract_object_coor_by_label(cfg.georef.targets_to_use),
+            targets[epoch].get_image_coor_by_label(cfg.georef.targets_to_use, cam_id=0),
+            targets[epoch].get_object_coor_by_label(cfg.georef.targets_to_use),
         )
         # Store result in camera 0 object
         cameras[epoch][cams[0]] = space_resection.camera
@@ -194,25 +216,36 @@ for epoch in cfg.proc.epoch_to_process:
         ],
     )
     points3d = triangulation.triangulate_two_views(
-        compute_colors=True, image=images[cams[1]][epoch], cam_id=1
+        compute_colors=True, image=images[cams[1]].read_image(epoch).value, cam_id=1
     )
 
     # --- Absolute orientation (-> coregistration on stable points) ---#
     if cfg.proc.do_coregistration:
-        targets_abs_ori = ["F2"]  # cfg.georef.targets_to_use
-        abs_ori = Absolute_orientation(
-            (cameras[epoch][cams[0]], cameras[epoch][cams[1]]),
-            points3d_final=targets[epoch].extract_object_coor_by_label(targets_abs_ori),
-            image_points=(
-                targets[epoch].extract_image_coor_by_label(targets_abs_ori, cam_id=0),
-                targets[epoch].extract_image_coor_by_label(targets_abs_ori, cam_id=1),
-            ),
-            camera_centers_world=cfg.georef.camera_centers_world,
-        )
-        T = abs_ori.estimate_transformation_linear(estimate_scale=True)
-        points3d = abs_ori.apply_transformation(points3d=points3d)
-        for i, cam in enumerate(cams):
-            cameras[epoch][cam] = abs_ori.cameras[i]
+        try:
+            abs_ori = Absolute_orientation(
+                (cameras[epoch][cams[0]], cameras[epoch][cams[1]]),
+                points3d_final=targets[epoch].get_object_coor_by_label(
+                    cfg.georef.targets_to_use
+                ),
+                image_points=(
+                    targets[epoch].get_image_coor_by_label(
+                        cfg.georef.targets_to_use, cam_id=0
+                    ),
+                    targets[epoch].get_image_coor_by_label(
+                        cfg.georef.targets_to_use, cam_id=1
+                    ),
+                ),
+                camera_centers_world=cfg.georef.camera_centers_world,
+            )
+            T = abs_ori.estimate_transformation_linear(estimate_scale=True)
+            points3d = abs_ori.apply_transformation(points3d=points3d)
+            for i, cam in enumerate(cams):
+                cameras[epoch][cam] = abs_ori.cameras[i]
+        except ValueError as err:
+            logger.error(
+                "Absolute orientation not succeded. Not enough targets available. Skipping to the next epoch."
+            )
+            continue
 
     # Create point cloud and save .ply to disk
     pcd_epc = PointCloud(points3d=points3d, points_col=triangulation.colors)
@@ -222,23 +255,28 @@ for epoch in cfg.proc.epoch_to_process:
     # Metashape BBA and dense cloud
     if cfg.proc.do_metashape_bba:
         # Export results in Bundler format
-        # @TODO: modify function to work for single epoch data
+
+        # If a metashape folder is already present, delete it completely and start a new metashape project
+        metashape_path = epochdir / "metashape"
+        if metashape_path.exists():
+            shutil.rmtree(metashape_path, ignore_errors=True)
+
+        im_dict = {cam: images[cam].get_image_path(epoch) for cam in cams}
         write_bundler_out(
-            export_dir=epochdir / "metashape",
-            epoches=[epoch],
-            images=images,
+            export_dir=epochdir,
+            im_dict=im_dict,
             cams=cams,
-            cameras=cameras,
-            features=features,
+            cameras=cameras[epoch],
+            features=features[epoch],
             point_cloud=pcd_epc,
-            targets=targets,
+            targets=targets[epoch],
             targets_to_use=cfg.georef.targets_to_use,
-            targets_enabled=[True, True],
+            targets_enabled=[True for el in cfg.georef.targets_to_use],
         )
 
         # Temporary function for building configuration dictionary.
         # Must be moved to a file or other solution.
-        ms_cfg = build_ms_cfg_base(epochdir, epoch_dict, epoch)
+        ms_cfg = build_ms_cfg_base(cfg, epochdir, epoch_dict, epoch)
         ms_cfg.build_dense = cfg.proc.do_metashape_dense
 
         ms = MetashapeProject(ms_cfg, timer)
@@ -273,21 +311,20 @@ for epoch in cfg.proc.epoch_to_process:
             ],
         )
         points3d = triangulation.triangulate_two_views(
-            compute_colors=True, image=images[cams[1]][epoch], cam_id=1
+            compute_colors=True, image=images[cams[1]].read_image(epoch).value, cam_id=1
         )
 
         pcd_epc = PointCloud(points3d=points3d, points_col=triangulation.colors)
-        pcd_epc.write_ply(
-            cfg.paths.results_dir
-            / f"point_clouds/sparse_ep_{epoch:02}_{epoch_dict[epoch]}.ply"
-        )
+        # pcd_epc.write_ply(
+        #     cfg.paths.results_dir / f"point_clouds/sparse_{epoch_dict[epoch]}.ply"
+        # )
         point_clouds[epoch] = pcd_epc
 
         # - For debugging purposes
-        # M = targets[epoch].extract_object_coor_by_label(cfg.georef.targets_to_use)
+        # M = targets[epoch].get_object_coor_by_label(cfg.georef.targets_to_use)
         # m = cameras[epoch][cams[1]].project_point(M)
-        # plot_features(images[cams[1]][epoch], m)
-        # plot_features(images[cams[0]][epoch], features[epoch][cams[0]].get_keypoints())
+        # plot_features(images[cams[1]].read_image(epoch).value, m)
+        # plot_features(images[cams[0]].read_image(epoch).value, features[epoch][cams[0]].get_keypoints())
 
         # Clean variables
         del relative_ori, triangulation, abs_ori, points3d, pcd_epc
@@ -299,24 +336,29 @@ for epoch in cfg.proc.epoch_to_process:
         if cfg.proc.do_homography_warping:
             ep_ini = cfg.proc.epoch_to_process[0]
             cam = cfg.proc.camera_to_warp
-            image = images[cam][epoch]
-            out_path = f"res/warped/{images[cam].get_image_name(epoch)}"
+            image = images[cams[1]].read_image(epoch).value
+            out_path = f"res/warped/{images[cam][epoch]}"
             homography_warping(
                 cameras[ep_ini][cam], cameras[epoch][cam], image, out_path, timer
             )
 
-        # Plots
-        if cfg.other.do_viz:
-            make_focal_length_variation_plot(focals, "res/focal_lenghts.png")
-            make_camera_angles_plot(
-                cameras,
-                "res/angles.png",
-                current_epoch=epoch,
-            )
+        # Incremetal plots
+        # if cfg.other.do_viz:
+        #     make_focal_length_variation_plot(
+        #         focals,
+        #         cfg.paths.results_dir / f"focal_lenghts_{cfg_file.stem}.png",
+        #     )
+        #     make_camera_angles_plot(
+        #         cameras,
+        #         cfg.paths.results_dir / f"angles_{cfg_file.stem}.png",
+        #         baseline_epoch=cfg.proc.epoch_to_process[0],
+        #         current_epoch=epoch,
+        #     )
 
     timer.print(f"Epoch {epoch} completed")
 
-timer_global.print("Processing completed")
+
+timer_global.update("SfM")
 
 
 if cfg.other.do_viz:
@@ -324,17 +366,22 @@ if cfg.other.do_viz:
     display_point_cloud(
         point_clouds,
         [cameras[epoch][cams[0]], cameras[epoch][cams[1]]],
-        plot_scale=10,
+        plot_scale=100,
     )
 
     # Display estimated focal length variation
-    make_focal_length_variation_plot(focals, "res/focal_lenghts.png")
+    make_focal_length_variation_plot(
+        focals, cfg.paths.results_dir / f"focal_lenghts_{cfg_file.stem}.png"
+    )
     make_camera_angles_plot(
         cameras,
-        "res/angles_diff.png",
+        cfg.paths.results_dir / f"angles_{cfg_file.stem}.png",
         baseline_epoch=cfg.proc.epoch_to_process[0],
     )
 
+
+timer_global.update("Visualization")
+timer_global.print("Processing completed")
 
 #%%
 """ Compute DSM and orthophotos """
@@ -368,7 +415,9 @@ if compute_orthophoto_dsm:
             fout_name = f"res/ortofoto/ortofoto_app_cam_{cam}_epc_{epoch}.tif"
             ortofoto[cam].append(
                 generate_ortophoto(
-                    cv2.cvtColor(images[cam][epoch], cv2.COLOR_BGR2RGB),
+                    cv2.cvtColor(
+                        images[cam].read_image(epoch).value, cv2.COLOR_BGR2RGB
+                    ),
                     dsms[epoch],
                     cameras[epoch][cam],
                     xlim=xlim,

@@ -1,17 +1,22 @@
 # Specific
 *_old/
 *.old/
+data/img/
 data/img*/
-data/img2022/
-data/img2021/
-data/img2022_august/
-data/calib/seq2021/
+data/targets/
+data/targets*/
 res/
-tests/PSMNet/dataset
-tests/tmp/
+tmp/
+tools/track_targets/block_1/
+tools/track_targets/block_3/
+tools/track_targets/block_4/
+tools/collimate_targets/data/
+tools/collimate_targets/targets/
+sandbox/
 
 # VScode
 # .vscode/
+*.~lock*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
