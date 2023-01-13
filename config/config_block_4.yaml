@@ -4,7 +4,7 @@
 paths:
   image_dir: "data/img"
   calibration_dir: "data/calib"
-  results_dir: "res"
+  results_dir: "test"
   camera_names: ["p1", "p2"]
 
 #- Processing options
