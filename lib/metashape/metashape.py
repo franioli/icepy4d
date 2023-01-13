@@ -50,7 +50,7 @@ from thirdparty.transformations import euler_matrix
 REGION_RESIZE_FCT = 10.0
 
 
-def build_ms_cfg_base(dir: Path, epoch_dict: dict, epoch: int) -> edict:
+def build_ms_cfg_base(cfg: edict, dir: Path, epoch_dict: dict, epoch: int) -> edict:
     ms_dir = dir / f"metashape"
     cfg = edict(
         {
@@ -60,17 +60,19 @@ def build_ms_cfg_base(dir: Path, epoch_dict: dict, epoch: int) -> edict:
             "bundler_im_list": ms_dir / "data/im_list.txt",
             "gcp_filename": ms_dir / "data/gcps.txt",
             "calib_filenames": [
-                "data/calib/belpy_35mm_280722_selfcal_all_metashape.xml",
-                "data/calib/belpy_24mm_280722_selfcal_all_metashape.xml",
+                "data/calib/p1.xml",
+                "data/calib/p2.xml",
+                "data/calib/p3.xml",
             ],
             "im_ext": "jpg",  # "tif",  #
             "camera_location": [
-                [309.261, 301.051, 135.008],  # IMG_1289
-                [151.962, 99.065, 91.643],  # IMG_2814
+                [657556.5, 5209658.9, 2686.3],  # IMG_1289
+                [656781.5, 5211263.8, 2722.8],  # IMG_2814
             ],
             "gcp_accuracy": [0.01, 0.01, 0.01],
             "cam_accuracy": [0.001, 0.001, 0.001],
             "prm_to_fix": [
+                "F",
                 "Cx",
                 "Cy",
                 "B1",
@@ -86,8 +88,8 @@ def build_ms_cfg_base(dir: Path, epoch_dict: dict, epoch: int) -> edict:
             "optimize_cameras": True,
             "build_dense": True,
             "dense_downscale_image": 1,
-            "depth_filter": "AggressiveFiltering",
-            "dense_path": Path("res/point_clouds"),
+            "depth_filter": "ModerateFiltering",
+            "dense_path": cfg.paths.results_dir / "point_clouds",
             "dense_name": f"dense_{epoch_dict[epoch]}.ply",
             "force_overwrite_projects": True,
         }
@@ -193,9 +195,9 @@ class MetashapeProject:
             depth_filter (str, optional): Depth filtering mode in [NoFiltering, MildFiltering, ModerateFiltering, AggressiveFiltering]. Defaults to "moderate".
         """
 
-        if depth_filter == "NoFiltering,":
+        if depth_filter == "NoFiltering":
             filter = Metashape.FilterMode.NoFiltering
-        elif depth_filter == "MildFiltering,":
+        elif depth_filter == "MildFiltering":
             filter = Metashape.FilterMode.MildFiltering
         elif depth_filter == "ModerateFiltering":
             filter = Metashape.FilterMode.ModerateFiltering

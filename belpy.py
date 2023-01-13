@@ -82,13 +82,13 @@ print("===========================================================\n")
 
 # CFG_FILE = "config/config_block_1.yaml"
 # CFG_FILE = "config/config_block_2.yaml"
-CFG_FILE = "config/config_block_3.yaml"
-# CFG_FILE = "config/config_block_4.yaml"
+# CFG_FILE = "config/config_block_3.yaml"
+CFG_FILE = "config/config_block_4.yaml"
 
 # Create logger and set logging level
 LOG_LEVEL = logging.WARNING
 logging.basicConfig(
-    format="%(asctime)s | '%(funcName)s', line %(lineno)d - %(levelname)s: %(message)s",
+    format="%(asctime)s | '%(filename)s -> %(funcName)s', line %(lineno)d - %(levelname)s: %(message)s",
     level=LOG_LEVEL,
 )
 logger = logging.getLogger(__name__)
@@ -120,7 +120,7 @@ iter = 0
 for epoch in cfg.proc.epoch_to_process:
 
     print(
-        f"\nProcessing epoch {epoch} [{iter}/{cfg.proc.epoch_to_process[-1]}] - {epoch_dict[epoch]}..."
+        f"\nProcessing epoch {epoch} [{iter}/{cfg.proc.epoch_to_process[-1]-cfg.proc.epoch_to_process[0]}] - {epoch_dict[epoch]}..."
     )
     iter += 1
 
@@ -276,7 +276,7 @@ for epoch in cfg.proc.epoch_to_process:
 
         # Temporary function for building configuration dictionary.
         # Must be moved to a file or other solution.
-        ms_cfg = build_ms_cfg_base(epochdir, epoch_dict, epoch)
+        ms_cfg = build_ms_cfg_base(cfg, epochdir, epoch_dict, epoch)
         ms_cfg.build_dense = cfg.proc.do_metashape_dense
 
         ms = MetashapeProject(ms_cfg, timer)
@@ -315,9 +315,9 @@ for epoch in cfg.proc.epoch_to_process:
         )
 
         pcd_epc = PointCloud(points3d=points3d, points_col=triangulation.colors)
-        pcd_epc.write_ply(
-            cfg.paths.results_dir / f"point_clouds/sparse_{epoch_dict[epoch]}.ply"
-        )
+        # pcd_epc.write_ply(
+        #     cfg.paths.results_dir / f"point_clouds/sparse_{epoch_dict[epoch]}.ply"
+        # )
         point_clouds[epoch] = pcd_epc
 
         # - For debugging purposes
@@ -342,17 +342,18 @@ for epoch in cfg.proc.epoch_to_process:
                 cameras[ep_ini][cam], cameras[epoch][cam], image, out_path, timer
             )
 
-        # Plots
-        if cfg.other.do_viz:
-            make_focal_length_variation_plot(
-                focals, f"res/focal_lenghts_{cfg_file.stem}.png"
-            )
-            make_camera_angles_plot(
-                cameras,
-                f"res/angles_{cfg_file.stem}.png",
-                baseline_epoch=cfg.proc.epoch_to_process[0],
-                current_epoch=epoch,
-            )
+        # Incremetal plots
+        # if cfg.other.do_viz:
+        #     make_focal_length_variation_plot(
+        #         focals,
+        #         cfg.paths.results_dir / f"focal_lenghts_{cfg_file.stem}.png",
+        #     )
+        #     make_camera_angles_plot(
+        #         cameras,
+        #         cfg.paths.results_dir / f"angles_{cfg_file.stem}.png",
+        #         baseline_epoch=cfg.proc.epoch_to_process[0],
+        #         current_epoch=epoch,
+        #     )
 
     timer.print(f"Epoch {epoch} completed")
 
@@ -362,17 +363,19 @@ timer_global.update("SfM")
 
 if cfg.other.do_viz:
     # Visualize point cloud
-    # display_point_cloud(
-    #     point_clouds,
-    #     [cameras[epoch][cams[0]], cameras[epoch][cams[1]]],
-    #     plot_scale=10,
-    # )
+    display_point_cloud(
+        point_clouds,
+        [cameras[epoch][cams[0]], cameras[epoch][cams[1]]],
+        plot_scale=100,
+    )
 
     # Display estimated focal length variation
-    make_focal_length_variation_plot(focals, "res/focal_lenghts.png")
+    make_focal_length_variation_plot(
+        focals, cfg.paths.results_dir / f"focal_lenghts_{cfg_file.stem}.png"
+    )
     make_camera_angles_plot(
         cameras,
-        "res/angles_diff.png",
+        cfg.paths.results_dir / f"angles_{cfg_file.stem}.png",
         baseline_epoch=cfg.proc.epoch_to_process[0],
     )
 

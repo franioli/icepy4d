@@ -222,6 +222,22 @@ class Image:
         ):
             self._width = self._exif_data["Image ImageWidth"].printable
             self._height = self._exif_data["Image ImageLength"].printable
+        elif (
+            "EXIF ExifImageWidth" in self._exif_data.keys()
+            and "EXIF ExifImageLength" in self._exif_data.keys()
+        ):
+            self._width = self._exif_data["EXIF ExifImageWidth"].printable
+            self._height = self._exif_data["EXIF ExifImageLength"].printable
+        else:
+            logger.error(
+                "Image width and height found in exif. Try to load the image and get image size from numpy array"
+            )
+            try:
+                img = Image(self.path)
+                self.height, self.width = img.height, img.width
+
+            except:
+                raise RuntimeError("Unable to get image dimensions.")
 
         # Get Image Date and Time
         self._date_time_fmt = "%Y:%m:%d %H:%M:%S"
