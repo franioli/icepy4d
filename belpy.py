@@ -65,7 +65,7 @@ from lib.import_export.export2bundler import write_bundler_out
 from lib.metashape.metashape import (
     MetashapeProject,
     MetashapeReader,
-    build_ms_cfg_base,
+    build_metashape_cfg,
 )
 
 print("\n===========================================================")
@@ -74,16 +74,10 @@ print("Low-cost stereo photogrammetry for 4D glacier monitoring ")
 print("2022 - Francesco Ioli - francesco.ioli@polimi.it")
 print("===========================================================\n")
 
-# Old config files
-# CFG_FILE = "config/config_base.yaml"
-# CFG_FILE = "config/config_2021_1.yaml"
-# CFG_FILE = "config/config_2022_2.yaml"
-# CFG_FILE = "config/config_2022_summer.yaml"
-
-# CFG_FILE = "config/config_block_1.yaml"
+CFG_FILE = "config/config_block_1.yaml"
 # CFG_FILE = "config/config_block_2.yaml"
 # CFG_FILE = "config/config_block_3.yaml"
-CFG_FILE = "config/config_block_4.yaml"
+# CFG_FILE = "config/config_block_4.yaml"
 
 # Create logger and set logging level
 LOG_LEVEL = logging.WARNING
@@ -253,12 +247,15 @@ for epoch in cfg.proc.epoch_to_process:
     timer.update("relative orientation")
 
     # Metashape BBA and dense cloud
-    if cfg.proc.do_metashape_bba:
+    if cfg.proc.do_metashape_processing:
         # Export results in Bundler format
 
         # If a metashape folder is already present, delete it completely and start a new metashape project
         metashape_path = epochdir / "metashape"
-        if metashape_path.exists():
+        if metashape_path.exists() and cfg.metashape.force_overwrite_projects:
+            logging.warning(
+                f"Metashape folder {metashape_path} already exists, but force_overwrite_projects is set to True. Removing all old Metashape files"
+            )
             shutil.rmtree(metashape_path, ignore_errors=True)
 
         im_dict = {cam: images[cam].get_image_path(epoch) for cam in cams}
@@ -274,11 +271,7 @@ for epoch in cfg.proc.epoch_to_process:
             targets_enabled=[True for el in cfg.georef.targets_to_use],
         )
 
-        # Temporary function for building configuration dictionary.
-        # Must be moved to a file or other solution.
-        ms_cfg = build_ms_cfg_base(cfg, epochdir, epoch_dict, epoch)
-        ms_cfg.build_dense = cfg.proc.do_metashape_dense
-
+        ms_cfg = build_metashape_cfg(cfg, epoch_dict, epoch)
         ms = MetashapeProject(ms_cfg, timer)
         ms.process_full_workflow()
 
@@ -315,9 +308,10 @@ for epoch in cfg.proc.epoch_to_process:
         )
 
         pcd_epc = PointCloud(points3d=points3d, points_col=triangulation.colors)
-        # pcd_epc.write_ply(
-        #     cfg.paths.results_dir / f"point_clouds/sparse_{epoch_dict[epoch]}.ply"
-        # )
+        if cfg.proc.save_sparse_cloud:
+            pcd_epc.write_ply(
+                cfg.paths.results_dir / f"point_clouds/sparse_{epoch_dict[epoch]}.ply"
+            )
         point_clouds[epoch] = pcd_epc
 
         # - For debugging purposes
@@ -366,7 +360,7 @@ if cfg.other.do_viz:
     display_point_cloud(
         point_clouds,
         [cameras[epoch][cams[0]], cameras[epoch][cams[1]]],
-        plot_scale=100,
+        plot_scale=10,
     )
 
     # Display estimated focal length variation

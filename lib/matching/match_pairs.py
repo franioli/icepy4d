@@ -17,20 +17,30 @@ from lib.utils.utils import generateTiles
 
 torch.set_grad_enabled(False)
 
+# SuperPoint Parameters
+NMS_RADIUS = 3
+
+# SuperGlue Parameters
+SINKHORN_ITERATIONS = 100
+
+# Processing parameters
+RESIZE_FLOAT = True
+VIZ_EXTENSION = "png"
+OPENCV_DISPLAY = False
+SHOW_KEYPOINTS = False
+CACHE = False
+
 # @TODO: This function is a duplicate of the one in track_matches!!!
 # It is a replacement of the SuperGlue one because of the different input parametets.
 # This must be fixed! Only ONE read_image function must exist!
 # (There is also read_image function implemented from scratch in Belpy)
-def read_image(path, device, resize=-1, rotation=0, resize_float=True, crop=[], equalize_hist=False):
+def read_image(path, device, resize=-1, rotation=0, resize_float=True, crop=[]):
     image = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
     if image is None:
         return None, None, None
     w, h = image.shape[1], image.shape[0]
     w_new, h_new = process_resize(w, h, resize)
     scales = (float(w) / float(w_new), float(h) / float(h_new))
-
-    if equalize_hist:
-        image = cv2.equalizeHist(image)
 
     if resize_float:
         image = cv2.resize(image.astype('float32'), (w_new, h_new))
@@ -87,10 +97,16 @@ def vizTileRes(viz_path, pred, image0, image1, matching, timer, opt):
 
 
 def match_pair(pair, maskBB, opt):
-    
-    assert not (opt.opencv_display and not opt.viz), 'Must use --viz with --opencv_display'
+ 
+    opt.resize_float = RESIZE_FLOAT
+    opt.viz_extension = VIZ_EXTENSION
+    opt.opencv_display = OPENCV_DISPLAY
+    opt.show_keypoints = SHOW_KEYPOINTS
+    opt.cache = CACHE
+     
+    assert not (opt.opencv_display and not opt.viz_matches), 'Must use --viz with --opencv_display'
     assert not (opt.opencv_display and not opt.fast_viz), 'Cannot use --opencv_display without --fast_viz'
-    assert not (opt.fast_viz and not opt.viz), 'Must use --viz with --fast_viz'
+    assert not (opt.fast_viz and not opt.viz_matches), 'Must use --viz_matches with --fast_viz'
     assert not (opt.fast_viz and opt.viz_extension == 'pdf'), 'Cannot use pdf extension with --fast_viz'
 
     if len(opt.resize) == 2 and opt.resize[1] == -1:
@@ -111,13 +127,13 @@ def match_pair(pair, maskBB, opt):
     print('Running inference on device \"{}\"'.format(device))
     config = {
         'superpoint': {
-            'nms_radius': opt.nms_radius,
+            'nms_radius': NMS_RADIUS,
             'keypoint_threshold': opt.keypoint_threshold,
             'max_keypoints': opt.max_keypoints
         },
         'superglue': {
             'weights': opt.superglue,
-            'sinkhorn_iterations': opt.sinkhorn_iterations,
+            'sinkhorn_iterations': SINKHORN_ITERATIONS,
             'match_threshold': opt.match_threshold,
         }
     }
@@ -127,7 +143,7 @@ def match_pair(pair, maskBB, opt):
     output_dir = Path(opt.output_dir)
     output_dir.mkdir(exist_ok=True, parents=True)
     print('Will write matches to directory \"{}\"'.format(output_dir))
-    if opt.viz:
+    if opt.viz_matches:
         print('Will write visualization images to',
               'directory \"{}\"'.format(output_dir))
     
@@ -140,9 +156,9 @@ def match_pair(pair, maskBB, opt):
 
     rot0, rot1 = 0, 0
     image0, inp0, scales0 = read_image(
-        name0, device, opt.resize, rot0, opt.resize_float, maskBB[0], opt.equalize_hist)
+        name0, device, opt.resize, rot0, opt.resize_float, maskBB[0])
     image1, inp1, scales1 = read_image(
-        name1, device, opt.resize, rot1, opt.resize_float, maskBB[1], opt.equalize_hist)
+        name1, device, opt.resize, rot1, opt.resize_float, maskBB[1])
     if image0 is None or image1 is None:
         print('Problem reading image pair: {} {}'.format(
             name0, name1))
@@ -153,23 +169,13 @@ def match_pair(pair, maskBB, opt):
     # import matplotlib.pyplot as plt
     # plt.imshow(cv2.cvtColor(image1/255., cv2.COLOR_BGR2RGB))
     # plt.show()  
-    
-    do_viz = opt.viz
-    useTile = opt.useTile
-    writeTile2Disk = opt.writeTile2Disk
-    do_viz_tile = opt.do_viz_tile
-    rowDivisor = opt.rowDivisor
-    colDivisor = opt.colDivisor
-    overlap = opt.overlap
-    
-    if useTile:
+       
+    if opt.useTile:
 
         # Subdivide image in tiles and run a loop            
-        tiles0, limits0 = generateTiles(image0, rowDivisor=rowDivisor, colDivisor=colDivisor, overlap = overlap, 
-                                          viz=do_viz_tile, out_dir=output_dir/'tiles0', writeTile2Disk=writeTile2Disk)
-        tiles1, limits1 = generateTiles(image1, rowDivisor=rowDivisor, colDivisor=colDivisor, overlap = overlap, 
-                                          viz=do_viz_tile, out_dir=output_dir/'tiles1', writeTile2Disk=writeTile2Disk)         
-        print(f'Images subdivided in {rowDivisor}x{colDivisor} tiles')                                     
+        tiles0, limits0 = generateTiles(image0, rowDivisor=opt.rowDivisor, colDivisor=opt.colDivisor, overlap = opt.overlap,  viz=opt.do_viz_tile, out_dir=output_dir/'tiles0', writeTile2Disk=opt.writeTile2Disk,)
+        tiles1, limits1 = generateTiles(image1, rowDivisor=opt.rowDivisor, colDivisor=opt.colDivisor, overlap = opt.overlap, viz=opt.do_viz_tile, out_dir=output_dir/'tiles1', writeTile2Disk=opt.writeTile2Disk,)         
+        print(f'Images subdivided in {opt.rowDivisor}x{opt.colDivisor} tiles')                                     
         timer.update('create_tiles')
         
         timerTile = AverageTimer(newline=True)
@@ -214,7 +220,7 @@ def match_pair(pair, maskBB, opt):
                 descriptors0_full = np.append(descriptors0_full, descriptors0, axis=1)
                 descriptors1_full = np.append(descriptors1_full, descriptors1, axis=1) 
             
-            if do_viz_tile:
+            if opt.do_viz_tile:
                 vizTile_path = output_dir / '{}_{}_matches_tile{}_{}.{}'.format(stem0, stem1, t0, t1, opt.viz_extension)
                 tile_print_opt = {'imstem0': stem0+'_'+str(t0), 'imstem1': stem1+'_'+str(t1), 'show_keypoints': True, 
                        'fast_viz': opt.fast_viz, 'opencv_display': opt.opencv_display}
@@ -267,7 +273,7 @@ def match_pair(pair, maskBB, opt):
     # torch.save(prev1, str(matches_path.parent / '{}_tensor_1.pt'.format(matches_path.stem)))
 
 
-    if do_viz:
+    if opt.viz_matches:
         # Visualize the matches.
         color = cm.jet(mconf)
         text = [

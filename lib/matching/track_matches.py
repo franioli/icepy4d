@@ -15,22 +15,31 @@ from lib.utils.utils import generateTiles
 
 torch.set_grad_enabled(False)
 
+# SuperPoint Parameters
+NMS_RADIUS = 3
+
+# SuperGlue Parameters
+SINKHORN_ITERATIONS = 100
+
+# Processing parameters
+RESIZE_FLOAT = True
+VIZ_EXTENSION = "png"
+OPENCV_DISPLAY = False
+SHOW_KEYPOINTS = False
+CACHE = False
+
+
 # @TODO: This function is a duplicate of the one in match_pairs!!!
 # It is a replacement of the SuperGlue one because of the different input parametets.
 # This must be fixed! Only ONE read_image function must exist!
 # (There is also read_image function implemented from scratch in Belpy)
-def read_image(
-    path, device, resize=-1, rotation=0, resize_float=True, crop=[], equalize_hist=False
-):
+def read_image(path, device, resize=-1, rotation=0, resize_float=True, crop=[]):
     image = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
     if image is None:
         return None, None, None
     w, h = image.shape[1], image.shape[0]
     w_new, h_new = process_resize(w, h, resize)
     scales = (float(w) / float(w_new), float(h) / float(h_new))
-
-    if equalize_hist:
-        image = cv2.equalizeHist(image)
 
     if resize_float:
         image = cv2.resize(image.astype("float32"), (w_new, h_new))
@@ -50,50 +59,56 @@ def read_image(
 
 def track_matches(pairs, maskBB, prevs, opt):
 
+    opt.resize_float = RESIZE_FLOAT
+    opt.viz_extension = VIZ_EXTENSION
+    opt.opencv_display = OPENCV_DISPLAY
+    opt.show_keypoints = SHOW_KEYPOINTS
+    opt.cache = CACHE
+
     assert not (
-        opt["opencv_display"] and not opt["viz"]
+        opt.opencv_display and not opt.viz_matches
     ), "Must use --viz with --opencv_display"
     assert not (
-        opt["opencv_display"] and not opt["fast_viz"]
+        opt.opencv_display and not opt.fast_viz
     ), "Cannot use --opencv_display without --fast_viz"
-    assert not (opt["fast_viz"] and not opt["viz"]), "Must use --viz with --fast_viz"
+    assert not (opt.fast_viz and not opt.viz_matches), "Must use --viz with --fast_viz"
     assert not (
-        opt["fast_viz"] and opt["viz_extension"] == "pdf"
+        opt.fast_viz and opt.viz_extension == "pdf"
     ), "Cannot use pdf extension with --fast_viz"
 
-    if len(opt["resize"]) == 2 and opt["resize"][1] == -1:
-        opt["resize"] = opt["resize"][0:1]
-    if len(opt["resize"]) == 2:
-        print("Will resize to {}x{} (WxH)".format(opt["resize"][0], opt["resize"][1]))
-    elif len(opt["resize"]) == 1 and opt["resize"][0] > 0:
-        print("Will resize max dimension to {}".format(opt["resize"][0]))
-    elif len(opt["resize"]) == 1:
+    if len(opt.resize) == 2 and opt.resize[1] == -1:
+        opt.resize = opt.resize[0:1]
+    if len(opt.resize) == 2:
+        print("Will resize to {}x{} (WxH)".format(opt.resize[0], opt.resize[1]))
+    elif len(opt.resize) == 1 and opt.resize[0] > 0:
+        print("Will resize max dimension to {}".format(opt.resize[0]))
+    elif len(opt.resize) == 1:
         print("Will not resize images")
     else:
         raise ValueError("Cannot specify more than two integers for --resize")
 
     # Load the SuperPoint and SuperGlue models.
-    device = "cuda" if torch.cuda.is_available() and not opt["force_cpu"] else "cpu"
+    device = "cuda" if torch.cuda.is_available() and not opt.force_cpu else "cpu"
     print('Running inference on device "{}"'.format(device))
     config = {
         "superpoint": {
-            "nms_radius": opt["nms_radius"],
-            "keypoint_threshold": opt["keypoint_threshold"],
-            "max_keypoints": opt["max_keypoints"],
+            "nms_radius": NMS_RADIUS,
+            "keypoint_threshold": opt.keypoint_threshold,
+            "max_keypoints": opt.max_keypoints,
         },
         "superglue": {
-            "weights": opt["superglue"],
-            "sinkhorn_iterations": opt["sinkhorn_iterations"],
-            "match_threshold": opt["match_threshold"],
+            "weights": opt.superglue,
+            "sinkhorn_iterations": SINKHORN_ITERATIONS,
+            "match_threshold": opt.match_threshold,
         },
     }
     matching = Matching(config).eval().to(device)
 
     # Create the output directories if they do not exist already.
-    output_dir = Path(opt["output_dir"])
+    output_dir = Path(opt.output_dir)
     output_dir.mkdir(exist_ok=True, parents=True)
     print('Will write matches to directory "{}"'.format(output_dir))
-    if opt["viz"]:
+    if opt.viz_matches:
         print("Will write visualization images to", 'directory "{}"'.format(output_dir))
 
     # Inizialize lists for storing matching points
@@ -124,7 +139,6 @@ def track_matches(pairs, maskBB, prevs, opt):
             rot0,
             opt["resize_float"],
             maskBB[0],
-            opt["equalize_hist"],
         )
         image1, inp1, scales1 = read_image(
             name1,
@@ -133,7 +147,6 @@ def track_matches(pairs, maskBB, prevs, opt):
             rot1,
             opt["resize_float"],
             maskBB[1],
-            opt["equalize_hist"],
         )
         if image0 is None or image1 is None:
             print("Problem reading image pair: {} {}".format(name0, name1))
@@ -141,12 +154,12 @@ def track_matches(pairs, maskBB, prevs, opt):
         timer.update("load_image")
 
         # Subdivide image in tiles
-        do_viz = opt["viz"]
-        useTile = opt["useTile"]
-        writeTile2Disk = opt["writeTile2Disk"]
-        do_viz_tile = opt["do_viz_tile"]
-        rowDivisor = opt["rowDivisor"]
-        colDivisor = opt["colDivisor"]
+        do_viz = opt.viz_matches
+        useTile = opt.useTile
+        writeTile2Disk = opt.writeTile2Disk
+        do_viz_tile = opt.do_viz_tile
+        rowDivisor = opt.rowDivisor
+        colDivisor = opt.colDivisor
 
         timerTile = AverageTimer(newline=True)
         tiles0, limits0 = generateTiles(
@@ -281,7 +294,7 @@ def track_matches(pairs, maskBB, prevs, opt):
             if do_viz_tile:
                 # Visualize the matches.
                 vizTile_path = output_dir / "{}_{}_matches_tile{}.{}".format(
-                    stem0, stem1, t, opt["viz_extension"]
+                    stem0, stem1, t, opt.viz_extension
                 )
                 color = cm.jet(mconf)
                 text = [
@@ -307,8 +320,8 @@ def track_matches(pairs, maskBB, prevs, opt):
                     text,
                     vizTile_path,
                     True,
-                    opt["fast_viz"],
-                    opt["opencv_display"],
+                    opt.fast_viz,
+                    opt.opencv_display,
                     "Matches",
                     small_text,
                 )
@@ -354,9 +367,9 @@ def track_matches(pairs, maskBB, prevs, opt):
                 color,
                 text,
                 viz_path,
-                opt["show_keypoints"],
-                opt["fast_viz"],
-                opt["opencv_display"],
+                opt.show_keypoints,
+                opt.fast_viz,
+                opt.opencv_display,
                 "Matches",
                 small_text,
             )
@@ -404,27 +417,23 @@ def track_matches(pairs, maskBB, prevs, opt):
     name0 = pairs[0][1]
     name1 = pairs[1][1]
     stem0, stem1 = Path(name0).stem, Path(name1).stem
-    viz_path = output_dir / "{}_{}_matches.{}".format(
-        stem0, stem1, opt["viz_extension"]
-    )
+    viz_path = output_dir / "{}_{}_matches.{}".format(stem0, stem1, opt.viz_extension)
     matches_path = output_dir / "{}_{}_matches.npz".format(stem0, stem1)
     image0, _, _ = read_image(
         name0,
         device,
-        opt["resize"],
+        opt.resize,
         rot0,
-        opt["resize_float"],
+        opt.resize_float,
         maskBB[0],
-        opt["equalize_hist"],
     )
     image1, _, _ = read_image(
         name1,
         device,
-        opt["resize"],
+        opt.resize,
         rot0,
-        opt["resize_float"],
+        opt.resize_float,
         maskBB[1],
-        opt["equalize_hist"],
     )
 
     if do_viz:
@@ -457,9 +466,9 @@ def track_matches(pairs, maskBB, prevs, opt):
             color,
             text,
             viz_path,
-            opt["show_keypoints"],
-            opt["fast_viz"],
-            opt["opencv_display"],
+            opt.show_keypoints,
+            opt.fast_viz,
+            opt.opencv_display,
             "Matches",
             small_text,
         )

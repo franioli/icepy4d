@@ -119,6 +119,13 @@ def print_cfg(cfg) -> None:
         print(key + " : " + str(value))
 
 
+def build_metashape_cfg(cfg: edict, epoch_dict: dict, epoch: int) -> edict:
+
+    ms_cfg = edict()
+    
+    return ms_cfg
+
+
 class Inizialization:
     def __init__(
         self,
