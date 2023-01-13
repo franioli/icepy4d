@@ -19,7 +19,7 @@ PCD_PATTERN = "dense*.ply"
 TSTEP = 3
 VERBOSE = True
 GRID_STEP = 0.2
-DIR = "z"  # "x"  #
+DIR = "x"  # "x"  #
 FOUT = "cloudcompy/DOD_res_x_20cm.csv"  # "cloudcompy/DOD_res_x_20cm.csv"  #
 
 
@@ -38,7 +38,7 @@ class DOD:
             "x",
             "y",
             "z",
-        ], "Invalid direction provided. Provide the name of the axis as a string. The following directions are allowed: x, y, z"
+        ], "Invalid direction provided. Provide the name of the axis as a string. The following directions are allowed: ['x', 'y', 'z']"
         if direction == "x":
             direction = 0
         if direction == "y":
@@ -102,7 +102,7 @@ class DOD:
                     "pcd0,pcd1,volume,addedVolume,removedVolume,surface,matchingPercent,averageNeighborsPerCell\n"
                 )
             f.write(
-                f"{self.pcd_pair[0]},{self.pcd_pair[1]},{self.report.volume:.4f},{self.report.addedVolume:.4f},{self.report.removedVolume:.4f},{self.report.surface:.4f},{self.report.matchingPercent:.1f},{self.report.averageNeighborsPerCell:.1f}\n"
+                f"{Path(self.pcd_pair[0]).stem},{Path(self.pcd_pair[1]).stem},{self.report.volume:.4f},{self.report.addedVolume:.4f},{self.report.removedVolume:.4f},{self.report.surface:.4f},{self.report.matchingPercent:.1f},{self.report.averageNeighborsPerCell:.1f}\n"
             )
 
     @staticmethod

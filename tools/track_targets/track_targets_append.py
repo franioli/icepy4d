@@ -51,6 +51,7 @@ class TrackTargets:
         search_width: int = 128,
         base_epoch: int = 0,
         target_names: List[str] = None,
+        write_mode: str = "w",
         verbose: bool = True,
         debug_viz: bool = False,
     ) -> None:
@@ -63,6 +64,7 @@ class TrackTargets:
         self.template_width = template_width
         self.search_width = search_width
         self.base_epoch = base_epoch
+        self.write_mode = write_mode
 
         self.target_names = target_names
         self.verbose = verbose
@@ -212,7 +214,12 @@ class TrackTargets:
             self._cur_target += 1
 
         # Write targets to csv files
-        self.write_results_to_file(self.out_dir, self.target_names)
+        self.write_results_to_file(
+            self.out_dir,
+            self.target_names,
+            write_mode=self.write_mode,
+            write_header=False,
+        )
 
     def viz_result(self, out_dir: Union[str, Path], res: MatchResult) -> None:
         """
@@ -251,6 +258,7 @@ class TrackTargets:
         targets_name: List[str] = None,
         format: str = "csv",
         sep: str = ",",
+        write_header: bool = True,
         write_mode: str = "w",
     ) -> None:
         """
@@ -272,7 +280,8 @@ class TrackTargets:
 
         for ep, image in enumerate(self.images):
             f = open(folder / f"{image.stem}.{format}", write_mode)
-            f.write(f"label{sep}x{sep}y\n")
+            if write_header:
+                f.write(f"label{sep}x{sep}y\n")
             for i in range(num_targets):
                 if self.results[i][ep]:
                     x_est = self.patch_centers[i, 0] + self.results[i][ep].du
@@ -291,15 +300,15 @@ if __name__ == "__main__":
     # TODO: implement tracking from and to a specific epoch
 
     # Parameters
-    OUT_DIR = "tools/track_targets/block_3/results"
+    OUT_DIR = "tools/track_targets/block_4/data/targets"  # results"
 
-    TARGETS_DIR = "tools/track_targets/block_3/data/targets"
-    TARGETS_IMAGES_FNAMES = ["IMG_2637.csv", "IMG_1112.csv"]
+    TARGETS_DIR = "tools/track_targets/block_4/data/targets"
+    TARGETS_IMAGES_FNAMES = ["IMG_2814.csv", "IMG_1289.csv"]
     TARGETS_WORLD_FNAME = "target_world.csv"
-    IM_DIR = "tools/track_targets/block_3/data/images"
+    IM_DIR = "tools/track_targets/block_4/data/images"
 
     cams = ["p1", "p2"]
-    targets_to_track = ["F2", "F13"]
+    targets_to_track = ["F13"]
 
     patch_width = 512
     template_width = 16
@@ -339,6 +348,7 @@ if __name__ == "__main__":
             patch_width=patch_width,
             template_width=template_width,
             search_width=search_width,
+            write_mode="a",
             debug_viz=debug_viz,
             verbose=verbose,
         )
