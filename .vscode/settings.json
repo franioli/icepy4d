@@ -1,4 +1,8 @@
 {
   "python.formatting.provider": "black",
-  "python.analysis.extraPaths": ["${workspaceFolder}", "${workspaceFolder}/lib"]
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}",
+    "${workspaceFolder}/lib"
+  ],
+  "python.analysis.typeCheckingMode": "off"
 }
