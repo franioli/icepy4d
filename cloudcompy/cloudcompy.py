@@ -23,18 +23,18 @@ class DOD:
             "z",
         ], "Invalid direction provided. Provide the name of the axis as a string. The following directions are allowed: ['x', 'y', 'z']"
         if direction == "x":
-            direction = 0
+            self.direction = 0
         if direction == "y":
-            direction = 1
+            self.direction = 1
         if direction == "z":
-            direction = 2
+            self.direction = 2
 
         self.report = cc.ReportInfoVol()
         isOk = cc.ComputeVolume25D(
             self.report,
             ground=self.pcd0,
             ceil=self.pcd1,
-            vertDim=direction,
+            vertDim=self.direction,
             gridStep=grid_step,
             groundHeight=0,
             ceilHeight=0,
@@ -44,6 +44,38 @@ class DOD:
             raise RuntimeError(
                 f"Unable to compute volume variation between point clouds {str(self.pcd_pair[0])} and {str(self.pcd_pair[1])}"
             )
+
+    def cut_point_clouds_by_polyline(
+        self, polyline_path: str, direction: str = "x"
+    ) -> None:
+        assert direction in [
+            "x",
+            "y",
+            "z",
+        ], "Invalid direction provided. Provide the name of the axis as a string. The following directions are allowed: ['x', 'y', 'z']"
+        if direction == "y":
+            self.direction = 0
+        if direction == "x":
+            self.direction = 1
+        if direction == "z":
+            self.direction = 2
+
+        self.polyline = cc.loadPolyline(polyline_path)
+        self.polyline.setClosed(True)
+
+        self.pcd0 = self.pcd0.crop2D(self.polyline, self.direction, True)
+        # cc.deleteEntity(self.pcd0)
+        # self.pcd0 = pcd0
+
+        self.pcd1 = self.pcd1.crop2D(self.polyline, self.direction, True)
+        # cc.deleteEntity(self.pcd1)
+        # self.pcd1 = pcd1
+
+        pcd = cc.loadPointCloud(self.pcd_pair[0])
+        poly = cc.loadPolyline(polyline_path)
+        poly.setClosed(True)
+        cropped = pcd.crop2D(poly, 1, True)
+        ret = cc.SavePointCloud(cropped, "cloudcompy/test.ply")
 
     def print_result(self) -> None:
         print(
@@ -91,7 +123,17 @@ class DOD:
 
     @staticmethod
     def read_results_from_file(
-        fname: str, sep: str = ",", header: int = 0
+        fname: str,
+        sep: str = ",",
+        header: int = None,
+        column_names: List[str] = None,
     ) -> pd.DataFrame:
-        df = pd.read_csv(fname, sep=sep, header=header)
+
+        if column_names is not None:
+            df = pd.read_csv(fname, sep=sep, names=column_names)
+        elif header is not None:
+            df = pd.read_csv(fname, sep=sep, header=header)
+        else:
+            df = pd.read_csv(fname, sep=sep)
+
         return df

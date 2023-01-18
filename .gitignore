@@ -15,7 +15,8 @@ tools/collimate_targets/targets/
 sandbox/
 cloudcompy/data/
 cloudcompy/test/
-cloudcompy/res/
+cloudcompy/meshed/
+cloudcompy/dod_x/
 
 # VScode
 # .vscode/

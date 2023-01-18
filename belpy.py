@@ -74,10 +74,11 @@ print("Low-cost stereo photogrammetry for 4D glacier monitoring ")
 print("2022 - Francesco Ioli - francesco.ioli@polimi.it")
 print("===========================================================\n")
 
-CFG_FILE = "config/config_block_1.yaml"
+# CFG_FILE = "config/config_block_1.yaml"
 # CFG_FILE = "config/config_block_2.yaml"
 # CFG_FILE = "config/config_block_3.yaml"
 # CFG_FILE = "config/config_block_4.yaml"
+CFG_FILE = "config/config_block_3_4.yaml"
 
 # Create logger and set logging level
 LOG_LEVEL = logging.WARNING
