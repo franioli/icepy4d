@@ -110,7 +110,7 @@ timer = AverageTimer(newline=True)
 iter = 0
 for epoch in cfg.proc.epoch_to_process:
 
-    logger.info(
+    print(
         f"\nProcessing epoch {epoch} [{iter}/{cfg.proc.epoch_to_process[-1]-cfg.proc.epoch_to_process[0]}] - {epoch_dict[epoch]}..."
     )
     iter += 1
