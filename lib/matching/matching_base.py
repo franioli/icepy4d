@@ -15,7 +15,6 @@ from lib.matching.match_pairs import match_pair
 from lib.matching.track_matches import track_matches
 from lib.utils.utils import create_directory
 
-logger = logging.getLogger(__name__)
 
 # class MatchingBase(abc):
 
@@ -98,7 +97,7 @@ def MatchingAndTracking(
         # If features from previous epoch are not already present in features object (e.g. when the process started from and epoch different that 0), try to load them from disk. If it fails, skip tracking.
         if epoch - 1 not in features.keys():
             path = Path(cfg.paths.results_dir) / f"{epoch_dict[epoch-1]}/matching"
-            logger.warning(
+            logging.warning(
                 f"Feature from previous epoch not available in Features object. Try to load it from disk at {path}"
             )
             try:
@@ -110,7 +109,7 @@ def MatchingAndTracking(
                     raise FileNotFoundError(f"Invalid pickle file in {path}.")
                 features[epoch - 1] = loaded_features
             except FileNotFoundError as err:
-                logger.error(err)
+                logging.error(err)
 
         if epoch - 1 in features.keys():
             prevs = [features[epoch - 1][cam].get_features_as_dict() for cam in cams]
@@ -127,7 +126,7 @@ def MatchingAndTracking(
             features[epoch][cams[0]].append_features(tracked_cam0)
             features[epoch][cams[1]].append_features(tracked_cam1)
         else:
-            logger.warning(
+            logging.warning(
                 f"Skipping tracking from epoch {epoch_dict[epoch-1]} to {epoch_dict[epoch]}"
             )
 

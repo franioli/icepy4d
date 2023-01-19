@@ -14,7 +14,7 @@ proc:
   # It can be either 'all' for processing all the epochs,
   # A list of two integers for processing a range of epoches
   # or a list with the epoche numbers to be processed
-  epoch_to_process: [180, 330] # "all" #
+  epoch_to_process: [250, 330] # [180, 330] # "all" #
 
   #- Switches to find and track matches
   do_matching: false
@@ -112,7 +112,7 @@ tracking:
 metashape:
   # Processing parameters:
   optimize_cameras: true
-  build_dense: false
+  build_dense: true
 
   # List containing camera location. Note, that the order may differ from that of Belpy, because Metashape imports the cameras based on alphabetic order of the images that they belong to (e.g., IMG_1289.jpg that belongs to p2 comes before IMG_2814.jpg that belongs to p1!)
   #TODO: fix camera ordering issue in Metashape.

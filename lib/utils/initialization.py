@@ -110,7 +110,7 @@ def validate_cfg(cfg: edict) -> None:
         if len(images[cams[i]]) != len(images[cams[i - 1]]):
             raise ValueError("Error: different number of images per camera")
         else:
-            print("Image datastores created successfully.")
+            logging.info("Image datastores created successfully.")
 
 
 def print_cfg(cfg) -> None:

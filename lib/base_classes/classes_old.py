@@ -372,7 +372,7 @@ if __name__ == "__main__":
     # print(targets[0].get_obj_coord())
 
     labels = ["F2", "T2"]
-    im_coor = targets[0].get_image_coor_by_label(labels, cam_id=0)
+    im_coor = targets[0].get_image_coor_by_label(labels, cam_id=0)[0]
     print(im_coor)
     obj_coor = targets[0].get_object_coor_by_label(labels)
     print(obj_coor)

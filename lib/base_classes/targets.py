@@ -36,8 +36,6 @@ from pathlib import Path
 
 from lib.import_export.importing import read_opencv_calibration
 
-logger = logging.getLogger(__name__)
-
 
 class Targets:
     """
@@ -107,7 +105,7 @@ class Targets:
         self,
         labels: List[str],
         cam_id: int,
-    ) -> np.ndarray:
+    ) -> Tuple[np.ndarray, List[str]]:
         """
         get_image_coor_by_label Get image coordinates of the targets on the images given a list of target labels
 
@@ -115,53 +113,65 @@ class Targets:
             labels (List[str]): List containing the targets' label to extract
             cam_id (int): numeric (integer) id of the camera for which the image coordinates are asked.
 
+        Raises:
+            ValueError: No targets are found.
+
         Returns:
-            np.ndarray: nx2 array containing image coordinates of the selected targets
+            Tuple[np.ndarray, List[str]]: Tuple cointaining a numpy nx2 array with the coordinates of the selected (and valid) targets and a list with the labels of the valid targets
         """
 
         coor = []
+        labels_valid = []
         for lab in labels:
             selected = self.im_coor[cam_id][self.im_coor[cam_id]["label"] == lab]
             if not selected.empty:
                 coor.append(selected.iloc[:, 1:].to_numpy())
+                labels_valid.append(lab)
             else:
-                logger.warning(f"Warning: target {lab} is not present.")
+                logging.warning(
+                    f"Warning: target {lab} is not present on camera {cam_id}."
+                )
 
         # If at least one target was found, concatenate arrays to return nx3 array containing world coordinates
         if coor:
-            return np.concatenate(coor, axis=0)
+            return np.concatenate(coor, axis=0), labels_valid
         else:
             msg = "No targets with the provided labels found."
-            logger.error(msg)
+            logging.error(msg)
             raise ValueError(msg)
 
     def get_object_coor_by_label(
         self,
         labels: List[str],
-    ) -> np.ndarray:
+    ) -> Tuple[np.ndarray, List[str]]:
         """
         get_object_coor_by_label Get object coordinates of the targets on the images given a list of target labels
 
         Args:
             labels (List[str]): List containing the targets' label to extract
 
+        Raises:
+            ValueError: No targets are found.
+
         Returns:
-            np.ndarray: nx3 array containing object coordinates of the selected targets
+            Tuple[np.ndarray, List[str]]: Tuple cointaining a nx3 array containing object coordinates of the selected (and valid) targets and a list with the labels of the valid targets
         """
         coor = []
+        labels_valid = []
         for lab in labels:
             selected = self.obj_coor[self.obj_coor["label"] == lab]
             if not selected.empty:
                 coor.append(selected.iloc[:, 1:].to_numpy())
+                labels_valid.append(lab)
             else:
-                logger.warning(f"Warning: target {lab} is not present.")
+                logging.warning(f"Warning: target {lab} is not present.")
 
         # If at least one target was found, concatenate arrays to return nx3 array containing world coordinates
         if coor:
-            return np.concatenate(coor, axis=0)
+            return np.concatenate(coor, axis=0), labels_valid
         else:
             msg = "No targets with the provided labels found."
-            logger.error(msg)
+            logging.error(msg)
             raise ValueError(msg)
 
     def read_im_coord_from_txt(
@@ -189,7 +199,7 @@ class Targets:
         path = Path(path)
         if not path.exists():
             msg = f"Error: Input path {path} does not exist."
-            logger.error(msg)
+            logging.error(msg)
             raise FileNotFoundError(msg)
 
         data = pd.read_csv(path, sep=delimiter, header=header)
@@ -217,7 +227,7 @@ class Targets:
         path = Path(path)
         if not path.exists():
             msg = f"Error: Input path {path} does not exist."
-            logger.error(msg)
+            logging.error(msg)
             raise FileNotFoundError(msg)
 
         data = pd.read_csv(path, sep=delimiter, header=header)
@@ -252,5 +262,5 @@ if __name__ == "__main__":
 
     epoch = 0
     tt = cfg.georef.targets_to_use
-    obj = targets[epoch].get_object_coor_by_label(["F1", "F2"])
-    image_points = targets[epoch].get_image_coor_by_label(tt, cam_id=0)
+    obj, labels = targets[epoch].get_object_coor_by_label(["F1", "F2"])
+    image_points, labels = targets[epoch].get_image_coor_by_label(tt, cam_id=0)
