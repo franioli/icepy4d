@@ -48,7 +48,7 @@ def estimate_pose(kpts0, kpts1, K0, K1, thresh, conf=0.9999):
         kpts0, kpts1, np.eye(3), threshold=norm_thresh, prob=conf, method=cv2.RANSAC
     )
 
-    assert E is not None
+    assert E is not None, "Unable to estimate Essential matrix"
 
     best_num_inliers = 0
     ret = None
