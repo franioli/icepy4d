@@ -54,6 +54,7 @@ from lib.utils.utils import (
     build_dsm,
     generate_ortophoto,
 )
+from lib.utils.logger import setup_logger
 from lib.visualization import (
     display_point_cloud,
     make_focal_length_variation_plot,
@@ -74,19 +75,19 @@ print("Low-cost stereo photogrammetry for 4D glacier monitoring ")
 print("2022 - Francesco Ioli - francesco.ioli@polimi.it")
 print("===========================================================\n")
 
+# Define some global parameters
 CFG_FILE = "config/config_block_3_4.yaml"
+CONSOLE_LOG_LEVEL = "info"
+LOGFILE_LEVEL = "info"
+LOG_FOLDER = "logs"
+LOG_BASE_NAME = "belpy"
 
-# Create logger and set logging level
-LOG_LEVEL = logging.INFO
-logging.basicConfig(
-    format="%(asctime)s | '%(filename)s -> %(funcName)s', line %(lineno)d - %(levelname)s: %(message)s",
-    level=LOG_LEVEL,
-)
-logger = logging.getLogger(__name__)
+# Setup logger
+setup_logger(LOG_FOLDER, LOG_BASE_NAME, CONSOLE_LOG_LEVEL, LOGFILE_LEVEL)
 
 # Read options from yaml file
 cfg_file = Path(CFG_FILE)
-logger.info(f"Configuration file: {cfg_file.stem}")
+logging.info(f"Configuration file: {cfg_file.stem}")
 timer_global = AverageTimer(newline=True)
 cfg = parse_yaml_cfg(cfg_file)
 
@@ -149,8 +150,8 @@ for epoch in cfg.proc.epoch_to_process:
                     )
 
         except FileNotFoundError as err:
-            logger.exception(err)
-            logger.info("Performing new matching and tracking...")
+            logging.exception(err)
+            logging.info("Performing new matching and tracking...")
             features = MatchingAndTracking(
                 cfg=cfg,
                 epoch=epoch,
@@ -163,7 +164,7 @@ for epoch in cfg.proc.epoch_to_process:
 
     """ SfM """
 
-    logger.info(f"Reconstructing epoch {epoch}...")
+    logging.info(f"Reconstructing epoch {epoch}...")
 
     # --- Space resection of Master camera ---#
     # At the first epoch, perform Space resection of the first camera by using GCPs. At all other epoches, set camera 1 EO equal to first one.
@@ -171,8 +172,10 @@ for epoch in cfg.proc.epoch_to_process:
         """Initialize Single_camera_geometry class with a cameras object"""
         space_resection = Space_resection(cameras[epoch][cams[0]])
         space_resection.estimate(
-            targets[epoch].get_image_coor_by_label(cfg.georef.targets_to_use, cam_id=0),
-            targets[epoch].get_object_coor_by_label(cfg.georef.targets_to_use),
+            targets[epoch].get_image_coor_by_label(cfg.georef.targets_to_use, cam_id=0)[
+                0
+            ],
+            targets[epoch].get_object_coor_by_label(cfg.georef.targets_to_use)[0],
         )
         # Store result in camera 0 object
         cameras[epoch][cams[0]] = space_resection.camera
@@ -195,7 +198,6 @@ for epoch in cfg.proc.epoch_to_process:
     )
     # Store result in camera 1 object
     cameras[epoch][cams[1]] = relative_ori.cameras[1]
-    logger.info("Relative orientation completed.")
 
     # --- Triangulate Points ---#
     # Initialize a Triangulate class instance with a list containing the two cameras and a list contaning the matched features location on each camera. Triangulated points are saved as points3d proprierty of the Triangulate object (eg., triangulation.points3d)
@@ -209,34 +211,52 @@ for epoch in cfg.proc.epoch_to_process:
     points3d = triangulation.triangulate_two_views(
         compute_colors=True, image=images[cams[1]].read_image(epoch).value, cam_id=1
     )
-    logger.info("Tie points triangulated.")
+    logging.info("Tie points triangulated.")
 
     # --- Absolute orientation (-> coregistration on stable points) ---#
     if cfg.proc.do_coregistration:
+
+        # Get targets available in all cameras
+        # Labels of valid targets are returned as second element by get_image_coor_by_label() method
+        valid_targets = targets[epoch].get_image_coor_by_label(
+            cfg.georef.targets_to_use, cam_id=0
+        )[1]
+        for id in range(1, len(cams)):
+            assert (
+                valid_targets
+                == targets[epoch].get_image_coor_by_label(
+                    cfg.georef.targets_to_use, cam_id=id
+                )[1]
+            ), f"Different targets present for image {id}"
+        if len(valid_targets) < 1:
+            logging.error(
+                f"Not enough targets found. Skipping epoch {epoch} and moving to next epoch"
+            )
+            continue
+        if valid_targets != cfg.georef.targets_to_use:
+            logging.warning(f"Not all targets found. Using onlys {valid_targets}")
+
+        image_coords = [
+            targets[epoch].get_image_coor_by_label(valid_targets, cam_id=id)[0]
+            for id, cam in enumerate(cams)
+        ]
+        obj_coords = targets[epoch].get_object_coor_by_label(valid_targets)[0]
         try:
             abs_ori = Absolute_orientation(
                 (cameras[epoch][cams[0]], cameras[epoch][cams[1]]),
-                points3d_final=targets[epoch].get_object_coor_by_label(
-                    cfg.georef.targets_to_use
-                ),
-                image_points=(
-                    targets[epoch].get_image_coor_by_label(
-                        cfg.georef.targets_to_use, cam_id=0
-                    ),
-                    targets[epoch].get_image_coor_by_label(
-                        cfg.georef.targets_to_use, cam_id=1
-                    ),
-                ),
+                points3d_final=obj_coords,
+                image_points=image_coords,
                 camera_centers_world=cfg.georef.camera_centers_world,
             )
             T = abs_ori.estimate_transformation_linear(estimate_scale=True)
             points3d = abs_ori.apply_transformation(points3d=points3d)
             for i, cam in enumerate(cams):
                 cameras[epoch][cam] = abs_ori.cameras[i]
-            logger.info("Absolute orientation completed.")
+            logging.info("Absolute orientation completed.")
         except ValueError as err:
-            logger.error(
-                "Absolute orientation not succeded. Not enough targets available. Skipping to the next epoch."
+            logging.error(err)
+            logging.error(
+                f"Absolute orientation not succeded. Not enough targets available. Skipping epoch {epoch} and moving to next epoch"
             )
             continue
 
@@ -266,8 +286,8 @@ for epoch in cfg.proc.epoch_to_process:
             features=features[epoch],
             point_cloud=pcd_epc,
             targets=targets[epoch],
-            targets_to_use=cfg.georef.targets_to_use,
-            targets_enabled=[True for el in cfg.georef.targets_to_use],
+            targets_to_use=valid_targets,
+            targets_enabled=[True for el in valid_targets],
         )
 
         ms_cfg = build_metashape_cfg(cfg, epoch_dict, epoch)
@@ -314,7 +334,7 @@ for epoch in cfg.proc.epoch_to_process:
         point_clouds[epoch] = pcd_epc
 
         # - For debugging purposes
-        # M = targets[epoch].get_object_coor_by_label(cfg.georef.targets_to_use)
+        # M = targets[epoch].get_object_coor_by_label(cfg.georef.targets_to_use)[0]
         # m = cameras[epoch][cams[1]].project_point(M)
         # plot_features(images[cams[1]].read_image(epoch).value, m)
         # plot_features(images[cams[0]].read_image(epoch).value, features[epoch][cams[0]].get_keypoints())

@@ -65,10 +65,12 @@ def write_bundler_out_all_epoches(
         targets_enabled = [int(x) for x in targets_enabled]
         for i, target in enumerate(targets_to_use):
             for i, cam in enumerate(cams):
-                for x in targets[epoch].get_object_coor_by_label([target]).squeeze():
+                for x in targets[epoch].get_object_coor_by_label([target])[0].squeeze():
                     file.write(f"{x:.4f} ")
                 for x in (
-                    targets[epoch].get_image_coor_by_label([target], cam_id=i).squeeze()
+                    targets[epoch]
+                    .get_image_coor_by_label([target], cam_id=i)[0]
+                    .squeeze()
                 ):
                     file.write(f"{x+0.5:.4f} ")
                 file.write(f"{images[cam][epoch]} ")
@@ -185,10 +187,10 @@ def write_bundler_out(
             for i, cam in enumerate(cams):
                 # Try to read the target information. If some piece of information (i.e., image coords or objects coords) is missing (ValueError raised), skip the target and move to the next one
                 try:
-                    obj_coor = targets.get_object_coor_by_label([target]).squeeze()
-                    im_coor = targets.get_image_coor_by_label(
-                        [target], cam_id=i
-                    ).squeeze()
+                    obj_coor = targets.get_object_coor_by_label([target])[0].squeeze()
+                    im_coor = targets.get_image_coor_by_label([target], cam_id=i)[
+                        0
+                    ].squeeze()
                 except ValueError as err:
                     logging.error(
                         f"Target {target} not found on image {im_dict[cam].name}. Skipped."

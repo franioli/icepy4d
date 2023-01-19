@@ -40,7 +40,6 @@ from lib.geometry import (
     project_points,
 )
 
-logger = logging.getLogger(__name__)
 
 """ Two_view_geometry class"""
 
@@ -96,13 +95,13 @@ class Two_view_geometry:
             thresh=threshold,
             conf=confidence,
         )
-        logger.info(f"Relative Orientation - valid points: {valid.sum()}/{len(valid)}")
+        logging.info(f"Relative Orientation - valid points: {valid.sum()}/{len(valid)}")
 
         # If the scaling factor is given, scale the stereo model
         if scale_factor is not None:
             t = t * scale_factor
         else:
-            logger.warning(
+            logging.warning(
                 "No scaling factor (e.g., computed from camera baseline) is provided. Two-view-geometry estimated up to a scale factor."
             )
 
@@ -114,7 +113,7 @@ class Two_view_geometry:
         extrinsics = self.cameras[1].pose_to_extrinsics(cam2toWorld)
         self.cameras[1].update_extrinsics(extrinsics)
 
-        logger.info("Relative orientation Succeded.")
+        logging.info("Relative orientation Succeded.")
 
         return valid
 

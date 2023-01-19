@@ -23,6 +23,8 @@ SOFTWARE.
 """
 
 import numpy as np
+import logging
+
 from typing import List
 
 from lib.base_classes.camera import Camera
@@ -80,7 +82,7 @@ class Triangulate:
                 pts1_und,
                 self.cameras[views_ids[1]].P,
             )
-            print(f"Point triangulation succeded: {ret.sum()/ret.size}.")
+            logging.info(f"Point triangulation succeded: {ret.sum()/ret.size}.")
 
             self.points3d = pts3d
             if compute_colors:
@@ -142,7 +144,7 @@ class Triangulate:
             camera,
             convert_BRG2RGB=convert_BRG2RGB,
         )
-        print("Points color interpolated")
+        logging.info(f"Point colors interpolated")
 
         return self.colors
 
