@@ -75,6 +75,7 @@ def build_metashape_cfg(cfg: edict, epoch_dict: dict, epoch: int) -> edict:
     # A-priori observation accuracy
     ms_cfg.cam_accuracy = cfg.metashape.camera_accuracy
     ms_cfg.gcp_accuracy = cfg.metashape.gcp_accuracy
+    ms_cfg.collimation_accuracy = cfg.metashape.collimation_accuracy
 
     # Interior orientation parameters
     ms_cfg.prm_to_fix = cfg.metashape.camera_prm_to_fix
@@ -160,11 +161,12 @@ class MetashapeProject:
             sensor.fixed_calibration = True
             # if self.cfg.prm_to_fix:
             sensor.fixed_params = self.cfg.prm_to_fix
-            
+
             print(f"sensor {sensor} loaded.")
 
     def add_gcps(self) -> None:
         gcps = read_gcp_file(self.cfg.gcp_filename)
+        gcp_accuracy = self.cfg.gcp_accuracy
         for point in gcps:
             add_markers(
                 self.doc.chunk,
@@ -172,8 +174,15 @@ class MetashapeProject:
                 point["projections"],
                 point["label"],
                 bool(point["enabled"]),
-                self.cfg.gcp_accuracy,
+                gcp_accuracy,
             )
+
+    def set_a_priori_accuracy(self):
+        if (
+            "collimation_accuracy" in self.cfg.keys()
+            and self.cfg.collimation_accuracy is not None
+        ):
+            self.doc.chunk.marker_projection_accuracy = self.cfg.collimation_accuracy
 
     def solve_bundle(self) -> None:
         self.doc.chunk.optimizeCameras(fit_f=True, tiepoint_covariance=True)
@@ -323,6 +332,7 @@ class MetashapeProject:
         self.add_images()
         self.add_gcps()
         self.import_sensor_calibration()
+        self.set_a_priori_accuracy()
         self.solve_bundle()
         if self.timer:
             self.timer.update("bundle")

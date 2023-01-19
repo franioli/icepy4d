@@ -74,13 +74,10 @@ print("Low-cost stereo photogrammetry for 4D glacier monitoring ")
 print("2022 - Francesco Ioli - francesco.ioli@polimi.it")
 print("===========================================================\n")
 
-CFG_FILE = "config/config_block_1.yaml"
-# CFG_FILE = "config/config_block_2.yaml"
-# CFG_FILE = "config/config_block_3.yaml"
-# CFG_FILE = "config/config_block_4.yaml"
+CFG_FILE = "config/config_block_3_4.yaml"
 
 # Create logger and set logging level
-LOG_LEVEL = logging.WARNING
+LOG_LEVEL = logging.INFO
 logging.basicConfig(
     format="%(asctime)s | '%(filename)s -> %(funcName)s', line %(lineno)d - %(levelname)s: %(message)s",
     level=LOG_LEVEL,
@@ -89,7 +86,7 @@ logger = logging.getLogger(__name__)
 
 # Read options from yaml file
 cfg_file = Path(CFG_FILE)
-print(f"Configuration file: {cfg_file.stem}")
+logger.info(f"Configuration file: {cfg_file.stem}")
 timer_global = AverageTimer(newline=True)
 cfg = parse_yaml_cfg(cfg_file)
 
@@ -113,7 +110,7 @@ timer = AverageTimer(newline=True)
 iter = 0
 for epoch in cfg.proc.epoch_to_process:
 
-    print(
+    logger.info(
         f"\nProcessing epoch {epoch} [{iter}/{cfg.proc.epoch_to_process[-1]-cfg.proc.epoch_to_process[0]}] - {epoch_dict[epoch]}..."
     )
     iter += 1
@@ -153,8 +150,7 @@ for epoch in cfg.proc.epoch_to_process:
 
         except FileNotFoundError as err:
             logger.exception(err)
-
-            print("Performing new matching and tracking...")
+            logger.info("Performing new matching and tracking...")
             features = MatchingAndTracking(
                 cfg=cfg,
                 epoch=epoch,
@@ -167,7 +163,7 @@ for epoch in cfg.proc.epoch_to_process:
 
     """ SfM """
 
-    print(f"Reconstructing epoch {epoch}...")
+    logger.info(f"Reconstructing epoch {epoch}...")
 
     # --- Space resection of Master camera ---#
     # At the first epoch, perform Space resection of the first camera by using GCPs. At all other epoches, set camera 1 EO equal to first one.
@@ -199,6 +195,7 @@ for epoch in cfg.proc.epoch_to_process:
     )
     # Store result in camera 1 object
     cameras[epoch][cams[1]] = relative_ori.cameras[1]
+    logger.info("Relative orientation completed.")
 
     # --- Triangulate Points ---#
     # Initialize a Triangulate class instance with a list containing the two cameras and a list contaning the matched features location on each camera. Triangulated points are saved as points3d proprierty of the Triangulate object (eg., triangulation.points3d)
@@ -212,6 +209,7 @@ for epoch in cfg.proc.epoch_to_process:
     points3d = triangulation.triangulate_two_views(
         compute_colors=True, image=images[cams[1]].read_image(epoch).value, cam_id=1
     )
+    logger.info("Tie points triangulated.")
 
     # --- Absolute orientation (-> coregistration on stable points) ---#
     if cfg.proc.do_coregistration:
@@ -235,6 +233,7 @@ for epoch in cfg.proc.epoch_to_process:
             points3d = abs_ori.apply_transformation(points3d=points3d)
             for i, cam in enumerate(cams):
                 cameras[epoch][cam] = abs_ori.cameras[i]
+            logger.info("Absolute orientation completed.")
         except ValueError as err:
             logger.error(
                 "Absolute orientation not succeded. Not enough targets available. Skipping to the next epoch."
