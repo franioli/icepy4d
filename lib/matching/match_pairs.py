@@ -147,7 +147,7 @@ def match_pair(pair, maskBB, opt):
         print('Will write visualization images to',
               'directory \"{}\"'.format(output_dir))
     
-    timer = AverageTimer(newline=True)
+    timer = AverageTimer()
     name0, name1 = pair[:2]
     stem0, stem1 = Path(name0).stem, Path(name1).stem
     matches_path = output_dir / '{}_{}_matches.npz'.format(stem0, stem1)
@@ -178,7 +178,7 @@ def match_pair(pair, maskBB, opt):
         print(f'Images subdivided in {opt.rowDivisor}x{opt.colDivisor} tiles')                                     
         timer.update('create_tiles')
         
-        timerTile = AverageTimer(newline=True)
+        timerTile = AverageTimer()
         for t0, tile0 in enumerate(tiles0):
             # for t1, tile1 in enumerate(tiles1): 
             # Perform the matching.

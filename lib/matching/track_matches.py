@@ -119,7 +119,7 @@ def track_matches(pairs, maskBB, prevs, opt):
     descriptors1_full = []
     scores1_full = []
 
-    timer = AverageTimer(newline=True)
+    timer = AverageTimer()
 
     #%% Run tracking
     for cam, pair in enumerate(pairs):
@@ -161,7 +161,7 @@ def track_matches(pairs, maskBB, prevs, opt):
         rowDivisor = opt.rowDivisor
         colDivisor = opt.colDivisor
 
-        timerTile = AverageTimer(newline=True)
+        timerTile = AverageTimer()
         tiles0, limits0 = generateTiles(
             image0,
             rowDivisor=rowDivisor,

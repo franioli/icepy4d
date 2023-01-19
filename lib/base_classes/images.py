@@ -62,7 +62,7 @@ def read_image(
     try:
         image = cv2.imread(str(path), flag)
     except:
-        print(f"Impossible to load image {path}")
+        logging.error(f"Impossible to load image {path}")
 
     if color:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -160,7 +160,7 @@ class Image:
         if self._date_time is not None:
             return self._date_time.strftime("%Y:%m:%d")
         else:
-            print("No exif data available.")
+            logging.error("No exif data available.")
 
     @property
     def time(self) -> str:
@@ -171,7 +171,7 @@ class Image:
         if self._date_time is not None:
             return self._date_time.strftime("%H:%M:%S")
         else:
-            print("No exif data available.")
+            logging.error("No exif data available.")
 
     @property
     def value(self) -> np.ndarray:
@@ -199,7 +199,7 @@ class Image:
             self._value_array = read_image(self.path, col, resize, crop)
             self.read_exif()
         else:
-            print(f"Input paht {self.path} not valid.")
+            logging.error(f"Input paht {self.path} not valid.")
 
     def clean_image(self) -> None:
         self._value_array = None
@@ -211,7 +211,7 @@ class Image:
             self._exif_data = exifread.process_file(f, details=False)
             f.close()
         except:
-            print("No exif data available.")
+            logging.error("No exif data available.")
 
         # Get image size
         if (
@@ -244,7 +244,7 @@ class Image:
         elif "EXIF DateTimeOriginal" in self._exif_data.keys():
             date_str = self._exif_data["EXIF DateTimeOriginal"].printable
         else:
-            print("Date not available in exif.")
+            logging.error("Date not available in exif.")
             return
         self._date_time = datetime.strptime(date_str, self._date_time_fmt)
 

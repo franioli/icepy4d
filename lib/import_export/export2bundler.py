@@ -40,7 +40,8 @@ def write_bundler_out_all_epoches(
     Return
         None
     """
-    print("Exporting results in Bundler format...")
+
+    logging.info("Exporting results in Bundler format...")
     export_dir = Path(export_dir)
 
     for epoch in epoches:
@@ -123,7 +124,7 @@ def write_bundler_out_all_epoches(
 
         file.close()
 
-    print("Export completed.")
+    logging.info("Export completed.")
 
 
 def write_bundler_out(
@@ -148,7 +149,7 @@ def write_bundler_out(
     Return
         None
     """
-    print("Exporting results in Bundler format...")
+    logging.info("Exporting results in Bundler format...")
 
     export_dir = Path(export_dir)
     date = export_dir.name
@@ -252,7 +253,7 @@ def write_bundler_out(
 
     file.close()
 
-    print("Export completed.")
+    logging.info("Export completed.")
 
 
 if __name__ == "main":

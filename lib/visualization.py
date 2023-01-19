@@ -29,6 +29,7 @@ import open3d as o3d
 import matplotlib.colors as Colors
 import matplotlib.cm as cm
 import matplotlib
+import logging
 
 from typing import List, Union, Dict
 from pathlib import Path
@@ -299,7 +300,7 @@ def display_pc_inliers(cloud, ind):
     inlier_cloud = cloud.select_by_index(ind)
     outlier_cloud = cloud.select_by_index(ind, invert=True)
 
-    print("Showing outliers (red) and inliers (gray): ")
+    logging.info("Showing outliers (red) and inliers (gray): ")
     outlier_cloud.paint_uniform_color([1, 0, 0])
     inlier_cloud.paint_uniform_color([0.8, 0.8, 0.8])
     o3d.visualization.draw_geometries([inlier_cloud, outlier_cloud])

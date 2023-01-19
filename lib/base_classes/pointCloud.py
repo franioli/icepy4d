@@ -24,6 +24,7 @@ SOFTWARE.
 
 import open3d as o3d
 import numpy as np
+import logging
 
 from pathlib import Path
 from typing import Union
@@ -92,7 +93,7 @@ class PointCloud:
         )
         pcd_epc = pcd_epc.select_by_index(ind)
         if self._verbose:
-            print("Point cloud filtered by Statistical Oulier Removal")
+            logging.info("Point cloud filtered by Statistical Oulier Removal")
 
     def write_ply(self, path: Union[str, Path]) -> None:
         """Write point cloud to disk as .ply

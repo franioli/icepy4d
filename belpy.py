@@ -88,7 +88,7 @@ setup_logger(LOG_FOLDER, LOG_BASE_NAME, CONSOLE_LOG_LEVEL, LOGFILE_LEVEL)
 # Read options from yaml file
 cfg_file = Path(CFG_FILE)
 logging.info(f"Configuration file: {cfg_file.stem}")
-timer_global = AverageTimer(newline=True)
+timer_global = AverageTimer()
 cfg = parse_yaml_cfg(cfg_file)
 
 """ Inizialize Variables """
@@ -104,16 +104,20 @@ point_clouds = init.point_clouds
 epoch_dict = init.epoch_dict
 focals = init.focals_dict
 
+
 """ Big Loop over epoches """
-print("\nProcessing started:")
-print("-----------------------")
-timer = AverageTimer(newline=True)
+print("\n")
+logging.info("Processing started:")
+logging.info("-----------------------")
+timer = AverageTimer()
 iter = 0
 for epoch in cfg.proc.epoch_to_process:
 
-    print(
-        f"\nProcessing epoch {epoch} [{iter}/{cfg.proc.epoch_to_process[-1]-cfg.proc.epoch_to_process[0]}] - {epoch_dict[epoch]}..."
+    print("\n")
+    logging.info(
+        f"Processing epoch {epoch} [{iter}/{cfg.proc.epoch_to_process[-1]-cfg.proc.epoch_to_process[0]}] - {epoch_dict[epoch]}..."
     )
+    logging.info("-----------------------")
     iter += 1
 
     epochdir = Path(cfg.paths.results_dir) / epoch_dict[epoch]
@@ -402,7 +406,7 @@ timer_global.print("Processing completed")
 
 compute_orthophoto_dsm = False
 if compute_orthophoto_dsm:
-    print("DSM and orthophoto generation started")
+    logging.info("DSM and orthophoto generation started")
     res = 0.03
     xlim = [-100.0, 80.0]
     ylim = [-10.0, 65.0]
@@ -411,7 +415,7 @@ if compute_orthophoto_dsm:
     ortofoto = dict.fromkeys(cams)
     ortofoto[cams[0]], ortofoto[cams[1]] = [], []
     for epoch in cfg.proc.epoch_to_process:
-        print(f"Epoch {epoch}")
+        logging.info(f"Epoch {epoch}")
         dsms.append(
             build_dsm(
                 np.asarray(point_clouds[epoch].points),
@@ -423,7 +427,7 @@ if compute_orthophoto_dsm:
                 # save_path=f'res/dsm/dsm_app_epoch_{epoch}.tif'
             )
         )
-        print("DSM built.")
+        logging.info("DSM built.")
         for cam in cams:
             fout_name = f"res/ortofoto/ortofoto_app_cam_{cam}_epc_{epoch}.tif"
             ortofoto[cam].append(
@@ -438,4 +442,4 @@ if compute_orthophoto_dsm:
                     save_path=fout_name,
                 )
             )
-        print("Orthophotos built.")
+        logging.info("Orthophotos built.")
