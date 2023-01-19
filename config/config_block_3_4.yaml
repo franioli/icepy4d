@@ -60,7 +60,7 @@ georef:
   target_world_file: "target_world.csv"
 
   #- Targets to use for Absolute Orientation, Space Resection and Bundle Adjustment
-  targets_to_use: ["F2", "F12", "F13"] # "T2"
+  targets_to_use: ["F2", "F12", "F13", "T2"] #
 
 #- Other On-Off switches
 other:
@@ -112,7 +112,7 @@ tracking:
 metashape:
   # Processing parameters:
   optimize_cameras: true
-  build_dense: true
+  build_dense: false
 
   # List containing camera location. Note, that the order may differ from that of Belpy, because Metashape imports the cameras based on alphabetic order of the images that they belong to (e.g., IMG_1289.jpg that belongs to p2 comes before IMG_2814.jpg that belongs to p1!)
   #TODO: fix camera ordering issue in Metashape.
