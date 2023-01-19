@@ -481,7 +481,7 @@ if __name__ == "__main__":
     # for epoch in epoches_2_process:
     #     cfg = build_ms_cfg_base(root_path, epoch)
     #     cfg.build_dense = False
-    #     timer = AverageTimer(newline=True)
+    #     timer = AverageTimer()
 
     #     print("Processing started:")
     #     print("-----------------------")

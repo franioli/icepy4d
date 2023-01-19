@@ -1,4 +1,5 @@
 import numpy as np
+import logging
 
 from pathlib import Path
 
@@ -36,9 +37,9 @@ def export_keypoints(
                 file.write(f"{id},{x},{y} \n")
 
         file.close()
-        print("Marker exported successfully")
+        logging.info("Marker exported successfully")
     else:
-        print("please, provide the epoch number.")
+        logging.error("please, provide the epoch number.")
         return
 
 

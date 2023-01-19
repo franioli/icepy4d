@@ -331,7 +331,7 @@ class Camera:
         elif mat.shape[1] == 1:
             block = np.block([[np.eye(3), mat], [np.zeros((1, 3)), 1]])
         else:
-            print("Error: unknown input matrix dimensions.")
+            logging.error("Error: unknown input matrix dimensions.")
             return None
 
         return block

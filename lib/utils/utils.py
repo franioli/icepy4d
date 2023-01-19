@@ -52,9 +52,8 @@ from lib.visualization import imshow_cv
 class AverageTimer:
     """Class to help manage printing simple timing of code execution."""
 
-    def __init__(self, smoothing=0.3, newline=False):
+    def __init__(self, smoothing=0.3):
         self.smoothing = smoothing
-        self.newline = newline
         self.times = OrderedDict()
         self.will_print = OrderedDict()
         self.reset()
@@ -77,16 +76,14 @@ class AverageTimer:
 
     def print(self, text="Timer"):
         total = 0.0
-        print("[{}]".format(text), end=" ")
+        msg = f"[Timer] | [{text}] "
         for key in self.times:
             val = self.times[key]
             if self.will_print[key]:
-                print("%s=%.3f" % (key, val), end=" ")
+                msg = msg + f"%s=%.3f, " % (key, val)
                 total += val
-        if self.newline:
-            print(flush=True)
-        else:
-            print(end="\r", flush=True)
+        logging.info(msg)
+
         self.reset()
 
 

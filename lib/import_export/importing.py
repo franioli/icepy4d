@@ -1,5 +1,7 @@
 import cv2
 import numpy as np
+import logging
+
 from typing import List, Union
 from pathlib import Path
 
@@ -27,15 +29,15 @@ def read_opencv_calibration(path: Union[str, Path], verbose: bool = False):
         K = data[2:11].astype(float).reshape(3, 3, order="C")
         if len(data) == 15:
             if verbose:
-                print("Using OPENCV camera model.")
+                logging.info("Using OPENCV camera model.")
             dist = data[11:15].astype(float)
         elif len(data) == 16:
             if verbose:
-                print("Using OPENCV camera model + k3")
+                logging.info("Using OPENCV camera model + k3")
             dist = data[11:16].astype(float)
         elif len(data) == 19:
             if verbose:
-                print("Using FULL OPENCV camera model")
+                logging.info("Using FULL OPENCV camera model")
             dist = data[11:19].astype(float)
         else:
             raise ValueError(
