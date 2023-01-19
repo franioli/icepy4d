@@ -24,9 +24,9 @@ from lib.base_classes.features import Features
 from lib.base_classes.images import ImageDS
 from lib.utils.initialization import parse_yaml_cfg, Inizialization
 
-from thirdparty.SuperGluePretrainedNetwork.superpoint import SuperPoint
-from thirdparty.SuperGluePretrainedNetwork.superglue import SuperGlue
-from thirdparty.SuperGluePretrainedNetwork.utils import read_image, frame2tensor
+from thirdparty.SuperGluePretrainedNetwork.models.superpoint import SuperPoint
+from thirdparty.SuperGluePretrainedNetwork.models.superglue import SuperGlue
+from thirdparty.SuperGluePretrainedNetwork.models.utils import read_image, frame2tensor
 
 # make_matching_plot, AverageTimer, read_image, vizTileRes
 
@@ -63,7 +63,7 @@ class SuperPoint(torch.nn.Module):
 
         # Extract SuperPoint (keypoints, scores, descriptors)
         pred = self.superpoint({"image": data["image0"]})
-        pred = {**pred, **{k + "0": v for k, v in pred0.items()}}
+        pred = {**pred, **{k + "0": v for k, v in pred.items()}}
 
         return pred
 
