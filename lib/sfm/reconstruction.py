@@ -17,7 +17,7 @@ from lib.geometry import (
     project_points,
 )
 
-logger = logging.getLogger(__name__)
+
 
 
 class IncrementalReconstruction:
@@ -40,7 +40,7 @@ class IncrementalReconstruction:
         self.preselection = preselection
         
         if len(cameras) < 4 and preselection != "exaustive": 
-            logger.warning("Less than 4 cameras availabe. Performing exaustive preseleection")
+            logging.warning("Less than 4 cameras availabe. Performing exaustive preseleection")
         
          
     def matching(self, cfg: dict, images: List[ImageDS], epoch_dict:dict, epoch: int):

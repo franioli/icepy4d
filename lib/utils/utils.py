@@ -46,7 +46,7 @@ from lib.geometry import project_points
 from lib.visualization import imshow_cv
 
 
-# ---- Timer and Logger---##
+# ---- Timer and logging---##
 
 
 class AverageTimer:

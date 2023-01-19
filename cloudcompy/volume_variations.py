@@ -15,8 +15,8 @@ from datetime import datetime, timedelta
 
 from cloudcompy import DOD
 
-PCD_DIR = "cloudcompy/meshed"  #"cloudcompy/data"  # 
-PCD_PATTERN = "sampled*.ply"  #"dense*.ply"  # 
+PCD_DIR = "cloudcompy/meshed"  # "cloudcompy/data"  #
+PCD_PATTERN = "sampled*.ply"  # "dense*.ply"  #
 TSTEP = 5
 VERBOSE = True
 GRID_STEP = 0.5
@@ -62,8 +62,8 @@ def DOD_task(
     pcd_pair: Tuple,
 ):
 
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
+    logging = logging.getLogger()
+    logging.setLevel(logging.INFO)
     process = current_process()
     logging.info(f"Child {process.name} - Epoch {Path(pcd_pair[0]).stem} started")
 
@@ -78,8 +78,8 @@ def DOD_task(
 
 
 if __name__ == "__main__":
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
+    logging = logging.getLogger()
+    logging.setLevel(logging.INFO)
 
     pcd_dir = Path(PCD_DIR)
     out_dir = Path(OUT_DIR)
@@ -89,7 +89,7 @@ if __name__ == "__main__":
 
     fout = out_dir / FOUT
     if fout.exists():
-        logger.warning(f"Output file {fout} already exists. Removing it.")
+        logging.warning(f"Output file {fout} already exists. Removing it.")
         fout.unlink()
 
     pcd_list = sorted(pcd_dir.glob(PCD_PATTERN))

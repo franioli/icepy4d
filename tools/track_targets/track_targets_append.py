@@ -337,7 +337,7 @@ if __name__ == "__main__":
         for i, target in enumerate(targets_to_track):
             targets_coord[i] = targets.get_image_coor_by_label(
                 [target], cam_id
-            ).squeeze()
+            )[0].squeeze()
 
         # Define TrackTargets object and run tracking
         tracking = TrackTargets(

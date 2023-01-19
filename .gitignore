@@ -17,6 +17,7 @@ cloudcompy/data/
 cloudcompy/test/
 cloudcompy/meshed/
 cloudcompy/dod_x/
+logs/
 
 # VScode
 # .vscode/

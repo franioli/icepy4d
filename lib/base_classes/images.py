@@ -34,8 +34,6 @@ import numpy as np
 
 from lib.utils.sensor_width_database import SensorWidthDatabase
 
-logger = logging.getLogger(__name__)
-
 
 def read_image(
     path: Union[str, Path],
@@ -129,7 +127,7 @@ class Image:
         if self._height:
             return int(self._height)
         else:
-            logger.error("Image height not available. Read it from exif first")
+            logging.error("Image height not available. Read it from exif first")
             return None
 
     @property
@@ -140,7 +138,7 @@ class Image:
         if self._width:
             return int(self._width)
         else:
-            logger.error("Image width not available. Read it from exif first")
+            logging.error("Image width not available. Read it from exif first")
             return None
 
     @property
@@ -229,7 +227,7 @@ class Image:
             self._width = self._exif_data["EXIF ExifImageWidth"].printable
             self._height = self._exif_data["EXIF ExifImageLength"].printable
         else:
-            logger.error(
+            logging.error(
                 "Image width and height found in exif. Try to load the image and get image size from numpy array"
             )
             try:
@@ -282,12 +280,12 @@ class Image:
             try:
                 self.read_exif()
             except OSError:
-                logger.error("Unable to read exif data.")
+                logging.error("Unable to read exif data.")
                 return None
         try:
             focal_length_mm = float(self._exif_data["EXIF FocalLength"].printable)
         except OSError:
-            logger.error("Focal length non found in exif data.")
+            logging.error("Focal length non found in exif data.")
             return None
         try:
             sensor_width_db = SensorWidthDatabase()
@@ -296,7 +294,7 @@ class Image:
                 self._exif_data["Image Model"].printable,
             )
         except OSError:
-            logger.error("Unable to get sensor size in mm from sensor database")
+            logging.error("Unable to get sensor size in mm from sensor database")
             return None
 
         img_w_px = self.width
@@ -343,7 +341,7 @@ class ImageDS:
         self.folder = Path(folder)
         if not self.folder.exists():
             msg = f"Error: invalid input path {self.folder}"
-            logger.error(msg)
+            logging.error(msg)
             raise IsADirectoryError(msg)
         if ext is not None:
             self.ext = ext
@@ -402,12 +400,12 @@ class ImageDS:
         self.files = sorted(self.folder.glob(pattern))
 
         if len(self.files) == 0:
-            logger.error(f"No images found in folder {self.folder}")
+            logging.error(f"No images found in folder {self.folder}")
             return
         try:
             self.read_dates()
         except OSError as err:
-            logger.exception(err)
+            logging.exception(err)
 
     def read_image(self, idx: int) -> Image:
         """Return image at position idx as Image instance, containing both exif and value data (accessible by value proprierty, e.g., image.value)"""
@@ -427,7 +425,7 @@ class ImageDS:
                 self._dates[id] = image.date
                 self._times[id] = image.time
         except:
-            logger.error("Unable to read image dates and time from exif.")
+            logging.error("Unable to read image dates and time from exif.")
             self._dates, self._times = {}, {}
             return
 
