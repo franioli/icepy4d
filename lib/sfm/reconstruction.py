@@ -19,12 +19,13 @@ from lib.geometry import (
 
 logger = logging.getLogger(__name__)
 
+
 class IncrementalReconstruction:
     """
      _summary_
     """
     
-    def __init__(self, cameras: List[Camera], feautres: List[np.ndarray], preselection: str = "exaustive") -> None:
+    def __init__(self, cameras: List[Camera], feautres: List[np.ndarray], preselection: str = "exaustive", use_tiles: bool = False) -> None:
         """
         __init__ _summary_
 
@@ -35,6 +36,7 @@ class IncrementalReconstruction:
         """
         self.cameras = cameras
         self.features = feautres
+        self.use_tiles = use_tiles
         self.preselection = preselection
         
         if len(cameras) < 4 and preselection != "exaustive": 
@@ -42,12 +44,6 @@ class IncrementalReconstruction:
         
          
     def matching(self, cfg: dict, images: List[ImageDS], epoch_dict:dict, epoch: int):
-        features = MatchingAndTracking(
-            cfg=cfg,
-            epoch=epoch,
-            images=images,
-            features=features,
-            epoch_dict=epoch_dict,
-        )
+        pass
     
     
