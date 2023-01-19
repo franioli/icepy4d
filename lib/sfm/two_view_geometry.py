@@ -24,6 +24,8 @@ SOFTWARE.
 
 import numpy as np
 import cv2
+import logging
+
 from typing import List
 
 from lib.base_classes.features import Features
@@ -38,43 +40,7 @@ from lib.geometry import (
     project_points,
 )
 
-""" Single_camera_geometry class"""
-
-
-class Single_camera_geometry:
-    def __init__(
-        self,
-        camera: Camera,
-    ) -> None:
-        self.camera = camera
-
-    def space_resection(
-        self,
-        image_points: np.ndarray,
-        object_poits: np.ndarray,
-        reprojection_error: float = 3.0,
-    ) -> None:
-        ret, r, t, inliers = cv2.solvePnPRansac(
-            object_poits,
-            image_points,
-            self.camera.K,
-            self.camera.dist,
-            reprojectionError=reprojection_error,
-        )
-        if ret:
-            print(
-                f"Space resection succeded. Number of inlier points: {len(inliers)}/{len(object_poits)}"
-            )
-        else:
-            print(
-                "Space resection failed. Wrong input data or not enough inliers found"
-            )
-            return
-
-        R, _ = cv2.Rodrigues(r)
-        extrinsics = np.concatenate((R, t), axis=1)
-        self.camera.build_camera_EO(extrinsics=extrinsics)
-
+logger = logging.getLogger(__name__)
 
 """ Two_view_geometry class"""
 
@@ -103,8 +69,7 @@ class Two_view_geometry:
         Parameters
         ----------
         threshold : float (default = 1)
-            Distance trheshold from epipolar line (in pixel) for reject outliers
-            with RANSAC, when estimating camera poses
+            Maximum distance from epipolar line (in pixel) for rejecting outliers with RANSAC, when estimating camera poses
             See OpenCV recoverPose function for more information.
         confidence:  float (default = 0.9999)
             Confidence for RANSAC estimation
@@ -112,7 +77,7 @@ class Two_view_geometry:
             Scale factor for scaling the two-view-geometry model
         Returns
         -------
-            valid :
+            valid : valid features used for estimating relative orientation
 
         """
 
@@ -131,13 +96,13 @@ class Two_view_geometry:
             thresh=threshold,
             conf=confidence,
         )
-        print(f"Relative Orientation - valid points: {valid.sum()}/{len(valid)}")
+        logger.info(f"Relative Orientation - valid points: {valid.sum()}/{len(valid)}")
 
         # If the scaling factor is given, scale the stereo model
         if scale_factor is not None:
             t = t * scale_factor
         else:
-            print(
+            logger.warning(
                 "No scaling factor (e.g., computed from camera baseline) is provided. Two-view-geometry estimated up to a scale factor."
             )
 
@@ -148,6 +113,8 @@ class Two_view_geometry:
 
         extrinsics = self.cameras[1].pose_to_extrinsics(cam2toWorld)
         self.cameras[1].update_extrinsics(extrinsics)
+
+        logger.info("Relative orientation Succeded.")
 
         return valid
 
@@ -164,13 +131,5 @@ class Two_view_geometry:
 
         baseline = np.linalg.norm(self.cameras[0].C - self.cameras[1].C)
         scale_fct = baseline_world / baseline
-
-        # T = np.eye(4)
-        # T[0:3, 0:3] = T[0:3, 0:3] * scale_fct
-
-        # # Apply scale to camera extrinsics and update camera proprierties
-        # self.cameras[1].pose[:, 3:4] = np.dot(T, self.cameras[1].pose[:, 3:4])
-        # self.cameras[1].pose_to_extrinsics()
-        # self.cameras[1].update_camera_from_extrinsics()
 
         return scale_fct
