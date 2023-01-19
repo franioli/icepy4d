@@ -47,7 +47,7 @@ def match_pair(pair, image0, image1, maskBB, opt):
     if opt["viz"]:
         print("Will write visualization images to", 'directory "{}"'.format(output_dir))
 
-    timer = AverageTimer(newline=True)
+    timer = AverageTimer()
     name0, name1 = pair[:2]
     stem0, stem1 = Path(name0).stem, Path(name1).stem
     matches_path = output_dir / "{}_{}_matches.npz".format(stem0, stem1)

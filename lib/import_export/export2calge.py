@@ -1,4 +1,5 @@
 import numpy as np
+import logging
 
 from pathlib import Path
 
@@ -70,9 +71,9 @@ def export_keypoints_for_calge(
             file.write(f"-99\n")
 
         file.close()
-        print("Marker exported successfully")
+        logging.info("Marker exported successfully")
     else:
-        print("please, provide the epoch number.")
+        logging.error("please, provide the epoch number.")
         return
 
 

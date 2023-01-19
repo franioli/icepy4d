@@ -154,7 +154,7 @@ class Features:
         # Check dictionary keys:
         keys = ["kpts", "descr", "score"]
         if any(key not in new_features.keys() for key in keys):
-            print(
+            logging.error(
                 'Invalid input dictionary. Check all keys ["kpts", "descr", "scores"] are present'
             )
             return self

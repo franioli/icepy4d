@@ -195,7 +195,7 @@ class TrackTargets:
         """
         track_all_targets run tracking for all the targets that are present in self.patch_centers
         """
-        timer = AverageTimer(newline=True)
+        timer = AverageTimer()
 
         num_targets = self.patch_centers.shape[0]
         while self._cur_target < num_targets:
@@ -326,9 +326,9 @@ if __name__ == "__main__":
         # You can create it manually or use Target class
         targets_coord = np.zeros((len(targets_to_track), 2))
         for i, target in enumerate(targets_to_track):
-            targets_coord[i] = targets.get_image_coor_by_label(
-                [target], cam_id
-            )[0].squeeze()
+            targets_coord[i] = targets.get_image_coor_by_label([target], cam_id)[
+                0
+            ].squeeze()
 
         # Define TrackTargets object and run tracking
         tracking = TrackTargets(
