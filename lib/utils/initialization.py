@@ -81,7 +81,7 @@ def parse_yaml_cfg(cfg_file: Union[str, Path]) -> edict:
         cfg.proc.epoch_to_process = [x for x in range(n_images)]
     elif len(cfg.proc.epoch_to_process) == 2:
         logging.warning(
-            "Epoch_to_process set to a pair of values. Expanding it for a range of epoches from the first to the second."
+            f"Epoch_to_process set to a pair of values. Expanding it for a range of epoches from epoch {cfg.proc.epoch_to_process[0]} to {cfg.proc.epoch_to_process[1]}."
         )
         ep_ini = cfg.proc.epoch_to_process[0]
         ep_fin = cfg.proc.epoch_to_process[1]
@@ -122,7 +122,7 @@ def print_cfg(cfg) -> None:
 def build_metashape_cfg(cfg: edict, epoch_dict: dict, epoch: int) -> edict:
 
     ms_cfg = edict()
-    
+
     return ms_cfg
 
 
