@@ -12,7 +12,6 @@ from multiprocessing import Pool, current_process
 from scipy.spatial import Delaunay
 from itertools import compress
 
-from cloudcompy import DOD
 
 NUM_WORKERS = 8
 
@@ -66,6 +65,7 @@ def meshing_task(
 
     logging.setLevel(logging.DEBUG)
     process = current_process()
+
     logging.info(f"Child {process.name} - Processing pcd {pcd_path}.")
 
     out_dir = Path(OUT_DIR)
@@ -95,20 +95,6 @@ def meshing_task(
     mesh_poisson.orient_triangles()
     logging.info(f"Child {process.name} - Mesh created.")
 
-    # hull_ls = o3d.geometry.LineSet.create_from_triangle_mesh(convex_hull)
-    # hull_ls.paint_uniform_color((1, 0, 0))
-    # o3d.visualization.draw_geometries([mesh_poisson, hull_ls])
-
-    # distances = pcd.compute_nearest_neighbor_distance()
-    # avg_dist = np.mean(distances)
-    # radius = 3 * avg_dist
-    # logging.info(f"Average point distance: {avg_dist:.3f}")
-    # mesh_poisson = o3d.geometry.TriangleMesh.create_from_point_cloud_ball_pivoting(
-    #     pcd, o3d.utility.DoubleVector([radius, radius * 2])
-    # )
-    # mesh_poisson.orient_triangles()
-    # bbox = pcd.get_axis_aligned_bounding_box()
-
     mesh_filtered = deepcopy(mesh_poisson)
     density = np.asarray(density)
     # vertexes_to_remove = list(density < np.quantile(density, MIN_DENSITY_QUANTILE))
@@ -128,14 +114,6 @@ def meshing_task(
         f"Child {process.name} - Poisson mesh filtered by convex hull: removed points {len(idx)}/{len(keep)}"
     )
 
-    # o3d.visualization.draw_geometries([mesh_filtered])
-
-    # dummy = o3d.geometry.PointCloud()
-    # dummy.points = o3d.utility.Vector3dVector(np.asarray(mesh_filtered.vertices))
-    # distances = np.asarray(dummy.compute_nearest_neighbor_distance())
-    # keep = distances < MAX_DIST
-    # idx = list(compress(range(len(keep)), keep))
-    # mesh_filtered = mesh_filtered.select_by_index(idx)
     mesh_filtered.remove_degenerate_triangles()
     mesh_filtered.remove_duplicated_triangles()
     mesh_filtered.remove_duplicated_vertices()
@@ -147,9 +125,7 @@ def meshing_task(
     logging.info(f"Child {process.name} - Mesh sampled uniformly")
     # o3d.visualization.draw_geometries([pcd_sampled_unif])
 
-    # crop geometry
-    # o3d.visualization.draw_geometries_with_editing([pcd_sampled_unif])
-
+    # Write mesh and point cloud to disk
     name = pcd_path.stem.replace("dense", "mesh")
     o3d.io.write_triangle_mesh(str(out_dir / f"{name}.ply"), mesh_poisson)
     name = pcd_path.stem.replace("dense", "sampled")

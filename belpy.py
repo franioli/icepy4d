@@ -48,8 +48,8 @@ from lib.sfm.absolute_orientation import (
     Space_resection,
 )
 from lib.utils.initialization import parse_yaml_cfg, Inizialization
+from lib.utils.timer import AverageTimer
 from lib.utils.utils import (
-    AverageTimer,
     homography_warping,
     build_dsm,
     generate_ortophoto,
