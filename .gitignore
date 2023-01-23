@@ -13,10 +13,10 @@ tools/track_targets/block_4/
 tools/collimate_targets/data/
 tools/collimate_targets/targets/
 sandbox/
-cloudcompy/data/
-cloudcompy/test/
-cloudcompy/meshed/
-cloudcompy/dod_x/
+volumes/data/
+volumes/test/
+volumes/meshed/
+volumes/dod_x/
 logs/
 
 # VScode

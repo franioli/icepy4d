@@ -42,7 +42,7 @@ from lib.metashape.ms_utils import (
     add_markers,
     read_gcp_file,
 )
-from lib.utils.utils import AverageTimer
+from lib.utils.timer import AverageTimer
 from lib.import_export.importing import read_opencv_calibration
 
 from thirdparty.transformations import euler_matrix

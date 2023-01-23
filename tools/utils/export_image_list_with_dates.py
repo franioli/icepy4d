@@ -29,7 +29,7 @@ from lib.base_classes.images import ImageDS, Image
 
 if __name__ == "__main__":
 
-    ROOT_DIR = "data/img"
+    ROOT_DIR = "tmp"  # "data/img"
     IM_DIR_LIST = ["p1", "p2"]
     IM_EXT = "jpg"
 
