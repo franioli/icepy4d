@@ -2,22 +2,30 @@ import time
 import logging
 import numpy as np
 import open3d as o3d
+import multiprocessing
+import itertools
+
 
 from easydict import EasyDict as edict
 from pathlib import Path
 from typing import List, Tuple, Union
-from multiprocessing import Pool, current_process
 from scipy.spatial import Delaunay
 from itertools import compress
 from matplotlib import path as mpath
 from itertools import repeat
-import itertools
-
+from multiprocessing import Pool, current_process
 from os import getpid
 
 from lib.utils.timer import AverageTimer
 
 MP = False
+
+NUM_WORKERS = 8
+
+PCD_DIR = "res/point_clouds"  #
+PCD_PATTERN = "dense_2022*.ply"
+OUT_DIR = "res/point_clouds_meshed"
+
 
 LOG_LEVEL = logging.INFO
 logging.basicConfig(
@@ -93,9 +101,16 @@ class Meshing:
 
         Args:
             pcd_path (Union[str, Path]): Path to the point cloud
-            ....
-
-            log_level (str): Log level. Choose between ["debug", "info", "warning", "error"] (default: "info")
+            out_dir (Union[str, Path]): Path of the output folder
+            cfg (dict): configuration dictionary with the following keys:
+                    {
+                        "do_SOR" (bool): filter point cloud by SOR (default = True),
+                        "poisson_depth" (int): Depth parameter for poisson meshing (default = 9),
+                        "min_mesh_denisty" (int): minimum density of the mesh triangles for filtering mesh by density (default = 11)
+                        "save_mesh" (bool): Save mesh to disk (default = True)
+                        "sample_mesh" (bool): Sample mesh with uniform distribution (default = True)
+                        "num_sampled_points" (int): number of points to sample (default = 2 * 10**6)
+                    }
         """
 
         pcd_path = Path(pcd_path)
@@ -250,7 +265,7 @@ class Meshing:
             self.logger.info("Outputs saved successfully.")
         else:
             self.logger.error("Unable to write outputs to disk.")
-        self.timer.print(f"{current_process().name}")
+        self.timer.print()
 
         return True
 
@@ -261,11 +276,7 @@ def start_process():
 
 if __name__ == "__main__":
 
-    NUM_WORKERS = 8
-
-    PCD_DIR = "volumes/data/pcd"
-    PCD_PATTERN = "*.ply"
-    OUT_DIR = "volumes/res/meshed"
+    multiprocessing.set_start_method("spawn")
 
     cfg = {
         "do_SOR": False,
@@ -284,16 +295,17 @@ if __name__ == "__main__":
     # meshing.run()
 
     if MP:
-        pool = Pool(
+        p = Pool(
             processes=NUM_WORKERS,
             initializer=start_process,
         )
-        result = pool.starmap(
+        result = p.starmap(
             meshing_task,
             zip(pcd_list, list(repeat(OUT_DIR, n)), list(repeat(cfg, n))),
         )
-        pool.close()
-        pool.join()
+        p.close()
+        p.join()
+
     else:
         for pcd in pcd_list:
             meshing_task(pcd, OUT_DIR, cfg)
