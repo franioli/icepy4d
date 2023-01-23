@@ -110,6 +110,7 @@ class Meshing:
                         "save_mesh" (bool): Save mesh to disk (default = True)
                         "sample_mesh" (bool): Sample mesh with uniform distribution (default = True)
                         "num_sampled_points" (int): number of points to sample (default = 2 * 10**6)
+                        "crop_polyline_path" (str): path to the polyline for cropping the sampled point cloud.
                     }
         """
 
@@ -291,8 +292,8 @@ if __name__ == "__main__":
     pcd_list = sorted(Path(PCD_DIR).glob(PCD_PATTERN))
     n = len(pcd_list)
 
-    # meshing = Meshing(pcd_list[0], out_dir=OUT_DIR, cfg=cfg)
-    # meshing.run()
+    # Test task
+    # res = meshing_task(pcd_list[0], OUT_DIR, cfg)
 
     if MP:
         p = Pool(
