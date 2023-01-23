@@ -5,7 +5,6 @@ import open3d as o3d
 import multiprocessing
 import itertools
 
-
 from easydict import EasyDict as edict
 from pathlib import Path
 from typing import List, Tuple, Union
