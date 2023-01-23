@@ -235,7 +235,9 @@ class Inizialization:
         return self.point_clouds
 
     def init_focals_dict(self) -> dict:
-        self.focals_dict = {0: [], 1: []}
+        self.focals_dict = dict.fromkeys(self.cams)
+        for cam in self.cams:
+            self.focals_dict[cam] = {}
 
     def inizialize_belpy(self) -> dict:
         self.init_image_ds()

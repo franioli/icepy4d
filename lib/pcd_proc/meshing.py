@@ -284,8 +284,8 @@ if __name__ == "__main__":
         "min_mesh_denisty": 9,
         "save_mesh": False,
         "sample_mesh": True,
-        "num_sampled_points": 2 * 10**6,
-        "crop_polyline_path": "volumes/data/crop_polyline.poly",
+        "num_sampled_points": 4 * 10**6,
+        "crop_polyline_path": "data/crop_polyline.poly",
     }
 
     pcd_list = sorted(Path(PCD_DIR).glob(PCD_PATTERN))
