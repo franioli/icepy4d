@@ -34,7 +34,7 @@ from pathlib import Path
 
 # Belpy Classes
 from lib.base_classes.camera import Camera
-from lib.base_classes.pointCloud import PointCloud
+from base_classes.point_cloud import PointCloud
 from lib.base_classes.images import Image, ImageDS
 from lib.base_classes.targets import Targets
 from lib.base_classes.features import Features

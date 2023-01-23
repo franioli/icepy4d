@@ -16,7 +16,7 @@ class DemOfDifference:
         self,
         direction: str = "x",
         grid_step: float = 1,
-    ) -> bool:
+    ) -> None:
         assert direction in [
             "x",
             "y",
@@ -44,8 +44,6 @@ class DemOfDifference:
             raise RuntimeError(
                 f"Unable to compute volume variation between point clouds {str(self.pcd_pair[0])} and {str(self.pcd_pair[1])}"
             )
-        else:
-            return True
 
     def cut_point_clouds_by_polyline(
         self, polyline_path: str, direction: str = "x"
