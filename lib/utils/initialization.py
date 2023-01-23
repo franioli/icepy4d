@@ -32,7 +32,7 @@ from typing import List, Union
 from datetime import datetime
 
 from lib.base_classes.camera import Camera
-from base_classes.point_cloud import PointCloud
+from lib.base_classes.point_cloud import PointCloud
 from lib.base_classes.images import Image, ImageDS
 from lib.base_classes.targets import Targets
 from lib.base_classes.features import Features
