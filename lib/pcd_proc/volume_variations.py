@@ -13,73 +13,53 @@ from typing import List, Tuple, Union
 from multiprocessing import Pool, current_process
 from datetime import datetime, timedelta
 
-from cloudcompy import DOD
+from volumes.dem_of_difference import DemOfDifference
+from volumes.utils import make_pairs
 
-PCD_DIR = "cloudcompy/meshed"  # "cloudcompy/data"  #
+MP = False
+
+PCD_DIR = "volumes/res/meshed"  # "volumes/data"  #
 PCD_PATTERN = "sampled*.ply"  # "dense*.ply"  #
 TSTEP = 5
 VERBOSE = True
-GRID_STEP = 0.5
+GRID_STEP = 0.3
 DOD_DIR = "x"
-OUT_DIR = "cloudcompy/dod_x"
-FOUT = "DOD_res_x_20cm.csv"  # "cloudcompy/DOD_res_x_20cm.csv"  #
+OUT_DIR = "volumes/res/dod_x"
+FOUT = "DOD_res_x_20cm.csv"
 
-polyline_path = "cloudcompy/crop_polyline.poly"
-
-
-def find_closest_date_idx(
-    datetime_list: List[datetime],
-    date_to_find: datetime,
-):
-    closest = min(datetime_list, key=lambda sub: abs(sub - date_to_find))
-    for idx, date in enumerate(datetime_list):
-        if date == closest:
-            return idx
+# polyline_path = "volumes/crop_polyline.poly"
 
 
-def make_pairs(
-    pcd_list: List[Path], step: int = 1, date_format: str = "%Y_%m_%d"
-) -> dict:
-    # date_format = "%Y_%m_%d"
-    dt = timedelta(step)
-    idx = pcd_list[0].stem.find("202")
-    dates_str = [date.stem[idx:] for date in pcd_list]
-    dates = [datetime.strptime(date, date_format) for date in dates_str]
-
-    pair_dict = {}
-    for i in range(len(pcd_list) - step):
-        date_in = dates[i]
-        date_f = date_in + dt
-        idx_closest = find_closest_date_idx(dates, date_f)
-        pair_dict[i] = (str(pcd_list[i]), str(pcd_list[idx_closest]))
-
-        # pair_dict[i] = (str(pcd_list[i]), str(pcd_list[i + step]))
-
-    return (pair_dict, dates)
+LOG_LEVEL = logging.INFO
+logging.basicConfig(
+    format="%(asctime)s | %(levelname)s: %(message)s",
+    level=LOG_LEVEL,
+)
 
 
 def DOD_task(
     pcd_pair: Tuple,
-):
+) -> None:
+    """
+    DOD_task run DOD task for parallel computing
 
-    logging = logging.getLogger()
-    logging.setLevel(logging.INFO)
+    Args:
+        pcd_pair (Tuple): _description_
+    """
+    logger = logging.getLogger()
     process = current_process()
-    logging.info(f"Child {process.name} - Epoch {Path(pcd_pair[0]).stem} started")
+    logger.info(f"Child {process.name} - Epoch {Path(pcd_pair[0]).stem} started")
 
-    dod = DOD(pcd_pair)
-    # dod.cut_point_clouds_by_polyline(polyline_path, direction=DOD_DIR)
+    dod = DemOfDifference(pcd_pair)
     dod.compute_volume(direction=DOD_DIR, grid_step=GRID_STEP)
     dod.write_result_to_file(Path(OUT_DIR) / FOUT, mode="a+", header=False)
     dod.clear()
     del dod
     gc.collect()
-    logging.info(f"Child {process.name} completed.")
+    logger.info(f"Child {process.name} completed.")
 
 
 if __name__ == "__main__":
-    logging = logging.getLogger()
-    logging.setLevel(logging.INFO)
 
     pcd_dir = Path(PCD_DIR)
     out_dir = Path(OUT_DIR)
@@ -119,11 +99,12 @@ if __name__ == "__main__":
         "averageNeighborsPerCell",
     ]
     df = pd.read_csv(fout, sep=",", names=column_names)
-    # df = DOD.read_results_from_file(fout, sep=',', column_names=column_names)
     average_surface_match = df["matchingPercent"].to_numpy().mean()
     df["date_in"] = pd.to_datetime(
         df["pcd0"].str.replace(f"{PCD_PATTERN.split('*')[0]}_", ""), format="%Y_%m_%d"
     )
+    df.sort_values(by="date_in", inplace=True)
+
     df["date_fin"] = pd.to_datetime(
         df["pcd1"].str.replace(f"{PCD_PATTERN.split('*')[0]}_", ""), format="%Y_%m_%d"
     )
@@ -133,7 +114,9 @@ if __name__ == "__main__":
         df["volume_daily"] * df["matchingPercent"] / average_surface_match
     )
 
-    df.sort_values(by="date_in", inplace=True)
+    df["volume_daily_cumul"] = df["volume_daily"].cumsum()
+    df["volume_daily_norm_cumul"] = df["volume_daily_normalized"].cumsum()
+
     fname = f"{PCD_PATTERN.split('*')[0]}_step{TSTEP}_grid{GRID_STEP}.xlsx"
     df.to_excel(out_dir / fname, index=False)
 
@@ -155,6 +138,16 @@ if __name__ == "__main__":
     ax.set_title("Daily volume difference")
     fig.set_size_inches(18.5, 10.5)
     fname = f"{PCD_PATTERN.split('*')[0]}_step{TSTEP}_grid{GRID_STEP}_normalized.png"
+    fig.savefig(out_dir / fname, dpi=300)
+
+    fig, ax = plt.subplots(1, 1)
+    ax.grid(visible=True, which="both")
+    ax.plot(df["date_in"], df["volume_daily_norm_cumul"])
+    ax.set_xlabel("day")
+    ax.set_ylabel("m^3")
+    ax.set_title("Daily volume difference cumulated")
+    fig.set_size_inches(18.5, 10.5)
+    fname = f"{PCD_PATTERN.split('*')[0]}_step{TSTEP}_grid{GRID_STEP}_normalized_cumulated.png"
     fig.savefig(out_dir / fname, dpi=300)
 
     print(f"done")
@@ -191,13 +184,3 @@ if __name__ == "__main__":
     #             f"Memory usage: {psutil.Process(os.getpid()).memory_info().rss / 1024**2:.1f} MB"
     #         )
     # print("done.")
-
-    # # Plot
-    # volumes = list(results.values())
-    # fig, ax = plt.subplots(1, 1)
-    # ax.plot(volumes)
-    # ax.set_xlabel("epoch")
-    # ax.set_ylabel("m^3")
-    # ax.set_title(f"Volume difference with step of {TSTEP} days")
-    # ax.grid(visible=True, color="k", linestyle="-", linewidth=0.2)
-    # fig.savefig(Path(FOUT).parent / (Path(FOUT).stem + ".jpg"), dpi=300)

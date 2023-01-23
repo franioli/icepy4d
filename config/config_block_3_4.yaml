@@ -14,7 +14,7 @@ proc:
   # It can be either 'all' for processing all the epochs,
   # A list of two integers for processing a range of epoches
   # or a list with the epoche numbers to be processed
-  epoch_to_process: [250, 300] # [180, 330] # "all" #
+  epoch_to_process: [335, 338] #[250, 300] # [180, 330] # "all" #
 
   #- Switches to find and track matches
   do_matching: false
