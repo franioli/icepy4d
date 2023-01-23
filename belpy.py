@@ -34,7 +34,7 @@ from pathlib import Path
 
 # Belpy Classes
 from lib.base_classes.camera import Camera
-from base_classes.point_cloud import PointCloud
+from lib.base_classes.point_cloud import PointCloud
 from lib.base_classes.images import Image, ImageDS
 from lib.base_classes.targets import Targets
 from lib.base_classes.features import Features
@@ -49,11 +49,8 @@ from lib.sfm.absolute_orientation import (
 )
 from lib.utils.initialization import parse_yaml_cfg, Inizialization
 from lib.utils.timer import AverageTimer
-from lib.utils.utils import (
-    homography_warping,
-    build_dsm,
-    generate_ortophoto,
-)
+from lib.utils.utils import homography_warping
+from lib.utils.dsm_orthophoto import build_dsm, generate_ortophoto
 from lib.utils.logger import setup_logger
 from lib.visualization import (
     display_point_cloud,
@@ -136,26 +133,25 @@ for epoch in cfg.proc.epoch_to_process:
             path = epochdir / "matching"
             fname = list(path.glob("*.pickle"))
             if len(fname) < 1:
-                raise FileNotFoundError(
-                    f"No pickle file found in the epoch directory {epochdir}"
-                )
+                msg = f"No pickle file found in the epoch directory {epochdir}"
+                logging.error(msg)
+                raise FileNotFoundError(msg)
             if len(fname) > 1:
-                raise FileNotFoundError(
-                    f"More than one pickle file is present in the epoch directory {epochdir}"
-                )
-
+                msg = f"More than one pickle file is present in the epoch directory {epochdir}"
+                logging.error(msg)
+                raise FileNotFoundError(msg)
             with open(fname[0], "rb") as f:
                 try:
                     loaded_features = pickle.load(f)
                     features[epoch] = loaded_features
+                    logging.info(f"Loaded features from {fname[0]}")
                 except:
-                    raise FileNotFoundError(
-                        f"Invalid pickle file in epoch directory {epochdir}"
-                    )
-
+                    msg = f"Invalid pickle file in epoch directory {epochdir}"
+                    logging.error(msg)
+                    raise FileNotFoundError(msg)
         except FileNotFoundError as err:
             logging.exception(err)
-            logging.info("Performing new matching and tracking...")
+            logging.warning("Performing new matching and tracking...")
             features = MatchingAndTracking(
                 cfg=cfg,
                 epoch=epoch,
@@ -231,7 +227,7 @@ for epoch in cfg.proc.epoch_to_process:
                 == targets[epoch].get_image_coor_by_label(
                     cfg.georef.targets_to_use, cam_id=id
                 )[1]
-            ), f"Different targets present for image {id}"
+            ), f"Epoch {epoch} - {epoch_dict[epoch]}: Different targets found in image {id} - {images[cams[id]][epoch]}"
         if len(valid_targets) < 1:
             logging.error(
                 f"Not enough targets found. Skipping epoch {epoch} and moving to next epoch"
