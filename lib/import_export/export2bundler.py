@@ -9,7 +9,7 @@ from shutil import copy as scopy
 from typing import Union, List
 
 from lib.base_classes.camera import Camera
-from lib.base_classes.pointCloud import PointCloud
+from lib.base_classes.point_cloud import PointCloud
 from lib.base_classes.features import Features
 from lib.base_classes.images import ImageDS
 from lib.base_classes.targets import Targets
