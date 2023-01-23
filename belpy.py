@@ -31,6 +31,7 @@ import logging
 import shutil
 
 from pathlib import Path
+from matplotlib import pyplot as plt
 
 # Belpy Classes
 from lib.base_classes.camera import Camera
@@ -299,8 +300,8 @@ for epoch in cfg.proc.epoch_to_process:
             num_cams=len(cams),
         )
         ms_reader.read_belpy_outputs()
-        for i in range(len(cams)):
-            focals[i].insert(epoch, ms_reader.get_focal_lengths()[i])
+        for i, cam in enumerate(cams):
+            focals[cam][epoch] = ms_reader.get_focal_lengths()[i]
 
         # Assign camera extrinsics and intrinsics estimated in Metashape to Camera Object (assignation is done manaully @TODO automatic K and extrinsics matrixes to assign correct camera by camera label)
         new_K = ms_reader.get_K()
@@ -373,19 +374,62 @@ for epoch in cfg.proc.epoch_to_process:
 
 timer_global.update("SfM")
 
+# Check estimated focal lenghts:
+logging.info("Checking estimated Focal Lenghts...")
+max_f_variation = 5  # [px]
+quantile_limits = [0.1, 0.9]
+for cam in cams:
+    f_median = np.median(list(focals[cam].values()))
+    qf = np.quantile(list(focals[cam].values()), quantile_limits)
+    for k, v in focals[cam].items():
+        if abs(v - f_median) > max_f_variation:
+            logging.warning(
+                f"Focal lenght estimated at epoch {k} ({epoch_dict[k]}) for camera {cam} is has a difference from the median focal lenght larger than {max_f_variation} (estimated: {v:.3f} - median: {f_median:.3f}). Check carefully the results of epoch {epoch_dict[k]}!"
+            )
+        if v < qf[0] or v > qf[1]:
+            logging.warning(
+                f"Focal lenght estimated at epoch {k} ({epoch_dict[k]}) for camera {cam} is outside the range between quantile {quantile_limits[0]} and {quantile_limits[1]} of the distribution (estimated: {v:.3f} limits: {qf[0]:.3f} - {qf[1]:.3f}). Check carefully the results of epoch {epoch_dict[k]}!"
+            )
+
 
 if cfg.other.do_viz:
     # Visualize point cloud
-    display_point_cloud(
-        point_clouds,
-        [cameras[epoch][cams[0]], cameras[epoch][cams[1]]],
-        plot_scale=10,
-    )
+    # display_point_cloud(
+    #     point_clouds,
+    #     [cameras[epoch][cams[0]], cameras[epoch][cams[1]]],
+    #     plot_scale=10,
+    # )
 
     # Display estimated focal length variation
-    make_focal_length_variation_plot(
-        focals, cfg.paths.results_dir / f"focal_lenghts_{cfg_file.stem}.png"
+    # make_focal_length_variation_plot(
+    #     focals, cfg.paths.results_dir / f"focal_lenghts_{cfg_file.stem}.png"
+    # )
+    fig, ax = plt.subplots(1, len(cams))
+    for s_id, cam in enumerate(cams):
+        ax[s_id].hist(list(focals[cam].values()), density=True)
+        ax[s_id].grid(visible=True)
+        ax[s_id].set_ylabel("density")
+        ax[s_id].set_xlabel("Focal lenght [px]")
+    fig.set_size_inches(18.5, 10.5)
+    fig.savefig(
+        cfg.paths.results_dir / f"focal_lenghts_hist_{cfg_file.stem}.png",
+        dpi=100,
     )
+
+    from datetime import datetime
+
+    dates = [epoch_dict[ep] for ep in cfg.proc.epoch_to_process]
+    dates = [datetime.strptime(date, "%Y_%m_%d") for date in dates]
+    fig, ax = plt.subplots(1, len(cams))
+    fig.autofmt_xdate()
+    for s_id, cam in enumerate(cams):
+        ax[s_id].plot(dates, list(focals[cam].values()), "o")
+        ax[s_id].grid(visible=True, which="both")
+        ax[s_id].set_xlabel("Epoch")
+        ax[s_id].set_ylabel("Focal lenght [px]")
+    fig.set_size_inches(18.5, 10.5)
+    fig.savefig(cfg.paths.results_dir / f"focal_lenghts_{cfg_file.stem}.png", dpi=100)
+
     make_camera_angles_plot(
         cameras,
         cfg.paths.results_dir / f"angles_{cfg_file.stem}.png",

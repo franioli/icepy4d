@@ -2,6 +2,7 @@
 import gc
 import time
 import logging
+import json
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -20,8 +21,7 @@ PCD_PATTERN = "sampled*.ply"
 OUT_DIR = "res/volumes_variations"
 DOD_DIR = "x"
 TSTEP = 5
-GRID_STEP = 0.3
-VERBOSE = True
+GRID_STEP = 0.2
 
 
 LOG_LEVEL = logging.INFO
@@ -96,10 +96,20 @@ if __name__ == "__main__":
     pairs = [pair for pair in pairs.values()]
 
     # Config dictionary
-    cfg = {"grid_step": GRID_STEP, "DOD_dir": DOD_DIR, "fout": fout}
+    cfg = {
+        "pcd_dir": PCD_DIR,
+        "pcd_pattern": PCD_PATTERN,
+        "out_dir": OUT_DIR,
+        "DOD_dir": DOD_DIR,
+        "t_step": TSTEP,
+        "grid_step": GRID_STEP,
+        "fout": str(fout),
+    }
+    with open(out_dir / f"{fout_name}_parameters.json", "w") as outfile:
+        json.dump(cfg, outfile, indent=4)
 
     # Test task
-    # ret = DOD_task(pairs[0], cfg)
+    ret = DOD_task(pairs[0], cfg)
 
     # Run task with multiprocessing
     logger.info("DOD computation started:")
