@@ -15,11 +15,11 @@ from lib.pcd_proc.dem_of_difference import DemOfDifference
 from lib.pcd_proc.utils import make_pairs
 
 
-PCD_DIR = "volumes/res/meshed"  # "res/point_clouds_meshed"  # "volumes/data"  #
+PCD_DIR = "res/point_clouds_meshed"
 PCD_PATTERN = "sampled*.ply"  # "dense*.ply"  #
-OUT_DIR = "volumes/res/dod"  # "res/volumes_variations"
+OUT_DIR = "res/volumes_variations"
 DOD_DIR = "x"
-TSTEP = 5
+TSTEP = 3
 GRID_STEP = 0.3
 VERBOSE = True
 
