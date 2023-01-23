@@ -16,10 +16,10 @@ from lib.pcd_proc.utils import make_pairs
 
 
 PCD_DIR = "res/point_clouds_meshed"
-PCD_PATTERN = "sampled*.ply"  # "dense*.ply"  #
+PCD_PATTERN = "sampled*.ply"
 OUT_DIR = "res/volumes_variations"
 DOD_DIR = "x"
-TSTEP = 3
+TSTEP = 5
 GRID_STEP = 0.3
 VERBOSE = True
 
