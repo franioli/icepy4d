@@ -35,12 +35,14 @@ from matplotlib import pyplot as plt
 from datetime import datetime
 
 # Belpy Classes
-import belpy.base_classes as Classes
+import belpy.base_classes as belpy_classes
 
 # Belpy libraries
-import belpy.sfm.two_view_geometry as two_view_geom
-import belpy.sfm.absolute_orientation as abs_orientation
-import belpy.sfm.triangulation as triangulation
+import belpy.sfm as sfm
+
+# import belpy.sfm.two_view_geometry as two_view_geom
+# import belpy.sfm.absolute_orientation as abs_orientation
+# import belpy.sfm.triangulation as triangulation
 import belpy.metashape.metashape as MS
 import belpy.utils.initialization as initialization
 
@@ -98,14 +100,12 @@ if __name__ == "__main__":
     focals = init.focals_dict
 
     """ Big Loop over epoches """
-    print("\n")
     logging.info("Processing started:")
     logging.info("-----------------------")
     timer = AverageTimer()
     iter = 0
     for epoch in cfg.proc.epoch_to_process:
 
-        print("\n")
         logging.info(
             f"Processing epoch {epoch} [{iter}/{cfg.proc.epoch_to_process[-1]-cfg.proc.epoch_to_process[0]}] - {epoch_dict[epoch]}..."
         )
@@ -177,7 +177,7 @@ if __name__ == "__main__":
 
         # --- Perform Relative orientation of the two cameras ---#
         # Initialize RelativeOrientation class with a list containing the two cameras and a list contaning the matched features location on each camera.
-        relative_ori = two_view_geom.RelativeOrientation(
+        relative_ori = sfm.RelativeOrientation(
             [cameras[epoch][cams[0]], cameras[epoch][cams[1]]],
             [
                 features[epoch][cams[0]].get_keypoints(),
@@ -196,7 +196,7 @@ if __name__ == "__main__":
 
         # --- Triangulate Points ---#
         # Initialize a Triangulate class instance with a list containing the two cameras and a list contaning the matched features location on each camera. Triangulated points are saved as points3d proprierty of the Triangulate object (eg., triangulation.points3d)
-        triang = triangulation.Triangulate(
+        triang = sfm.Triangulate(
             [cameras[epoch][cams[0]], cameras[epoch][cams[1]]],
             [
                 features[epoch][cams[0]].get_keypoints(),
@@ -237,7 +237,7 @@ if __name__ == "__main__":
             ]
             obj_coords = targets[epoch].get_object_coor_by_label(valid_targets)[0]
             try:
-                abs_ori = abs_orientation.Absolute_orientation(
+                abs_ori = sfm.Absolute_orientation(
                     (cameras[epoch][cams[0]], cameras[epoch][cams[1]]),
                     points3d_final=obj_coords,
                     image_points=image_coords,
@@ -256,7 +256,7 @@ if __name__ == "__main__":
                 continue
 
         # Create point cloud and save .ply to disk
-        pcd_epc = Classes.PointCloud(points3d=points3d, points_col=triangulation.colors)
+        pcd_epc = belpy_classes.PointCloud(points3d=points3d, points_col=triang.colors)
 
         timer.update("relative orientation")
 
@@ -310,7 +310,7 @@ if __name__ == "__main__":
             )
 
             # Triangulate again points and update Point Cloud dict
-            triang = triangulation.Triangulate(
+            triang = sfm.Triangulate(
                 [cameras[epoch][cams[0]], cameras[epoch][cams[1]]],
                 [
                     features[epoch][cams[0]].get_keypoints(),
@@ -323,7 +323,9 @@ if __name__ == "__main__":
                 cam_id=1,
             )
 
-            pcd_epc = Classes.PointCloud(points3d=points3d, points_col=triang.colors)
+            pcd_epc = belpy_classes.PointCloud(
+                points3d=points3d, points_col=triang.colors
+            )
             if cfg.proc.save_sparse_cloud:
                 pcd_epc.write_ply(
                     cfg.paths.results_dir
