@@ -60,7 +60,7 @@ from belpy.visualization.visualization import (
     plot_features,
     imshow_cv,
 )
-from belpy.import_export.export2bundler import write_bundler_out
+from belpy.io.export2bundler import write_bundler_out
 from belpy.metashape.metashape import (
     MetashapeProject,
     MetashapeReader,
