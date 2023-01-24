@@ -8,14 +8,17 @@ import time
 import logging
 import json
 import numpy as np
+import pandas as pd
 
 from easydict import EasyDict as edict
 from multiprocessing import Pool, current_process
 from itertools import repeat
 from pathlib import Path
 from typing import Tuple
+from matplotlib import pyplot as plt
+from matplotlib.dates import DayLocator
 
-from src.belpy.pcd_proc.cloudcompare import DemOfDifference, make_pairs
+from belpy.pcd_proc.cloudcompare import DemOfDifference, make_pairs
 
 
 PCD_DIR = "res/point_clouds_meshed"
@@ -113,7 +116,7 @@ if __name__ == "__main__":
     # Test task
     # ret = DOD_task(pairs[0], cfg)
 
-    # Run task with multiprocessing
+    # Run task with multiprocessing and save results to csv file
     logger.info("DOD computation started:")
     t0 = time.time()
     with Pool() as pool:
@@ -126,3 +129,84 @@ if __name__ == "__main__":
         for i, res in enumerate(results):
             if not res:
                 print(f"Iteration {i} failed!")
+
+    # Read volume results from file
+    column_names = [
+        "pcd0",
+        "pcd1",
+        "volume",
+        "addedVolume",
+        "removedVolume",
+        "surface",
+        "matchingPercent",
+        "averageNeighborsPerCell",
+    ]
+    df = pd.read_csv(fout, sep=",", names=column_names)
+    logger.info("Results read in Pandas dataframe")
+
+    # Build date index, sort dataframe and compute dt
+    max_surface_match = df["matchingPercent"].to_numpy().max()
+    df["date_in"] = pd.to_datetime(
+        df["pcd0"].str.replace(f"{PCD_PATTERN.split('*')[0]}_", ""), format="%Y_%m_%d"
+    )
+    df.sort_values(by="date_in", inplace=True)
+
+    df["date_fin"] = pd.to_datetime(
+        df["pcd1"].str.replace(f"{PCD_PATTERN.split('*')[0]}_", ""), format="%Y_%m_%d"
+    )
+    df["dt"] = (df.date_fin - df.date_in) / np.timedelta64(1, "D")
+
+    # Compute daily volume variation and normalize by area
+    df["volume_daily"] = df["volume"] / df["dt"]
+    df["volume_daily_normalized"] = (
+        df["volume_daily"] / df["matchingPercent"] * max_surface_match
+    )
+
+    # Compute cumulated volumes
+    df["volume_daily_cumul"] = df["volume_daily"].cumsum()
+    df["volume_daily_norm_cumul"] = df["volume_daily_normalized"].cumsum()
+
+    # Export results to excel file
+    df.to_excel(out_dir / f"{fout_name}.xlsx", index=False)
+    logger.info("Results exported in .xlsx format")
+
+    # Make plot for Daily volumes
+    fig, ax = plt.subplots()
+    fig.set_tight_layout(True)
+    ax.grid(visible=True, which="both")
+    ax.plot(df["date_in"], df["volume_daily_normalized"])
+    ax.set_xlabel("day")
+    ax.set_ylabel("Volume [$m^3$]")
+    ax.set_title(f"Daily volume differences - Step {TSTEP} days")
+    ax.grid(True)
+    ax.minorticks_on()
+    ax.grid(which="major", axis="y", linewidth="0.5", color="black")
+    ax.grid(which="major", axis="x", linewidth="0.3", color="black")
+    ax.grid(which="minor", axis="y", linestyle=":", linewidth="0.5", color="black")
+    ax.grid(which="minor", axis="x", linestyle=":", linewidth="0.3", color="black")
+    ax.xaxis.set_minor_locator(
+        DayLocator(bymonthday=[1, 7, 14, 21, 28], interval=1, tz=None)
+    )
+    fig.set_size_inches(18.5, 10.5)
+    fig.savefig(out_dir / f"{fout_name}_daily_diff_norm.png", dpi=300)
+
+    # Make plot for Cumulated volumes
+    fig, ax = plt.subplots()
+    fig.set_tight_layout(True)
+    ax.plot(df["date_in"], df["volume_daily_norm_cumul"])
+    ax.set_xlabel("Day")
+    ax.set_ylabel("Volume [$m^3$]")
+    ax.set_title(f"Cumulated volume difference - Step {TSTEP} days")
+    ax.grid(True)
+    ax.minorticks_on()
+    ax.grid(which="major", axis="y", linewidth="0.5", color="black")
+    ax.grid(which="major", axis="x", linewidth="0.3", color="black")
+    ax.grid(which="minor", axis="y", linestyle=":", linewidth="0.5", color="black")
+    ax.grid(which="minor", axis="x", linestyle=":", linewidth="0.3", color="black")
+    ax.xaxis.set_minor_locator(
+        DayLocator(bymonthday=[1, 7, 14, 21, 28], interval=1, tz=None)
+    )
+    fig.set_size_inches(18.5, 10.5)
+    fig.savefig(out_dir / f"{fout_name}_daily_diff_norm_cumulated.png", dpi=300)
+
+    logger.info("Plots saved")
