@@ -58,12 +58,6 @@ from belpy.io.export2bundler import write_bundler_out
 
 if __name__ == "__main__":
 
-    print("\n===========================================================")
-    print("Belpy")
-    print("Low-cost stereo photogrammetry for 4D glacier monitoring ")
-    print("2022 - Francesco Ioli - francesco.ioli@polimi.it")
-    print("===========================================================\n")
-
     # Define some global parameters
     # CFG_FILE = "config/config_block_3_4.yaml"
     # cfg_file = Path(CFG_FILE)
@@ -77,6 +71,12 @@ if __name__ == "__main__":
         log_cfg["log_file_level"],
         log_cfg["log_console_level"],
     )
+
+    print("\n===========================================================")
+    print("Belpy")
+    print("Low-cost stereo photogrammetry for 4D glacier monitoring ")
+    print("2022 - Francesco Ioli - francesco.ioli@polimi.it")
+    print("===========================================================\n")
 
     # Read options from yaml file
     logging.info(f"Configuration file: {cfg_file.stem}")
