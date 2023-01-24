@@ -8,10 +8,7 @@ from rasterio.transform import Affine
 from scipy.interpolate import LinearNDInterpolator
 
 from ..base_classes.camera import Camera
-from ..utils.utils import (
-    create_directory,
-    interpolate_point_colors,
-)
+from ..sfm.interpolate_colors import interpolate_point_colors
 
 
 # ---- DSM and orthophotos ---##
@@ -132,7 +129,7 @@ def build_dsm(
     # Save dsm as GeoTIff
     if save_path is not None:
         save_path = Path(save_path)
-        create_directory(save_path.parent)
+        save_path.mkdir(parents=True, exist_ok=True)
         rater_origin = [xlim[0] - dsm_step / 2, ylim[0] - dsm_step / 2]
         transform = Affine.translation(rater_origin[0], rater_origin[1]) * Affine.scale(
             dsm_step, -dsm_step
@@ -216,7 +213,7 @@ def generate_ortophoto(
     # Save dsm as GeoTIff
     if save_path is not None:
         save_path = Path(save_path)
-        create_directory(save_path.parent)
+        save_path.mkdir(parents=True, exist_ok=True)
         rater_origin = [xlim[0] - res / 2, ylim[0] - res / 2]
         transform = Affine.translation(rater_origin[0], rater_origin[1]) * Affine.scale(
             res, -res
