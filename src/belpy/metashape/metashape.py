@@ -25,16 +25,12 @@ SOFTWARE.
 import numpy as np
 import pandas as pd
 import Metashape
-import shutil
-
-# import matplotlib.pyplot as plt
 
 from pathlib import Path
 from easydict import EasyDict as edict
 from xml.etree import ElementTree as ET
 from typing import List, Union
 
-from belpy.base_classes.camera import Camera
 from belpy.metashape.ms_utils import (
     create_new_project,
     save_project,
@@ -43,9 +39,7 @@ from belpy.metashape.ms_utils import (
     read_gcp_file,
 )
 from ..utils.timer import AverageTimer
-from ..import_export.importing import read_opencv_calibration
-
-from ..thirdparty.transformations import euler_matrix
+from ..io.importing import read_opencv_calibration
 
 REGION_RESIZE_FCT = 10.0
 
