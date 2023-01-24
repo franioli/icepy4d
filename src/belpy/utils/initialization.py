@@ -50,9 +50,9 @@ def parse_command_line():
     :Returns: radius of the circle (float) and which type of object is selected (string)."""
     parser = argparse.ArgumentParser(
         description="""Belpy
-        length of square (pentagon) containing the same area as circle with
-        given radius. Provide input values. Check -h or --help for options.
-        Usage: ./main.py square -r 4"""
+            Low-cost stereo photogrammetry for 4D glacier monitoring \
+            Check -h or --help for options.
+        Usage: ./main.py -c config_base.yaml"""
     )
     parser.add_argument(
         "-c",
@@ -79,7 +79,7 @@ def parse_command_line():
         default="info",
         type=str,
         help="Set log level for logging to file \
-            (possible options are: 'Debug', 'info', \
+            (possible options are: 'debug', 'info', \
             'warning', 'error', 'critical')",
     )
     parser.add_argument(
@@ -91,7 +91,16 @@ def parse_command_line():
             'warning', 'error', 'critical')",
     )
     args = parser.parse_args()
+
+    if not len(sys.argv) > 1:
+        raise ValueError(
+            "Not enough input arguments. Specify at least the configuration file. Use --help (or -h) for help."
+        )
+
     cfg_file = Path("config") / args.config
+
+    if not cfg_file.exists():
+        sys.exit("Configuration file does not exist! Aborting...")
 
     log_cfg = {
         "log_folder": args.log_folder,
