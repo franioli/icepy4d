@@ -32,6 +32,7 @@ import shutil
 
 from pathlib import Path
 from matplotlib import pyplot as plt
+from datetime import datetime
 
 # Belpy Classes
 import belpy.base_classes as Classes
@@ -337,7 +338,7 @@ if __name__ == "__main__":
             # plot_features(images[cams[0]].read_image(epoch).value, features[epoch][cams[0]].get_keypoints())
 
             # Clean variables
-            del relative_ori, triangulation, abs_ori, points3d, pcd_epc
+            del relative_ori, triang, abs_ori, points3d, pcd_epc
             del T, new_K
             del ms_cfg, ms, ms_reader
             gc.collect()
@@ -397,10 +398,6 @@ if __name__ == "__main__":
         #     plot_scale=10,
         # )
 
-        # Display estimated focal length variation
-        # make_focal_length_variation_plot(
-        #     focals, cfg.paths.results_dir / f"focal_lenghts_{cfg_file.stem}.png"
-        # )
         fig, ax = plt.subplots(1, len(cams))
         for s_id, cam in enumerate(cams):
             ax[s_id].hist(list(focals[cam].values()), density=True)
@@ -412,8 +409,6 @@ if __name__ == "__main__":
             cfg.paths.results_dir / f"focal_lenghts_hist_{cfg_file.stem}.png",
             dpi=100,
         )
-
-        from datetime import datetime
 
         dates = [epoch_dict[ep] for ep in cfg.proc.epoch_to_process]
         dates = [datetime.strptime(date, "%Y_%m_%d") for date in dates]
