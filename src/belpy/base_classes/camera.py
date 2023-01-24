@@ -31,7 +31,7 @@ from typing import List, Union, Tuple
 from scipy import linalg
 from pathlib import Path
 
-from ..import_export.importing import read_opencv_calibration
+from ..io.importing import read_opencv_calibration
 
 
 class Camera:
