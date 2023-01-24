@@ -29,15 +29,15 @@ from typing import List
 
 from ..base_classes.camera import Camera
 
-from ..geometry import estimate_pose
+from .geometry import estimate_pose
 
 
-""" Two_view_geometry class"""
+""" RelativeOrientation class"""
 
 
-class Two_view_geometry:
+class RelativeOrientation:
     def __init__(self, cameras: List[Camera], features: List[np.ndarray]) -> None:
-        """Inizialize class
+        """Inizialize RelativeOrientation class
         Parameters
         ----------
         cameras : List[Cameras]
@@ -49,7 +49,7 @@ class Two_view_geometry:
         self.cameras = cameras
         self.features = features
 
-    def relative_orientation(
+    def estimate_pose(
         self,
         threshold: float = 1.0,
         confidence: float = 0.9999,
@@ -73,7 +73,7 @@ class Two_view_geometry:
 
         # Check if extrinsics matrix of camera 0 is available
         assert self.cameras[0].extrinsics is not None, print(
-            "Extrinsics matrix is not available for camera 0. Please, compute it before running Two_view_geometry estimation."
+            "Extrinsics matrix is not available for camera 0. Please, compute it before running RelativeOrientation estimation."
         )
 
         # Estimate Realtive Pose with Essential Matrix

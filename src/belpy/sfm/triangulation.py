@@ -27,12 +27,12 @@ import logging
 
 from typing import List
 
+from .geometry import undistort_points
+from .interpolate_colors import interpolate_point_colors
 from ..base_classes.camera import Camera
-from ..geometry import undistort_points
 from ..utils.utils import (
     convert_from_homogeneous,
     convert_to_homogeneous,
-    interpolate_point_colors,
 )
 from ..thirdparty.triangulation import iterative_LS_triangulation
 

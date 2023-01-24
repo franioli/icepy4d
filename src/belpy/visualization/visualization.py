@@ -37,7 +37,7 @@ from copy import deepcopy
 
 from ..base_classes.camera import Camera
 from ..base_classes.point_cloud import PointCloud
-from ..geometry import project_points
+from ..sfm.geometry import project_points
 
 matplotlib.use("TkAgg")
 
