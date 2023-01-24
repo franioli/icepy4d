@@ -15,3 +15,5 @@ rasterio
 exifread
 pydegensac
 easydict
+pytest
+flake8

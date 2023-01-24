@@ -29,6 +29,8 @@ import pickle
 import gc
 import logging
 import shutil
+import sys
+import argparse
 
 from pathlib import Path
 from matplotlib import pyplot as plt
@@ -54,6 +56,27 @@ from belpy.visualization.visualization import (
     imshow_cv,
 )
 from belpy.io.export2bundler import write_bundler_out
+
+
+def parse_command_line():
+    """Function to parse user input. User input is a float and a string.
+
+    :Returns: radius of the circle (float) and which type of object is selected (string)."""
+    parser = argparse.ArgumentParser(
+        description="""Program to calculate side
+        length of square (pentagon) containing the same area as circle with
+        given radius. Provide input values. Check -h or --help for options.
+        Usage: ./main.py square -r 4"""
+    )
+    parser.add_argument(
+        "-r",
+        "--radius",
+        default=3.0,
+        help="Radius of the \
+        circle, in cm. \
+        Default value: 3.0 cm",
+    )
+
 
 if __name__ == "__main__":
 
@@ -91,7 +114,6 @@ if __name__ == "__main__":
     point_clouds = init.point_clouds
     epoch_dict = init.epoch_dict
     focals = init.focals_dict
-
 
     """ Big Loop over epoches """
     print("\n")
@@ -163,9 +185,9 @@ if __name__ == "__main__":
             """Initialize Single_camera_geometry class with a cameras object"""
             space_resection = abs_ori.Space_resection(cameras[epoch][cams[0]])
             space_resection.estimate(
-                targets[epoch].get_image_coor_by_label(cfg.georef.targets_to_use, cam_id=0)[
-                    0
-                ],
+                targets[epoch].get_image_coor_by_label(
+                    cfg.georef.targets_to_use, cam_id=0
+                )[0],
                 targets[epoch].get_object_coor_by_label(cfg.georef.targets_to_use)[0],
             )
             # Store result in camera 0 object
@@ -314,13 +336,16 @@ if __name__ == "__main__":
                 ],
             )
             points3d = triang.triangulate_two_views(
-                compute_colors=True, image=images[cams[1]].read_image(epoch).value, cam_id=1
+                compute_colors=True,
+                image=images[cams[1]].read_image(epoch).value,
+                cam_id=1,
             )
 
             pcd_epc = Classes.PointCloud(points3d=points3d, points_col=triang.colors)
             if cfg.proc.save_sparse_cloud:
                 pcd_epc.write_ply(
-                    cfg.paths.results_dir / f"point_clouds/sparse_{epoch_dict[epoch]}.ply"
+                    cfg.paths.results_dir
+                    / f"point_clouds/sparse_{epoch_dict[epoch]}.ply"
                 )
             point_clouds[epoch] = pcd_epc
 
@@ -361,7 +386,6 @@ if __name__ == "__main__":
 
         timer.print(f"Epoch {epoch} completed")
 
-
     timer_global.update("SfM")
 
     # Check estimated focal lenghts:
@@ -381,7 +405,6 @@ if __name__ == "__main__":
                     logging.warning(
                         f"Focal lenght estimated at epoch {k} ({epoch_dict[k]}) for camera {cam} is outside the range between quantile {quantile_limits[0]} and {quantile_limits[1]} of the distribution (estimated: {v:.3f} limits: {qf[0]:.3f} - {qf[1]:.3f}). Check carefully the results of epoch {epoch_dict[k]}!"
                     )
-
 
     if cfg.other.do_viz:
         """Put this code into functions in visualization module of belpy"""
@@ -421,7 +444,9 @@ if __name__ == "__main__":
             ax[s_id].set_xlabel("Epoch")
             ax[s_id].set_ylabel("Focal lenght [px]")
         fig.set_size_inches(18.5, 10.5)
-        fig.savefig(cfg.paths.results_dir / f"focal_lenghts_{cfg_file.stem}.png", dpi=100)
+        fig.savefig(
+            cfg.paths.results_dir / f"focal_lenghts_{cfg_file.stem}.png", dpi=100
+        )
 
         # Make function again
         # make_camera_angles_plot(
@@ -429,7 +454,6 @@ if __name__ == "__main__":
         #     cfg.paths.results_dir / f"angles_{cfg_file.stem}.png",
         #     baseline_epoch=cfg.proc.epoch_to_process[0],
         # )
-
 
     timer_global.update("Visualization")
     timer_global.print("Processing completed")
