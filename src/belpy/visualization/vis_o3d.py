@@ -3,13 +3,12 @@ import open3d as o3d
 
 from typing import List
 from pathlib import Path
-from time import sleep
 from easydict import EasyDict as edict
 from tqdm import tqdm
 from random import randint
 
 from ..base_classes.images import Image, ImageDS
-from ..utils.initialization import parse_yaml_cfg, Inizialization
+from ..utils.initialization import parse_yaml_cfg
 
 
 def read_asci_pc(path):
