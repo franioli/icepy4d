@@ -25,6 +25,8 @@ SOFTWARE.
 import numpy as np
 import yaml
 import logging
+import sys
+import argparse
 
 from easydict import EasyDict as edict
 from pathlib import Path
@@ -40,6 +42,65 @@ from ..base_classes.features import Features
 
 # This file defines the dictionary cfg which includes the default parameters of the pipeline.
 # The dictionary is updated/extended at runtime with the parameters defined by the user in the input yaml config file
+
+
+def parse_command_line():
+    """Function to parse user input. User input is a string.
+
+    :Returns: radius of the circle (float) and which type of object is selected (string)."""
+    parser = argparse.ArgumentParser(
+        description="""Belpy
+        length of square (pentagon) containing the same area as circle with
+        given radius. Provide input values. Check -h or --help for options.
+        Usage: ./main.py square -r 4"""
+    )
+    parser.add_argument(
+        "-c",
+        "--config",
+        type=str,
+        help="Name of to the configuration file \
+            (configuration file must be located \
+                in config folder)",
+    )
+    parser.add_argument(
+        "--log_folder",
+        default="logs",
+        type=str,
+        help="Folder for storing logs (default: 'logs')",
+    )
+    parser.add_argument(
+        "--log_name",
+        default="belpy",
+        type=str,
+        help="",
+    )
+    parser.add_argument(
+        "--log_file_level",
+        default="info",
+        type=str,
+        help="Set log level for logging to file \
+            (possible options are: 'Debug', 'info', \
+            'warning', 'error', 'critical')",
+    )
+    parser.add_argument(
+        "--log_console_level",
+        default="info",
+        type=str,
+        help="Set log level for logging to stdout \
+            (possible options are: 'debug', 'info', \
+            'warning', 'error', 'critical')",
+    )
+    args = parser.parse_args()
+    cfg_file = Path("config") / args.config
+
+    log_cfg = {
+        "log_folder": args.log_folder,
+        "log_name": args.log_folder,
+        "log_file_level": args.log_file_level,
+        "log_console_level": args.log_console_level,
+    }
+
+    return cfg_file, log_cfg
 
 
 def parse_yaml_cfg(cfg_file: Union[str, Path]) -> edict:
