@@ -29,8 +29,6 @@ import pickle
 import gc
 import logging
 import shutil
-import sys
-import argparse
 
 from pathlib import Path
 from matplotlib import pyplot as plt
@@ -43,9 +41,9 @@ import belpy.sfm.two_view_geometry as two_view_geom
 import belpy.sfm.absolute_orientation as abs_orientation
 import belpy.sfm.triangulation as triangulation
 import belpy.metashape.metashape as MS
+import belpy.utils.initialization as initialization
 
 from belpy.matching.matching_base import MatchingAndTracking
-from belpy.utils.initialization import parse_yaml_cfg, Inizialization
 from belpy.utils.timer import AverageTimer
 from belpy.utils.utils import homography_warping
 from belpy.utils.dsm_orthophoto import build_dsm, generate_ortophoto
@@ -58,26 +56,6 @@ from belpy.visualization.visualization import (
 from belpy.io.export2bundler import write_bundler_out
 
 
-def parse_command_line():
-    """Function to parse user input. User input is a float and a string.
-
-    :Returns: radius of the circle (float) and which type of object is selected (string)."""
-    parser = argparse.ArgumentParser(
-        description="""Program to calculate side
-        length of square (pentagon) containing the same area as circle with
-        given radius. Provide input values. Check -h or --help for options.
-        Usage: ./main.py square -r 4"""
-    )
-    parser.add_argument(
-        "-r",
-        "--radius",
-        default=3.0,
-        help="Radius of the \
-        circle, in cm. \
-        Default value: 3.0 cm",
-    )
-
-
 if __name__ == "__main__":
 
     print("\n===========================================================")
@@ -87,24 +65,27 @@ if __name__ == "__main__":
     print("===========================================================\n")
 
     # Define some global parameters
-    CFG_FILE = "config/config_block_3_4.yaml"
-    CONSOLE_LOG_LEVEL = "info"
-    LOGFILE_LEVEL = "info"
-    LOG_FOLDER = "logs"
-    LOG_BASE_NAME = "belpy"
+    # CFG_FILE = "config/config_block_3_4.yaml"
+    # cfg_file = Path(CFG_FILE)
+
+    cfg_file, log_cfg = initialization.parse_command_line()
 
     # Setup logger
-    setup_logger(LOG_FOLDER, LOG_BASE_NAME, CONSOLE_LOG_LEVEL, LOGFILE_LEVEL)
+    setup_logger(
+        log_cfg["log_folder"],
+        log_cfg["log_name"],
+        log_cfg["log_file_level"],
+        log_cfg["log_console_level"],
+    )
 
     # Read options from yaml file
-    cfg_file = Path(CFG_FILE)
     logging.info(f"Configuration file: {cfg_file.stem}")
     timer_global = AverageTimer()
-    cfg = parse_yaml_cfg(cfg_file)
+    cfg = initialization.parse_yaml_cfg(cfg_file)
 
     """ Inizialize Variables """
 
-    init = Inizialization(cfg)
+    init = initialization.Inizialization(cfg)
     init.inizialize_belpy()
     cameras = init.cameras
     cams = init.cams
