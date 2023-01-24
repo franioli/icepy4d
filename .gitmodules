@@ -1,6 +1,6 @@
-[submodule "thirdparty/CameraSensorSizeDatabase"]
-	path = thirdparty/CameraSensorSizeDatabase
+[submodule "src/belpy/thirdparty/CameraSensorSizeDatabase"]
+	path = src/belpy/thirdparty/CameraSensorSizeDatabase
 	url = git@github.com:openMVG/CameraSensorSizeDatabase.git
-[submodule "thirdparty/SuperGluePretrainedNetwork"]
-	path = thirdparty/SuperGluePretrainedNetwork
+[submodule "src/belpy/thirdparty/SuperGluePretrainedNetwork"]
+	path = src/belpy/thirdparty/SuperGluePretrainedNetwork
 	url = git@github.com:magicleap/SuperGluePretrainedNetwork.git
