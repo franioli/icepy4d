@@ -39,21 +39,14 @@ import belpy.base_classes as belpy_classes
 
 # Belpy libraries
 import belpy.sfm as sfm
-
 import belpy.metashape.metashape as MS
 import belpy.utils.initialization as initialization
+import belpy.utils as belpy_utils
+import belpy.visualization as belpy_viz
+import belpy.io as IO
 
 from belpy.matching.matching_base import MatchingAndTracking
-from belpy.utils.timer import AverageTimer
 from belpy.utils.utils import homography_warping
-from belpy.utils.dsm_orthophoto import build_dsm, generate_ortophoto
-from belpy.utils.logger import setup_logger
-from belpy.visualization.visualization import (
-    display_point_cloud,
-    plot_features,
-    imshow_cv,
-)
-from belpy.io.export2bundler import write_bundler_out
 
 
 if __name__ == "__main__":
@@ -65,7 +58,7 @@ if __name__ == "__main__":
     cfg_file, log_cfg = initialization.parse_command_line()
 
     # Setup logger
-    setup_logger(
+    belpy_utils.setup_logger(
         log_cfg["log_folder"],
         log_cfg["log_name"],
         log_cfg["log_file_level"],
@@ -80,7 +73,7 @@ if __name__ == "__main__":
 
     # Read options from yaml file
     logging.info(f"Configuration file: {cfg_file.stem}")
-    timer_global = AverageTimer()
+    timer_global = belpy_utils.AverageTimer()
     cfg = initialization.parse_yaml_cfg(cfg_file)
 
     """ Inizialize Variables """
@@ -99,7 +92,7 @@ if __name__ == "__main__":
     """ Big Loop over epoches """
     logging.info("Processing started:")
     logging.info("-----------------------")
-    timer = AverageTimer()
+    timer = belpy_utils.AverageTimer()
     iter = 0
     for epoch in cfg.proc.epoch_to_process:
 
@@ -270,7 +263,7 @@ if __name__ == "__main__":
                 shutil.rmtree(metashape_path, ignore_errors=True)
 
             im_dict = {cam: images[cam].get_image_path(epoch) for cam in cams}
-            write_bundler_out(
+            IO.write_bundler_out(
                 export_dir=epochdir,
                 im_dict=im_dict,
                 cams=cams,
@@ -439,6 +432,9 @@ if __name__ == "__main__":
 
     compute_orthophoto_dsm = False
     if compute_orthophoto_dsm:
+
+        from belpy.utils.dsm_orthophoto import build_dsm, generate_ortophoto
+
         logging.info("DSM and orthophoto generation started")
         res = 0.03
         xlim = [-100.0, 80.0]
