@@ -263,7 +263,7 @@ if __name__ == "__main__":
                 shutil.rmtree(metashape_path, ignore_errors=True)
 
             im_dict = {cam: images[cam].get_image_path(epoch) for cam in cams}
-            IO.write_bundler_out(
+            write_bundler_out(
                 export_dir=epochdir,
                 im_dict=im_dict,
                 cams=cams,
