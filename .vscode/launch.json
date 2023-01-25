@@ -11,7 +11,15 @@
       "request": "launch",
       "program": "${file}",
       "console": "integratedTerminal",
-      "justMyCode": true
+      "justMyCode": true,
+      "args": [
+        "--config",
+        "config_block_3_4.yaml",
+        "--log_file_level",
+        "info",
+        "--log_console_level",
+        "info"
+      ]
     },
     {
       "name": "Python: debug module",
@@ -21,7 +29,15 @@
       "program": "${file}",
       "console": "integratedTerminal",
       "justMyCode": true,
-      "env": { "PYTHONPATH": "${workspaceFolder}" }
+      "env": { "PYTHONPATH": "${workspaceFolder}" },
+      "args": [
+        "--config",
+        "config_block_3_4.yaml",
+        "--log_file_level",
+        "info",
+        "--log_console_level",
+        "info"
+      ]
     },
     {
       "name": "Python: cloudcompy",

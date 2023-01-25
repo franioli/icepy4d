@@ -14,10 +14,10 @@ proc:
   # It can be either 'all' for processing all the epochs,
   # A list of two integers for processing a range of epoches
   # or a list with the epoche numbers to be processed
-  epoch_to_process: [0, 3] # "all" #
+  epoch_to_process: [180, 338] #[180, 185] #  "all" #
 
   #- Switches to find and track matches
-  do_matching: false
+  do_matching: true
   do_tracking: true
 
   #- Do space resection of first camera
@@ -35,7 +35,7 @@ proc:
   do_homography_warping: false
   camera_to_warp: "p2"
 
-  save_sparse_cloud: false
+  save_sparse_cloud: true
 
 #- Image-related options
 images:
@@ -48,7 +48,6 @@ images:
 #- Georeferencing (i.e. absolute orientation) information
 georef:
   #- Camera centers obtained from Metashape model in July [m]
-  # Note that, if Metashape is used, this parameters must be set sepratetely also in the Metashape section.
   camera_centers_world: [
       [151.962, 99.065, 91.643], # p1
       [309.261, 301.051, 135.008], # p2
@@ -61,7 +60,7 @@ georef:
   target_world_file: "target_world.csv"
 
   #- Targets to use for Absolute Orientation, Space Resection and Bundle Adjustment
-  targets_to_use: ["F2", "F13"]
+  targets_to_use: ["F2", "F12", "F13", "T2"] #
 
 #- Other On-Off switches
 other:
