@@ -40,9 +40,6 @@ import belpy.base_classes as belpy_classes
 # Belpy libraries
 import belpy.sfm as sfm
 
-# import belpy.sfm.two_view_geometry as two_view_geom
-# import belpy.sfm.absolute_orientation as abs_orientation
-# import belpy.sfm.triangulation as triangulation
 import belpy.metashape.metashape as MS
 import belpy.utils.initialization as initialization
 
@@ -375,19 +372,19 @@ if __name__ == "__main__":
     # Check estimated focal lenghts:
     if cfg.proc.do_metashape_processing:
         logging.info("Checking estimated Focal Lenghts...")
-        max_f_variation = 5  # [px]
-        quantile_limits = [0.1, 0.9]
+        max_f_variation = 10  # [px]
+        quantile_limits = [0.01, 0.99]
         for cam in cams:
             f_median = np.median(list(focals[cam].values()))
             qf = np.quantile(list(focals[cam].values()), quantile_limits)
             for k, v in focals[cam].items():
                 if abs(v - f_median) > max_f_variation:
                     logging.warning(
-                        f"Focal lenght estimated at epoch {k} ({epoch_dict[k]}) for camera {cam} is has a difference from the median focal lenght larger than {max_f_variation} (estimated: {v:.3f} - median: {f_median:.3f}). Check carefully the results of epoch {epoch_dict[k]}!"
+                        f"Focal lenght estimated at epoch {k} ({epoch_dict[k]}) for camera {cam} is has a difference from the median focal lenght larger than {max_f_variation} (estimated: {v:.2f} - median: {f_median:.2f}). Check carefully the results of epoch {epoch_dict[k]}!"
                     )
                 if v < qf[0] or v > qf[1]:
                     logging.warning(
-                        f"Focal lenght estimated at epoch {k} ({epoch_dict[k]}) for camera {cam} is outside the range between quantile {quantile_limits[0]} and {quantile_limits[1]} of the distribution (estimated: {v:.3f} limits: {qf[0]:.3f} - {qf[1]:.3f}). Check carefully the results of epoch {epoch_dict[k]}!"
+                        f"Focal lenght estimated at epoch {k} ({epoch_dict[k]}) for camera {cam} is outside the range between quantile {quantile_limits[0]} and {quantile_limits[1]} of the distribution (estimated: {v:.2f} limits: {qf[0]:.2f} - {qf[1]:.2f}). Check carefully the results of epoch {epoch_dict[k]}!"
                     )
 
     if cfg.other.do_viz:
