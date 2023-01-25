@@ -43,10 +43,10 @@ import belpy.metashape.metashape as MS
 import belpy.utils.initialization as initialization
 import belpy.utils as belpy_utils
 import belpy.visualization as belpy_viz
-import belpy.io as IO
 
 from belpy.matching.matching_base import MatchingAndTracking
 from belpy.utils.utils import homography_warping
+from belpy.io.export2bundler import write_bundler_out
 
 
 if __name__ == "__main__":
