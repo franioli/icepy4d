@@ -1,17 +1,12 @@
 """SuperGlue matcher implementation
-
 The network was proposed in 'SuperGlue: Learning Feature Matching with Graph Neural Networks' and is implemented by
 wrapping over author's source-code.
-
 Note: the pretrained model only supports SuperPoint detections currently.
-
 References:
 - http://openaccess.thecvf.com/content_CVPR_2020/papers/Sarlin_SuperGlue_Learning_Feature_Matching_With_Graph_Neural_Networks_CVPR_2020_paper.pdf
 - https://github.com/magicleap/SuperGluePretrainedNetwork
-
+Authors:
 """
-
-""" Functions under active development"""
 
 import numpy as np
 import matplotlib.cm as cm
@@ -21,9 +16,11 @@ from easydict import EasyDict as edict
 from pathlib import Path
 from typing import Tuple, Union
 
+
 from ..base_classes.features import Features
 from ..base_classes.images import ImageDS
 from ..utils.initialization import parse_yaml_cfg
+from ..tiles import generateTiles
 
 from ..thirdparty.SuperGluePretrainedNetwork.models.superpoint import SuperPoint
 from ..thirdparty.SuperGluePretrainedNetwork.models.superglue import SuperGlue
@@ -32,11 +29,6 @@ from ..thirdparty.SuperGluePretrainedNetwork.models.utils import (
     frame2tensor,
 )
 
-# make_matching_plot, AverageTimer, read_image, vizTileRes
-
-# from lib.sg.matching import Matching
-
-from belpy.tiles import generateTiles
 
 torch.set_grad_enabled(False)
 
@@ -52,27 +44,27 @@ SUPERGLUE_DESC_DIM = 256
 DEFAULT_NUM_SINKHORN_ITERATIONS = 20
 
 
-class SuperPoint(torch.nn.Module):
-    """Image Matching Frontend (SuperPoint + SuperGlue)"""
+# class SuperPoint_(torch.nn.Module):
+#     """Image Matching Frontend (SuperPoint + SuperGlue)"""
 
-    def __init__(self, config={}):
-        super().__init__()
-        self.superpoint = SuperPoint(config.get("superpoint", {}))
+#     def __init__(self, config={}):
+#         super().__init__()
+#         self.superpoint = SuperPoint(config.get("superpoint", {}))
 
-    def forward(self, data):
-        """Run SuperPoint
-        Args:
-          data: dictionary with minimal keys: ['image0', 'image1']
-        """
+#     def forward(self, data):
+#         """Run SuperPoint
+#         Args:
+#           data: dictionary with minimal keys: ['image']
+#         """
 
-        # Extract SuperPoint (keypoints, scores, descriptors)
-        pred = self.superpoint({"image": data["image0"]})
-        pred = {**pred, **{k + "0": v for k, v in pred.items()}}
+#         # Extract SuperPoint (keypoints, scores, descriptors)
+#         pred = self.superpoint({"image": data["image"]})
+#         pred = {**pred, **{k + "0": v for k, v in pred.items()}}
 
-        return pred
+#         return pred
 
 
-class SuperPoint_detector_descriptor:
+class SuperPoint_features:
     def __init__(
         self,
         max_keypoints: int = 2048,
@@ -81,7 +73,6 @@ class SuperPoint_detector_descriptor:
         #  weights_path: Path = MODEL_WEIGHTS_PATH,
     ) -> None:
         """Configures the object.
-
         Args:
             max_keypoints: max keypoints to detect in an image.
             keypoint_threshold: threshold for keypoints detection
@@ -104,32 +95,32 @@ class SuperPoint_detector_descriptor:
         model = SuperPoint(self._config).eval().to(device)
 
         # Read image and transform to tensor
-        image = read_image(im_path, device)
-        image_tensor = frame2tensor(image)
+        image, image_tensor, _ = read_image(im_path, device, [2400], 0, True)
 
         # Compute features.
         with torch.no_grad():
             model_results = model({"image": image_tensor})
         torch.cuda.empty_cache()
 
-        keypoints = model_results["keypoints"][0].detach().cpu().numpy()
-        scores = model_results["scores"][0].detach().cpu().numpy()
-        # keypoints = Keypoints(coordinates, scales=None, responses=scores)
-        descriptors = model_results["descriptors"][0].detach().cpu().numpy()
+        return model_results
 
-        features = Features
-        features.append_features(
-            {
-                "kpts": keypoints,
-                "descr": descriptors,
-                "score": scores,
-            }
-        )
+        # keypoints = model_results["keypoints"][0].detach().cpu().numpy()
+        # scores = model_results["scores"][0].detach().cpu().numpy()
+        # descriptors = model_results["descriptors"][0].detach().cpu().numpy()
 
-        return features
+        # features = Features
+        # features.append_features(
+        #     {
+        #         "kpts": keypoints,
+        #         "descr": descriptors,
+        #         "score": scores,
+        #     }
+        # )
+
+        # return features
 
 
-# class SuperGlue():
+# class SuperGlue_matcher():
 #     """Implements the SuperGlue matcher -- a pretrained graph neural network using attention."""
 
 #     def __init__(self,
@@ -205,21 +196,34 @@ class SuperPoint_detector_descriptor:
 
 if __name__ == "__main__":
 
-    import cv2
-    from base_classes.classes_old import ImageDS, Features
-
     cfg_file = "config/config_base.yaml"
     cfg = parse_yaml_cfg(cfg_file)
 
-    cams = cfg.paths.cam_names
+    cams = cfg.paths.camera_names
 
     # Create Image Datastore objects
     images = dict.fromkeys(cams)
     for cam in cams:
-        images[cam] = ImageDS(cfg.paths.imdir / cam)
+        images[cam] = ImageDS(cfg.paths.image_dir / cam)
 
-    superpoint_detector = SuperPoint_detector_descriptor(cfg.matching.max_keypoints)
+    img0 = images[cams[0]].get_image_path(0)
+    img1 = images[cams[1]].get_image_path(0)
 
-    features = superpoint_detector.detect_and_describe(
-        images[cams[0]].get_image_path(0)
-    )
+    superpoint_detector = SuperPoint_features(cfg.matching.max_keypoints)
+    features0 = superpoint_detector.detect_and_describe(img0)
+    features1 = superpoint_detector.detect_and_describe(img1)
+
+    device = torch.device("cuda")
+    matching = Matching().eval().to(device)
+
+    _, tens0, _ = read_image(img0, device, [2400], 0, True)
+    _, tens1, _ = read_image(img1, device, [2400], 0, True)
+
+    data = {
+        "image0": tens0,
+        "image1": tens1,
+    }
+    data = {**data, **{k + "0": v for k, v in features0.items()}}
+    data = {**data, **{k + "1": v for k, v in features1.items()}}
+
+    pred = matching(data)
