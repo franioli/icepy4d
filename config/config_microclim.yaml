@@ -2,10 +2,10 @@
 # All pahts MUST be relative to the root folder of Belpy and
 # they will be converted to pathlib.Path when parsing this yaml file)
 paths:
-  image_dir: "data/img"
+  image_dir: "data/img" # "data/img2021" #
   image_extension: "jpg"
   calibration_dir: "data/calib"
-  results_dir: "res"
+  results_dir: "res/bockkogel_wannenkogel" # "res/wannenkogel_sulzkogel" #
   camera_names: ["p1", "p2"]
 
 #- Processing options
@@ -14,17 +14,17 @@ proc:
   # It can be either 'all' for processing all the epochs,
   # A list of two integers for processing a range of epoches
   # or a list with the epoche numbers to be processed
-  epoch_to_process: [0, 3] # "all" #
+  epoch_to_process: "all" #[0, 2] #  [0] #
 
   #- Switches to find and track matches
-  do_matching: false
-  do_tracking: true
+  do_matching: true
+  do_tracking: false
 
   #- Do space resection of first camera
   do_space_resection: false
 
   #- If True try to coregister point clouds based on n double points
-  do_coregistration: true
+  do_coregistration: False
 
   #- Perform full Bundle Adjustment in Agisoft Metashape and build dense cloud
   # (need Agisoft licence properly configured)
@@ -35,24 +35,29 @@ proc:
   do_homography_warping: false
   camera_to_warp: "p2"
 
-  save_sparse_cloud: false
+  save_sparse_cloud: true
 
 #- Image-related options
 images:
   #- Bounding box for processing the images from the two cameras
   # It must be a list of list of lists (one list for each camera)
   # with the min/max coordinates as [xmin ymin xmax ymax]
-  # mask_bounding_box: [[1000, 1500, 5600, 3700], [100, 1800, 4700, 4000]]
-  mask_bounding_box: [[900, 1000, 5600, 3900], [200, 1200, 4900, 4000]]
+  mask_bounding_box: [[1400, 500, 5500, 3500], [1900, 50, 5800, 2200]] # p1-p2
+  # mask_bounding_box: [[0, 0, 4130, 3250], [1100, 550, 6000, 3500]] # p2-p3
+
+  # mask_bounding_box: [[0, 0, 60000, 4000], [0, 0, 60000, 4000]]
 
 #- Georeferencing (i.e. absolute orientation) information
 georef:
   #- Camera centers obtained from Metashape model in July [m]
-  # Note that, if Metashape is used, this parameters must be set sepratetely also in the Metashape section.
   camera_centers_world: [
-      [151.962, 99.065, 91.643], # p1
-      [309.261, 301.051, 135.008], # p2
-    ]
+      [659232.5, 5210018.5, 3095.6],
+      [657556.5, 5209658.9, 2686.3],
+    ] # p1-p2
+  # camera_centers_world: [
+  #     [657556.5, 5209658.9, 2686.3],
+  #     [656781.5, 5211263.8, 2722.8]
+  #   ] # p2-p3
 
   #- Targets' information
   # Target information must be stored in file one file per image saved with the name of the relative image (with target_file_ext extension)
@@ -61,7 +66,7 @@ georef:
   target_world_file: "target_world.csv"
 
   #- Targets to use for Absolute Orientation, Space Resection and Bundle Adjustment
-  targets_to_use: ["F2", "F13"]
+  targets_to_use: ["F2", "F12", "F13"] # "T2"
 
 #- Other On-Off switches
 other:
@@ -118,8 +123,8 @@ metashape:
   # List containing camera location. Note, that the order may differ from that of Belpy, because Metashape imports the cameras based on alphabetic order of the images that they belong to (e.g., IMG_1289.jpg that belongs to p2 comes before IMG_2814.jpg that belongs to p1!)
   #TODO: fix camera ordering issue in Metashape.
   camera_location: [
-      [309.261, 301.051, 135.008], # p2
-      [151.962, 99.065, 91.643], # p1
+      [657556.5, 5209658.9, 2686.3], # IMG_1289
+      [656781.5, 5211263.8, 2722.8], # IMG_2814
     ]
 
   # A-priori accuracy [x, y, z] of cameras and GCPs
@@ -131,14 +136,11 @@ metashape:
   # ["F", "Cx", "Cy", "B1", "B2", "K1", "K2", "K3", "K4", "P1", "P2"]
   # Leave empy if all the parameters should be estimated
   camera_prm_to_fix:
-    ["Cx", "Cy", "B1", "B2", "K1", "K2", "K3", "K4", "P1", "P2"]
+    ["F", "Cx", "Cy", "B1", "B2", "K1", "K2", "K3", "K4", "P1", "P2"]
 
   # List containing the camera calibration .xml filenames (in Agisoft default format). The list must be in the same order of Metashape camera_location!
   calib_filenames:
-    [
-      "data/calib/belpy_35mm_280722_selfcal_all_metashape.xml",
-      "data/calib/belpy_24mm_280722_selfcal_all_metashape.xml",
-    ]
+    ["data/calib/p1.xml", "data/calib/p2.xml", "data/calib/p3.xml"]
 
   # Factor for downscaling images in depth maps computation ("Dense accuracy")
   # 1 = use full resulution images ("Ultra High")

@@ -7,12 +7,12 @@ data/targets/
 data/targets*/
 res/
 tmp/
-tools/track_targets/block_1/
-tools/track_targets/block_3/
-tools/track_targets/block_4/
+tools/track_targets/data/
 tools/collimate_targets/data/
 tools/collimate_targets/targets/
 sandbox/
+volumes/
+logs/
 
 # VScode
 # .vscode/
