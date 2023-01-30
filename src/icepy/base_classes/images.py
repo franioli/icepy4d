@@ -329,9 +329,9 @@ class ImageDS:
         __init__ _summary_
 
         Args:
-            folder (Union[str, Path]): _description_
-            ext (str, optional): _description_. Defaults to None.
-            recursive (bool, optional): _description_. Defaults to False.
+            folder (Union[str, Path]): Path to the image folder
+            ext (str, optional): Image extension for filtering files. If None is provided, all files in 'folder' are read. Defaults to None.
+            recursive (bool, optional): Read files recurevely. Defaults to False.
 
         Raises:
             IsADirectoryError: _description_
