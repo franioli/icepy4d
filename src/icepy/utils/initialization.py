@@ -116,6 +116,9 @@ def parse_yaml_cfg(cfg_file: Union[str, Path]) -> edict:
 
     with open(cfg_file) as file:
         cfg = edict(yaml.safe_load(file))
+    assert isinstance(
+        cfg, edict
+    ), "Unable to create valid cfg dictionary from yaml file"
 
     # - Data paths
     root_path = Path().absolute()
@@ -201,8 +204,17 @@ class Inizialization:
         self,
         cfg: edict,
     ) -> None:
+        """
+        __init__ initialization class
+
+        Args:
+            cfg (edict): dictionary (as EasyDict object) containing all the configuration parameters.
+        """
 
         self.cfg = cfg
+        assert (
+            "camera_names" in self.cfg.paths
+        ), "Camera names not available in cfg file."
         self.cams = self.cfg.paths.camera_names
 
     def init_image_ds(self) -> dict:
