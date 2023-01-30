@@ -5,7 +5,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Python: Belpy",
+      "name": "Python: icepy",
       "cwd": "${workspaceFolder}",
       "type": "python",
       "request": "launch",

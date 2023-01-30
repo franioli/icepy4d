@@ -49,7 +49,7 @@ def parse_command_line():
 
     :Returns: radius of the circle (float) and which type of object is selected (string)."""
     parser = argparse.ArgumentParser(
-        description="""Belpy
+        description="""icepy
             Low-cost stereo photogrammetry for 4D glacier monitoring \
             Check -h or --help for options.
         Usage: ./main.py -c config_base.yaml"""
@@ -70,7 +70,7 @@ def parse_command_line():
     )
     parser.add_argument(
         "--log_name",
-        default="belpy",
+        default="icepy",
         type=str,
         help="",
     )
@@ -309,7 +309,7 @@ class Inizialization:
         for cam in self.cams:
             self.focals_dict[cam] = {}
 
-    def inizialize_belpy(self) -> dict:
+    def inizialize_icepy(self) -> dict:
         self.init_image_ds()
         self.init_epoch_dict()
         self.init_cameras()

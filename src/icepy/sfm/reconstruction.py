@@ -18,14 +18,18 @@ from .geometry import (
 from ..matching.matching_base import MatchingAndTracking
 
 
-
-
 class IncrementalReconstruction:
     """
-     _summary_
+    _summary_
     """
-    
-    def __init__(self, cameras: List[Camera], feautres: List[np.ndarray], preselection: str = "exaustive", use_tiles: bool = False) -> None:
+
+    def __init__(
+        self,
+        cameras: List[Camera],
+        feautres: List[np.ndarray],
+        preselection: str = "exaustive",
+        use_tiles: bool = False,
+    ) -> None:
         """
         __init__ _summary_
 
@@ -38,12 +42,11 @@ class IncrementalReconstruction:
         self.features = feautres
         self.use_tiles = use_tiles
         self.preselection = preselection
-        
-        if len(cameras) < 4 and preselection != "exaustive": 
-            logging.warning("Less than 4 cameras availabe. Performing exaustive preseleection")
-        
-         
-    def matching(self, cfg: dict, images: List[ImageDS], epoch_dict:dict, epoch: int):
+
+        if len(cameras) < 4 and preselection != "exaustive":
+            logging.warning(
+                "Less than 4 cameras availabe. Performing exaustive preseleection"
+            )
+
+    def matching(self, cfg: dict, images: List[ImageDS], epoch_dict: dict, epoch: int):
         pass
-    
-    
