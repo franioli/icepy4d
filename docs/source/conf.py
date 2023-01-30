@@ -13,12 +13,12 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath("../../src/belpy"))
+sys.path.insert(0, os.path.abspath("../../src/icepy"))
 
 
 # -- Project information -----------------------------------------------------
 
-project = "belpy"
+project = "icepy"
 copyright = "2022, Francesco Ioli"
 author = "Francesco Ioli"
 

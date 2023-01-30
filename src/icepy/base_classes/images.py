@@ -32,7 +32,7 @@ import cv2
 import exifread
 import numpy as np
 
-from belpy.utils.sensor_width_database import SensorWidthDatabase
+from ..utils.sensor_width_database import SensorWidthDatabase
 
 
 def read_image(

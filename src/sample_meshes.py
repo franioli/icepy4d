@@ -5,7 +5,7 @@ from pathlib import Path
 from itertools import repeat
 from multiprocessing import Pool
 
-import belpy.pcd_proc.meshing as meshing
+import icepy.pcd_proc.meshing as meshing
 
 MP = False
 

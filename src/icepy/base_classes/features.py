@@ -29,39 +29,6 @@ import logging
 from .camera import Camera
 
 
-class Point:
-    def __init__(
-        self, track_id: int, coord: np.ndarray, cov: np.ndarray = None
-    ) -> None:
-        self._track_id = track_id
-        self._cood = coord
-        if cov is not None:
-            self._cov = cov
-
-    # Setters
-
-    # Getters
-    @property
-    def track_id(self):
-        return self._track_id
-
-    @property
-    def coord(self):
-        return self._cood
-
-    def project(self, camera: Camera) -> np.ndarray:
-        """
-        project project the 3D point to the camera and return image coordinates
-
-        Args:
-            camera (Camera): Camera object containing extrinsics and intrinsics
-
-        Returns:
-            np.ndarray: coordinates of the projection in px
-        """
-        return camera.project_point(self._coord)
-
-
 class Features:
     """
     Class to store matched features, descriptors and scores

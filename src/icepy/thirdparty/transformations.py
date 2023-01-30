@@ -207,7 +207,7 @@ True
 
 """
 
-__version__ = '2021.6.6'
+__version__ = "2021.6.6"
 
 import math
 
@@ -297,13 +297,13 @@ def reflection_from_matrix(matrix):
     w, V = numpy.linalg.eig(M[:3, :3])
     i = numpy.where(abs(numpy.real(w) + 1.0) < 1e-8)[0]
     if not len(i):
-        raise ValueError('no unit eigenvector corresponding to eigenvalue -1')
+        raise ValueError("no unit eigenvector corresponding to eigenvalue -1")
     normal = numpy.real(V[:, i[0]]).squeeze()
     # point: any unit eigenvector corresponding to eigenvalue 1
     w, V = numpy.linalg.eig(M)
     i = numpy.where(abs(numpy.real(w) - 1.0) < 1e-8)[0]
     if not len(i):
-        raise ValueError('no unit eigenvector corresponding to eigenvalue 1')
+        raise ValueError("no unit eigenvector corresponding to eigenvalue 1")
     point = numpy.real(V[:, i[-1]]).squeeze()
     point /= point[3]
     return point, normal
@@ -376,29 +376,23 @@ def rotation_from_matrix(matrix):
     w, W = numpy.linalg.eig(R33.T)
     i = numpy.where(abs(numpy.real(w) - 1.0) < 1e-8)[0]
     if not len(i):
-        raise ValueError('no unit eigenvector corresponding to eigenvalue 1')
+        raise ValueError("no unit eigenvector corresponding to eigenvalue 1")
     direction = numpy.real(W[:, i[-1]]).squeeze()
     # point: unit eigenvector of R33 corresponding to eigenvalue of 1
     w, Q = numpy.linalg.eig(R)
     i = numpy.where(abs(numpy.real(w) - 1.0) < 1e-8)[0]
     if not len(i):
-        raise ValueError('no unit eigenvector corresponding to eigenvalue 1')
+        raise ValueError("no unit eigenvector corresponding to eigenvalue 1")
     point = numpy.real(Q[:, i[-1]]).squeeze()
     point /= point[3]
     # rotation angle depending on direction
     cosa = (numpy.trace(R33) - 1.0) / 2.0
     if abs(direction[2]) > 1e-8:
-        sina = (
-            R[1, 0] + (cosa - 1.0) * direction[0] * direction[1]
-        ) / direction[2]
+        sina = (R[1, 0] + (cosa - 1.0) * direction[0] * direction[1]) / direction[2]
     elif abs(direction[1]) > 1e-8:
-        sina = (
-            R[0, 2] + (cosa - 1.0) * direction[0] * direction[2]
-        ) / direction[1]
+        sina = (R[0, 2] + (cosa - 1.0) * direction[0] * direction[2]) / direction[1]
     else:
-        sina = (
-            R[2, 1] + (cosa - 1.0) * direction[1] * direction[2]
-        ) / direction[0]
+        sina = (R[2, 1] + (cosa - 1.0) * direction[1] * direction[2]) / direction[0]
     angle = math.atan2(sina, cosa)
     return angle, direction, point
 
@@ -472,15 +466,13 @@ def scale_from_matrix(matrix):
     w, V = numpy.linalg.eig(M)
     i = numpy.where(abs(numpy.real(w) - 1.0) < 1e-8)[0]
     if not len(i):
-        raise ValueError('no eigenvector corresponding to eigenvalue 1')
+        raise ValueError("no eigenvector corresponding to eigenvalue 1")
     origin = numpy.real(V[:, i[-1]]).squeeze()
     origin /= origin[3]
     return factor, origin, direction
 
 
-def projection_matrix(
-    point, normal, direction=None, perspective=None, pseudo=False
-):
+def projection_matrix(point, normal, direction=None, perspective=None, pseudo=False):
     """Return matrix to project onto plane defined by point and normal.
 
     Using either perspective point, projection direction, or none of both.
@@ -516,9 +508,7 @@ def projection_matrix(
     normal = unit_vector(normal[:3])
     if perspective is not None:
         # perspective projection
-        perspective = numpy.array(
-            perspective[:3], dtype=numpy.float64, copy=False
-        )
+        perspective = numpy.array(perspective[:3], dtype=numpy.float64, copy=False)
         M[0, 0] = M[1, 1] = M[2, 2] = numpy.dot(perspective - point, normal)
         M[:3, :3] -= numpy.outer(perspective, normal)
         if pseudo:
@@ -586,7 +576,7 @@ def projection_from_matrix(matrix, pseudo=False):
         w, V = numpy.linalg.eig(M33)
         i = numpy.where(abs(numpy.real(w)) < 1e-8)[0]
         if not len(i):
-            raise ValueError('no eigenvector corresponding to eigenvalue 0')
+            raise ValueError("no eigenvector corresponding to eigenvalue 0")
         direction = numpy.real(V[:, i[0]]).squeeze()
         direction /= vector_norm(direction)
         # normal: unit eigenvector of M33.T corresponding to eigenvalue 0
@@ -604,9 +594,7 @@ def projection_from_matrix(matrix, pseudo=False):
         # perspective projection
         i = numpy.where(abs(numpy.real(w)) > 1e-8)[0]
         if not len(i):
-            raise ValueError(
-                'no eigenvector not corresponding to eigenvalue 0'
-            )
+            raise ValueError("no eigenvector not corresponding to eigenvalue 0")
         point = numpy.real(V[:, i[-1]]).squeeze()
         point /= point[3]
         normal = -M[3, :3]
@@ -651,10 +639,10 @@ def clip_matrix(left, right, bottom, top, near, far, perspective=False):
 
     """
     if left >= right or bottom >= top or near >= far:
-        raise ValueError('invalid frustum')
+        raise ValueError("invalid frustum")
     if perspective:
         if near <= _EPS:
-            raise ValueError('invalid frustum: near <= 0')
+            raise ValueError("invalid frustum: near <= 0")
         t = 2.0 * near
         M = [
             [t / (left - right), 0.0, (right + left) / (right - left), 0.0],
@@ -695,7 +683,7 @@ def shear_matrix(angle, direction, point, normal):
     normal = unit_vector(normal[:3])
     direction = unit_vector(direction[:3])
     if abs(numpy.dot(normal, direction)) > 1e-6:
-        raise ValueError('direction and normal vectors are not orthogonal')
+        raise ValueError("direction and normal vectors are not orthogonal")
     angle = math.tan(angle)
     M = numpy.identity(4)
     M[:3, :3] += angle * numpy.outer(direction, normal)
@@ -723,7 +711,7 @@ def shear_from_matrix(matrix):
     w, V = numpy.linalg.eig(M33)
     i = numpy.where(abs(numpy.real(w) - 1.0) < 1e-4)[0]
     if len(i) < 2:
-        raise ValueError('no two linear independent eigenvectors found %s' % w)
+        raise ValueError("no two linear independent eigenvectors found %s" % w)
     V = numpy.real(V[:, i]).squeeze().T
     lenorm = -1.0
     for i0, i1 in ((0, 1), (0, 2), (1, 2)):
@@ -742,7 +730,7 @@ def shear_from_matrix(matrix):
     w, V = numpy.linalg.eig(M)
     i = numpy.where(abs(numpy.real(w) - 1.0) < 1e-8)[0]
     if not len(i):
-        raise ValueError('no eigenvector corresponding to eigenvalue 1')
+        raise ValueError("no eigenvector corresponding to eigenvalue 1")
     point = numpy.real(V[:, i[-1]]).squeeze()
     point /= point[3]
     return angle, direction, point, normal
@@ -781,12 +769,12 @@ def decompose_matrix(matrix):
     """
     M = numpy.array(matrix, dtype=numpy.float64, copy=True).T
     if abs(M[3, 3]) < _EPS:
-        raise ValueError('M[3, 3] is zero')
+        raise ValueError("M[3, 3] is zero")
     M /= M[3, 3]
     P = M.copy()
     P[:, 3] = 0.0, 0.0, 0.0, 1.0
     if not numpy.linalg.det(P):
-        raise ValueError('matrix is singular')
+        raise ValueError("matrix is singular")
 
     scale = numpy.zeros((3,))
     shear = [0.0, 0.0, 0.0]
@@ -869,7 +857,7 @@ def compose_matrix(
         T[:3, 3] = translate[:3]
         M = numpy.dot(M, T)
     if angles is not None:
-        R = euler_matrix(angles[0], angles[1], angles[2], 'sxyz')
+        R = euler_matrix(angles[0], angles[1], angles[2], "sxyz")
         M = numpy.dot(M, R)
     if shear is not None:
         Z = numpy.identity(4)
@@ -963,7 +951,7 @@ def affine_matrix_from_points(v0, v1, shear=True, scale=True, usesvd=True):
 
     ndims = v0.shape[0]
     if ndims < 2 or v0.shape[1] < ndims or v0.shape != v1.shape:
-        raise ValueError('input arrays are of wrong shape or type')
+        raise ValueError("input arrays are of wrong shape or type")
 
     # move centroids to origin
     t0 = -numpy.mean(v0, axis=1)
@@ -1075,12 +1063,10 @@ def superimposition_matrix(v0, v1, scale=False, usesvd=True):
     """
     v0 = numpy.array(v0, dtype=numpy.float64, copy=False)[:3]
     v1 = numpy.array(v1, dtype=numpy.float64, copy=False)[:3]
-    return affine_matrix_from_points(
-        v0, v1, shear=False, scale=scale, usesvd=usesvd
-    )
+    return affine_matrix_from_points(v0, v1, shear=False, scale=scale, usesvd=usesvd)
 
 
-def euler_matrix(ai, aj, ak, axes='sxyz'):
+def euler_matrix(ai, aj, ak, axes="sxyz"):
     """Return homogeneous rotation matrix from Euler angles and axis sequence.
 
     ai, aj, ak : Euler's roll, pitch and yaw angles
@@ -1143,7 +1129,7 @@ def euler_matrix(ai, aj, ak, axes='sxyz'):
     return M
 
 
-def euler_from_matrix(matrix, axes='sxyz'):
+def euler_from_matrix(matrix, axes="sxyz"):
     """Return Euler angles from rotation matrix for specified axis sequence.
 
     axes : One of 24 axis sequences as string or encoded tuple
@@ -1201,7 +1187,7 @@ def euler_from_matrix(matrix, axes='sxyz'):
     return ax, ay, az
 
 
-def euler_from_quaternion(quaternion, axes='sxyz'):
+def euler_from_quaternion(quaternion, axes="sxyz"):
     """Return Euler angles from quaternion for specified axis sequence.
 
     >>> angles = euler_from_quaternion([0.99810947, 0.06146124, 0, 0])
@@ -1212,7 +1198,7 @@ def euler_from_quaternion(quaternion, axes='sxyz'):
     return euler_from_matrix(quaternion_matrix(quaternion), axes)
 
 
-def quaternion_from_euler(ai, aj, ak, axes='sxyz'):
+def quaternion_from_euler(ai, aj, ak, axes="sxyz"):
     """Return quaternion from Euler angles and axis sequence.
 
     ai, aj, ak : Euler's roll, pitch and yaw angles
@@ -1740,30 +1726,30 @@ _NEXT_AXIS = [1, 2, 0, 1]
 
 # map axes strings to/from tuples of inner axis, parity, repetition, frame
 _AXES2TUPLE = {
-    'sxyz': (0, 0, 0, 0),
-    'sxyx': (0, 0, 1, 0),
-    'sxzy': (0, 1, 0, 0),
-    'sxzx': (0, 1, 1, 0),
-    'syzx': (1, 0, 0, 0),
-    'syzy': (1, 0, 1, 0),
-    'syxz': (1, 1, 0, 0),
-    'syxy': (1, 1, 1, 0),
-    'szxy': (2, 0, 0, 0),
-    'szxz': (2, 0, 1, 0),
-    'szyx': (2, 1, 0, 0),
-    'szyz': (2, 1, 1, 0),
-    'rzyx': (0, 0, 0, 1),
-    'rxyx': (0, 0, 1, 1),
-    'ryzx': (0, 1, 0, 1),
-    'rxzx': (0, 1, 1, 1),
-    'rxzy': (1, 0, 0, 1),
-    'ryzy': (1, 0, 1, 1),
-    'rzxy': (1, 1, 0, 1),
-    'ryxy': (1, 1, 1, 1),
-    'ryxz': (2, 0, 0, 1),
-    'rzxz': (2, 0, 1, 1),
-    'rxyz': (2, 1, 0, 1),
-    'rzyz': (2, 1, 1, 1),
+    "sxyz": (0, 0, 0, 0),
+    "sxyx": (0, 0, 1, 0),
+    "sxzy": (0, 1, 0, 0),
+    "sxzx": (0, 1, 1, 0),
+    "syzx": (1, 0, 0, 0),
+    "syzy": (1, 0, 1, 0),
+    "syxz": (1, 1, 0, 0),
+    "syxy": (1, 1, 1, 0),
+    "szxy": (2, 0, 0, 0),
+    "szxz": (2, 0, 1, 0),
+    "szyx": (2, 1, 0, 0),
+    "szyz": (2, 1, 1, 0),
+    "rzyx": (0, 0, 0, 1),
+    "rxyx": (0, 0, 1, 1),
+    "ryzx": (0, 1, 0, 1),
+    "rxzx": (0, 1, 1, 1),
+    "rxzy": (1, 0, 0, 1),
+    "ryzy": (1, 0, 1, 1),
+    "rzxy": (1, 1, 0, 1),
+    "ryxy": (1, 1, 1, 1),
+    "ryxz": (2, 0, 0, 1),
+    "rzxz": (2, 0, 1, 1),
+    "rxyz": (2, 1, 0, 1),
+    "rzyz": (2, 1, 1, 1),
 }
 
 _TUPLE2AXES = {v: k for k, v in _AXES2TUPLE.items()}
@@ -2012,7 +1998,7 @@ def is_same_quaternion(q0, q1):
 # _import_module('_transformations', __package__)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import doctest
     import random  # noqa: used in doctests
 
