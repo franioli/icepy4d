@@ -82,7 +82,7 @@ def write_bundler_out_all_epoches(
         w = cameras[epoch][cam].width
         h = cameras[epoch][cam].height
 
-        file = open(out_dir / f"belpy_epoch_{epoch}.out", "w")
+        file = open(out_dir / f"icepy_epoch_{epoch}.out", "w")
         file.write(f"{num_cams} {num_pts}\n")
 
         # Write cameras
