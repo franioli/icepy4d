@@ -12,7 +12,8 @@ def data_dir():
 
 @pytest.fixture
 def log_dir():
-    return tempfile.TemporaryDirectory()
+    dirpath = tempfile.mkdtemp()
+    return dirpath
 
 
 @pytest.fixture
