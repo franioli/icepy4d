@@ -18,7 +18,7 @@ from typing import Tuple
 from matplotlib import pyplot as plt
 from matplotlib.dates import DayLocator
 
-from belpy.pcd_proc.cloudcompare import DemOfDifference, make_pairs
+from icepy.pcd_proc.cloudcompare import DemOfDifference, make_pairs
 
 
 PCD_DIR = "res/point_clouds_meshed"

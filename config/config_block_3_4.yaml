@@ -1,5 +1,5 @@
 #- Define paths and base settings
-# All pahts MUST be relative to the root folder of Belpy and
+# All pahts MUST be relative to the root folder of icepy and
 # they will be converted to pathlib.Path when parsing this yaml file)
 paths:
   image_dir: "data/img"
@@ -114,7 +114,7 @@ metashape:
   optimize_cameras: true
   build_dense: true
 
-  # List containing camera location. Note, that the order may differ from that of Belpy, because Metashape imports the cameras based on alphabetic order of the images that they belong to (e.g., IMG_1289.jpg that belongs to p2 comes before IMG_2814.jpg that belongs to p1!)
+  # List containing camera location. Note, that the order may differ from that of icepy, because Metashape imports the cameras based on alphabetic order of the images that they belong to (e.g., IMG_1289.jpg that belongs to p2 comes before IMG_2814.jpg that belongs to p1!)
   #TODO: fix camera ordering issue in Metashape.
   camera_location: [
       [309.261, 301.051, 135.008], # p2
@@ -135,8 +135,8 @@ metashape:
   # List containing the camera calibration .xml filenames (in Agisoft default format). The list must be in the same order of Metashape camera_location!
   calib_filenames:
     [
-      "data/calib/belpy_35mm_280722_selfcal_all_metashape.xml",
-      "data/calib/belpy_24mm_280722_selfcal_all_metashape.xml",
+      "data/calib/icepy_35mm_280722_selfcal_all_metashape.xml",
+      "data/calib/icepy_24mm_280722_selfcal_all_metashape.xml",
     ]
 
   # Factor for downscaling images in depth maps computation ("Dense accuracy")

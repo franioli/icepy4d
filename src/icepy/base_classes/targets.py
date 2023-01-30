@@ -243,13 +243,13 @@ class Targets:
 if __name__ == "__main__":
     """Test classes"""
 
-    from belpy.utils.initialization import parse_yaml_cfg, Inizialization
+    from icepy.utils.initialization import parse_yaml_cfg, Inizialization
 
     CFG_FILE = "config/config_2021_1.yaml"
     cfg = parse_yaml_cfg(CFG_FILE)
 
     init = Inizialization(cfg)
-    init.inizialize_belpy()
+    init.inizialize_icepy()
     cams = init.cams
     images = init.images
     targets = init.targets
