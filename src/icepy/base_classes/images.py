@@ -32,7 +32,10 @@ import cv2
 import exifread
 import numpy as np
 
-from ..utils.sensor_width_database import SensorWidthDatabase
+if __name__ == "__main__":
+    from src.icepy.utils.sensor_width_database import SensorWidthDatabase
+else:
+    from ..utils.sensor_width_database import SensorWidthDatabase
 
 
 def read_image(
@@ -464,7 +467,7 @@ class ImageDS:
 if __name__ == "__main__":
     """Test classes"""
 
-    images = ImageDS("data/img2022/p1")
+    images = ImageDS("assets/img/cam1")
 
     # Read image dates and times
     # images.read_dates()
