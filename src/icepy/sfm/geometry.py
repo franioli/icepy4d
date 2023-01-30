@@ -93,11 +93,11 @@ def undistort_points(pts, camera: Camera):
     return pts_und.astype("float32")
 
 
-def undistort_image(image, camera: Camera, out_path=None):
+def undistort_image(image, camera: Camera, out_path: str = None):
     """Wrapper around OpenCV cv2.undistort function for simply undistorting an image
     Parameters
     ----------
-    image : 2D numpy array
+    image : 2D numpy array with BRG color channels (as default in OpenCV)
         Image.
     camera : Camera object
         Camera object containing K and dist arrays.
