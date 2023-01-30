@@ -10,6 +10,8 @@ except:
     exit
 
 cfg_file = "config/config_block_3_4.yaml"
+cfg_file = "assets/config.yaml"
+
 cfg = initialization.parse_yaml_cfg(cfg_file)
 
 cams = ["p1", "p2"]
