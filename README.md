@@ -1,44 +1,58 @@
-# belpy
+# Welcome to ICEpy4D
 
-This is a work-in-progress repository.
+4D Image-based Continuos monitoring of glaciers' Evolution with low-cost stereo-cameras and Deep Learning photogrammetry.
+
+`ICEpy4D` is a under active development.
 
 ## Installation guide
 
+##### Requirements
+
+- 64-bit Python `>= 3.8`
+- a NVIDIA graphic card with CUDA capability is strongly reccomended.
+
+##### Create Anaconda environment
+
 ```bash
-conda create -n belpy python=3.8
-conda activate belpy
+conda create -n icepy python=3.8
+conda activate icepy
 ```
 
-Install gdal
+##### Install gdal for raster manipulation
+
+First, install `gdal`, which is required for building and manipulating orthophotos and DSMs. As the dependacies of `gdal`, are quite strict, it is suggested to install it first with conda. If you don't intend to build orthophotos and DSM, you can skip this step (be careful to remove rasterio from requirements.txt as well).
 
 ```bash
 conda update -n base -c conda-forge conda
 conda install -c conda-forge gdal
+```
+
+Check that `gdal` is correctly installed with:
+
+```bash
 python -c "from osgeo import gdal"
 ```
 
-Install pythorch
+##### Install Pytorch
+
+Install pythorch following the official guidelines (<https://pytorch.org/get-started/locally/>). Be careful to select the correct CUDA version as that installed on your system.
 
 ```bash
 pip3 install torch --extra-index-url <https://download.pytorch.org/whl/cu116>
 ```
 
-(Depending on CUDA VERSION, see <https://pytorch.org/get-started/locally/>)
-
-Install other packages
+##### Install other required packages
 
 ```bash
 pip install -r requirements.txt
-# pip3 install numpy opencv-python scipy tqdm matplotlib plotly scipy h5py pycolmap open3d kornia gdown rasterio exifread easydict
-# pip3 install pydegensac
 ```
 
-Optional
+##### Various
+
+- If you intend to use Jupyter Notebooks for running main scripts, install jupyterlab with
 
 ```bash
 pip3 install jupyterlab
 ```
 
-## Various
-
-When using VScode and Matplotlib, use TkAgg as interactive backend.
+- When using VScode and Matplotlib, use TkAgg as interactive backend.

@@ -34,19 +34,19 @@ from pathlib import Path
 from matplotlib import pyplot as plt
 from datetime import datetime
 
-# Belpy Classes
-import belpy.base_classes as belpy_classes
+# icepy classes
+import icepy.base_classes as icepy_classes
 
-# Belpy libraries
-import belpy.sfm as sfm
-import belpy.metashape.metashape as MS
-import belpy.utils.initialization as initialization
-import belpy.utils as belpy_utils
-import belpy.visualization as belpy_viz
+# icepy libraries
+import icepy.sfm as sfm
+import icepy.metashape.metashape as MS
+import icepy.utils.initialization as initialization
+import icepy.utils as icepy_utils
+import icepy.visualization as icepy_viz
 
-from belpy.matching.matching_base import MatchingAndTracking
-from belpy.utils.utils import homography_warping
-from belpy.io.export2bundler import write_bundler_out
+from icepy.matching.matching_base import MatchingAndTracking
+from icepy.utils.utils import homography_warping
+from icepy.io.export2bundler import write_bundler_out
 
 
 if __name__ == "__main__":
@@ -58,7 +58,7 @@ if __name__ == "__main__":
     cfg_file, log_cfg = initialization.parse_command_line()
 
     # Setup logger
-    belpy_utils.setup_logger(
+    icepy_utils.setup_logger(
         log_cfg["log_folder"],
         log_cfg["log_name"],
         log_cfg["log_file_level"],
@@ -66,20 +66,22 @@ if __name__ == "__main__":
     )
 
     print("\n===========================================================")
-    print("Belpy")
-    print("Low-cost stereo photogrammetry for 4D glacier monitoring ")
+    print("ICEpy4D")
+    print(
+        "Image-based Continuos monitoring of glaciers' Evolution with low-cost stereo-cameras and Deep Learning photogrammetry"
+    )
     print("2022 - Francesco Ioli - francesco.ioli@polimi.it")
     print("===========================================================\n")
 
     # Read options from yaml file
     logging.info(f"Configuration file: {cfg_file.stem}")
-    timer_global = belpy_utils.AverageTimer()
+    timer_global = icepy_utils.AverageTimer()
     cfg = initialization.parse_yaml_cfg(cfg_file)
 
     """ Inizialize Variables """
 
     init = initialization.Inizialization(cfg)
-    init.inizialize_belpy()
+    init.inizialize_icepy()
     cameras = init.cameras
     cams = init.cams
     features = init.features
@@ -92,7 +94,7 @@ if __name__ == "__main__":
     """ Big Loop over epoches """
     logging.info("Processing started:")
     logging.info("-----------------------")
-    timer = belpy_utils.AverageTimer()
+    timer = icepy_utils.AverageTimer()
     iter = 0
     for epoch in cfg.proc.epoch_to_process:
 
@@ -246,7 +248,7 @@ if __name__ == "__main__":
                 continue
 
         # Create point cloud and save .ply to disk
-        pcd_epc = belpy_classes.PointCloud(points3d=points3d, points_col=triang.colors)
+        pcd_epc = icepy_classes.PointCloud(points3d=points3d, points_col=triang.colors)
 
         timer.update("relative orientation")
 
@@ -283,7 +285,7 @@ if __name__ == "__main__":
                 metashape_dir=epochdir / "metashape",
                 num_cams=len(cams),
             )
-            ms_reader.read_belpy_outputs()
+            ms_reader.read_icepy_outputs()
             for i, cam in enumerate(cams):
                 focals[cam][epoch] = ms_reader.get_focal_lengths()[i]
 
@@ -313,7 +315,7 @@ if __name__ == "__main__":
                 cam_id=1,
             )
 
-            pcd_epc = belpy_classes.PointCloud(
+            pcd_epc = icepy_classes.PointCloud(
                 points3d=points3d, points_col=triang.colors
             )
             if cfg.proc.save_sparse_cloud:
@@ -381,7 +383,7 @@ if __name__ == "__main__":
                     )
 
     if cfg.other.do_viz:
-        """Put this code into functions in visualization module of belpy"""
+        """Put this code into functions in visualization module of icepy"""
 
         # Visualize point cloud
         # display_point_cloud(
@@ -433,7 +435,7 @@ if __name__ == "__main__":
     compute_orthophoto_dsm = False
     if compute_orthophoto_dsm:
 
-        from belpy.utils.dsm_orthophoto import build_dsm, generate_ortophoto
+        from icepy.utils.dsm_orthophoto import build_dsm, generate_ortophoto
 
         logging.info("DSM and orthophoto generation started")
         res = 0.03
