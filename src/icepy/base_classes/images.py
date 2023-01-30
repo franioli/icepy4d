@@ -34,8 +34,12 @@ import numpy as np
 
 if __name__ == "__main__":
     from src.icepy.utils.sensor_width_database import SensorWidthDatabase
+    from src.icepy.base_classes.camera import Camera
+    from src.icepy.sfm.geometry import undistort_image
 else:
     from ..utils.sensor_width_database import SensorWidthDatabase
+    from .camera import Camera
+    from ..sfm.geometry import undistort_image
 
 
 def read_image(
@@ -145,11 +149,39 @@ class Image:
             return None
 
     @property
+    def name(self) -> str:
+        """
+        Name of the image (including extension)
+        """
+        return self._path.name
+
+    @property
+    def stem(self) -> str:
+        """
+        Name of the image (excluding extension)
+        """
+        return self._path.stem
+
+    @property
     def path(self) -> str:
         """
         Path of the image
         """
         return self._path
+
+    @property
+    def parent(self) -> str:
+        """
+        Path to the parent folder of the image
+        """
+        return self._path.parent
+
+    @property
+    def extension(self) -> str:
+        """
+        Returns the extension  of the image
+        """
+        return self._path.suffix
 
     @property
     def exif(self) -> dict:
@@ -314,6 +346,23 @@ class Image:
             dtype=float,
         )
         return K
+
+    def undistort_image(self, camera: Camera, out_path: str = None) -> np.ndarray:
+        """
+        undistort_image Wrapper around undistort_image function icepy.sfm.geometry module
+
+        Args:
+            camera (Camera): Camera object containing K and dist arrays.
+            out_path (str, optional): Path for writing the undistorted image to disk. If out_path is None, undistorted image is not saved to disk. Defaults to None.
+
+        Returns:
+            np.ndarray: undistored image
+        """
+        self.read_image()
+        und_imge = undistort_image(
+            cv2.cvtColor(self._value_array, cv2.COLOR_RGB2BGR), camera, out_path
+        )
+        return und_imge
 
 
 class ImageDS:
@@ -490,6 +539,9 @@ if __name__ == "__main__":
 
     # Read image as numpy array
     image = images.read_image(0).value
+
+    # Undistort image
+    # print(isinstance(image.undistort_image))
 
     # Test ImageDS iterator
     print(next(images))
