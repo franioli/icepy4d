@@ -387,7 +387,6 @@ class Features:
 
     def save_as_pickle(self, path: Union[str, Path]) -> True:
         """Save keypoints in as pickle file"""
-
         path = Path(path)
         with open(path, "wb") as f:
             pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
@@ -447,17 +446,6 @@ class Features_old:
         return out
 
     def remove_outliers_features(self, inlier_mask):
-        # TODO: write description
-        """Remove outliers features
-        Parameters
-        - ---------
-        new_features: TYPE
-            DESCRIPTION.
-
-        Returns
-        - ------
-        None.
-        """
         self.kpts = self.kpts[inlier_mask, :]
         self.descr = self.descr[:, inlier_mask]
         self.score = self.score[inlier_mask]
@@ -477,7 +465,6 @@ class Features_old:
                 'Invalid input dictionary. Check all keys ["kpts", "descr", "scores"] are present'
             )
             return self
-        # TODO: check correct shape of inputs.
 
         if self.kpts is None:
             self.kpts = new_features["kpts"]
@@ -488,25 +475,13 @@ class Features_old:
             self.descr = np.append(self.descr, new_features["descr"], axis=1)
             self.score = np.append(self.score, new_features["score"], axis=0)
 
-    def save_as_pickle(self, path=None):
+    def save_as_pickle(self, path):
         """Save keypoints in a .txt file"""
-        if path is None:
-            print("Error: missing path argument.")
-            return
-        # if not Path(path).:
-        #     print('Error: invalid input path.')
-        #     return
         with open(path, "wb") as f:
             pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-    def save_as_txt(self, path=None, fmt="%i", delimiter=",", header="x,y"):
+    def save_as_txt(self, path, fmt="%i", delimiter=",", header="x,y"):
         """Save keypoints in a .txt file"""
-        if path is None:
-            print("Error: missing path argument.")
-            return
-        # if not Path(path).:
-        #     print('Error: invalid input path.')
-        #     return
         np.savetxt(
             path, self.kpts, fmt=fmt, delimiter=delimiter, newline="\n", header=header
         )
@@ -527,53 +502,52 @@ if __name__ == "__main__":
     descr = np.random.rand(256, n_feat)
     scores = np.random.rand(n_feat, 1)
 
-    rep_times = 1
+    # rep_times = 1
 
-    features = Features_old()
-    for _ in range(rep_times):
-        t0 = time.time()
-        features.append_features(
-            {
-                "kpts": kpts,
-                "descr": descr,
-                "score": scores,
-            }
-        )
-        t1 = time.time()
-        logging.info(f"Append features as numpy array: elapsed time {t1-t0:.4f} s")
+    # features = Features_old()
+    # for _ in range(rep_times):
+    #     t0 = time.time()
+    #     features.append_features(
+    #         {
+    #             "kpts": kpts,
+    #             "descr": descr,
+    #             "score": scores,
+    #         }
+    #     )
+    #     t1 = time.time()
+    #     logging.info(f"Append features as numpy array: elapsed time {t1-t0:.4f} s")
 
-    features_new = Features()
-    for _ in range(rep_times):
-        t0 = time.time()
-        features_new.append_features_from_numpy(x, y, descr)
-        t1 = time.time()
-        logging.info(
-            f"Append features from numpy array to dict of Feature objects: Elapsed time {t1-t0:.4f} s"
-        )
+    # features_new = Features()
+    # for _ in range(rep_times):
+    #     t0 = time.time()
+    #     features_new.append_features_from_numpy(x, y, descr)
+    #     t1 = time.time()
+    #     logging.info(
+    #         f"Append features from numpy array to dict of Feature objects: Elapsed time {t1-t0:.4f} s"
+    #     )
 
-    for _ in range(rep_times):
-        t0 = time.time()
-        out = features_new.kpts_to_numpy()
-        t1 = time.time()
-        logging.info(f"Get xy coordinates: Elapsed time {t1-t0:.4f} s")
+    # for _ in range(rep_times):
+    #     t0 = time.time()
+    #     out = features_new.kpts_to_numpy()
+    #     t1 = time.time()
+    #     logging.info(f"Get xy coordinates: Elapsed time {t1-t0:.4f} s")
 
-    for _ in range(rep_times):
-        t0 = time.time()
-        out = features_new.descr_to_numpy()
-        t1 = time.time()
-        logging.info(f"Get descr: Elapsed time {t1-t0:.4f} s")
+    # for _ in range(rep_times):
+    #     t0 = time.time()
+    #     out = features_new.descr_to_numpy()
+    #     t1 = time.time()
+    #     logging.info(f"Get descr: Elapsed time {t1-t0:.4f} s")
 
-    for _ in range(rep_times):
-        t0 = time.time()
-        out = features_new.to_numpy(get_descr=True)
-        t1 = time.time()
-        logging.info(f"Get kpt+descr: Elapsed time {t1-t0:.4f} s")
+    # for _ in range(rep_times):
+    #     t0 = time.time()
+    #     out = features_new.to_numpy(get_descr=True)
+    #     t1 = time.time()
+    #     logging.info(f"Get kpt+descr: Elapsed time {t1-t0:.4f} s")
 
-    # Test iterable
-    print(next(features_new).xy)
-    print(next(features_new).xy)
-    # for f in features_new:
-    #     print(f.xy)
+    # # Test iterable
+    # print(next(features_new).xy)
+    # print(next(features_new).xy)
+    # # for f in features_new:
+    # #     print(f.xy)
 
-    x = np.random.rand()
     print("Done")
