@@ -32,7 +32,7 @@ from pathlib import Path
 
 
 if __name__ == "__main__":
-    from src.icepy.base_classes.camera import Camera
+    from src.icepy.classes.camera import Camera
 else:
     from .camera import Camera
 

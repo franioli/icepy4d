@@ -6,7 +6,7 @@ from pathlib import Path
 from scipy.interpolate import interp2d
 
 from .geometry import project_points
-from ..base_classes.camera import Camera
+from ..classes.camera import Camera
 
 # --- Color interpolation ---#
 

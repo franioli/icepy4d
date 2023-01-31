@@ -9,7 +9,7 @@ from pathlib import Path
 from .match_pairs import match_pair
 from .track_matches import track_matches
 
-from ..base_classes.features import Features
+from ..classes.features import Features
 
 
 def MatchingAndTracking(
@@ -23,42 +23,10 @@ def MatchingAndTracking(
     epochdir = Path(cfg.paths.results_dir) / f"{epoch_dict[epoch]}/matching"
     cams = cfg.paths.camera_names
 
-    # -- Find Matches at current epoch --#
-    print(f"Run Superglue to find matches at epoch {epoch}")
-    cfg.matching.output_dir = epochdir
-    pair = [
-        images[cams[0]].get_image_path(epoch),
-        images[cams[1]].get_image_path(epoch),
-    ]
-    # Call matching function
-    matchedPts, matchedDescriptors, matchedPtsScores = match_pair(
-        pair, cfg.images.mask_bounding_box, cfg.matching
-    )
-
-    # Store matches in Features structure
-    for jj, cam in enumerate(cams):
-        # Dict keys are the cameras names, internal list contain epoches
-        # features[epoch][cam] = Features()
-        # features[epoch][cam].append_features(
-        #     {
-        #         "kpts": matchedPts[jj],
-        #         "descr": matchedDescriptors[jj],
-        #         "score": matchedPtsScores[jj],
-        #     }
-        # )
-        features[epoch][cam] = Features()
-        x = matchedPts[jj][:, 0:1]
-        y = matchedPts[jj][:, 1:2]
-        features[epoch][cam].append_features_from_numpy(
-            x, y, descr=matchedDescriptors[jj], scores=matchedPtsScores[jj]
-        )
-        # @TODO: Store match confidence!
-
     # === Track previous matches at current epoch ===#
     if cfg.proc.do_tracking and epoch > 0:
-        print(f"Track points from epoch {epoch-1} to epoch {epoch}")
+        logging.info(f"Track points from epoch {epoch-1} to epoch {epoch}")
 
-        # trackoutdir = epochdir / f"from_t{epoch-1}"
         trackoutdir = epochdir / f"from_{epoch_dict[epoch-1]}"
 
         cfg.tracking["output_dir"] = trackoutdir
@@ -119,6 +87,28 @@ def MatchingAndTracking(
                 f"Skipping tracking from epoch {epoch_dict[epoch-1]} to {epoch_dict[epoch]}"
             )
 
+    # -- Find Matches at current epoch --#
+    logging.info(f"Run Superglue to find matches at epoch {epoch}")
+    cfg.matching.output_dir = epochdir
+    pair = [
+        images[cams[0]].get_image_path(epoch),
+        images[cams[1]].get_image_path(epoch),
+    ]
+    # Call matching function
+    matchedPts, matchedDescriptors, matchedPtsScores = match_pair(
+        pair, cfg.images.mask_bounding_box, cfg.matching
+    )
+
+    # Store matches in Features structure
+    for jj, cam in enumerate(cams):
+        x = matchedPts[jj][:, 0:1]
+        y = matchedPts[jj][:, 1:2]
+        features[epoch][cam].append_features_from_numpy(
+            x, y, descr=matchedDescriptors[jj], scores=matchedPtsScores[jj]
+        )
+        # @TODO: Store match confidence!
+    logging.info(f"SuperGlue found {len(features[epoch][cam])} matches")
+
     # Run Pydegensac to estimate F matrix and reject outliers
     F, inlMask = pydegensac.findFundamentalMatrix(
         features[epoch][cams[0]].kpts_to_numpy(),
@@ -131,9 +121,8 @@ def MatchingAndTracking(
         symmetric_error_check=True,
         enable_degeneracy_check=True,
     )
-    print(
-        f"Matching at epoch {epoch}: pydegensac found {inlMask.sum()} \
-            inliers ({inlMask.sum()*100/len(features[epoch][cams[0]]):.2f}%)"
+    logging.info(
+        f"Matches geometric verification: pydegensac found {inlMask.sum()} inliers ({inlMask.sum()*100/len(features[epoch][cams[0]]):.2f}%)"
     )
     features[epoch][cams[0]].filter_feature_by_mask(inlMask, verbose=True)
     features[epoch][cams[1]].filter_feature_by_mask(inlMask, verbose=True)
@@ -161,6 +150,6 @@ def MatchingAndTracking(
     # with open(last_match_path / "last_features.pickle", "wb") as f:
     #     pickle.dump(features, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-    print("Matching completed")
+    logging.info("Matching completed")
 
     return features

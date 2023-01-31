@@ -7,7 +7,7 @@ from easydict import EasyDict as edict
 from tqdm import tqdm
 from random import randint
 
-from ..base_classes.images import Image, ImageDS
+from ..classes.images import Image, ImageDS
 from ..utils.initialization import parse_yaml_cfg
 
 

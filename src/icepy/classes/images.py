@@ -34,7 +34,7 @@ import numpy as np
 
 if __name__ == "__main__":
     from src.icepy.utils.sensor_width_database import SensorWidthDatabase
-    from src.icepy.base_classes.camera import Camera
+    from src.icepy.classes.camera import Camera
     from src.icepy.sfm.geometry import undistort_image
 else:
     from ..utils.sensor_width_database import SensorWidthDatabase

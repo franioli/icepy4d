@@ -7,8 +7,8 @@ from copy import deepcopy
 from shutil import copy as scopy
 from typing import Union, List
 
-from ..base_classes.point_cloud import PointCloud
-from ..base_classes.targets import Targets
+from ..classes.point_cloud import PointCloud
+from ..classes.targets import Targets
 from ..utils.utils import create_directory
 from ..thirdparty.transformations import euler_from_matrix, euler_matrix
 

@@ -35,7 +35,7 @@ from matplotlib import pyplot as plt
 from datetime import datetime
 
 # icepy classes
-import icepy.base_classes as icepy_classes
+import icepy.classes as icepy_classes
 
 # icepy libraries
 import icepy.sfm as sfm
@@ -56,6 +56,8 @@ if __name__ == "__main__":
     # cfg_file = Path(CFG_FILE)
 
     cfg_file, log_cfg = initialization.parse_command_line()
+
+    # cfg_file = Path("config/config_test.yaml")
 
     # Setup logger
     icepy_utils.setup_logger(
@@ -148,6 +150,10 @@ if __name__ == "__main__":
                 )
 
         timer.update("matching")
+
+        # Testing
+        a = features[180]["p1"]
+        b = features[181]["p1"]
 
         """ SfM """
 
