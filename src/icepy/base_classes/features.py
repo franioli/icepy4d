@@ -78,6 +78,8 @@ class Feature:
                     raise AssertionError(msg)
                 else:
                     descr = descr.reshape(-1, 1)
+            elif descr.shape[0] in [128, 256] and descr.shape[1] == 1:
+                descr = descr.reshape(-1, 1)
             elif descr.shape[1] not in [128, 256]:
                 raise AssertionError(msg)
             self._descr = descr
@@ -151,7 +153,7 @@ class Features_new:
         """
         return len(self._values)
 
-    def __getitem__(self, track_id: int) -> str:
+    def __getitem__(self, track_id: int) -> Feature:
         """
         __getitem__ _summary_
 
@@ -159,7 +161,7 @@ class Features_new:
             track_id (int): _description_
 
         Returns:
-            str: _description_
+            Feature: _description_
         """
         if track_id in list(self._values.keys()):
             return self._values[track_id]
@@ -181,6 +183,12 @@ class Features_new:
             raise StopIteration
 
     def append_feature(self, new_feature: Feature) -> None:
+        """
+        append_feature append a single Feature object to Features.
+
+        Args:
+            new_feature (Feature): Feature object to be appended. It must contain at least the x and y coordinates of the keypoint.
+        """
         assert isinstance(
             new_feature, Feature
         ), "Invalid input feature. It must be Feature object"
@@ -221,16 +229,20 @@ class Features_new:
             self._values[id] = Feature(x, y, descr=d)
         self._increm_id = self._increm_id + len(xx)
 
-    def to_numpy(self, get_descr: bool = False, get_score: bool = False) -> np.ndarray:
+    def to_numpy(
+        self,
+        get_descr: bool = False,
+        get_score: bool = False,
+    ) -> dict:
         """
-        to_numpy Get all keypoints and, optionally, descriptors and scores stacked as numpy arrays.
+        to_numpy Get all keypoints (with, optionally, descriptors and scores) stacked as numpy arrays.
 
         Args:
             get_descr (bool, optional): get descriptors as mxn array. Defaults to False.
             get_score (bool, optional): get scores as nx1 array. Defaults to False.
 
         Returns:
-            np.ndarray: _description_
+            dict: dictionary containing the following keys (depending on the input arguments): ["kpts", "descr", "scores"]
         """
         kpts = np.empty((len(self), 2))
         for i, v in enumerate(self._values.values()):
@@ -239,16 +251,16 @@ class Features_new:
         if get_descr and get_score:
             descr = self.descr_to_numpy()
             scores = self.scores_to_numpy()
-            return kpts, descr, scores
+            return {"kpts": kpts, "descr": descr, "scores": scores}
         elif get_descr:
             descr = self.descr_to_numpy()
-            return kpts, descr
+            return {"kpts": kpts, "descr": descr}
         else:
-            return kpts
+            return {"kpts": kpts}
 
     def kpts_to_numpy(self) -> np.ndarray:
         """
-        kpts_to_numpy _summary_
+        kpts_to_numpy Get all keypoints coordinates stacked as a nx2 numpy array.
 
         Returns:
             np.ndarray: nx2 numpy array containing xy coordinates of all keypoints
@@ -260,7 +272,7 @@ class Features_new:
 
     def descr_to_numpy(self) -> np.ndarray:
         """
-        descr_to_numpy _summary_
+        descr_to_numpy Get all descriptors stacked as a mxn (m is the descriptor size [128 or 256]) numpy array.
 
         Returns:
             np.ndarray: mxn numpy array containing the descriptors of all the features (where m is the dimension of the descriptor that can be either 128 or 256)
@@ -273,7 +285,7 @@ class Features_new:
 
     def scores_to_numpy(self) -> np.ndarray:
         """
-        scores_to_numpy _summary_
+        scores_to_numpy Get all scores stacked as a nx1 numpy array.
 
         Returns:
             np.ndarray: nx1 array with scores
@@ -285,11 +297,10 @@ class Features_new:
         return score
 
     def reset_fetures(self):
-        """
-        Reset Feature instance to None Objects
-        """
+        """Reset Features instance"""
         self._values = {}
         self._increm_id = 0
+        self._iter = 0
 
 
 class Features:
@@ -464,7 +475,7 @@ if __name__ == "__main__":
 
     for _ in range(rep_times):
         t0 = time.time()
-        k, d = features_new.to_numpy(get_descr=True)
+        out = features_new.to_numpy(get_descr=True)
         t1 = time.time()
         logging.info(f"Get kpt+descr: Elapsed time {t1-t0:.4f} s")
 
@@ -474,4 +485,5 @@ if __name__ == "__main__":
     # for f in features_new:
     #     print(f.xy)
 
+    x = np.random.rand()
     print("Done")
