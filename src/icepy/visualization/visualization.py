@@ -35,8 +35,8 @@ from typing import List, Union, Dict
 from pathlib import Path
 from copy import deepcopy
 
-from ..base_classes.camera import Camera
-from ..base_classes.point_cloud import PointCloud
+from ..classes.camera import Camera
+from ..classes.point_cloud import PointCloud
 from ..sfm.geometry import project_points
 
 matplotlib.use("TkAgg")

@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 
-from src.icepy.base_classes.features import Feature, Features
+from src.icepy.classes.features import Feature, Features
 
 
 def test_feature():
