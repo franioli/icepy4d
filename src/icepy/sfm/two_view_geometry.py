@@ -27,7 +27,7 @@ import logging
 
 from typing import List
 
-from ..base_classes.camera import Camera
+from ..classes.camera import Camera
 
 from .geometry import estimate_pose
 
