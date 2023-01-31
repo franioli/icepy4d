@@ -28,6 +28,8 @@ import logging
 import time
 
 from typing import Union, List
+from pathlib import Path
+
 
 if __name__ == "__main__":
     from src.icepy.base_classes.camera import Camera
@@ -59,8 +61,8 @@ class Feature:
         Raises:
             AssertionError: Invalid shape of the descriptor. It must be a numpy array with 128 or 256 elements.
         """
-        self._x = x
-        self._y = y
+        self._x = np.float32(x)
+        self._y = np.float32(y)
 
         if track_id is not None:
             assert isinstance(
@@ -82,32 +84,32 @@ class Feature:
                 descr = descr.reshape(-1, 1)
             elif descr.shape[1] not in [128, 256]:
                 raise AssertionError(msg)
-            self._descr = descr
+            self._descr = np.float32(descr)
         else:
             self._descr = None
 
         if score is not None:
-            assert isinstance(
-                score, float
-            ), "Invalid score value. It must be a float number"
+            assert isinstance(score, float) or isinstance(
+                score, np.float32
+            ), "Invalid score value. It must be a floating number of type np.float32"
             self._score = score
         else:
             self._score = None
 
     @property
-    def x(self) -> float:
+    def x(self) -> np.float32:
         "Get x coordinate of the feature"
-        return float(self._x)
+        return np.float32(self._x)
 
     @property
-    def y(self) -> float:
+    def y(self) -> np.float32:
         "Get x coordinate of the feature"
-        return float(self._y)
+        return np.float32(self._y)
 
     @property
     def xy(self) -> np.ndarray:
         "Get xy coordinates of the feature as 1x2 numpy array"
-        return np.array([self._x, self._y], dtype=float).reshape(1, 2)
+        return np.array([self._x, self._y], dtype=np.float32).reshape(1, 2)
 
     @property
     def track_id(self) -> int:
@@ -122,27 +124,27 @@ class Feature:
     def descr(self) -> np.ndarray:
         """Get descriptor as mx1 numpy array (note that this is a column array)"""
         if self._descr is not None:
-
-            return self._descr
+            return np.float32(self._descr)
         else:
             logging.warning("Descriptor is not available")
             return None
 
     @property
-    def score(self) -> float:
+    def score(self) -> np.float32:
         """Get score"""
         if self._score is not None:
-            return float(self._score)
+            return np.float32(self._score)
         else:
             logging.warning("Score is not available")
             return None
 
 
-class Features_new:
+class Features:
     def __init__(self):
         self._values = {}
         self._increm_id = 0
         self._iter = 0
+        self._descriptor_size = 256
 
     def __len__(self) -> int:
         """
@@ -193,6 +195,14 @@ class Features_new:
             new_feature, Feature
         ), "Invalid input feature. It must be Feature object"
         self._values[self._increm_id] = new_feature
+        if new_feature.descr is not None:
+            if len(self) > 0:
+                assert (
+                    self._descriptor_size == new_feature.descr.shape[0]
+                ), "Descriptor size of the new feature does not match with that of the existing feature"
+            else:
+                self._descriptor_size = new_feature.descr.shape[0]
+
         self._increm_id += 1
 
     def append_features_from_numpy(
@@ -203,13 +213,13 @@ class Features_new:
         scores: np.ndarray = None,
     ) -> None:
         """
-        append_features_from_numpy _summary_
+        append_features_from_numpy append new features to Features object, starting from numpy arrays of x and y coordinates, descriptors and scores.
 
         Args:
-            x (np.ndarray): _description_
-            y (np.ndarray): _description_
-            descr (np.ndarray, optional): _description_. Defaults to None.
-            scores (np.ndarray, optional): _description_. Defaults to None.
+            x (np.ndarray): nx1 numpy array containing x coordinates of all keypoints
+            y (np.ndarray): nx1 numpy array containing y coordinates of all keypoints
+            descr (np.ndarray, optional): mxn numpy array containing the descriptors of all the features (where m is the dimension of the descriptor that can be either 128 or 256). Defaults to None.
+            scores (np.ndarray, optional):  nx1 numpy array containing scores of all keypoints. Defaults to None.
         """
         assert isinstance(x, np.ndarray), "invalid type of x vector"
         assert isinstance(y, np.ndarray), "invalid type of y vector"
@@ -218,15 +228,27 @@ class Features_new:
             256,
         ], "invalid shape of the descriptor array. It must be of size mxn (m: descriptor size [128, 256], n: number of features"
 
+        if descr is not None:
+            if len(self) > 0:
+                assert (
+                    self._descriptor_size == descr.shape[0]
+                ), "Descriptor size of the new feature does not match with that of the existing feature"
+            else:
+                self._descriptor_size = descr.shape[0]
+
         xx = x.flatten()
         yy = y.flatten()
         ids = range(self._increm_id, self._increm_id + len(xx))
         if descr is not None:
-            descr = descr.T
+            descr = np.float32(descr.T)
         else:
             descr = [None for _ in range(len(xx))]
-        for x, y, id, d in zip(xx, yy, ids, descr):
-            self._values[id] = Feature(x, y, descr=d)
+        if scores is not None:
+            scores = np.float32(scores.squeeze())
+        else:
+            scores = [None for _ in range(len(xx))]
+        for x, y, id, d, s in zip(xx, yy, ids, descr, scores):
+            self._values[id] = Feature(x, y, track_id=id, descr=d, score=s)
         self._increm_id = self._increm_id + len(xx)
 
     def to_numpy(
@@ -244,9 +266,9 @@ class Features_new:
         Returns:
             dict: dictionary containing the following keys (depending on the input arguments): ["kpts", "descr", "scores"]
         """
-        kpts = np.empty((len(self), 2))
+        kpts = np.empty((len(self), 2), dtype=np.float32)
         for i, v in enumerate(self._values.values()):
-            kpts[i, :] = v.xy
+            kpts[i, :] = np.float32(v.xy)
 
         if get_descr and get_score:
             descr = self.descr_to_numpy()
@@ -268,7 +290,7 @@ class Features_new:
         kpts = np.empty((len(self), 2))
         for i, v in enumerate(self._values.values()):
             kpts[i, :] = v.xy
-        return kpts
+        return np.float32(kpts)
 
     def descr_to_numpy(self) -> np.ndarray:
         """
@@ -277,11 +299,13 @@ class Features_new:
         Returns:
             np.ndarray: mxn numpy array containing the descriptors of all the features (where m is the dimension of the descriptor that can be either 128 or 256)
         """
-        assert self._values[0].descr is not None, "Descriptors non availble"
-        descr = np.empty((self._values[0].descr.shape[0], len(self)), dtype=float)
+        assert any(
+            [self._values[i].descr is not None for i in list(self._values.keys())]
+        ), "Descriptors non availble"
+        descr = np.empty((self._descriptor_size, len(self)), dtype=np.float32)
         for i, v in enumerate(self._values.values()):
             descr[:, i : i + 1] = v.descr.reshape(-1, 1)
-        return descr
+        return np.float32(descr)
 
     def scores_to_numpy(self) -> np.ndarray:
         """
@@ -290,11 +314,28 @@ class Features_new:
         Returns:
             np.ndarray: nx1 array with scores
         """
-        assert self._values[0].score is not None, "Scores non availble"
-        score = np.empty(len(self), dtype=float)
+        assert any(
+            [self._values[i].score is not None for i in list(self._values.keys())]
+        ), "Scores non availble"
+        score = np.empty(len(self), dtype=np.float32)
         for i, v in enumerate(self._values.values()):
-            score[i] = v.score.reshape(-1, 1)
-        return score
+            score[i] = v.score
+        return np.float32(score)
+
+    def get_features_as_dict(self) -> dict:
+        """
+        get_features_as_dict Return a dictionary with keypoints, descriptors and scores, organized for SuperGlue
+
+        Returns:
+            dict: dictionary containing the following keys (depending on the input arguments): ["keypoints0", "descriptors0", "scores0"]
+        """
+
+        dict = {
+            "keypoints0": self.kpts_to_numpy(),
+            "descriptors0": self.descr_to_numpy(),
+            "scores0": self.scores_to_numpy(),
+        }
+        return dict
 
     def reset_fetures(self):
         """Reset Features instance"""
@@ -302,8 +343,57 @@ class Features_new:
         self._increm_id = 0
         self._iter = 0
 
+    def filter_feature_by_mask(
+        self, inlier_mask: List[bool], verbose: bool = False
+    ) -> None:
+        """
+        delete_feature_by_mask Keep only inlier features, given a mask array as a list of boolean values. Note that this function does NOT take into account the track_id of the features! Inlier mask must have the same lenght as the number of features stored in the Features instance.
 
-class Features:
+        Args:
+            inlier_mask (List[bool]): boolean mask with True value in correspondance of the features to keep. inlier_mask must have the same length as the total number of features.
+            verbose (bool): log number of filtered features. Defaults to False.
+        """
+        indexes = [i for i, x in enumerate(inlier_mask) if x]
+        self.filter_feature_by_index(indexes, verbose=verbose)
+
+    def filter_feature_by_index(self, indexes: List[int], verbose: bool) -> None:
+        """
+        delete_feature_by_mask Keep only inlier features, given a list of index (int values) of the features to keep.
+
+        Args:
+            inlier_mask (List[int]): List with the index of the features to keep.
+            verbose (bool): log number of filtered features. Defaults to False.
+
+        """
+        new_dict = {k: v for k, v in self._values.items() if v.track_id in indexes}
+        if verbose:
+            logging.info(
+                f"Features filtered: {len(self)-len(new_dict)}/{len(self)} removed. New features size: {len(new_dict)}."
+            )
+        self._values = new_dict
+
+    def save_as_txt(
+        self,
+        path: Union[str, Path],
+        fmt: str = "%i",
+        delimiter: str = ",",
+        header: str = "x,y",
+    ):
+        """Save keypoints in a .txt file"""
+        kpts = self.kpts_to_numpy()
+        np.savetxt(
+            path, kpts, fmt=fmt, delimiter=delimiter, newline="\n", header=header
+        )
+
+    def save_as_pickle(self, path: Union[str, Path]) -> True:
+        """Save keypoints in as pickle file"""
+
+        path = Path(path)
+        with open(path, "wb") as f:
+            pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+
+class Features_old:
     """
     Class to store matched features, descriptors and scores
     Features are stored as numpy arrays:
@@ -439,7 +529,7 @@ if __name__ == "__main__":
 
     rep_times = 1
 
-    features = Features()
+    features = Features_old()
     for _ in range(rep_times):
         t0 = time.time()
         features.append_features(
@@ -452,7 +542,7 @@ if __name__ == "__main__":
         t1 = time.time()
         logging.info(f"Append features as numpy array: elapsed time {t1-t0:.4f} s")
 
-    features_new = Features_new()
+    features_new = Features()
     for _ in range(rep_times):
         t0 = time.time()
         features_new.append_features_from_numpy(x, y, descr)

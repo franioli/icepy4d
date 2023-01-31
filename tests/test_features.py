@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 
-from src.icepy.base_classes.features import Feature, Features_new
+from src.icepy.base_classes.features import Feature, Features
 
 
 def test_feature():
@@ -37,8 +37,11 @@ def test_features():
     y = np.random.randint(0, height, (n_feat, 1))
     descr = np.random.rand(256, n_feat)
     scores = np.random.rand(n_feat, 1)
-    features = Features_new()
+    features = Features()
     features.append_features_from_numpy(x, y, descr, scores)
+    assert any(
+        [features[i].track_id == i for i in range(len(features))]
+    ), "Unable to create correct track id when appending new features from numpy"
     out = features.to_numpy(get_descr=True)
     assert features[0].x == x[0], "Unable to create correct Features object"
     assert np.any(
