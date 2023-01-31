@@ -37,8 +37,6 @@ from ..base_classes.camera import Camera
 from ..base_classes.point_cloud import PointCloud
 from ..base_classes.images import Image, ImageDS
 from ..base_classes.targets import Targets
-from ..base_classes.features import Features
-
 
 # This file defines the dictionary cfg which includes the default parameters of the pipeline.
 # The dictionary is updated/extended at runtime with the parameters defined by the user in the input yaml config file
