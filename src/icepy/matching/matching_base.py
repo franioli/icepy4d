@@ -35,16 +35,22 @@ def MatchingAndTracking(
         pair, cfg.images.mask_bounding_box, cfg.matching
     )
 
-    # Store matches in features structure
+    # Store matches in Features structure
     for jj, cam in enumerate(cams):
         # Dict keys are the cameras names, internal list contain epoches
+        # features[epoch][cam] = Features()
+        # features[epoch][cam].append_features(
+        #     {
+        #         "kpts": matchedPts[jj],
+        #         "descr": matchedDescriptors[jj],
+        #         "score": matchedPtsScores[jj],
+        #     }
+        # )
         features[epoch][cam] = Features()
-        features[epoch][cam].append_features(
-            {
-                "kpts": matchedPts[jj],
-                "descr": matchedDescriptors[jj],
-                "score": matchedPtsScores[jj],
-            }
+        x = matchedPts[jj][:, 0:1]
+        y = matchedPts[jj][:, 1:2]
+        features[epoch][cam].append_features_from_numpy(
+            x, y, descr=matchedDescriptors[jj], scores=matchedPtsScores[jj]
         )
         # @TODO: Store match confidence!
 
@@ -96,8 +102,18 @@ def MatchingAndTracking(
             # @TODO: clean tracking code
 
             # Store all matches in features structure
-            features[epoch][cams[0]].append_features(tracked_cam0)
-            features[epoch][cams[1]].append_features(tracked_cam1)
+            features[epoch][cams[0]].append_features_from_numpy(
+                tracked_cam0["kpts"][:, 0:1],
+                tracked_cam0["kpts"][:, 1:2],
+                tracked_cam0["descr"],
+                tracked_cam0["score"],
+            )
+            features[epoch][cams[1]].append_features_from_numpy(
+                tracked_cam1["kpts"][:, 0:1],
+                tracked_cam1["kpts"][:, 1:2],
+                tracked_cam1["descr"],
+                tracked_cam1["score"],
+            )
         else:
             logging.warning(
                 f"Skipping tracking from epoch {epoch_dict[epoch-1]} to {epoch_dict[epoch]}"
@@ -105,8 +121,8 @@ def MatchingAndTracking(
 
     # Run Pydegensac to estimate F matrix and reject outliers
     F, inlMask = pydegensac.findFundamentalMatrix(
-        features[epoch][cams[0]].get_keypoints(),
-        features[epoch][cams[1]].get_keypoints(),
+        features[epoch][cams[0]].kpts_to_numpy(),
+        features[epoch][cams[1]].kpts_to_numpy(),
         px_th=1.0,
         conf=0.99999,
         max_iters=10000,
@@ -119,8 +135,8 @@ def MatchingAndTracking(
         f"Matching at epoch {epoch}: pydegensac found {inlMask.sum()} \
             inliers ({inlMask.sum()*100/len(features[epoch][cams[0]]):.2f}%)"
     )
-    features[epoch][cams[0]].remove_outliers_features(inlMask)
-    features[epoch][cams[1]].remove_outliers_features(inlMask)
+    features[epoch][cams[0]].filter_feature_by_mask(inlMask, verbose=True)
+    features[epoch][cams[1]].filter_feature_by_mask(inlMask, verbose=True)
 
     # Write matched points to disk
     im_stems = images[cams[0]].get_image_stem(epoch), images[cams[1]].get_image_stem(

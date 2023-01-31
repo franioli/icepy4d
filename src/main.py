@@ -172,8 +172,8 @@ if __name__ == "__main__":
         relative_ori = sfm.RelativeOrientation(
             [cameras[epoch][cams[0]], cameras[epoch][cams[1]]],
             [
-                features[epoch][cams[0]].get_keypoints(),
-                features[epoch][cams[1]].get_keypoints(),
+                features[epoch][cams[0]].kpts_to_numpy(),
+                features[epoch][cams[1]].kpts_to_numpy(),
             ],
         )
         relative_ori.estimate_pose(
@@ -191,8 +191,8 @@ if __name__ == "__main__":
         triang = sfm.Triangulate(
             [cameras[epoch][cams[0]], cameras[epoch][cams[1]]],
             [
-                features[epoch][cams[0]].get_keypoints(),
-                features[epoch][cams[1]].get_keypoints(),
+                features[epoch][cams[0]].kpts_to_numpy(),
+                features[epoch][cams[1]].kpts_to_numpy(),
             ],
         )
         points3d = triang.triangulate_two_views(
@@ -305,8 +305,8 @@ if __name__ == "__main__":
             triang = sfm.Triangulate(
                 [cameras[epoch][cams[0]], cameras[epoch][cams[1]]],
                 [
-                    features[epoch][cams[0]].get_keypoints(),
-                    features[epoch][cams[1]].get_keypoints(),
+                    features[epoch][cams[0]].kpts_to_numpy(),
+                    features[epoch][cams[1]].kpts_to_numpy(),
                 ],
             )
             points3d = triang.triangulate_two_views(
@@ -329,7 +329,7 @@ if __name__ == "__main__":
             # M = targets[epoch].get_object_coor_by_label(cfg.georef.targets_to_use)[0]
             # m = cameras[epoch][cams[1]].project_point(M)
             # plot_features(images[cams[1]].read_image(epoch).value, m)
-            # plot_features(images[cams[0]].read_image(epoch).value, features[epoch][cams[0]].get_keypoints())
+            # plot_features(images[cams[0]].read_image(epoch).value, features[epoch][cams[0]].kpts_to_numpy())
 
             # Clean variables
             del relative_ori, triang, abs_ori, points3d, pcd_epc
