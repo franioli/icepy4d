@@ -36,10 +36,12 @@ else:
 
 
 class Feature:
+    __slots__ = ("_x", "_y", "_track", "_descr", "_score")
+
     def __init__(
         self,
-        x: Union[float, int],
-        y: Union[float, int],
+        x: float,
+        y: float,
         track_id: int = None,
         descr: np.ndarray = None,
         score: float = None,
@@ -83,6 +85,9 @@ class Feature:
             self._descr = None
 
         if score is not None:
+            assert isinstance(
+                score, float
+            ), "Invalid score value. It must be a float number"
             self._score = score
         else:
             self._score = None
@@ -135,6 +140,7 @@ class Features_new:
     def __init__(self):
         self._values = {}
         self._increm_id = 0
+        self._iter = 0
 
     def __len__(self) -> int:
         """
@@ -161,34 +167,122 @@ class Features_new:
             logging.warning(f"Feature with track id {track_id} not available.")
             return None
 
-    # def __iter__(self):
-    #     self._elem = 0
-    #     return self
+    def __iter__(self):
+        self._iter = 0
+        return self
 
-    # def __next__(self):
-    #     while self._elem < len(self):
-    #         file = self.files[self._elem]
-    #         self._elem += 1
-    #         return file
-    #     else:
-    #         self._elem
-    #         raise StopIteration
+    def __next__(self):
+        while self._iter < len(self):
+            f = self._values[self._iter]
+            self._iter += 1
+            return f
+        else:
+            self._iter = 0
+            raise StopIteration
 
-    def append_feature(self, new_feature: Feature):
+    def append_feature(self, new_feature: Feature) -> None:
         assert isinstance(
             new_feature, Feature
         ), "Invalid input feature. It must be Feature object"
         self._values[self._increm_id] = new_feature
         self._increm_id += 1
 
-    def append_features_from_numpy_array(self, x, y):
+    def append_features_from_numpy(
+        self,
+        x: np.ndarray,
+        y: np.ndarray,
+        descr: np.ndarray = None,
+        scores: np.ndarray = None,
+    ) -> None:
+        """
+        append_features_from_numpy _summary_
+
+        Args:
+            x (np.ndarray): _description_
+            y (np.ndarray): _description_
+            descr (np.ndarray, optional): _description_. Defaults to None.
+            scores (np.ndarray, optional): _description_. Defaults to None.
+        """
+        assert isinstance(x, np.ndarray), "invalid type of x vector"
+        assert isinstance(y, np.ndarray), "invalid type of y vector"
+        assert descr.shape[0] in [
+            128,
+            256,
+        ], "invalid shape of the descriptor array. It must be of size mxn (m: descriptor size [128, 256], n: number of features"
+
         xx = x.flatten()
         yy = y.flatten()
         ids = range(self._increm_id, self._increm_id + len(xx))
-        for x, y, id in zip(xx, yy, ids):
-            self._values[id] = Feature(x, y)
-
+        if descr is not None:
+            descr = descr.T
+        else:
+            descr = [None for _ in range(len(xx))]
+        for x, y, id, d in zip(xx, yy, ids, descr):
+            self._values[id] = Feature(x, y, descr=d)
         self._increm_id = self._increm_id + len(xx)
+
+    def to_numpy(self, get_descr: bool = False, get_score: bool = False) -> np.ndarray:
+        """
+        to_numpy Get all keypoints and, optionally, descriptors and scores stacked as numpy arrays.
+
+        Args:
+            get_descr (bool, optional): get descriptors as mxn array. Defaults to False.
+            get_score (bool, optional): get scores as nx1 array. Defaults to False.
+
+        Returns:
+            np.ndarray: _description_
+        """
+        kpts = np.empty((len(self), 2))
+        for i, v in enumerate(self._values.values()):
+            kpts[i, :] = v.xy
+
+        if get_descr and get_score:
+            descr = self.descr_to_numpy()
+            scores = self.scores_to_numpy()
+            return kpts, descr, scores
+        elif get_descr:
+            descr = self.descr_to_numpy()
+            return kpts, descr
+        else:
+            return kpts
+
+    def kpts_to_numpy(self) -> np.ndarray:
+        """
+        kpts_to_numpy _summary_
+
+        Returns:
+            np.ndarray: nx2 numpy array containing xy coordinates of all keypoints
+        """
+        kpts = np.empty((len(self), 2))
+        for i, v in enumerate(self._values.values()):
+            kpts[i, :] = v.xy
+        return kpts
+
+    def descr_to_numpy(self) -> np.ndarray:
+        """
+        descr_to_numpy _summary_
+
+        Returns:
+            np.ndarray: mxn numpy array containing the descriptors of all the features (where m is the dimension of the descriptor that can be either 128 or 256)
+        """
+        assert self._values[0].descr is not None, "Descriptors non availble"
+        descr = np.empty((self._values[0].descr.shape[0], len(self)), dtype=float)
+        for i, v in enumerate(self._values.values()):
+            descr[:, i : i + 1] = v.descr.reshape(-1, 1)
+        return descr
+
+    def scores_to_numpy(self) -> np.ndarray:
+        """
+        scores_to_numpy _summary_
+
+        Returns:
+            np.ndarray: nx1 array with scores
+        """
+        assert self._values[0].score is not None, "Scores non availble"
+        score = np.empty(len(self), dtype=float)
+        for i, v in enumerate(self._values.values()):
+            score[i] = v.score.reshape(-1, 1)
+        return score
 
     def reset_fetures(self):
         """
@@ -325,42 +419,59 @@ if __name__ == "__main__":
     setup_logger()
 
     width, height = 6000, 4000
-    n_feat = 100000
+    n_feat = 10000
     x = np.random.randint(0, width, (n_feat, 1))
     y = np.random.randint(0, height, (n_feat, 1))
     kpts = np.concatenate((x, y), axis=1)
     descr = np.random.rand(256, n_feat)
     scores = np.random.rand(n_feat, 1)
 
-    t0 = time.time()
+    rep_times = 1
+
     features = Features()
-    features.append_features(
-        {
-            "kpts": kpts,
-            "descr": descr,
-            "score": scores,
-        }
-    )
-    t1 = time.time()
-    logging.info(f"Append features as numpy array: elapsed time {t1-t0:.4f} s")
+    for _ in range(rep_times):
+        t0 = time.time()
+        features.append_features(
+            {
+                "kpts": kpts,
+                "descr": descr,
+                "score": scores,
+            }
+        )
+        t1 = time.time()
+        logging.info(f"Append features as numpy array: elapsed time {t1-t0:.4f} s")
 
-    t0 = time.time()
-    features = Features_new()
-    for i in range(len(x)):
-        features.append_feature(Feature(x[i, 0], y[i, 0]))
-    t1 = time.time()
-    logging.info(
-        f"Append features as single Feature objects: Elapsed time {t1-t0:.4f} s"
-    )
+    features_new = Features_new()
+    for _ in range(rep_times):
+        t0 = time.time()
+        features_new.append_features_from_numpy(x, y, descr)
+        t1 = time.time()
+        logging.info(
+            f"Append features from numpy array to dict of Feature objects: Elapsed time {t1-t0:.4f} s"
+        )
 
-    t0 = time.time()
-    features = Features_new()
-    features.append_features_from_numpy_array(x, y)
-    t1 = time.time()
-    logging.info(
-        f"Append features from numpy array to dict of Feature objects: Elapsed time {t1-t0:.4f} s"
-    )
+    for _ in range(rep_times):
+        t0 = time.time()
+        out = features_new.kpts_to_numpy()
+        t1 = time.time()
+        logging.info(f"Get xy coordinates: Elapsed time {t1-t0:.4f} s")
 
-    features[0].descr
+    for _ in range(rep_times):
+        t0 = time.time()
+        out = features_new.descr_to_numpy()
+        t1 = time.time()
+        logging.info(f"Get descr: Elapsed time {t1-t0:.4f} s")
+
+    for _ in range(rep_times):
+        t0 = time.time()
+        k, d = features_new.to_numpy(get_descr=True)
+        t1 = time.time()
+        logging.info(f"Get kpt+descr: Elapsed time {t1-t0:.4f} s")
+
+    # Test iterable
+    print(next(features_new).xy)
+    print(next(features_new).xy)
+    # for f in features_new:
+    #     print(f.xy)
 
     print("Done")
