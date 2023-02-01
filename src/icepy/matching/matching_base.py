@@ -134,8 +134,16 @@ def MatchingAndTracking(
     for jj, cam in enumerate(cams):
         x = matchedPts[jj][:, 0:1]
         y = matchedPts[jj][:, 1:2]
+        if epoch > cfg.proc.epoch_to_process[0]:
+            last_track_id = features[epoch - 1][cam].get_track_ids()[-1]
+        else:
+            last_track_id = 0
         features[epoch][cam].append_features_from_numpy(
-            x, y, descr=matchedDescriptors[jj], scores=matchedPtsScores[jj]
+            x,
+            y,
+            descr=matchedDescriptors[jj],
+            scores=matchedPtsScores[jj],
+            base_track_id=last_track_id,
         )
         # @TODO: Store match confidence!
     logging.info(f"SuperGlue found {len(features[epoch][cam])} matches")
