@@ -153,7 +153,7 @@ class Features:
         Returns:
             int: _description_
         """
-        return len(self._values)
+        return self.num_features
 
     def __getitem__(self, track_id: np.int64) -> Feature:
         """
@@ -184,6 +184,13 @@ class Features:
             self._iter = 0
             raise StopIteration
 
+    @property
+    def num_features(self):
+        """
+        num_features Number of features stored in Features object
+        """
+        return len(self._values)
+
     def append_feature(self, new_feature: Feature) -> None:
         """
         append_feature append a single Feature object to Features.
@@ -212,6 +219,7 @@ class Features:
         descr: np.ndarray = None,
         scores: np.ndarray = None,
         track_ids: List[np.int64] = None,
+        base_track_id: np.int64 = None,
     ) -> None:
         """
         append_features_from_numpy append new features to Features object, starting from numpy arrays of x and y coordinates, descriptors and scores.
@@ -222,6 +230,7 @@ class Features:
             descr (np.ndarray, optional): mxn numpy array containing the descriptors of all the features (where m is the dimension of the descriptor that can be either 128 or 256). Defaults to None.
             scores (np.ndarray, optional):  nx1 numpy array containing scores of all keypoints. Defaults to None.
             track_ids (List[int]): List containing the track_id of each point to be added to Features object. Default to None.
+            base_track_id (np.int64): base base_track_id from which to start computing progressive track_ids. If a value is given, the internal counter Features.__increm_id is overwitten. Defaults to None.
         """
         assert isinstance(x, np.ndarray), "invalid type of x vector"
         assert isinstance(y, np.ndarray), "invalid type of y vector"
@@ -229,10 +238,19 @@ class Features:
             128,
             256,
         ], "invalid shape of the descriptor array. It must be of size mxn (m: descriptor size [128, 256], n: number of features"
+        assert not (
+            track_ids is not None and base_track_id is not None
+        ), "Invlaid arguments: both track_ids and base_track_id are provided, but only one can be given."
 
         if not np.any(x):
             logging.warning("Empty input feature arrays. Nothing done.")
             return None
+
+        if base_track_id is not None:
+            logging.warning(
+                f"Replacing internal track_id counter {self._increm_id} with input base_track_id {base_track_id}"
+            )
+            self._increm_id = base_track_id
 
         if descr is not None:
             if len(self) > 0:
@@ -418,7 +436,9 @@ class Features:
             logging.info(
                 f"Features filtered: {len(self)-len(new_dict)}/{len(self)} removed. New features size: {len(new_dict)}."
             )
+        last_id = list(self._values.keys())[-1]
         self._values = new_dict
+        self._increm_id = last_id
 
     def get_feature_by_index(self, indexes: List[np.int64]) -> dict:
         """
