@@ -473,101 +473,6 @@ class Features:
             pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
 
 
-class Features_old:
-    """
-    Class to store matched features, descriptors and scores
-    Features are stored as numpy arrays:
-        Features.kpts: nx2 array of features location
-        Features.descr: mxn array of descriptors(note that descriptors are stored columnwise)
-        Features.score: nx1 array with feature score"""
-
-    def __init__(self):
-        self.reset_fetures()
-
-    def __len__(self):
-        """Get total number of featues stored"""
-        return len(self.kpts)
-
-    def reset_fetures(self):
-        """
-        Reset Feature instance to None Objects
-        """
-        self.kpts = None
-        self.descr = None
-        self.score = None
-
-    def initialize_fetures(self, nfeatures=1, descr_size=256):
-        """
-        Inizialize Feature instance to numpy arrays,
-        optionally for a given number of features and descriptor size(default is 256).
-        """
-        self.kpts = np.empty((nfeatures, 2), dtype=float)
-        self.descr = np.empty((descr_size, nfeatures), dtype=float)
-        self.score = np.empty(nfeatures, dtype=float)
-
-    def get_keypoints(self):
-        """Return keypoints as numpy array"""
-        return np.float32(self.kpts)
-
-    def get_descriptors(self):
-        """Return descriptors as numpy array"""
-        return np.float32(self.descr)
-
-    def get_scores(self):
-        """Return scores as numpy array"""
-        return np.float32(self.score)
-
-    def get_features_as_dict(self):
-        """Return a dictionary with keypoints, descriptors and scores, organized for SuperGlue"""
-        out = {
-            "keypoints0": self.get_keypoints(),
-            "descriptors0": self.get_descriptors(),
-            "scores0": self.get_scores(),
-        }
-        return out
-
-    def remove_outliers_features(self, inlier_mask):
-        self.kpts = self.kpts[inlier_mask, :]
-        self.descr = self.descr[:, inlier_mask]
-        self.score = self.score[inlier_mask]
-
-    def append_features(self, new_features):
-        """
-        Append new features to Features Class.
-        Input new_features is a Dict with keys as follows:
-            new_features['kpts']: nx2 array of features location
-            new_features['descr']: mxn array of descriptors(note that descriptors are stored columnwise)
-            new_features['score']: nx1 array with feature score
-        """
-        # Check dictionary keys:
-        keys = ["kpts", "descr", "score"]
-        if any(key not in new_features.keys() for key in keys):
-            logging.error(
-                'Invalid input dictionary. Check all keys ["kpts", "descr", "scores"] are present'
-            )
-            return self
-
-        if self.kpts is None:
-            self.kpts = new_features["kpts"]
-            self.descr = new_features["descr"]
-            self.score = new_features["score"]
-        else:
-            self.kpts = np.append(self.kpts, new_features["kpts"], axis=0)
-            self.descr = np.append(self.descr, new_features["descr"], axis=1)
-            self.score = np.append(self.score, new_features["score"], axis=0)
-
-    def save_as_pickle(self, path):
-        """Save keypoints in a .txt file"""
-        with open(path, "wb") as f:
-            pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
-
-    def save_as_txt(self, path, fmt="%i", delimiter=",", header="x,y"):
-        """Save keypoints in a .txt file"""
-        np.savetxt(
-            path, self.kpts, fmt=fmt, delimiter=delimiter, newline="\n", header=header
-        )
-
-
 if __name__ == "__main__":
     """Test classes"""
 
@@ -583,52 +488,27 @@ if __name__ == "__main__":
     descr = np.random.rand(256, n_feat)
     scores = np.random.rand(n_feat, 1)
 
-    # rep_times = 1
+    rep_times = 1
 
-    # features = Features_old()
-    # for _ in range(rep_times):
-    #     t0 = time.time()
-    #     features.append_features(
-    #         {
-    #             "kpts": kpts,
-    #             "descr": descr,
-    #             "score": scores,
-    #         }
-    #     )
-    #     t1 = time.time()
-    #     logging.info(f"Append features as numpy array: elapsed time {t1-t0:.4f} s")
+    features_new = Features()
+    for _ in range(rep_times):
+        t0 = time.time()
+        features_new.append_features_from_numpy(x, y, descr)
+        t1 = time.time()
+        logging.info(
+            f"Append features from numpy array to dict of Feature objects: Elapsed time {t1-t0:.4f} s"
+        )
 
-    # features_new = Features()
-    # for _ in range(rep_times):
-    #     t0 = time.time()
-    #     features_new.append_features_from_numpy(x, y, descr)
-    #     t1 = time.time()
-    #     logging.info(
-    #         f"Append features from numpy array to dict of Feature objects: Elapsed time {t1-t0:.4f} s"
-    #     )
+    for _ in range(rep_times):
+        t0 = time.time()
+        out = features_new.to_numpy(get_descr=True)
+        t1 = time.time()
+        logging.info(f"Get kpt+descr: Elapsed time {t1-t0:.4f} s")
 
-    # for _ in range(rep_times):
-    #     t0 = time.time()
-    #     out = features_new.kpts_to_numpy()
-    #     t1 = time.time()
-    #     logging.info(f"Get xy coordinates: Elapsed time {t1-t0:.4f} s")
-
-    # for _ in range(rep_times):
-    #     t0 = time.time()
-    #     out = features_new.descr_to_numpy()
-    #     t1 = time.time()
-    #     logging.info(f"Get descr: Elapsed time {t1-t0:.4f} s")
-
-    # for _ in range(rep_times):
-    #     t0 = time.time()
-    #     out = features_new.to_numpy(get_descr=True)
-    #     t1 = time.time()
-    #     logging.info(f"Get kpt+descr: Elapsed time {t1-t0:.4f} s")
-
-    # # Test iterable
-    # print(next(features_new).xy)
-    # print(next(features_new).xy)
-    # # for f in features_new:
-    # #     print(f.xy)
+    # Test iterable
+    print(next(features_new).xy)
+    print(next(features_new).xy)
+    # for f in features_new:
+    #     print(f.xy)
 
     print("Done")
