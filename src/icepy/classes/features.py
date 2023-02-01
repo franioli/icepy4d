@@ -27,9 +27,9 @@ import numpy as np
 import logging
 import time
 
-from typing import Union, List
+from typing import Union, List, Tuple
 from pathlib import Path
-
+from copy import deepcopy
 
 if __name__ == "__main__":
     from src.icepy.classes.camera import Camera
@@ -44,9 +44,9 @@ class Feature:
         self,
         x: float,
         y: float,
-        track_id: int = None,
+        track_id: np.int64 = None,
         descr: np.ndarray = None,
-        score: float = None,
+        score: np.float32 = None,
     ) -> None:
         """
         __init__ Create Feature object
@@ -65,10 +65,10 @@ class Feature:
         self._y = np.float32(y)
 
         if track_id is not None:
-            assert isinstance(
-                track_id, int
+            assert isinstance(track_id, int) or isinstance(
+                track_id, np.int64
             ), "Invalid track_id. It must be a integer number"
-            self._track = track_id
+            self._track = np.int64(track_id)
         else:
             self._track = None
 
@@ -112,10 +112,10 @@ class Feature:
         return np.array([self._x, self._y], dtype=np.float32).reshape(1, 2)
 
     @property
-    def track_id(self) -> int:
+    def track_id(self) -> np.int64:
         "Get x coordinate of the feature"
         if self._track is not None:
-            return int(self._track)
+            return np.int64(self._track)
         else:
             logging.warning("Track id is not available")
             return None
@@ -155,7 +155,7 @@ class Features:
         """
         return len(self._values)
 
-    def __getitem__(self, track_id: int) -> Feature:
+    def __getitem__(self, track_id: np.int64) -> Feature:
         """
         __getitem__ _summary_
 
@@ -211,6 +211,7 @@ class Features:
         y: np.ndarray,
         descr: np.ndarray = None,
         scores: np.ndarray = None,
+        track_ids: List[np.int64] = None,
     ) -> None:
         """
         append_features_from_numpy append new features to Features object, starting from numpy arrays of x and y coordinates, descriptors and scores.
@@ -220,6 +221,7 @@ class Features:
             y (np.ndarray): nx1 numpy array containing y coordinates of all keypoints
             descr (np.ndarray, optional): mxn numpy array containing the descriptors of all the features (where m is the dimension of the descriptor that can be either 128 or 256). Defaults to None.
             scores (np.ndarray, optional):  nx1 numpy array containing scores of all keypoints. Defaults to None.
+            track_ids (List[int]): List containing the track_id of each point to be added to Features object. Default to None.
         """
         assert isinstance(x, np.ndarray), "invalid type of x vector"
         assert isinstance(y, np.ndarray), "invalid type of y vector"
@@ -227,6 +229,10 @@ class Features:
             128,
             256,
         ], "invalid shape of the descriptor array. It must be of size mxn (m: descriptor size [128, 256], n: number of features"
+
+        if not np.any(x):
+            logging.warning("Empty input feature arrays. Nothing done.")
+            return None
 
         if descr is not None:
             if len(self) > 0:
@@ -238,7 +244,27 @@ class Features:
 
         xx = x.flatten()
         yy = y.flatten()
-        ids = range(self._increm_id, self._increm_id + len(xx))
+
+        if track_ids is None:
+            ids = range(self._increm_id, self._increm_id + len(xx))
+        else:
+            assert isinstance(
+                track_ids, list
+            ), "Invalid track_ids input. It must be a list of integers of the same size of the input arrays."
+            assert len(track_ids) == len(
+                xx
+            ), "invalid size of track_id input. It must be a list of the same size of the input arrays."
+
+            try:
+                for id in track_ids:
+                    if id in list(self._values.keys()):
+                        msg = f"Feature with track_id {id} is already present in Features object. Ignoring input track_id and assigning progressive track_ids."
+                        logging.error(msg)
+                        raise ValueError(msg)
+                ids = track_ids
+            except ValueError:
+                ids = range(self._increm_id, self._increm_id + len(xx))
+
         if descr is not None:
             descr = np.float32(descr.T)
         else:
@@ -247,9 +273,14 @@ class Features:
             scores = np.float32(scores.squeeze())
         else:
             scores = [None for _ in range(len(xx))]
+
         for x, y, id, d, s in zip(xx, yy, ids, descr, scores):
             self._values[id] = Feature(x, y, track_id=id, descr=d, score=s)
-        self._increm_id = self._increm_id + len(xx)
+
+        if track_ids is None:
+            self._increm_id = self._increm_id + len(xx)
+        else:
+            self._increm_id = max(ids + [self._increm_id])
 
     def to_numpy(
         self,
@@ -322,9 +353,21 @@ class Features:
             score[i] = v.score
         return np.float32(score)
 
-    def get_features_as_dict(self) -> dict:
+    def get_track_ids(self) -> Tuple[np.int64]:
         """
-        get_features_as_dict Return a dictionary with keypoints, descriptors and scores, organized for SuperGlue
+        get_track_it Get a ordered tuple of track_id of all the features
+
+        Returns:
+            tuple: tuple of size (n,) with track_ids
+        """
+        return tuple([np.int64(x) for x in self._values.keys()])
+
+    def get_features_as_dict(self, get_track_id: bool = False) -> dict:
+        """
+        get_features_as_dict Get a dictionary with keypoints, descriptors and scores, organized for SuperGlue
+
+        Args:
+            get_track_id (bool, optional): get a tuple with the track_id of all the features as an additionally dictionary key ["track_id"]. Defaults to False.
 
         Returns:
             dict: dictionary containing the following keys (depending on the input arguments): ["keypoints0", "descriptors0", "scores0"]
@@ -335,6 +378,9 @@ class Features:
             "descriptors0": self.descr_to_numpy(),
             "scores0": self.scores_to_numpy(),
         }
+        if get_track_id:
+            dict["track_id"] = self.get_track_ids()
+
         return dict
 
     def reset_fetures(self):
@@ -356,7 +402,9 @@ class Features:
         indexes = [i for i, x in enumerate(inlier_mask) if x]
         self.filter_feature_by_index(indexes, verbose=verbose)
 
-    def filter_feature_by_index(self, indexes: List[int], verbose: bool) -> None:
+    def filter_feature_by_index(
+        self, indexes: List[np.int64], verbose: bool = False
+    ) -> None:
         """
         delete_feature_by_mask Keep only inlier features, given a list of index (int values) of the features to keep.
 
@@ -371,6 +419,19 @@ class Features:
                 f"Features filtered: {len(self)-len(new_dict)}/{len(self)} removed. New features size: {len(new_dict)}."
             )
         self._values = new_dict
+
+    def get_feature_by_index(self, indexes: List[np.int64]) -> dict:
+        """
+        get_feature_by_index Get inlier features, given a list of index (int values) of the features to keep.
+
+        Args:
+            indexes (List[int]): List with the index of the features to keep.
+            verbose (bool, optional): log number of filtered features. Defaults to False.
+
+        Returns:
+            dict: dictionary containing the selected features with track_id as keys and Feature object as values {track_id: Feature}
+        """
+        return {k: v for k, v in self._values.items() if v.track_id in indexes}
 
     def save_as_txt(
         self,

@@ -61,10 +61,15 @@ def MatchingAndTracking(
         if epoch - 1 in features.keys():
             prevs = [features[epoch - 1][cam].get_features_as_dict() for cam in cams]
 
+            cam = cams[0]
+            prev_track_id = features[epoch - 1][cam].get_track_ids()
+
             # Call actual tracking function
             tracked_cam0, tracked_cam1 = track_matches(
-                pairs, cfg.images.mask_bounding_box, prevs, cfg.tracking
+                pairs, cfg.images.mask_bounding_box, prevs, prev_track_id, cfg.tracking
             )
+            tracked_kpts_idx = list(tracked_cam1["track_id"])
+
             # @TODO: keep track of the epoch in which feature is matched
             # @TODO: Check bounding box in tracking
             # @TODO: clean tracking code
@@ -75,13 +80,39 @@ def MatchingAndTracking(
                 tracked_cam0["kpts"][:, 1:2],
                 tracked_cam0["descr"],
                 tracked_cam0["score"],
+                track_ids=tracked_kpts_idx,
             )
             features[epoch][cams[1]].append_features_from_numpy(
                 tracked_cam1["kpts"][:, 0:1],
                 tracked_cam1["kpts"][:, 1:2],
                 tracked_cam1["descr"],
                 tracked_cam1["score"],
+                track_ids=tracked_kpts_idx,
             )
+
+            # For debugging
+            # from ..visualization.visualization import make_matching_plot
+
+            # make_matching_plot(
+            #     images[cams[0]].read_image(epoch).value,
+            #     images[cams[1]].read_image(epoch).value,
+            #     features[epoch][cams[0]].kpts_to_numpy(),
+            #     features[epoch][cams[1]].kpts_to_numpy(),
+            #     path="ep181.png",
+            # )
+            # idx = list(tracked_cam1["track_id"])
+            # aa = Features()
+            # aa._values = features[epoch - 1][cams[0]].get_feature_by_index(idx)
+            # bb = Features()
+            # bb._values = features[epoch - 1][cams[1]].get_feature_by_index(idx)
+            # make_matching_plot(
+            #     images[cams[0]].read_image(epoch-1).value,
+            #     images[cams[1]].read_image(epoch-1).value,
+            #     aa.kpts_to_numpy(),
+            #     bb.kpts_to_numpy(),
+            #     path="ep180.png",
+            # )
+
         else:
             logging.warning(
                 f"Skipping tracking from epoch {epoch_dict[epoch-1]} to {epoch_dict[epoch]}"

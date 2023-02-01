@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.cm as cm
 import torch
 import cv2
+import logging
 
 from pathlib import Path
 
@@ -131,18 +132,17 @@ def match_pair(pair, maskBB, opt):
     if len(opt.resize) == 2 and opt.resize[1] == -1:
         opt.resize = opt.resize[0:1]
     if len(opt.resize) == 2:
-
-        print("Will resize to {}x{} (WxH)".format(opt.resize[0], opt.resize[1]))
+        logging.info(f"Will resize to {opt.resize[0]}x{opt.resize[1]} (WxH)")
     elif len(opt.resize) == 1 and opt.resize[0] > 0:
-        print("Will resize max dimension to {}".format(opt.resize[0]))
+        logging.info(f"Will resize max dimension to {opt.resize[0]}")
     elif len(opt.resize) == 1:
-        print("Will not resize images")
+        logging.info(f"Will not resize images")
     else:
         raise ValueError("Cannot specify more than two integers for --resize")
 
     # Load the SuperPoint and SuperGlue models.
     device = "cuda" if torch.cuda.is_available() and not opt.force_cpu else "cpu"
-    print('Running inference on device "{}"'.format(device))
+    logging.info(f"Running inference on device {device}")
     config = {
         "superpoint": {
             "nms_radius": NMS_RADIUS,
@@ -160,9 +160,9 @@ def match_pair(pair, maskBB, opt):
     # Create the output directories if they do not exist already.
     output_dir = Path(opt.output_dir)
     output_dir.mkdir(exist_ok=True, parents=True)
-    print('Will write matches to directory "{}"'.format(output_dir))
+    logging.info(f"Will write matches to directory {output_dir}")
     if opt.viz_matches:
-        print("Will write visualization images to", 'directory "{}"'.format(output_dir))
+        logging.info(f"Will write visualization images to directory {output_dir}")
 
     timer = AverageTimer()
     name0, name1 = pair[:2]
@@ -178,7 +178,7 @@ def match_pair(pair, maskBB, opt):
         name1, device, opt.resize, rot1, opt.resize_float, maskBB[1]
     )
     if image0 is None or image1 is None:
-        print("Problem reading image pair: {} {}".format(name0, name1))
+        logging.error("Problem reading image pair: {} {}".format(name0, name1))
         exit(1)
     timer.update("load_image")
     # import matplotlib
@@ -208,7 +208,7 @@ def match_pair(pair, maskBB, opt):
             out_dir=output_dir / "tiles1",
             writeTile2Disk=opt.writeTile2Disk,
         )
-        print(f"Images subdivided in {opt.rowDivisor}x{opt.colDivisor} tiles")
+        logging.info(f"Images subdivided in {opt.rowDivisor}x{opt.colDivisor} tiles")
         timer.update("create_tiles")
 
         timerTile = AverageTimer()
@@ -299,7 +299,7 @@ def match_pair(pair, maskBB, opt):
     # F, inlMask = pydegensac.findFundamentalMatrix(mkpts0_full, mkpts1_full, px_th=1.5, conf=0.9999,
     #                                               max_iters=100000, laf_consistensy_coef=-1.0, error_type='sampson',
     #                                               symmetric_error_check=True, enable_degeneracy_check=True)
-    # print ('pydegensac found {} inliers ({:.2f}%)'.format(inlMask.sum(),
+    # logging.info ('pydegensac found {} inliers ({:.2f}%)'.format(inlMask.sum(),
     #                 inlMask.sum()*100 / len(mkpts0_full) ))
     # mconf = conf_full[inlMask]
     # mkpts0 = mkpts0_full[inlMask]
