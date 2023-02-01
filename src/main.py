@@ -57,7 +57,7 @@ if __name__ == "__main__":
 
     cfg_file, log_cfg = initialization.parse_command_line()
 
-    # cfg_file = Path("config/config_test.yaml")
+    cfg_file = Path("config/config_test.yaml")
 
     # Setup logger
     icepy_utils.setup_logger(
@@ -352,19 +352,6 @@ if __name__ == "__main__":
                 homography_warping(
                     cameras[ep_ini][cam], cameras[epoch][cam], image, out_path, timer
                 )
-
-            # Incremetal plots
-            # if cfg.other.do_viz:
-            #     make_focal_length_variation_plot(
-            #         focals,
-            #         cfg.paths.results_dir / f"focal_lenghts_{cfg_file.stem}.png",
-            #     )
-            #     make_camera_angles_plot(
-            #         cameras,
-            #         cfg.paths.results_dir / f"angles_{cfg_file.stem}.png",
-            #         baseline_epoch=cfg.proc.epoch_to_process[0],
-            #         current_epoch=epoch,
-            #     )
 
         timer.print(f"Epoch {epoch} completed")
 
