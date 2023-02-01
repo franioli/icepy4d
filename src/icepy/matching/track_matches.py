@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.cm as cm
 import torch
 import cv2
+import logging
 
 from ..thirdparty.SuperGluePretrainedNetwork.models.matching import Matching
 from ..thirdparty.SuperGluePretrainedNetwork.models.utils import (
@@ -57,7 +58,7 @@ def read_image(path, device, resize=-1, rotation=0, resize_float=True, crop=[]):
     return image, inp, scales
 
 
-def track_matches(pairs, maskBB, prevs, opt):
+def track_matches(pairs, maskBB, prevs, track_id, opt):
 
     opt.resize_float = RESIZE_FLOAT
     opt.viz_extension = VIZ_EXTENSION
@@ -79,17 +80,17 @@ def track_matches(pairs, maskBB, prevs, opt):
     if len(opt.resize) == 2 and opt.resize[1] == -1:
         opt.resize = opt.resize[0:1]
     if len(opt.resize) == 2:
-        print("Will resize to {}x{} (WxH)".format(opt.resize[0], opt.resize[1]))
+        logging.info(f"Will resize to {opt.resize[0]}x{opt.resize[1]} (WxH)")
     elif len(opt.resize) == 1 and opt.resize[0] > 0:
-        print("Will resize max dimension to {}".format(opt.resize[0]))
+        logging.info(f"Will resize max dimension to {opt.resize[0]}")
     elif len(opt.resize) == 1:
-        print("Will not resize images")
+        logging.info(f"Will not resize images")
     else:
         raise ValueError("Cannot specify more than two integers for --resize")
 
     # Load the SuperPoint and SuperGlue models.
     device = "cuda" if torch.cuda.is_available() and not opt.force_cpu else "cpu"
-    print('Running inference on device "{}"'.format(device))
+    logging.info(f"Running inference on device {device}")
     config = {
         "superpoint": {
             "nms_radius": NMS_RADIUS,
@@ -107,9 +108,9 @@ def track_matches(pairs, maskBB, prevs, opt):
     # Create the output directories if they do not exist already.
     output_dir = Path(opt.output_dir)
     output_dir.mkdir(exist_ok=True, parents=True)
-    print('Will write matches to directory "{}"'.format(output_dir))
+    logging.info(f"Will write matches to directory {output_dir}")
     if opt.viz_matches:
-        print("Will write visualization images to", 'directory "{}"'.format(output_dir))
+        logging.info(f"Will write visualization images to directory {output_dir}")
 
     # Inizialize lists for storing matching points
     kpts0_full = []
@@ -118,6 +119,7 @@ def track_matches(pairs, maskBB, prevs, opt):
     # mconf_full = []
     descriptors1_full = []
     scores1_full = []
+    track_id1_full = []
 
     timer = AverageTimer()
 
@@ -149,7 +151,7 @@ def track_matches(pairs, maskBB, prevs, opt):
             maskBB[1],
         )
         if image0 is None or image1 is None:
-            print("Problem reading image pair: {} {}".format(name0, name1))
+            logging.error("Problem reading image pair: {} {}".format(name0, name1))
             exit(1)
         timer.update("load_image")
 
@@ -180,7 +182,7 @@ def track_matches(pairs, maskBB, prevs, opt):
             out_dir=output_dir / "tiles1",
             writeTile2Disk=writeTile2Disk,
         )
-        print(f"Images subdivided in {rowDivisor}x{colDivisor} tiles")
+        logging.info(f"Images subdivided in {rowDivisor}x{colDivisor} tiles")
         timer.update("create_tiles")
 
         # import pdb
@@ -189,7 +191,7 @@ def track_matches(pairs, maskBB, prevs, opt):
         # try:
         #     if torch.is_tensor(prevs[cam]['keypoints0'][0]):
         #         prev = {k: v[0].cpu().numpy() for k, v in prevs[cam].items()}
-        #     print('Prev data are tensors: converted to np')
+        #     logging.info('Prev data are tensors: converted to np')
         # except:
         prev = prevs[cam]
 
@@ -201,6 +203,7 @@ def track_matches(pairs, maskBB, prevs, opt):
         )
         scores1_full.append(np.full(len(prev["scores0"]), -1, dtype=(float)))
         # mconf_full.append(np.full((len(prev['keypoints0'])), 0, dtype=(float)))
+        track_id1_full.append(np.full(len(track_id), -1, dtype=(int)))
 
         # TODO: CHECK IT!
         # Subract coordinates bounding box
@@ -226,6 +229,7 @@ def track_matches(pairs, maskBB, prevs, opt):
                 ptsInTile[i] = rectContains(limits0[t], kk)
             ptsInTileIdx = np.where(ptsInTile == True)[0]
             kpts0_tile = kpts0[ptsInTile] - np.array(limits0[t][0:2]).astype("float32")
+            track_id0_tile = np.array(track_id)[ptsInTile]
 
             # Build Prev tensor
             prevTile = {
@@ -255,6 +259,7 @@ def track_matches(pairs, maskBB, prevs, opt):
             mkpts0 = kpts0_tile[valid]
             mkpts1 = kpts1[matches0[valid]]
             mconf = conf[valid]
+            track_id1 = track_id0_tile[valid]
 
             # pts0 = mkpts0
             # img0 = np.uint8(tiles0[t])
@@ -277,6 +282,8 @@ def track_matches(pairs, maskBB, prevs, opt):
                     scores1_full[cam][ptsInTileIdx[i]] = scores1[
                         predTile["matches0"][i]
                     ]
+                    track_id1_full[cam][ptsInTileIdx[i]] = track_id0_tile[i]
+
                     # mconf_full[cam][ptsInTileIdx[0][i], :] = predTile['matches0']
                     #     [i]] + np.array(limits1[t][0:2]).astype('float32')
                     # TO DO: Keep track of the matching scores
@@ -329,12 +336,12 @@ def track_matches(pairs, maskBB, prevs, opt):
             # if do_viz_tile:
             #     predTile['keypoints0']= kpts0
             #     vizTile_path= output_dir / '{}_{}_matches_tile{}.{}'.format(stem0, stem1, t, opt.viz_extension)
-            #     tile_print_opt= {'imstem0': stem0+'_'+str(t), 'imstem1': stem1+'_'+str(t), 'show_keypoints': True,
+            #     tile_logging.info_opt= {'imstem0': stem0+'_'+str(t), 'imstem1': stem1+'_'+str(t), 'show_keypoints': True,
             #            'fast_viz': opt.fast_viz, 'opencv_display': opt.opencv_display}
             #     vizTileRes(vizTile_path, predTile,
-            #                tiles0[t], tiles1[t], matching, timerTile, tile_print_opt)
+            #                tiles0[t], tiles1[t], matching, timerTile, tile_logging.info_opt)
 
-            timerTile.print("Finished Tile Pairs {:2} of {:2}".format(t, len(tiles0)))
+            timerTile.print(f"Finished Tile Pairs {t:2} of {len(tiles0):2}")
 
         if do_viz:
             # Visualize the matches.
@@ -389,6 +396,9 @@ def track_matches(pairs, maskBB, prevs, opt):
     scores1_cam0 = scores1_full[0][validTracked]
     scores1_cam1 = scores1_full[1][validTracked]
 
+    track_id_cam0 = np.array(track_id)[validTracked].astype(np.int64)
+    track_id_cam1 = track_id1_full[1][validTracked].astype(np.int64)
+
     # Restore original image coordinates (not cropped)
     mkpts1_cam0 = mkpts1_cam0 + np.array(maskBB[1][0:2]).astype("float32")
     mkpts1_cam1 = mkpts1_cam1 + np.array(maskBB[1][0:2]).astype("float32")
@@ -397,21 +407,6 @@ def track_matches(pairs, maskBB, prevs, opt):
     # img0 = cv2.cvtColor(images[1][1], cv2.COLOR_BGR2GRAY)
     # img0_kpts = cv2.drawKeypoints(img0,cv2.KeyPoint.convert(pts0),img0,(0,255,0),flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
     # cv2.imwrite('dummy_out.jpg', img0_kpts)
-
-    # Run PyDegensac
-    # F, inlMask= pydegensac.findFundamentalMatrix(mkpts1_cam0, mkpts1_cam1, px_th=3, conf=0.9,
-    #                                               max_iters=100000, laf_consistensy_coef=-1.0, error_type='sampson',
-    #                                               symmetric_error_check=True, enable_degeneracy_check=True)
-    # print('pydegensac found {} inliers ({:.2f}%)'.format(int(deepcopy(inlMask).astype(np.float32).sum()),
-    #                 int(deepcopy(inlMask).astype(np.float32).sum())*100 / len(mkpts1_cam0)))
-    # # Reject false matching
-    # mkpts1_cam0= mkpts1_cam0[inlMask]
-    # mkpts1_cam1= mkpts1_cam1[inlMask]
-    # descr1_cam0  = descr1_cam0[:, inlMask]
-    # descr1_cam1  = descr1_cam1[:, inlMask]
-    # scores1_cam0 = scores1_cam0[inlMask]
-    # scores1_cam1 = scores1_cam1[inlMask]
-    # timer.update('PyDegensac')
 
     # Viz point mached on both the images
     name0 = pairs[0][1]
@@ -482,8 +477,18 @@ def track_matches(pairs, maskBB, prevs, opt):
     # Free cuda memory and return variables
     torch.cuda.empty_cache()
 
-    tracked_cam0 = {"kpts": mkpts1_cam0, "descr": descr1_cam0, "score": scores1_cam0}
-    tracked_cam1 = {"kpts": mkpts1_cam1, "descr": descr1_cam1, "score": scores1_cam1}
+    tracked_cam0 = {
+        "kpts": mkpts1_cam0,
+        "descr": descr1_cam0,
+        "score": scores1_cam0,
+        "track_id": track_id_cam0,
+    }
+    tracked_cam1 = {
+        "kpts": mkpts1_cam1,
+        "descr": descr1_cam1,
+        "score": scores1_cam1,
+        "track_id": track_id_cam1,
+    }
 
     return tracked_cam0, tracked_cam1
 
