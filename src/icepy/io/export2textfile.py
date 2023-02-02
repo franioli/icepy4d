@@ -3,8 +3,8 @@ import logging
 
 from pathlib import Path
 
-from ..base_classes.features import Features
-from ..base_classes.images import ImageDS
+from ..classes.features import Features
+from ..classes.images import ImageDS
 
 """
 Export keypoints and points3d to file
@@ -32,7 +32,7 @@ def export_keypoints(
             # NB: must be manually modified if it contains characters of symbols
             file.write(f"{image_name}\n")
 
-            for id, kpt in enumerate(features[epoch][cam].get_keypoints()):
+            for id, kpt in enumerate(features[epoch][cam].kpts_to_numpy()):
                 x, y = kpt
                 file.write(f"{id},{x},{y} \n")
 
@@ -76,7 +76,7 @@ def export_keypoints_by_image(
             # Write header to file
             file.write("feature_id,x,y\n")
 
-            for id, kpt in enumerate(features[epoch][cam].get_keypoints()):
+            for id, kpt in enumerate(features[epoch][cam].kpts_to_numpy()):
                 x, y = kpt
                 file.write(f"{id},{x},{y}\n")
 

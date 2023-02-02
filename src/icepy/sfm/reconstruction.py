@@ -4,9 +4,9 @@ import logging
 
 from typing import List
 
-from ..base_classes.features import Features
-from ..base_classes.camera import Camera
-from ..base_classes.images import Image, ImageDS
+from ..classes.features import Features
+from ..classes.camera import Camera
+from ..classes.images import Image, ImageDS
 
 from .triangulation import Triangulate
 from .geometry import (

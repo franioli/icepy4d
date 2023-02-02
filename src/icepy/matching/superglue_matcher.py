@@ -17,8 +17,8 @@ from pathlib import Path
 from typing import Tuple, Union
 
 
-from ..base_classes.features import Features
-from ..base_classes.images import ImageDS
+from ..classes.features import Features
+from ..classes.images import ImageDS
 from ..utils.initialization import parse_yaml_cfg
 from ..tiles import generateTiles
 
