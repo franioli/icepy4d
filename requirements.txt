@@ -1,19 +1,20 @@
 numpy
-matplotlib
 pandas
+matplotlib
 opencv-python
-scipy
-# h5py
-pyyaml
-tqdm
-exifread
+kornia
+open3d
 pydegensac
+scipy
+exifread
+tqdm
+pyyaml
 easydict
 pytest
 flake8
+lmfit
 # pycolmap
-open3d
-kornia
+# h5py
 # gdown
 # plotly
-#rasterio
+# rasterio
