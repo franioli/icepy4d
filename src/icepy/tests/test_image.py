@@ -15,8 +15,7 @@ def test_image_ds(data_dir):
         images.get_image_stem(0) == "IMG_2637"
     ), "Unable to retrieve image stem from image DS"
     assert (
-        images.get_image_path(0)
-        == Path(os.path.split(__file__)[0]).parent / "assets/img/cam1/IMG_2637.jpg"
+        images.get_image_path(0) == data_dir / "img/cam1/IMG_2637.jpg"
     ), "Unable to retrieve image path from image DS"
     assert (
         images.get_image_date(0) == "2022:05:01"
@@ -26,8 +25,7 @@ def test_image_ds(data_dir):
     ), "Unable to retrieve image time from exif"
     # Test ImageDS iterator
     assert (
-        next(images)
-        == Path(os.path.split(__file__)[0]).parent / "assets/img/cam1/IMG_2637.jpg"
+        next(images) == data_dir / "img/cam1/IMG_2637.jpg"
     ), "Unable to iterate over ImageDS datastore"
 
 
