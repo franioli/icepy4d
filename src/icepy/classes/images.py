@@ -32,7 +32,14 @@ import cv2
 import exifread
 import numpy as np
 
-from ..utils.sensor_width_database import SensorWidthDatabase
+if __name__ == "__main__":
+    from src.icepy.utils.sensor_width_database import SensorWidthDatabase
+    from src.icepy.classes.camera import Camera
+    from src.icepy.sfm.geometry import undistort_image
+else:
+    from ..utils.sensor_width_database import SensorWidthDatabase
+    from .camera import Camera
+    from ..sfm.geometry import undistort_image
 
 
 def read_image(
@@ -142,11 +149,39 @@ class Image:
             return None
 
     @property
+    def name(self) -> str:
+        """
+        Name of the image (including extension)
+        """
+        return self._path.name
+
+    @property
+    def stem(self) -> str:
+        """
+        Name of the image (excluding extension)
+        """
+        return self._path.stem
+
+    @property
     def path(self) -> str:
         """
         Path of the image
         """
         return self._path
+
+    @property
+    def parent(self) -> str:
+        """
+        Path to the parent folder of the image
+        """
+        return self._path.parent
+
+    @property
+    def extension(self) -> str:
+        """
+        Returns the extension  of the image
+        """
+        return self._path.suffix
 
     @property
     def exif(self) -> dict:
@@ -312,6 +347,23 @@ class Image:
         )
         return K
 
+    def undistort_image(self, camera: Camera, out_path: str = None) -> np.ndarray:
+        """
+        undistort_image Wrapper around undistort_image function icepy.sfm.geometry module
+
+        Args:
+            camera (Camera): Camera object containing K and dist arrays.
+            out_path (str, optional): Path for writing the undistorted image to disk. If out_path is None, undistorted image is not saved to disk. Defaults to None.
+
+        Returns:
+            np.ndarray: undistored image
+        """
+        self.read_image()
+        und_imge = undistort_image(
+            cv2.cvtColor(self._value_array, cv2.COLOR_RGB2BGR), camera, out_path
+        )
+        return und_imge
+
 
 class ImageDS:
     """
@@ -329,9 +381,9 @@ class ImageDS:
         __init__ _summary_
 
         Args:
-            folder (Union[str, Path]): _description_
-            ext (str, optional): _description_. Defaults to None.
-            recursive (bool, optional): _description_. Defaults to False.
+            folder (Union[str, Path]): Path to the image folder
+            ext (str, optional): Image extension for filtering files. If None is provided, all files in 'folder' are read. Defaults to None.
+            recursive (bool, optional): Read files recurevely. Defaults to False.
 
         Raises:
             IsADirectoryError: _description_
@@ -464,7 +516,7 @@ class ImageDS:
 if __name__ == "__main__":
     """Test classes"""
 
-    images = ImageDS("data/img2022/p1")
+    images = ImageDS("assets/img/cam1")
 
     # Read image dates and times
     # images.read_dates()
@@ -487,6 +539,9 @@ if __name__ == "__main__":
 
     # Read image as numpy array
     image = images.read_image(0).value
+
+    # Undistort image
+    # print(isinstance(image.undistort_image))
 
     # Test ImageDS iterator
     print(next(images))

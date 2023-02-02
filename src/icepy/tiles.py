@@ -30,7 +30,7 @@ import numpy as np
 from pathlib import Path
 from typing import List
 
-from .base_classes.images import Image, ImageDS
+from .classes.images import Image, ImageDS
 
 
 def generateTiles(

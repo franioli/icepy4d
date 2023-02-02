@@ -120,7 +120,7 @@ if __name__ == "__main__":
     print("test matching")
 
     from tiles import Tiles
-    from base_classes.images import Image, ImageDS
+    from classes.images import Image, ImageDS
 
     matching_config = "config/opt_matching.json"
     with open(

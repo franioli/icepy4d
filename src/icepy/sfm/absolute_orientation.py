@@ -6,7 +6,7 @@ from lmfit import Minimizer, Parameters, fit_report
 from scipy import stats
 
 from .triangulation import Triangulate
-from ..base_classes.camera import Camera
+from ..classes.camera import Camera
 from ..utils.utils import convert_to_homogeneous, convert_from_homogeneous
 
 from ..thirdparty.transformations import (
