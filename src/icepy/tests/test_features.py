@@ -1,42 +1,46 @@
 import pytest
 import numpy as np
 
-from src.icepy.classes.features import Feature, Features
+from ..classes.features import Feature, Features
 
 
 def test_feature():
-    x = np.random.rand()
-    y = np.random.rand()
-    descr = np.random.rand(256)
-    score = np.random.rand()
+    rng = np.random.default_rng()
+    x = rng.random(dtype=np.float32)
+    y = rng.random(dtype=np.float32)
+    descr = rng.random(256, dtype=np.float32)
+    score = rng.random(dtype=np.float32)
     f = Feature(x, y, descr=descr, score=score)
-    assert f.x == x, "Unable to create correct Feature object"
-    assert f.y == y, "Unable to create correct Feature object"
+    assert f.x == np.float32(x), "Unable to create correct Feature object"
+    assert f.y == np.float32(y), "Unable to create correct Feature object"
     assert np.any(
-        f.descr == descr.reshape(256, 1)
+        f.descr == descr.reshape(256, 1).astype(np.float32)
     ), "Unable to create correct Feature object"
     assert f.score == score, "Unable to create correct Feature object"
 
-    descr = np.random.rand(256, 1)
+    descr = rng.random((256, 1), dtype=np.float32)
     f = Feature(x, y, descr=descr, score=score)
     assert np.any(
-        f.descr == descr.reshape(256, 1)
+        f.descr == descr.reshape(256, 1).astype(np.float32)
     ), "Unable to create correct Feature object"
 
-    descr = np.random.rand(1, 256)
+    descr = rng.random((1, 256), dtype=np.float32)
     f = Feature(x, y, descr=descr, score=score)
     assert np.any(
-        f.descr == descr.reshape(256, 1)
+        f.descr == descr.reshape(256, 1).astype(np.float32)
     ), "Unable to create correct Feature object"
+
+    # Test different input types
 
 
 def test_features():
+    rng = np.random.default_rng()
     n_feat = 100
     width, height = 6000, 4000
-    x = np.random.randint(0, width, (n_feat, 1))
-    y = np.random.randint(0, height, (n_feat, 1))
-    descr = np.random.rand(256, n_feat)
-    scores = np.random.rand(n_feat, 1)
+    x = rng.integers(0, width, (n_feat, 1))
+    y = rng.integers(0, height, (n_feat, 1))
+    descr = rng.random((256, n_feat), dtype=np.float32)
+    scores = rng.random((n_feat, 1), dtype=np.float32)
     features = Features()
     features.append_features_from_numpy(x, y, descr, scores)
     assert any(
@@ -49,5 +53,9 @@ def test_features():
         == np.concatenate((x.reshape(n_feat, 1), y.reshape(n_feat, 1)), axis=1)
     ), "Unable to create correct Features object"
     assert np.any(
-        out["descr"] == descr.reshape(256, n_feat)
+        out["descr"] == descr.reshape(256, n_feat).astype(np.float32)
     ), "Unable to create correct Features object"
+
+
+if __name__ == "__main__":
+    test_feature()
