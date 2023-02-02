@@ -35,8 +35,8 @@ from typing import List, Union, Dict
 from pathlib import Path
 from copy import deepcopy
 
-from ..base_classes.camera import Camera
-from ..base_classes.point_cloud import PointCloud
+from ..classes.camera import Camera
+from ..classes.point_cloud import PointCloud
 from ..sfm.geometry import project_points
 
 matplotlib.use("TkAgg")
@@ -538,7 +538,7 @@ def make_camera_angles_plot(
 """ Other skatched functions to be implemented"""
 # Darw features
 # img0 = images[1][0]
-# pt0 = features[1][epoch].get_keypoints()
+# pt0 = features[1][epoch].kpts_to_numpy()
 # # pts_col = tuple(np.random.randint(0,255,3).tolist())
 # pts_col=(0,255,0)
 # point_size=2

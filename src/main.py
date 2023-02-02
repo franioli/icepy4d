@@ -35,7 +35,7 @@ from matplotlib import pyplot as plt
 from datetime import datetime
 
 # icepy classes
-import icepy.base_classes as icepy_classes
+import icepy.classes as icepy_classes
 
 # icepy libraries
 import icepy.sfm as sfm
@@ -44,7 +44,10 @@ import icepy.utils.initialization as initialization
 import icepy.utils as icepy_utils
 import icepy.visualization as icepy_viz
 
-from icepy.matching.matching_base import MatchingAndTracking
+from icepy.matching.matching_base import (
+    MatchingAndTracking,
+    load_matches_from_disk,
+)
 from icepy.utils.utils import homography_warping
 from icepy.io.export2bundler import write_bundler_out
 
@@ -56,6 +59,8 @@ if __name__ == "__main__":
     # cfg_file = Path(CFG_FILE)
 
     cfg_file, log_cfg = initialization.parse_command_line()
+
+    # cfg_file = Path("config/config_test.yaml")
 
     # Setup logger
     icepy_utils.setup_logger(
@@ -92,16 +97,17 @@ if __name__ == "__main__":
     focals = init.focals_dict
 
     """ Big Loop over epoches """
+
+    logging.info("------------------------------------------------------")
     logging.info("Processing started:")
-    logging.info("-----------------------")
     timer = icepy_utils.AverageTimer()
     iter = 0
     for epoch in cfg.proc.epoch_to_process:
 
+        logging.info("------------------------------------------------------")
         logging.info(
             f"Processing epoch {epoch} [{iter}/{cfg.proc.epoch_to_process[-1]-cfg.proc.epoch_to_process[0]}] - {epoch_dict[epoch]}..."
         )
-        logging.info("-----------------------")
         iter += 1
 
         epochdir = Path(cfg.paths.results_dir) / epoch_dict[epoch]
@@ -118,24 +124,7 @@ if __name__ == "__main__":
         else:
             try:
                 path = epochdir / "matching"
-                fname = list(path.glob("*.pickle"))
-                if len(fname) < 1:
-                    msg = f"No pickle file found in the epoch directory {epochdir}"
-                    logging.error(msg)
-                    raise FileNotFoundError(msg)
-                if len(fname) > 1:
-                    msg = f"More than one pickle file is present in the epoch directory {epochdir}"
-                    logging.error(msg)
-                    raise FileNotFoundError(msg)
-                with open(fname[0], "rb") as f:
-                    try:
-                        loaded_features = pickle.load(f)
-                        features[epoch] = loaded_features
-                        logging.info(f"Loaded features from {fname[0]}")
-                    except:
-                        msg = f"Invalid pickle file in epoch directory {epochdir}"
-                        logging.error(msg)
-                        raise FileNotFoundError(msg)
+                features[epoch] = load_matches_from_disk()
             except FileNotFoundError as err:
                 logging.exception(err)
                 logging.warning("Performing new matching and tracking...")
@@ -148,6 +137,10 @@ if __name__ == "__main__":
                 )
 
         timer.update("matching")
+
+        # Testing
+        # a = features[180]["p1"]
+        # b = features[181]["p1"]
 
         """ SfM """
 
@@ -172,8 +165,8 @@ if __name__ == "__main__":
         relative_ori = sfm.RelativeOrientation(
             [cameras[epoch][cams[0]], cameras[epoch][cams[1]]],
             [
-                features[epoch][cams[0]].get_keypoints(),
-                features[epoch][cams[1]].get_keypoints(),
+                features[epoch][cams[0]].kpts_to_numpy(),
+                features[epoch][cams[1]].kpts_to_numpy(),
             ],
         )
         relative_ori.estimate_pose(
@@ -191,8 +184,8 @@ if __name__ == "__main__":
         triang = sfm.Triangulate(
             [cameras[epoch][cams[0]], cameras[epoch][cams[1]]],
             [
-                features[epoch][cams[0]].get_keypoints(),
-                features[epoch][cams[1]].get_keypoints(),
+                features[epoch][cams[0]].kpts_to_numpy(),
+                features[epoch][cams[1]].kpts_to_numpy(),
             ],
         )
         points3d = triang.triangulate_two_views(
@@ -305,8 +298,8 @@ if __name__ == "__main__":
             triang = sfm.Triangulate(
                 [cameras[epoch][cams[0]], cameras[epoch][cams[1]]],
                 [
-                    features[epoch][cams[0]].get_keypoints(),
-                    features[epoch][cams[1]].get_keypoints(),
+                    features[epoch][cams[0]].kpts_to_numpy(),
+                    features[epoch][cams[1]].kpts_to_numpy(),
                 ],
             )
             points3d = triang.triangulate_two_views(
@@ -329,7 +322,7 @@ if __name__ == "__main__":
             # M = targets[epoch].get_object_coor_by_label(cfg.georef.targets_to_use)[0]
             # m = cameras[epoch][cams[1]].project_point(M)
             # plot_features(images[cams[1]].read_image(epoch).value, m)
-            # plot_features(images[cams[0]].read_image(epoch).value, features[epoch][cams[0]].get_keypoints())
+            # plot_features(images[cams[0]].read_image(epoch).value, features[epoch][cams[0]].kpts_to_numpy())
 
             # Clean variables
             del relative_ori, triang, abs_ori, points3d, pcd_epc
@@ -346,19 +339,6 @@ if __name__ == "__main__":
                 homography_warping(
                     cameras[ep_ini][cam], cameras[epoch][cam], image, out_path, timer
                 )
-
-            # Incremetal plots
-            # if cfg.other.do_viz:
-            #     make_focal_length_variation_plot(
-            #         focals,
-            #         cfg.paths.results_dir / f"focal_lenghts_{cfg_file.stem}.png",
-            #     )
-            #     make_camera_angles_plot(
-            #         cameras,
-            #         cfg.paths.results_dir / f"angles_{cfg_file.stem}.png",
-            #         baseline_epoch=cfg.proc.epoch_to_process[0],
-            #         current_epoch=epoch,
-            #     )
 
         timer.print(f"Epoch {epoch} completed")
 

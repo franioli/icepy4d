@@ -29,7 +29,9 @@
       "program": "${file}",
       "console": "integratedTerminal",
       "justMyCode": true,
-      "env": { "PYTHONPATH": "${workspaceFolder}" },
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
       "args": [
         "--config",
         "config_block_3_4.yaml",

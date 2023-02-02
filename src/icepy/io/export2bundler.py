@@ -7,8 +7,8 @@ from copy import deepcopy
 from shutil import copy as scopy
 from typing import Union, List
 
-from ..base_classes.point_cloud import PointCloud
-from ..base_classes.targets import Targets
+from ..classes.point_cloud import PointCloud
+from ..classes.targets import Targets
 from ..utils.utils import create_directory
 from ..thirdparty.transformations import euler_from_matrix, euler_matrix
 
@@ -104,7 +104,7 @@ def write_bundler_out_all_epoches(
         obj_col = deepcopy(point_clouds[epoch].get_colors())
         im_coor = {}
         for cam in cams:
-            m = deepcopy(features[epoch][cam].get_keypoints())
+            m = deepcopy(features[epoch][cam].kpts_to_numpy())
             # Convert image coordinates to bundler image rs
             m[:, 0] = m[:, 0] - w / 2
             m[:, 1] = h / 2 - m[:, 1]
@@ -233,7 +233,7 @@ def write_bundler_out(
     obj_col = deepcopy(point_cloud.get_colors())
     im_coor = {}
     for cam in cams:
-        m = deepcopy(features[cam].get_keypoints())
+        m = deepcopy(features[cam].kpts_to_numpy())
         # Convert image coordinates to bundler image rs
         m[:, 0] = m[:, 0] - w / 2
         m[:, 1] = h / 2 - m[:, 1]

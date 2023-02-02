@@ -3,17 +3,17 @@ matplotlib
 pandas
 opencv-python
 scipy
-h5py
+# h5py
 pyyaml
 tqdm
-pycolmap
-open3d
-kornia
-gdown
-plotly
-rasterio
 exifread
 pydegensac
 easydict
 pytest
 flake8
+# pycolmap
+open3d
+kornia
+# gdown
+# plotly
+#rasterio

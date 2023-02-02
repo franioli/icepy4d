@@ -33,12 +33,11 @@ from pathlib import Path
 from typing import List, Union
 from datetime import datetime
 
-from ..base_classes.camera import Camera
-from ..base_classes.point_cloud import PointCloud
-from ..base_classes.images import Image, ImageDS
-from ..base_classes.targets import Targets
-from ..base_classes.features import Features
-
+from ..classes.camera import Camera
+from ..classes.features import Features
+from ..classes.point_cloud import PointCloud
+from ..classes.images import Image, ImageDS
+from ..classes.targets import Targets
 
 # This file defines the dictionary cfg which includes the default parameters of the pipeline.
 # The dictionary is updated/extended at runtime with the parameters defined by the user in the input yaml config file
@@ -116,6 +115,9 @@ def parse_yaml_cfg(cfg_file: Union[str, Path]) -> edict:
 
     with open(cfg_file) as file:
         cfg = edict(yaml.safe_load(file))
+    assert isinstance(
+        cfg, edict
+    ), "Unable to create valid cfg dictionary from yaml file"
 
     # - Data paths
     root_path = Path().absolute()
@@ -201,8 +203,17 @@ class Inizialization:
         self,
         cfg: edict,
     ) -> None:
+        """
+        __init__ initialization class
+
+        Args:
+            cfg (edict): dictionary (as EasyDict object) containing all the configuration parameters.
+        """
 
         self.cfg = cfg
+        assert (
+            "camera_names" in self.cfg.paths
+        ), "Camera names not available in cfg file."
         self.cams = self.cfg.paths.camera_names
 
     def init_image_ds(self) -> dict:
@@ -272,6 +283,8 @@ class Inizialization:
 
         for epoch in self.cfg.proc.epoch_to_process:
             features[epoch] = dict.fromkeys(self.cams)
+            for cam in self.cams:
+                features[epoch][cam] = Features()
 
         self.features = features
         return self.features
