@@ -70,15 +70,16 @@ other:
   #- Point cloud processing
   do_SOR_filter: False
 
-  #- Threshold for PyDegensac robust estimation (in px)
+  #- Threshold [px] and confidence for PyDegensac robust estimation
   # (used to reject false matches and compute relative orientation)
   pydegensac_treshold: 1
+  pydegensac_confidence: 0.9999
 
 #- Matching options
 matching:
   resize: [-1]
   keypoint_threshold: 0.0001
-  max_keypoints: 8192 #4096 #  10240
+  max_keypoints: 8192 #2048 #   10240
   superglue: "outdoor"
   match_threshold: 0.10
   viz_matches: true
@@ -94,8 +95,8 @@ matching:
 #- Tracking options
 tracking:
   resize: [-1]
-  keypoint_threshold: 0.005
-  max_keypoints: 8192
+  keypoint_threshold: 0.00001
+  max_keypoints: 12288 # 8192
   superglue: "outdoor"
   match_threshold: 0.3
   viz_matches: false
@@ -145,7 +146,7 @@ metashape:
   # 4 = 1/4 resolution ("Medium")
   # 8 = 1/8 resolution ("Low")
   # 16 = 1/16 resolution ("Lowest")
-  dense_downscale_factor: 1
+  dense_downscale_factor: 8
 
   # Depth maps filtering: choose between:
   # [NoFiltering, MildFiltering, ModerateFiltering, AggressiveFiltering]

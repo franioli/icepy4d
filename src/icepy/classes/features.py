@@ -38,7 +38,7 @@ else:
 
 
 class Feature:
-    __slots__ = ("_x", "_y", "_track", "_descr", "_score")
+    __slots__ = ("_x", "_y", "_track", "_descr", "_score", "epoch")
 
     def __init__(
         self,
@@ -47,6 +47,7 @@ class Feature:
         track_id: np.int64 = None,
         descr: np.ndarray = None,
         score: np.float32 = None,
+        epoch: np.int64 = None,
     ) -> None:
         """
         __init__ Create Feature object
@@ -54,9 +55,10 @@ class Feature:
         Args:
             x (Union[float, int]): x coordinate (as for OpenCV image coordinate system)
             y (Union[float, int]): y coordinate (as for OpenCV image coordinate system)
-            track_id (int, optional): track_id. Defaults to None.
+            track_id (np.int64, optional): track_id. Defaults to None.
             descr (np.ndarray, optional): descriptor as a numpy array with 128 or 256 elements. Defaults to None.
             score (float, optional): score. Defaults to None.
+            epoch (np.int64, optional): Epoch in which the feature is detected (or belongs to). Defaults to None.
 
         Raises:
             AssertionError: Invalid shape of the descriptor. It must be a numpy array with 128 or 256 elements.
@@ -92,9 +94,20 @@ class Feature:
             assert isinstance(score, float) or isinstance(
                 score, np.float32
             ), "Invalid score value. It must be a floating number of type np.float32"
-            self._score = score
+            self._score = np.float32(score)
         else:
             self._score = None
+
+        if epoch is not None:
+            msg = "Invalid input argument epoch. It must be an integer number."
+            try:
+                epoch = np.int64(epoch)
+            except:
+                raise ValueError(msg)
+            assert isinstance(epoch, np.int64), msg
+            self.epoch = epoch
+        else:
+            self.epoch = None
 
     @property
     def x(self) -> np.float32:
@@ -142,28 +155,28 @@ class Feature:
 class Features:
     def __init__(self):
         self._values = {}
-        self._increm_id = 0
+        self._last_id = -1
         self._iter = 0
         self._descriptor_size = 256
 
     def __len__(self) -> int:
         """
-        __len__ _summary_
+        __len__ Get number of features stored in Features object
 
         Returns:
-            int: _description_
+            int: number of features
         """
         return self.num_features
 
     def __getitem__(self, track_id: np.int64) -> Feature:
         """
-        __getitem__ _summary_
+        __getitem__ Get Feature object by calling Features instance with [] based on track_id (e.g., features[track_id] to get first Feature object)
 
         Args:
-            track_id (int): _description_
+            track_id (int): track_id of the feature to extract
 
         Returns:
-            Feature: _description_
+            Feature: requested Feature object
         """
         if track_id in list(self._values.keys()):
             return self._values[track_id]
@@ -191,6 +204,13 @@ class Features:
         """
         return len(self._values)
 
+    @property
+    def last_track_id(self):
+        """
+        last_track_id Track_id of the last features stored in Features object
+        """
+        return self._last_id
+
     def append_feature(self, new_feature: Feature) -> None:
         """
         append_feature append a single Feature object to Features.
@@ -201,7 +221,8 @@ class Features:
         assert isinstance(
             new_feature, Feature
         ), "Invalid input feature. It must be Feature object"
-        self._values[self._increm_id] = new_feature
+        self._last_id += 1
+        self._values[self._last_id] = new_feature
         if new_feature.descr is not None:
             if len(self) > 0:
                 assert (
@@ -210,7 +231,20 @@ class Features:
             else:
                 self._descriptor_size = new_feature.descr.shape[0]
 
-        self._increm_id += 1
+    def set_last_track_id(self, last_track_id: np.int64) -> None:
+        """
+        set_last_track_id set track_id of last feature to a custom value
+
+        Args:
+            last_track_id (np.int64): track_id to set.
+        """
+        try:
+            last_id = np.int64(last_track_id)
+        except:
+            raise ValueError(
+                "Invalid input argument last_track_id. It must be an integer number."
+            )
+        self._last_id = last_id
 
     def append_features_from_numpy(
         self,
@@ -219,7 +253,7 @@ class Features:
         descr: np.ndarray = None,
         scores: np.ndarray = None,
         track_ids: List[np.int64] = None,
-        base_track_id: np.int64 = None,
+        epoch: np.int64 = None,
     ) -> None:
         """
         append_features_from_numpy append new features to Features object, starting from numpy arrays of x and y coordinates, descriptors and scores.
@@ -229,8 +263,8 @@ class Features:
             y (np.ndarray): nx1 numpy array containing y coordinates of all keypoints
             descr (np.ndarray, optional): mxn numpy array containing the descriptors of all the features (where m is the dimension of the descriptor that can be either 128 or 256). Defaults to None.
             scores (np.ndarray, optional):  nx1 numpy array containing scores of all keypoints. Defaults to None.
-            track_ids (List[int]): List containing the track_id of each point to be added to Features object. Default to None.
-            base_track_id (np.int64): base base_track_id from which to start computing progressive track_ids. If a value is given, the internal counter Features.__increm_id is overwitten. Defaults to None.
+            track_ids (List[int]): Sorted list containing the track_id of each point to be added to Features object. Default to None.
+            epoch (np.int64, optional): Epoch in which the incoming features are detected (or belongs to). Defaults to None.
         """
         assert isinstance(x, np.ndarray), "invalid type of x vector"
         assert isinstance(y, np.ndarray), "invalid type of y vector"
@@ -238,19 +272,10 @@ class Features:
             128,
             256,
         ], "invalid shape of the descriptor array. It must be of size mxn (m: descriptor size [128, 256], n: number of features"
-        assert not (
-            track_ids is not None and base_track_id is not None
-        ), "Invlaid arguments: both track_ids and base_track_id are provided, but only one can be given."
 
         if not np.any(x):
             logging.warning("Empty input feature arrays. Nothing done.")
             return None
-
-        if base_track_id is not None:
-            logging.warning(
-                f"Replacing internal track_id counter {self._increm_id} with input base_track_id {base_track_id}"
-            )
-            self._increm_id = base_track_id
 
         if descr is not None:
             if len(self) > 0:
@@ -260,11 +285,20 @@ class Features:
             else:
                 self._descriptor_size = descr.shape[0]
 
+        if epoch is not None:
+            msg = "Invalid input argument epoch. It must be an integer number."
+            try:
+                epoch = np.int64(epoch)
+            except:
+                raise ValueError(msg)
+            assert isinstance(epoch, np.int64), msg
+            self.epoch = epoch
+
         xx = x.flatten()
         yy = y.flatten()
 
         if track_ids is None:
-            ids = range(self._increm_id, self._increm_id + len(xx))
+            ids = range(self._last_id + 1, self._last_id + len(xx) + 1)
         else:
             assert isinstance(
                 track_ids, list
@@ -281,7 +315,7 @@ class Features:
                         raise ValueError(msg)
                 ids = track_ids
             except ValueError:
-                ids = range(self._increm_id, self._increm_id + len(xx))
+                ids = range(self._last_id + 1, self._last_id + len(xx) + 1)
 
         if descr is not None:
             descr = np.float32(descr.T)
@@ -292,13 +326,16 @@ class Features:
         else:
             scores = [None for _ in range(len(xx))]
 
-        for x, y, id, d, s in zip(xx, yy, ids, descr, scores):
-            self._values[id] = Feature(x, y, track_id=id, descr=d, score=s)
-
-        if track_ids is None:
-            self._increm_id = self._increm_id + len(xx)
-        else:
-            self._increm_id = max(ids + [self._increm_id])
+        for id, x, y, d, s in zip(ids, xx, yy, descr, scores):
+            self._values[id] = Feature(
+                x,
+                y,
+                track_id=id,
+                descr=d,
+                score=s,
+                epoch=epoch,
+            )
+            self._last_id = id
 
     def to_numpy(
         self,
@@ -404,7 +441,7 @@ class Features:
     def reset_fetures(self):
         """Reset Features instance"""
         self._values = {}
-        self._increm_id = 0
+        self._last_id = -1
         self._iter = 0
 
     def filter_feature_by_mask(
@@ -417,7 +454,15 @@ class Features:
             inlier_mask (List[bool]): boolean mask with True value in correspondance of the features to keep. inlier_mask must have the same length as the total number of features.
             verbose (bool): log number of filtered features. Defaults to False.
         """
-        indexes = [i for i, x in enumerate(inlier_mask) if x]
+        assert np.array_equal(
+            inlier_mask, inlier_mask.astype(bool)
+        ), "Invalid type of input argument for inlier_mask. It must be a boolean vector with the same lenght as the number of features stored in the Features object."
+        assert len(inlier_mask) == len(
+            self
+        ), "Invalid shape of input argument for inlier_mask. It must be a boolean vector with the same lenght as the number of features stored in the Features object."
+
+        feat_idx = list(self._values.keys())
+        indexes = [feat_idx[i] for i, x in enumerate(inlier_mask) if x]
         self.filter_feature_by_index(indexes, verbose=verbose)
 
     def filter_feature_by_index(
@@ -436,9 +481,9 @@ class Features:
             logging.info(
                 f"Features filtered: {len(self)-len(new_dict)}/{len(self)} removed. New features size: {len(new_dict)}."
             )
-        last_id = list(self._values.keys())[-1]
+        last_id = list(new_dict.keys())[-1]
         self._values = new_dict
-        self._increm_id = last_id
+        self._last_id = last_id
 
     def get_feature_by_index(self, indexes: List[np.int64]) -> dict:
         """

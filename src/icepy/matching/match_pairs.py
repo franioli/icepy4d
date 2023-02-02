@@ -181,11 +181,6 @@ def match_pair(pair, maskBB, opt):
         logging.error("Problem reading image pair: {} {}".format(name0, name1))
         exit(1)
     timer.update("load_image")
-    # import matplotlib
-    # matplotlib.use('Qt5Agg')
-    # import matplotlib.pyplot as plt
-    # plt.imshow(cv2.cvtColor(image1/255., cv2.COLOR_BGR2RGB))
-    # plt.show()
 
     if opt.useTile:
 
@@ -296,19 +291,6 @@ def match_pair(pair, maskBB, opt):
     mkpts0_full = mkpts0_full + np.array(maskBB[0][0:2]).astype("float32")
     mkpts1_full = mkpts1_full + np.array(maskBB[1][0:2]).astype("float32")
 
-    # F, inlMask = pydegensac.findFundamentalMatrix(mkpts0_full, mkpts1_full, px_th=1.5, conf=0.9999,
-    #                                               max_iters=100000, laf_consistensy_coef=-1.0, error_type='sampson',
-    #                                               symmetric_error_check=True, enable_degeneracy_check=True)
-    # logging.info ('pydegensac found {} inliers ({:.2f}%)'.format(inlMask.sum(),
-    #                 inlMask.sum()*100 / len(mkpts0_full) ))
-    # mconf = conf_full[inlMask]
-    # mkpts0 = mkpts0_full[inlMask]
-    # mkpts1 = mkpts1_full[inlMask]
-    # scores0 = scores0_full[inlMask]
-    # scores1 = scores1_full[inlMask]
-    # descriptors0 = descriptors0_full[:,inlMask]
-    # descriptors1 = descriptors1_full[:,inlMask]
-    # timer.update('PyDegensac')
     mconf = conf_full
     mkpts0 = mkpts0_full
     mkpts1 = mkpts1_full
