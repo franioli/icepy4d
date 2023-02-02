@@ -32,14 +32,9 @@ import cv2
 import exifread
 import numpy as np
 
-if __name__ == "__main__":
-    from src.icepy.utils.sensor_width_database import SensorWidthDatabase
-    from src.icepy.classes.camera import Camera
-    from src.icepy.sfm.geometry import undistort_image
-else:
-    from ..utils.sensor_width_database import SensorWidthDatabase
-    from .camera import Camera
-    from ..sfm.geometry import undistort_image
+from .camera import Camera
+from ..utils.sensor_width_database import SensorWidthDatabase
+from ..sfm.geometry import undistort_image
 
 
 def read_image(

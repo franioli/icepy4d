@@ -31,10 +31,7 @@ from typing import Union, List, Tuple
 from pathlib import Path
 from copy import deepcopy
 
-if __name__ == "__main__":
-    from src.icepy.classes.camera import Camera
-else:
-    from .camera import Camera
+from .camera import Camera
 
 
 class Feature:
