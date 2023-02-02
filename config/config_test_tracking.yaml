@@ -5,7 +5,7 @@ paths:
   image_dir: "data/img"
   image_extension: "jpg"
   calibration_dir: "data/calib"
-  results_dir: "res"
+  results_dir: "res/test_tracking"
   camera_names: ["p1", "p2"]
 
 #- Processing options
@@ -72,7 +72,7 @@ other:
 
   #- Threshold [px] and confidence for PyDegensac robust estimation
   # (used to reject false matches and compute relative orientation)
-  pydegensac_treshold: 1
+  pydegensac_treshold: 2
   pydegensac_confidence: 0.9999
 
 #- Matching options
