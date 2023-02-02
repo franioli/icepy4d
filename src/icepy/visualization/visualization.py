@@ -39,7 +39,7 @@ from ..classes.camera import Camera
 from ..classes.point_cloud import PointCloud
 from ..sfm.geometry import project_points
 
-matplotlib.use("TkAgg")
+# matplotlib.use("TkAgg")
 
 
 def imshow_cv(
