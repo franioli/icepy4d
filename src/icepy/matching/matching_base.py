@@ -3,13 +3,51 @@ import pydegensac
 import logging
 
 from easydict import EasyDict as edict
-from typing import List
+from typing import List, Union
 from pathlib import Path
 
 from .match_pairs import match_pair
 from .track_matches import track_matches
 
 from ..classes.features import Features
+
+DEBUG = True
+
+
+def load_matches_from_disk(dir: Union[str, Path]) -> Features:
+    """
+    load_matches_from_disk Load features from pickle file
+
+    Args:
+        dir (Union[str, Path]): path of the folder containing the pickle file
+
+    Raises:
+        FileNotFoundError: No pickle file found or multiple pickle file found.
+
+    Returns:
+        Features: Loaded features
+    """
+    try:
+        fname = list(dir.glob("*.pickle"))
+        if len(fname) < 1:
+            msg = f"No pickle file found in the epoch directory {dir}"
+            logging.error(msg)
+            raise FileNotFoundError(msg)
+        if len(fname) > 1:
+            msg = f"More than one pickle file is present in the epoch directory {dir}"
+            logging.error(msg)
+            raise FileNotFoundError(msg)
+        with open(fname[0], "rb") as f:
+            try:
+                loaded_features = pickle.load(f)
+                logging.info(f"Loaded features from {fname[0]}")
+                return loaded_features
+            except:
+                msg = f"Invalid pickle file in epoch directory {dir}"
+                logging.error(msg)
+                raise FileNotFoundError(msg)
+    except FileNotFoundError as err:
+        logging.exception(err)
 
 
 def MatchingAndTracking(
@@ -81,6 +119,7 @@ def MatchingAndTracking(
                 tracked_cam0["descr"],
                 tracked_cam0["score"],
                 track_ids=tracked_kpts_idx,
+                epoch=epoch - 1,
             )
             features[epoch][cams[1]].append_features_from_numpy(
                 tracked_cam1["kpts"][:, 0:1],
@@ -88,30 +127,37 @@ def MatchingAndTracking(
                 tracked_cam1["descr"],
                 tracked_cam1["score"],
                 track_ids=tracked_kpts_idx,
+                epoch=epoch - 1,
             )
 
             # For debugging
-            # from ..visualization.visualization import make_matching_plot
+            if DEBUG:
+                # from ..visualization.visualization import make_matching_plot
 
-            # make_matching_plot(
-            #     images[cams[0]].read_image(epoch).value,
-            #     images[cams[1]].read_image(epoch).value,
-            #     features[epoch][cams[0]].kpts_to_numpy(),
-            #     features[epoch][cams[1]].kpts_to_numpy(),
-            #     path="ep181.png",
-            # )
-            # idx = list(tracked_cam1["track_id"])
-            # aa = Features()
-            # aa._values = features[epoch - 1][cams[0]].get_feature_by_index(idx)
-            # bb = Features()
-            # bb._values = features[epoch - 1][cams[1]].get_feature_by_index(idx)
-            # make_matching_plot(
-            #     images[cams[0]].read_image(epoch-1).value,
-            #     images[cams[1]].read_image(epoch-1).value,
-            #     aa.kpts_to_numpy(),
-            #     bb.kpts_to_numpy(),
-            #     path="ep180.png",
-            # )
+                f_list = {
+                    epoch: features[epoch][cams[0]]
+                    for epoch in range(cfg.proc.epoch_to_process[0], epoch + 1)
+                }
+
+                # make_matching_plot(
+                #     images[cams[0]].read_image(epoch).value,
+                #     images[cams[1]].read_image(epoch).value,
+                #     features[epoch][cams[0]].kpts_to_numpy(),
+                #     features[epoch][cams[1]].kpts_to_numpy(),
+                #     path="ep181.png",
+                # )
+                # idx = list(tracked_cam1["track_id"])
+                # aa = Features()
+                # aa._values = features[epoch - 1][cams[0]].get_feature_by_index(idx)
+                # bb = Features()
+                # bb._values = features[epoch - 1][cams[1]].get_feature_by_index(idx)
+                # make_matching_plot(
+                #     images[cams[0]].read_image(epoch-1).value,
+                #     images[cams[1]].read_image(epoch-1).value,
+                #     aa.kpts_to_numpy(),
+                #     bb.kpts_to_numpy(),
+                #     path="ep180.png",
+                # )
 
         else:
             logging.warning(
@@ -136,24 +182,32 @@ def MatchingAndTracking(
         y = matchedPts[jj][:, 1:2]
         if epoch > cfg.proc.epoch_to_process[0]:
             last_track_id = features[epoch - 1][cam].get_track_ids()[-1]
-        else:
-            last_track_id = 0
+            features[epoch][cam].set_last_track_id(last_track_id)
         features[epoch][cam].append_features_from_numpy(
             x,
             y,
             descr=matchedDescriptors[jj],
             scores=matchedPtsScores[jj],
-            base_track_id=last_track_id,
+            epoch=epoch,
         )
         # @TODO: Store match confidence!
     logging.info(f"SuperGlue found {len(features[epoch][cam])} matches")
 
+    # For debugging
+    f_list = {
+        epoch: features[epoch][cams[0]]
+        for epoch in range(cfg.proc.epoch_to_process[0], epoch + 1)
+    }
+
     # Run Pydegensac to estimate F matrix and reject outliers
+    logging.info(
+        f"Geometric verification of the matches - Pydegensac parameters:  threshold {cfg.other.pydegensac_treshold} [px], confidence: {cfg.other.pydegensac_confidence}"
+    )
     F, inlMask = pydegensac.findFundamentalMatrix(
         features[epoch][cams[0]].kpts_to_numpy(),
         features[epoch][cams[1]].kpts_to_numpy(),
-        px_th=1.0,
-        conf=0.99999,
+        px_th=cfg.other.pydegensac_treshold,
+        conf=cfg.other.pydegensac_confidence,
         max_iters=10000,
         laf_consistensy_coef=-1.0,
         error_type="sampson",
@@ -161,8 +215,9 @@ def MatchingAndTracking(
         enable_degeneracy_check=True,
     )
     logging.info(
-        f"Matches geometric verification: pydegensac found {inlMask.sum()} inliers ({inlMask.sum()*100/len(features[epoch][cams[0]]):.2f}%)"
+        f"Pydegensac found {inlMask.sum()} inliers ({inlMask.sum()*100/len(features[epoch][cams[0]]):.2f}%)"
     )
+
     features[epoch][cams[0]].filter_feature_by_mask(inlMask, verbose=True)
     features[epoch][cams[1]].filter_feature_by_mask(inlMask, verbose=True)
 
@@ -176,18 +231,7 @@ def MatchingAndTracking(
     # Save current epoch features as pickle file
     fname = epochdir / f"{im_stems[0]}_{im_stems[1]}_features.pickle"
     with open(fname, "wb") as f:
-        # keys = list(features.keys())
-        # feat_epoch = {
-        #     keys[0]: features[keys[0]][epoch],
-        #     keys[1]: features[keys[1]][epoch],
-        # }
-        # pickle.dump(feat_epoch, f, protocol=pickle.HIGHEST_PROTOCOL)
         pickle.dump(features[epoch], f, protocol=pickle.HIGHEST_PROTOCOL)
-
-    # Save all features structure in last_epoch folder to resume the process
-    # last_match_path = create_directory("res/last_epoch")
-    # with open(last_match_path / "last_features.pickle", "wb") as f:
-    #     pickle.dump(features, f, protocol=pickle.HIGHEST_PROTOCOL)
 
     logging.info("Matching completed")
 
