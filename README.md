@@ -38,13 +38,14 @@ python -c "from osgeo import gdal"
 Install pythorch following the official guidelines (<https://pytorch.org/get-started/locally/>). Be careful to select the correct CUDA version as that installed on your system.
 
 ```bash
-pip3 install torch --extra-index-url <https://download.pytorch.org/whl/cu116>
+pip3 install torch --extra-index-url https://download.pytorch.org/whl/cu116
+
 ```
 
 ##### Install other required packages
 
 ```bash
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 ```
 
 ##### Various
