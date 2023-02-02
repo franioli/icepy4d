@@ -466,6 +466,7 @@ class MetashapeReader:
 
 
 if __name__ == "__main__":
+    
     from src.icepy.visualization.visualization import make_focal_length_variation_plot
 
     root_path = Path().absolute()
