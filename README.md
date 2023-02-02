@@ -20,7 +20,7 @@ conda activate icepy
 
 ##### Install gdal for raster manipulation
 
-First, install `gdal`, which is required for building and manipulating orthophotos and DSMs. As the dependacies of `gdal`, are quite strict, it is suggested to install it first with conda. If you don't intend to build orthophotos and DSM, you can skip this step (be careful to remove rasterio from requirements.txt as well).
+First, install `gdal`, which is required for building and manipulating orthophotos and DSMs. As the dependacies of `gdal`, are quite strict, it is suggested to install it first with conda. If you don't intend to build orthophotos and DSM, you can skip this step (be careful to remove rasterio from requirements.txt as well in order to avoid unsatisfied dependencies).
 
 ```bash
 conda update -n base -c conda-forge conda
