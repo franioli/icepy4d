@@ -30,7 +30,7 @@ import argparse
 
 from easydict import EasyDict as edict
 from pathlib import Path
-from typing import List, Union
+from typing import List, Union, Tuple
 from datetime import datetime
 
 from ..classes.camera import Camera
@@ -39,14 +39,30 @@ from ..classes.point_cloud import PointCloud
 from ..classes.images import Image, ImageDS
 from ..classes.targets import Targets
 
-# This file defines the dictionary cfg which includes the default parameters of the pipeline.
-# The dictionary is updated/extended at runtime with the parameters defined by the user in the input yaml config file
+
+""" 
+This file defines the dictionary cfg which includes the default parameters of the pipeline.
+The dictionary is updated/extended at runtime with the parameters defined by the user in the input yaml config file
+"""
 
 
-def parse_command_line():
-    """Function to parse user input. User input is a string.
+def print_welcome_msg() -> None:
+    print("\n===========================================================")
+    print("ICEpy4D")
+    print(
+        "Image-based Continuos monitoring of glaciers' Evolution with low-cost stereo-cameras and Deep Learning photogrammetry"
+    )
+    print("2022 - Francesco Ioli - francesco.ioli@polimi.it")
+    print("===========================================================\n")
 
-    :Returns: radius of the circle (float) and which type of object is selected (string)."""
+
+def parse_command_line() -> Tuple[str, dict]:
+    """
+    parse_command_line Parse command line input
+
+    Returns:
+        Tuple[str, dict]: Tuple containing the path of the configuration file and a dictionary containing parameters to setup the logger
+    """
     parser = argparse.ArgumentParser(
         description="""icepy
             Low-cost stereo photogrammetry for 4D glacier monitoring \
@@ -109,6 +125,18 @@ def parse_command_line():
 
 
 def parse_yaml_cfg(cfg_file: Union[str, Path]) -> edict:
+    """
+    parse_yaml_cfg _summary_
+
+    Args:
+        cfg_file (Union[str, Path]): _description_
+
+    Raises:
+        ValueError: _description_
+
+    Returns:
+        edict: _description_
+    """
 
     with open(cfg_file) as file:
         cfg = edict(yaml.safe_load(file))
