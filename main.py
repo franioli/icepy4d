@@ -25,7 +25,6 @@ SOFTWARE.
 #%%
 import numpy as np
 import cv2
-import pickle
 import gc
 import logging
 import shutil
@@ -35,33 +34,31 @@ from matplotlib import pyplot as plt
 from datetime import datetime
 
 # icepy classes
-import icepy.classes as icepy_classes
+import src.icepy.classes as icepy_classes
 
 # icepy libraries
-import icepy.sfm as sfm
-import icepy.metashape.metashape as MS
-import icepy.utils.initialization as initialization
-import icepy.utils as icepy_utils
-import icepy.visualization as icepy_viz
+import src.icepy.sfm as sfm
+import src.icepy.metashape.metashape as MS
+import src.icepy.utils.initialization as initialization
+import src.icepy.utils as icepy_utils
+import src.icepy.visualization as icepy_viz
 
-from icepy.matching.matching_base import (
+from src.icepy.matching.matching_base import (
     MatchingAndTracking,
     load_matches_from_disk,
 )
-from icepy.utils.utils import homography_warping
-from icepy.io.export2bundler import write_bundler_out
+from src.icepy.utils.utils import homography_warping
+from src.icepy.io.export2bundler import write_bundler_out
 
 
 if __name__ == "__main__":
 
-    # Define some global parameters
-    # CFG_FILE = "config/config_block_3_4.yaml"
-    # cfg_file = Path(CFG_FILE)
+    initialization.print_welcome_msg()
 
     cfg_file, log_cfg = initialization.parse_command_line()
-
     # cfg_file = Path("config/config_test.yaml")
 
+    """ Inizialize Variables """
     # Setup logger
     icepy_utils.setup_logger(
         log_cfg["log_folder"],
@@ -70,20 +67,11 @@ if __name__ == "__main__":
         log_cfg["log_console_level"],
     )
 
-    print("\n===========================================================")
-    print("ICEpy4D")
-    print(
-        "Image-based Continuos monitoring of glaciers' Evolution with low-cost stereo-cameras and Deep Learning photogrammetry"
-    )
-    print("2022 - Francesco Ioli - francesco.ioli@polimi.it")
-    print("===========================================================\n")
-
-    # Read options from yaml file
+    # Parse configuration file
     logging.info(f"Configuration file: {cfg_file.stem}")
-    timer_global = icepy_utils.AverageTimer()
     cfg = initialization.parse_yaml_cfg(cfg_file)
 
-    """ Inizialize Variables """
+    timer_global = icepy_utils.AverageTimer()
 
     init = initialization.Inizialization(cfg)
     init.inizialize_icepy()
@@ -101,7 +89,7 @@ if __name__ == "__main__":
     logging.info("------------------------------------------------------")
     logging.info("Processing started:")
     timer = icepy_utils.AverageTimer()
-    iter = 0
+    iter = 0  # necessary only for printing the number of processed iteration
     for epoch in cfg.proc.epoch_to_process:
 
         logging.info("------------------------------------------------------")
@@ -138,7 +126,7 @@ if __name__ == "__main__":
 
         timer.update("matching")
 
-        # Testing
+        # For debugging purposes
         # a = features[180]["p1"]
         # b = features[181]["p1"]
 
@@ -247,7 +235,6 @@ if __name__ == "__main__":
 
         # Metashape BBA and dense cloud
         if cfg.proc.do_metashape_processing:
-            # Export results in Bundler format
 
             # If a metashape folder is already present, delete it completely and start a new metashape project
             metashape_path = epochdir / "metashape"
@@ -257,6 +244,7 @@ if __name__ == "__main__":
                 )
                 shutil.rmtree(metashape_path, ignore_errors=True)
 
+            # Export results in Bundler format
             im_dict = {cam: images[cam].get_image_path(epoch) for cam in cams}
             write_bundler_out(
                 export_dir=epochdir,
