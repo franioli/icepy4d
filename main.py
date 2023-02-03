@@ -25,7 +25,6 @@ SOFTWARE.
 #%%
 import numpy as np
 import cv2
-import pickle
 import gc
 import logging
 import shutil
