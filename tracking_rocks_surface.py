@@ -89,60 +89,64 @@ if __name__ == "__main__":
         timer.print(f"Epoch {epoch} completed")
 
     # For debugging
+    cam = cams[0]
+    fdict: icepy_classes.Feature = {
+        epoch: features[epoch][cam] for epoch in cfg.proc.epoch_to_process
+    }
 
     # Get time series of features
     from typing import TypedDict
     import time
 
-    # def extract_feature_time_series(
-    #     fdict: icepy_classes.FeaturesDict,
-    #     # pdict: icepy_classes.FeaturesDict,
-    #     track_id: np.int32,
-    #     min_tracked_epoches: int = 1,
-    #     debug: bool = False,
-    # ) -> icepy_classes.Feature:
-    #     """
-    #     extract_feature_time_series _summary_
+    def extract_feature_time_series(
+        fdict: icepy_classes.FeaturesDict,
+        # pdict: icepy_classes.FeaturesDict,
+        track_id: np.int32,
+        min_tracked_epoches: int = 1,
+        debug: bool = False,
+    ) -> icepy_classes.Feature:
+        """
+        extract_feature_time_series _summary_
 
-    #     Args:
-    #         fdict (FeaturesDict): _description_
-    #         track_id (np.int32): _description_
-    #         min_tracked_epoches (int, optional): _description_. Defaults to 1.
-    #         debug (bool, optional): _description_. Defaults to False.
+        Args:
+            fdict (FeaturesDict): _description_
+            track_id (np.int32): _description_
+            min_tracked_epoches (int, optional): _description_. Defaults to 1.
+            debug (bool, optional): _description_. Defaults to False.
 
-    #     Returns:
-    #         FeaturesDict: _description_
-    #     """
+        Returns:
+            FeaturesDict: _description_
+        """
 
-    #     epoches = list(fdict.keys())
-    #     if debug:
-    #         ts: icepy_classes.Feature = {}
-    #         for ep in epoches:
-    #             if track_id in fdict[ep]:
-    #                 logging.info(f"Feture {track_id} available in ep {ep}")
-    #                 ts[ep] = fdict[ep][track_id]
-    #             else:
-    #                 logging.info(f"Feture {track_id} NOT available in ep {ep}")
-    #     else:
-    #         ts: icepy_classes.Feature = {
-    #             ep: fdict[ep][track_id] for ep in epoches if track_id in fdict[ep]
-    #         }
+        epoches = list(fdict.keys())
+        if debug:
+            ts: icepy_classes.Feature = {}
+            for ep in epoches:
+                if track_id in fdict[ep]:
+                    logging.info(f"Feture {track_id} available in ep {ep}")
+                    ts[ep] = fdict[ep][track_id]
+                else:
+                    logging.info(f"Feture {track_id} NOT available in ep {ep}")
+        else:
+            ts: icepy_classes.Feature = {
+                ep: fdict[ep][track_id] for ep in epoches if track_id in fdict[ep]
+            }
 
-    #     if min_tracked_epoches > 0:
-    #         if len(ts) <= min_tracked_epoches:
-    #             if debug:
-    #                 logging.warning(
-    #                     f"Feture {track_id} was detected only in epoch {list(ts.keys())[0]}. Not returned."
-    #                 )
-    #             return None
-    #         else:
-    #             return ts
-    #     else:
-    #         return ts
+        if min_tracked_epoches > 0:
+            if len(ts) <= min_tracked_epoches:
+                if debug:
+                    logging.warning(
+                        f"Feture {track_id} was detected only in epoch {list(ts.keys())[0]}. Not returned."
+                    )
+                return None
+            else:
+                return ts
+        else:
+            return ts
 
-    # t0 = time.time()
-    # out = extract_feature_time_series(fdict, 2, min_tracked_epoches=2)
-    # print(f"Elaspsed time {time.time() - t0} s")
+    t0 = time.time()
+    out = extract_feature_time_series(fdict, 2, min_tracked_epoches=2)
+    print(f"Elaspsed time {time.time() - t0} s")
 
     class FeaturePointDict(TypedDict):
         feature: icepy_classes.Feature
@@ -155,12 +159,7 @@ if __name__ == "__main__":
         track_id: TrackedFeaturesDict
         # track_id: icepy_classes.FeaturesDict
 
-    cam = cams[0]
-    fdict: icepy_classes.Feature = {
-        epoch: features[epoch][cam] for epoch in cfg.proc.epoch_to_process
-    }
-
-    def extract_feature_time_series(
+    def extract_features_and_points_time_series(
         fdict: icepy_classes.FeaturesDict,
         # pdict: icepy_classes.FeaturesDict,
         track_id: np.int32,
@@ -180,9 +179,16 @@ if __name__ == "__main__":
         """
 
         epoches = list(fdict.keys())
-        ts: TrackedFeaturesDict = {
-            ep: fdict[ep][track_id] for ep in epoches if track_id in fdict[ep]
-        }
+
+        ts: FeaturePointDict = {}
+        for ep in epoches:
+
+            coord = np.random.rand(len(fdict[ep]), 3)
+            points = icepy_classes.Points()
+            points.append_features_from_numpy(coord)
+
+            if track_id in fdict[ep]:
+                ts[ep]: FeaturePointDict = {fdict[ep][track_id], points[track_id]}
 
         if min_tracked_epoches > 0:
             if len(ts) <= min_tracked_epoches:
@@ -201,7 +207,7 @@ if __name__ == "__main__":
     t0 = time.time()
     last_track_id = fdict[cfg.proc.epoch_to_process[-1]].last_track_id
     fts: TrackedFeaturesDict = {
-        id: extract_feature_time_series(fdict, id, min_tracked_epoches=1)
+        id: extract_features_and_points_time_series(fdict, id, min_tracked_epoches=1)
         for id in range(last_track_id)
     }
     print(f"Elaspsed time {time.time() - t0} s")
