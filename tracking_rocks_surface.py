@@ -5,13 +5,13 @@ import logging
 from pathlib import Path
 
 # icepy classes
-import icepy.classes as icepy_classes
+import src.icepy.classes as icepy_classes
 
 # icepy libraries
-import icepy.utils.initialization as initialization
-import icepy.utils as icepy_utils
+import src.icepy.utils.initialization as initialization
+import src.icepy.utils as icepy_utils
 
-from icepy.matching.matching_base import (
+from src.icepy.matching.matching_base import (
     MatchingAndTracking,
     load_matches_from_disk,
 )
