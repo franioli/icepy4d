@@ -14,7 +14,7 @@
       "justMyCode": true,
       "args": [
         "--config",
-        "config_block_3_4.yaml",
+        "config/config_block_3_4.yaml",
         "--log_file_level",
         "info",
         "--log_console_level",

@@ -57,9 +57,7 @@ def parse_command_line():
         "-c",
         "--config",
         type=str,
-        help="Name of to the configuration file \
-            (configuration file must be located \
-                in config folder)",
+        help="Path of to the configuration file",
     )
     parser.add_argument(
         "--log_folder",
@@ -96,8 +94,7 @@ def parse_command_line():
             "Not enough input arguments. Specify at least the configuration file. Use --help (or -h) for help."
         )
 
-    cfg_file = Path("config") / args.config
-
+    cfg_file = Path(args.config)
     if not cfg_file.exists():
         sys.exit("Configuration file does not exist! Aborting...")
 
@@ -125,7 +122,6 @@ def parse_yaml_cfg(cfg_file: Union[str, Path]) -> edict:
     cfg.paths.image_dir = root_path / Path(cfg.paths.image_dir)
     cfg.paths.calibration_dir = root_path / Path(cfg.paths.calibration_dir)
     cfg.paths.results_dir = root_path / Path(cfg.paths.results_dir)
-    # cfg.paths.last_match_path = root_path / Path(cfg.paths.last_match_path)--> Deprecated
 
     # - Processing options
     if cfg.proc.do_matching == False and cfg.proc.do_tracking == True:
@@ -189,13 +185,6 @@ def print_cfg(cfg) -> None:
     # TODO: implement printing of configuration
     for key, value in cfg.items():
         print(key + " : " + str(value))
-
-
-def build_metashape_cfg(cfg: edict, epoch_dict: dict, epoch: int) -> edict:
-
-    ms_cfg = edict()
-
-    return ms_cfg
 
 
 class Inizialization:
@@ -333,8 +322,6 @@ class Inizialization:
 
 
 if __name__ == "__main__":
-
-    # @TODO: implement parser for setting parameters in command line
 
     cfg_file = "./config/config_base.yaml"
     cfg = parse_yaml_cfg(cfg_file)
