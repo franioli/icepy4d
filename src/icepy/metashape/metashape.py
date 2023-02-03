@@ -31,7 +31,7 @@ from easydict import EasyDict as edict
 from xml.etree import ElementTree as ET
 from typing import List, Union
 
-from icepy.metashape.ms_utils import (
+from .ms_utils import (
     create_new_project,
     save_project,
     cameras_from_bundler,
@@ -466,7 +466,7 @@ class MetashapeReader:
 
 
 if __name__ == "__main__":
-    
+
     from src.icepy.visualization.visualization import make_focal_length_variation_plot
 
     root_path = Path().absolute()
