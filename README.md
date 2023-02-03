@@ -8,8 +8,10 @@
 
 ##### Requirements
 
-- 64-bit Python `>= 3.8`
+- 64-bit Python `= 3.8`
 - a NVIDIA graphic card with CUDA capability is strongly reccomended.
+
+`Python 3.8` is required to correctely install PyDegensac, that is used for geometric verification. Pydegensac installation fails with Python 3.9 and above. (see <https://github.com/ducha-aiki/pydegensac/issues/15#issue-1361049626>).
 
 ##### Create Anaconda environment
 
