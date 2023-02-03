@@ -33,12 +33,12 @@ from pathlib import Path
 from typing import List, Union, Tuple, TypedDict
 from datetime import datetime
 
-from .typed_dict_classes import *
 from ..classes.camera import Camera
 from ..classes.features import Features
 from ..classes.point_cloud import PointCloud
 from ..classes.images import Image, ImageDS
 from ..classes.targets import Targets
+from ..classes.typed_dict_classes import *
 
 
 """ 
