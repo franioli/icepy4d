@@ -32,7 +32,47 @@ from pathlib import Path
 
 from typing import List, Union
 
-# from .camera import Camera
+if __name__ == "__main__":
+    from src.icepy.classes.camera import Camera
+    from src.icepy.classes.point_cloud import PointCloud
+else:
+    from .camera import Camera
+    from .point_cloud import PointCloud
+
+
+def float32_type_check(
+    array: np.ndarray, cast_integers: bool = False, verbose: bool = False
+) -> np.ndarray:
+    """
+    float32_type_check Check if the numpy array is of type np.float32 and, if possible, return a casted array to np.float32
+
+    Args:
+        array (np.ndarray): Numpy array
+        cast_integers (bool, optional): Cast integers to float. Defaults to False.
+        verbose (bool, optional): Log output. Defaults to False.
+
+    Raises:
+        ValueError: Raise ValueError if the function is unable to safely cast the array to np.float32
+
+    Returns:
+        np.ndarray: np.float32 numpy array
+    """
+    if array.dtype == np.float64 or array.dtype == float:
+        if verbose:
+            logging.info("Input array are float64 numbers. Casting them to np.float32")
+        array = array.astype(np.float32)
+
+    if cast_integers:
+        if array.dtype == int or array.dtype == np.int32 or array.dtype == np.int64:
+            if verbose:
+                logging.info("Input array are int numbers. Casting them to np.float32")
+            array = array.astype(np.float32)
+    if array.dtype != np.float32:
+        raise ValueError(
+            "Invalid type of input array. It must be a numpy array of type np.float32"
+        )
+
+    return array
 
 
 class Point:
@@ -44,26 +84,33 @@ class Point:
         self,
         coordinates: np.ndarray,
         track_id: int = None,
+        color: np.ndarray = None,
         cov: np.ndarray = None,
     ) -> None:
         """
-        __init__ _summary_
+        __init__ Create Point object
 
         Args:
-            coordinates (np.ndarray): _description_. Defaults to None.
-            track_id (np.int32): _description_
-            cov (np.ndarray, optional): _description_. Defaults to None.
+            coordinates (np.ndarray): (3,) or (3,1) or (1,3) numpy array of type np.float32 containing X Y Z coordinates of the point.
+            track_id (np.int32): univocal track_id identifying the point and the corresponding featues on the images. Defaults to None.. Defaults to None.
+            color (np.ndarray, optional): (3,) or (3,1) or (1,3) numpy array of type np.float32 with the point colors, as float values in the range [0,1]. Defaults to None.
+            cov (np.ndarray, optional): 3x3 numpy array containing the covariance matrix. Defaults to None.
         """
 
-        coordinates = np.float32(coordinates)
+        assert isinstance(coordinates, np.ndarray), "invalid argument coordinates"
+        if coordinates.shape == (3, 1) or coordinates.shape == (3, 1):
+            coordinates = coordinates.squeeze()
+        assert coordinates.shape == (
+            3,
+        ), "Invalid shape of coordinates array. It must be a (3,) numpy array (vector)"
+        coordinates = float32_type_check(coordinates, cast_integers=True)
 
         self._track_id = track_id
         self._X = coordinates[0]
         self._Y = coordinates[1]
         self._Z = coordinates[2]
-
-        if cov is not None:
-            self._cov = cov
+        self._color = color
+        self._cov = cov
 
     # Setters
 
@@ -88,17 +135,21 @@ class Point:
     def coordinates(self):
         return np.array([self._X, self._Y, self._Z], dtype=np.float32)
 
-    # def project(self, camera: Camera) -> np.ndarray:
-    #     """
-    #     project project the 3D point to the camera and return image coordinates
+    @property
+    def color(self):
+        return self._color.astype(np.float32)
 
-    #     Args:
-    #         camera (Camera): Camera object containing extrinsics and intrinsics
+    def project(self, camera: Camera) -> np.ndarray:
+        """
+        project project the 3D point to the camera and return image coordinates
 
-    #     Returns:
-    #         np.ndarray: coordinates of the projection in px
-    #     """
-    #     return camera.project_point(self.coordinates.reshape(1, 3))
+        Args:
+            camera (Camera): Camera object containing extrinsics and intrinsics
+
+        Returns:
+            np.ndarray: coordinates of the projection in px
+        """
+        return camera.project_point(self.coordinates.reshape(1, 3))
 
 
 class Points:
@@ -106,7 +157,6 @@ class Points:
         self._values = {}
         self._last_id = -1
         self._iter = 0
-        self._descriptor_size = 256
 
     def __len__(self) -> int:
         """
@@ -115,7 +165,7 @@ class Points:
         Returns:
             int: number of features
         """
-        return self.num_features
+        return len(self._values)
 
     def __getitem__(self, track_id: np.int32) -> Point:
         """
@@ -224,6 +274,7 @@ class Points:
         self,
         coordinates: np.ndarray,
         track_ids: List[np.int32] = None,
+        colors: np.ndarray = None,
     ) -> None:
         """
         append_features_from_numpy append new features to Features object, starting from a nx3 numpy array containing XYZ coordinates.
@@ -231,16 +282,17 @@ class Points:
         Args:
             coordinates (np.ndarray): nx3 numpy array containing x coordinates of all keypoints
             track_ids (List[int]): Sorted list containing the track_id of each point to be added to Points object. Default to None.
+            colors (np.ndarray): nx3 numpy array containing colors as float number in range [0,1]
         """
-        assert isinstance(coordinates, np.ndarray), "invalid argument coordinates"
-
-        assert (
-            coordinates.shape[1] == 3
-        ), "Invalid shape of coordinates array. It must be a nx3 numpy array"
 
         if not np.any(coordinates):
             logging.warning("Empty input feature arrays. Nothing done.")
             return None
+        assert isinstance(coordinates, np.ndarray), "invalid argument coordinates"
+        assert (
+            coordinates.shape[1] == 3
+        ), "Invalid shape of coordinates array. It must be a nx3 numpy array"
+        coordinates = float32_type_check(coordinates, cast_integers=True)
 
         if track_ids is None:
             ids = range(self._last_id + 1, self._last_id + len(coordinates) + 1)
@@ -262,8 +314,13 @@ class Points:
             except ValueError:
                 ids = range(self._last_id + 1, self._last_id + len(coordinates) + 1)
 
-        for (id, coor) in zip(ids, coordinates):
-            self._values[id] = Point(coor, id)
+        if colors is not None:
+            colors = np.float32(colors)
+        else:
+            colors = [None for _ in range(len(coordinates))]
+
+        for (id, coor, col) in zip(ids, coordinates, colors):
+            self._values[id] = Point(coor, id, color=col)
             self._last_id = id
 
     def to_numpy(self) -> np.ndarray:
@@ -280,6 +337,19 @@ class Points:
         pts = np.empty((len(self), 3), dtype=np.float32)
         for i, v in enumerate(self._values.values()):
             pts[i, :] = np.float32(v.coordinates)
+
+        return pts
+
+    def to_point_cloud(self) -> PointCloud:
+        """
+        to_point_cloud Convert Points object to PointCloud object that store the data with Open3D class, has methods to visualize the point cloud and save it
+
+        Returns:
+            PointCloud: PointCloud object
+        """
+
+        pcd = PointCloud(points3d=self.to_numpy())
+        return pcd
 
     def get_track_ids(self) -> Tuple[np.int32]:
         """
@@ -375,16 +445,19 @@ if __name__ == "__main__":
 
     setup_logger()
 
+    # out = float32_type_check(2.4)
+
     n_feat = 10000
     coord = np.random.rand(n_feat, 3)
 
-    # rep_times = 1
-
-    features_new = Points()
-    # for _ in range(rep_times):
+    points = Points()
     t0 = time.time()
-    features_new.append_features_from_numpy(coord)
+    points.append_features_from_numpy(coord)
     t1 = time.time()
     logging.info(
         f"Append features from numpy array to dict of Feature objects: Elapsed time {t1-t0:.4f} s"
     )
+
+    logging.info("Convert points to point cloud")
+    pcd = points.to_point_cloud()
+    print(pcd.get_pcd())
