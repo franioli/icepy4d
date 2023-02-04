@@ -80,9 +80,12 @@ if __name__ == "__main__":
     features = init.features
     images = init.images
     targets = init.targets
-    point_clouds = init.point_clouds
     epoch_dict = init.epoch_dict
     focals = init.focals_dict
+
+    # TMP @TODO: choose just one structure (points)!!
+    point_clouds = init.point_clouds
+    points = icepy_classes.PointsDict()
 
     """ Big Loop over epoches """
 
@@ -230,6 +233,12 @@ if __name__ == "__main__":
 
         # Create point cloud and save .ply to disk
         pcd_epc = icepy_classes.PointCloud(points3d=points3d, points_col=triang.colors)
+        # pts = icepy_classes.Points()
+        # pts.append_features_from_numpy(
+        #     points3d,
+        #     track_ids=features[epoch][cams[0]].get_track_ids(),
+        #     colors=triang.colors,
+        # )
 
         timer.update("relative orientation")
 
@@ -296,15 +305,23 @@ if __name__ == "__main__":
                 cam_id=1,
             )
 
-            pcd_epc = icepy_classes.PointCloud(
-                points3d=points3d, points_col=triang.colors
+            # pcd_epc = icepy_classes.PointCloud(
+            #     points3d=points3d, points_col=triang.colors
+            # )
+
+            points[epoch] = icepy_classes.Points()
+            points[epoch].append_features_from_numpy(
+                points3d,
+                track_ids=features[epoch][cams[0]].get_track_ids(),
+                colors=triang.colors,
             )
+
+            point_clouds[epoch] = points[epoch].to_point_cloud()
             if cfg.proc.save_sparse_cloud:
-                pcd_epc.write_ply(
+                point_clouds[epoch].write_ply(
                     cfg.paths.results_dir
                     / f"point_clouds/sparse_{epoch_dict[epoch]}.ply"
                 )
-            point_clouds[epoch] = pcd_epc
 
             # - For debugging purposes
             # M = targets[epoch].get_object_coor_by_label(cfg.georef.targets_to_use)[0]

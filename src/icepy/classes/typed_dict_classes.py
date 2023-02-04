@@ -5,6 +5,7 @@ from .features import Features
 from .point_cloud import PointCloud
 from .images import ImageDS
 from .targets import Targets
+from .points import Points
 
 """
 Define TypedDict classes for storing data from all the epoches
@@ -41,3 +42,7 @@ class PointCloudDict(TypedDict):
 
 class TargetDict(TypedDict):
     epoch: Targets
+
+
+class PointsDict(TypedDict):
+    epoch: Points
