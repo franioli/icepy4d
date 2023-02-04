@@ -105,6 +105,17 @@ class Point:
         ), "Invalid shape of coordinates array. It must be a (3,) numpy array (vector)"
         coordinates = float32_type_check(coordinates, cast_integers=True)
 
+        assert isinstance(color, np.ndarray), "invalid argument color"
+        if color.shape == (3, 1) or color.shape == (3, 1):
+            color = color.squeeze()
+        assert color.shape == (
+            3,
+        ), "Invalid shape of color array. It must be a (3,) numpy array"
+        color = float32_type_check(color, cast_integers=False)
+        assert (
+            color.dtype == np.float32
+        ), "Invalid type of color vector. It must be of type np.float32"
+
         self._track_id = track_id
         self._X = coordinates[0]
         self._Y = coordinates[1]
@@ -297,9 +308,9 @@ class Points:
         if track_ids is None:
             ids = range(self._last_id + 1, self._last_id + len(coordinates) + 1)
         else:
-            assert isinstance(
-                track_ids, list
-            ), "Invalid track_ids input. It must be a list of integers of the same size of the input arrays."
+            assert isinstance(track_ids, list) or isinstance(
+                track_ids, tuple
+            ), "Invalid track_ids input. It must be a list or a tuple of integers of the same size of the input arrays."
             assert len(track_ids) == len(
                 coordinates
             ), "invalid size of track_id input. It must be a list of the same size of the input arrays."
@@ -327,18 +338,27 @@ class Points:
         """
         to_numpy Get all points' coordinates stacked as numpy array.
 
-        Args:
-            get_descr (bool, optional): get descriptors as mxn array. Defaults to False.
-            get_score (bool, optional): get scores as nx1 array. Defaults to False.
-
         Returns:
-            dict: dictionary containing the following keys (depending on the input arguments): ["kpts", "descr", "scores"]
+            np.ndarray: nx3 numpy array of type np.float32 with XYZ coordinates
         """
         pts = np.empty((len(self), 3), dtype=np.float32)
         for i, v in enumerate(self._values.values()):
             pts[i, :] = np.float32(v.coordinates)
 
         return pts
+
+    def colors_to_numpy(self) -> np.ndarray:
+        """
+        colors_to_numpy Get points' colors stacked as numpy array.
+
+        Returns:
+            np.ndarray: nx3 numpy array of type np.float32 with RGB colors
+        """
+        cols = np.empty((len(self), 3), dtype=np.float32)
+        for i, v in enumerate(self._values.values()):
+            cols[i, :] = np.float32(v.color)
+
+        return cols
 
     def to_point_cloud(self) -> PointCloud:
         """
@@ -348,7 +368,7 @@ class Points:
             PointCloud: PointCloud object
         """
 
-        pcd = PointCloud(points3d=self.to_numpy())
+        pcd = PointCloud(points3d=self.to_numpy(), points_col=self.colors_to_numpy())
         return pcd
 
     def get_track_ids(self) -> Tuple[np.int32]:
@@ -449,10 +469,11 @@ if __name__ == "__main__":
 
     n_feat = 10000
     coord = np.random.rand(n_feat, 3)
+    cols = np.random.rand(n_feat, 3)
 
     points = Points()
     t0 = time.time()
-    points.append_features_from_numpy(coord)
+    points.append_features_from_numpy(coordinates=coord, colors=cols)
     t1 = time.time()
     logging.info(
         f"Append features from numpy array to dict of Feature objects: Elapsed time {t1-t0:.4f} s"
@@ -460,4 +481,4 @@ if __name__ == "__main__":
 
     logging.info("Convert points to point cloud")
     pcd = points.to_point_cloud()
-    print(pcd.get_pcd())
+    print(pcd.get_colors())

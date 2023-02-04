@@ -86,7 +86,7 @@ def parse_command_line() -> Tuple[str, dict]:
         "--log_name",
         default="icepy",
         type=str,
-        help="",
+        help="Base name of the log file",
     )
     parser.add_argument(
         "--log_file_level",
@@ -168,7 +168,7 @@ def parse_yaml_cfg(cfg_file: Union[str, Path]) -> edict:
 
     # Check and expand epoches to be processed
     if cfg.proc.epoch_to_process == "all":
-        logging.warning(
+        logging.info(
             "Epoch_to_process set to 'all'. Expanding it based on the images found in image folder."
         )
         cams = cfg.paths.camera_names
@@ -177,7 +177,7 @@ def parse_yaml_cfg(cfg_file: Union[str, Path]) -> edict:
         n_images = len(img_ds)
         cfg.proc.epoch_to_process = [x for x in range(n_images)]
     elif len(cfg.proc.epoch_to_process) == 2:
-        logging.warning(
+        logging.info(
             f"Epoch_to_process set to a pair of values. Expanding it for a range of epoches from epoch {cfg.proc.epoch_to_process[0]} to {cfg.proc.epoch_to_process[1]}."
         )
         ep_ini = cfg.proc.epoch_to_process[0]
@@ -278,7 +278,7 @@ class Inizialization:
         self.cameras: CamerasDict = {}
         for epoch in self.cfg.proc.epoch_to_process:
             self.cameras[epoch]: CamerasDictEpoch = {
-                Camera(
+                cam: Camera(
                     width=im_width,
                     height=im_height,
                     calib_path=self.cfg.paths.calibration_dir / f"{cam}.txt",
