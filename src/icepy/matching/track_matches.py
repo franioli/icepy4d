@@ -396,8 +396,8 @@ def track_matches(pairs, maskBB, prevs, track_id, opt):
     scores1_cam0 = scores1_full[0][validTracked]
     scores1_cam1 = scores1_full[1][validTracked]
 
-    track_id_cam0 = np.array(track_id)[validTracked].astype(np.int64)
-    track_id_cam1 = track_id1_full[1][validTracked].astype(np.int64)
+    track_id_cam0 = np.array(track_id)[validTracked].astype(np.int32)
+    track_id_cam1 = track_id1_full[1][validTracked].astype(np.int32)
 
     # Restore original image coordinates (not cropped)
     mkpts1_cam0 = mkpts1_cam0 + np.array(maskBB[1][0:2]).astype("float32")

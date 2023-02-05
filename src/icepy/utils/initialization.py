@@ -30,14 +30,16 @@ import argparse
 
 from easydict import EasyDict as edict
 from pathlib import Path
-from typing import List, Union, Tuple
+from typing import List, Union, Tuple, TypedDict
 from datetime import datetime
 
 from ..classes.camera import Camera
 from ..classes.features import Features
+from ..classes.points import Points
 from ..classes.point_cloud import PointCloud
 from ..classes.images import Image, ImageDS
 from ..classes.targets import Targets
+from ..classes.typed_dict_classes import *
 
 
 """ 
@@ -83,9 +85,9 @@ def parse_command_line() -> Tuple[str, dict]:
     )
     parser.add_argument(
         "--log_name",
-        default="icepy",
+        default="log",
         type=str,
-        help="",
+        help="Base name of the log file",
     )
     parser.add_argument(
         "--log_file_level",
@@ -116,7 +118,7 @@ def parse_command_line() -> Tuple[str, dict]:
 
     log_cfg = {
         "log_folder": args.log_folder,
-        "log_name": args.log_folder,
+        "log_name": args.log_name,
         "log_file_level": args.log_file_level,
         "log_console_level": args.log_console_level,
     }
@@ -129,7 +131,7 @@ def parse_yaml_cfg(cfg_file: Union[str, Path]) -> edict:
     parse_yaml_cfg _summary_
 
     Args:
-        cfg_file (Union[str, Path]): _description_
+        cfg_file (Union[str, Path]): path to the configuration file
 
     Raises:
         ValueError: _description_
@@ -167,7 +169,7 @@ def parse_yaml_cfg(cfg_file: Union[str, Path]) -> edict:
 
     # Check and expand epoches to be processed
     if cfg.proc.epoch_to_process == "all":
-        logging.warning(
+        logging.info(
             "Epoch_to_process set to 'all'. Expanding it based on the images found in image folder."
         )
         cams = cfg.paths.camera_names
@@ -176,7 +178,7 @@ def parse_yaml_cfg(cfg_file: Union[str, Path]) -> edict:
         n_images = len(img_ds)
         cfg.proc.epoch_to_process = [x for x in range(n_images)]
     elif len(cfg.proc.epoch_to_process) == 2:
-        logging.warning(
+        logging.info(
             f"Epoch_to_process set to a pair of values. Expanding it for a range of epoches from epoch {cfg.proc.epoch_to_process[0]} to {cfg.proc.epoch_to_process[1]}."
         )
         ep_ini = cfg.proc.epoch_to_process[0]
@@ -233,48 +235,39 @@ class Inizialization:
         ), "Camera names not available in cfg file."
         self.cams = self.cfg.paths.camera_names
 
-    def init_image_ds(self) -> dict:
-        # Create Image Datastore objects
-        images = dict.fromkeys(self.cams)
+    def init_image_ds(self) -> ImagesDict:
+        """
+        init_image_ds _summary_
+
+        Returns:
+            ImagesDict: _description_
+        """
+        self.images: ImagesDict = {
+            cam: ImageDS(self.cfg.paths.image_dir / cam) for cam in self.cams
+        }
         for cam in self.cams:
-            images[cam] = ImageDS(self.cfg.paths.image_dir / cam)
-            images[cam].write_exif_to_csv(
+            self.images[cam].write_exif_to_csv(
                 self.cfg.paths.image_dir / f"image_list_{cam}.csv"
             )
 
-        self.images = images
         return self.images
 
-    def init_epoch_dict_old(self) -> dict:
-        epoch_dict = {}
-        for epoch in self.cfg.proc.epoch_to_process:
-            image = Image(self.images[self.cams[0]].get_image_path(epoch))
-            epoch_dict[epoch] = Path(
-                (self.cfg.paths.results_dir)
-                / f"{image.get_datetime().year}_{image.get_datetime().month:02}_{image.get_datetime().day:02}"
-            ).stem
-
-        self.epoch_dict = epoch_dict
-        return self.epoch_dict
-
-    def init_epoch_dict(self) -> dict:
+    def init_epoch_dict(self) -> EpochDict:
         """
         init_epoch_dict Build dictonary containing pairs of epoch and dates, as follows:
         {0: "2021_01_01", 1: "2021_01_02" ...}
 
         Returns:
-            dict: epoc_dict
+            EpochDict: epoc_dict
         """
-        epoch_dict = {}
+        self.epoch_dict: EpochDict = {}
         for epoch in range(len(self.images[self.cams[0]])):
             date_str = self.images[self.cams[0]].get_image_date(epoch)
             date = datetime.strptime(date_str, "%Y:%m:%d")
-            epoch_dict[epoch] = f"{date.year}_{date.month:02}_{date.day:02}"
-        self.epoch_dict = epoch_dict
+            self.epoch_dict[epoch] = f"{date.year}_{date.month:02}_{date.day:02}"
         return self.epoch_dict
 
-    def init_cameras(self) -> dict:
-        cameras = {}
+    def init_cameras(self) -> CamerasDict:
 
         assert hasattr(
             self, "images"
@@ -283,32 +276,31 @@ class Inizialization:
         im_height, im_width = img.height, img.width
 
         # Inizialize Camera Intrinsics at every epoch setting them equal to the those of the reference cameras.
+        self.cameras: CamerasDict = {}
         for epoch in self.cfg.proc.epoch_to_process:
-            cameras[epoch] = {}
-            for cam in self.cams:
-                cameras[epoch][cam] = Camera(
+            self.cameras[epoch]: CamerasDictEpoch = {
+                cam: Camera(
                     width=im_width,
                     height=im_height,
                     calib_path=self.cfg.paths.calibration_dir / f"{cam}.txt",
                 )
+                for cam in self.cams
+            }
 
-        self.cameras = cameras
         return self.cameras
 
-    def init_features(self) -> dict:
-        features = {}
-
+    def init_features(self) -> FeaturesDict:
+        self.features: FeaturesDict = {}
         for epoch in self.cfg.proc.epoch_to_process:
-            features[epoch] = dict.fromkeys(self.cams)
-            for cam in self.cams:
-                features[epoch][cam] = Features()
+            self.features[epoch]: FeaturesDictEpoch = {
+                cam: Features() for cam in self.cams
+            }
 
-        self.features = features
         return self.features
 
-    def init_targets(self) -> dict:
+    def init_targets(self) -> TargetDict:
         # Read target image coordinates and object coordinates
-        targets = {}
+        self.targets: TargetDict = {}
         for epoch in self.cfg.proc.epoch_to_process:
 
             p1_path = self.cfg.georef.target_dir / (
@@ -321,17 +313,24 @@ class Inizialization:
                 + self.cfg.georef.target_file_ext
             )
 
-            targets[epoch] = Targets(
+            self.targets[epoch] = Targets(
                 im_file_path=[p1_path, p2_path],
                 obj_file_path=self.cfg.georef.target_dir
                 / self.cfg.georef.target_world_file,
             )
 
-        self.targets = targets
         return self.targets
 
-    def init_point_cloud(self) -> List[PointCloud]:
-        self.point_clouds = {}
+    def init_points(self) -> PointsDict:
+        self.points: PointsDict = {
+            ep: Points() for ep in self.cfg.proc.epoch_to_process
+        }
+        return self.points
+
+    def init_point_cloud(self) -> PointCloudDict:
+        self.point_clouds: PointCloudDict = {
+            ep: None for ep in self.cfg.proc.epoch_to_process
+        }
         return self.point_clouds
 
     def init_focals_dict(self) -> dict:
@@ -345,7 +344,7 @@ class Inizialization:
         self.init_cameras()
         self.init_features()
         self.init_targets()
-        self.init_point_cloud()
+        self.init_points()
         self.init_focals_dict()
 
 
