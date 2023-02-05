@@ -21,22 +21,17 @@ if __name__ == "__main__":
 
     cfg_file = Path("config/config_test_tracking.yaml")
 
+    initialization.print_welcome_msg()
+
+    """ Inizialize Variables """
     # Setup logger
-    icepy_utils.setup_logger("icepy")
+    icepy_utils.setup_logger(log_base_name="rock_tracking")
 
-    print("\n===========================================================")
-    print("ICEpy4D")
-    print(
-        "Image-based Continuos monitoring of glaciers' Evolution with low-cost stereo-cameras and Deep Learning photogrammetry"
-    )
-    print("2022 - Francesco Ioli - francesco.ioli@polimi.it")
-    print("===========================================================\n")
-
-    # Read options from yaml file
+    # Parse configuration file
     logging.info(f"Configuration file: {cfg_file.stem}")
     cfg = initialization.parse_yaml_cfg(cfg_file)
 
-    """ Inizialize Variables """
+    timer_global = icepy_utils.AverageTimer()
 
     init = initialization.Inizialization(cfg)
     init.inizialize_icepy()
@@ -90,8 +85,129 @@ if __name__ == "__main__":
                 )
 
         timer.update("matching")
+
         timer.print(f"Epoch {epoch} completed")
 
-        # Testing
-        # a = features[180]["p1"]
-        # b = features[181]["p1"]
+    # For debugging
+    cam = cams[0]
+    fdict: icepy_classes.Feature = {
+        epoch: features[epoch][cam] for epoch in cfg.proc.epoch_to_process
+    }
+
+    # Get time series of features
+    from typing import TypedDict
+    import time
+
+    def extract_feature_time_series(
+        fdict: icepy_classes.FeaturesDict,
+        # pdict: icepy_classes.FeaturesDict,
+        track_id: np.int32,
+        min_tracked_epoches: int = 1,
+        debug: bool = False,
+    ) -> icepy_classes.Feature:
+        """
+        extract_feature_time_series _summary_
+
+        Args:
+            fdict (FeaturesDict): _description_
+            track_id (np.int32): _description_
+            min_tracked_epoches (int, optional): _description_. Defaults to 1.
+            debug (bool, optional): _description_. Defaults to False.
+
+        Returns:
+            FeaturesDict: _description_
+        """
+
+        epoches = list(fdict.keys())
+        if debug:
+            ts: icepy_classes.Feature = {}
+            for ep in epoches:
+                if track_id in fdict[ep]:
+                    logging.info(f"Feture {track_id} available in ep {ep}")
+                    ts[ep] = fdict[ep][track_id]
+                else:
+                    logging.info(f"Feture {track_id} NOT available in ep {ep}")
+        else:
+            ts: icepy_classes.Feature = {
+                ep: fdict[ep][track_id] for ep in epoches if track_id in fdict[ep]
+            }
+
+        if min_tracked_epoches > 0:
+            if len(ts) <= min_tracked_epoches:
+                if debug:
+                    logging.warning(
+                        f"Feture {track_id} was detected only in epoch {list(ts.keys())[0]}. Not returned."
+                    )
+                return None
+            else:
+                return ts
+        else:
+            return ts
+
+    t0 = time.time()
+    out = extract_feature_time_series(fdict, 2, min_tracked_epoches=2)
+    print(f"Elaspsed time {time.time() - t0} s")
+
+    class FeaturePointDict(TypedDict):
+        feature: icepy_classes.Feature
+        point: icepy_classes.Point
+
+    class TrackedFeaturesDict(TypedDict):
+        epoch: FeaturePointDict
+
+    class TrackedFeaturesAll(TypedDict):
+        track_id: TrackedFeaturesDict
+        # track_id: icepy_classes.FeaturesDict
+
+    def extract_features_and_points_time_series(
+        fdict: icepy_classes.FeaturesDict,
+        # pdict: icepy_classes.FeaturesDict,
+        track_id: np.int32,
+        min_tracked_epoches: int = 1,
+    ) -> TrackedFeaturesDict:
+        """
+        extract_feature_time_series _summary_
+
+        Args:
+            fdict (FeaturesDict): _description_
+            track_id (np.int32): _description_
+            min_tracked_epoches (int, optional): _description_. Defaults to 1.
+            debug (bool, optional): _description_. Defaults to False.
+
+        Returns:
+            FeaturesDict: _description_
+        """
+
+        epoches = list(fdict.keys())
+
+        ts: FeaturePointDict = {}
+        for ep in epoches:
+
+            coord = np.random.rand(len(fdict[ep]), 3)
+            points = icepy_classes.Points()
+            points.append_features_from_numpy(coord)
+
+            if track_id in fdict[ep]:
+                ts[ep]: FeaturePointDict = {fdict[ep][track_id], points[track_id]}
+
+        if min_tracked_epoches > 0:
+            if len(ts) <= min_tracked_epoches:
+                return None
+            else:
+                return ts
+        else:
+            return ts
+
+    # fts: TrackedFeaturesDict = {
+    #     0: extract_feature_time_series(fdict, 0, min_tracked_epoches=1),
+    #     1: extract_feature_time_series(fdict, 1, min_tracked_epoches=1),
+    #     2: extract_feature_time_series(fdict, 2, min_tracked_epoches=1),
+    # }
+
+    t0 = time.time()
+    last_track_id = fdict[cfg.proc.epoch_to_process[-1]].last_track_id
+    fts: TrackedFeaturesDict = {
+        id: extract_features_and_points_time_series(fdict, id, min_tracked_epoches=1)
+        for id in range(last_track_id)
+    }
+    print(f"Elaspsed time {time.time() - t0} s")

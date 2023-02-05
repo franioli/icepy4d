@@ -75,13 +75,13 @@ if __name__ == "__main__":
 
     init = initialization.Inizialization(cfg)
     init.inizialize_icepy()
-    cameras = init.cameras
     cams = init.cams
-    features = init.features
     images = init.images
-    targets = init.targets
-    point_clouds = init.point_clouds
     epoch_dict = init.epoch_dict
+    cameras = init.cameras
+    features = init.features
+    targets = init.targets
+    points = init.points
     focals = init.focals_dict
 
     """ Big Loop over epoches """
@@ -112,7 +112,7 @@ if __name__ == "__main__":
         else:
             try:
                 path = epochdir / "matching"
-                features[epoch] = load_matches_from_disk()
+                features[epoch] = load_matches_from_disk(path)
             except FileNotFoundError as err:
                 logging.exception(err)
                 logging.warning("Performing new matching and tracking...")
@@ -229,7 +229,13 @@ if __name__ == "__main__":
                 continue
 
         # Create point cloud and save .ply to disk
-        pcd_epc = icepy_classes.PointCloud(points3d=points3d, points_col=triang.colors)
+        # pcd_epc = icepy_classes.PointCloud(points3d=points3d, points_col=triang.colors)
+        pts = icepy_classes.Points()
+        pts.append_features_from_numpy(
+            points3d,
+            track_ids=features[epoch][cams[0]].get_track_ids(),
+            colors=triang.colors,
+        )
 
         timer.update("relative orientation")
 
@@ -249,10 +255,9 @@ if __name__ == "__main__":
             write_bundler_out(
                 export_dir=epochdir,
                 im_dict=im_dict,
-                cams=cams,
                 cameras=cameras[epoch],
                 features=features[epoch],
-                point_cloud=pcd_epc,
+                points=pts,
                 targets=targets[epoch],
                 targets_to_use=valid_targets,
                 targets_enabled=[True for el in valid_targets],
@@ -296,15 +301,21 @@ if __name__ == "__main__":
                 cam_id=1,
             )
 
-            pcd_epc = icepy_classes.PointCloud(
-                points3d=points3d, points_col=triang.colors
+            # pcd_epc = icepy_classes.PointCloud(
+            #     points3d=points3d, points_col=triang.colors
+            # )
+
+            points[epoch].append_features_from_numpy(
+                points3d,
+                track_ids=features[epoch][cams[0]].get_track_ids(),
+                colors=triang.colors,
             )
+
             if cfg.proc.save_sparse_cloud:
-                pcd_epc.write_ply(
+                points[epoch].to_point_cloud().write_ply(
                     cfg.paths.results_dir
                     / f"point_clouds/sparse_{epoch_dict[epoch]}.ply"
                 )
-            point_clouds[epoch] = pcd_epc
 
             # - For debugging purposes
             # M = targets[epoch].get_object_coor_by_label(cfg.georef.targets_to_use)[0]
@@ -313,7 +324,7 @@ if __name__ == "__main__":
             # plot_features(images[cams[0]].read_image(epoch).value, features[epoch][cams[0]].kpts_to_numpy())
 
             # Clean variables
-            del relative_ori, triang, abs_ori, points3d, pcd_epc
+            del relative_ori, triang, abs_ori, points3d
             del T, new_K
             del ms_cfg, ms, ms_reader
             gc.collect()
@@ -354,6 +365,9 @@ if __name__ == "__main__":
         """Put this code into functions in visualization module of icepy"""
 
         # Visualize point cloud
+        # point_clouds = [
+        #     points[epoch].to_point_cloud() for epoch in cfg.proc.epoch_to_process
+        # ]
         # display_point_cloud(
         #     point_clouds,
         #     [cameras[epoch][cams[0]], cameras[epoch][cams[1]]],
@@ -417,7 +431,7 @@ if __name__ == "__main__":
             logging.info(f"Epoch {epoch}")
             dsms.append(
                 build_dsm(
-                    np.asarray(point_clouds[epoch].points),
+                    points[epoch].to_numpy(),
                     dsm_step=res,
                     xlim=xlim,
                     ylim=ylim,

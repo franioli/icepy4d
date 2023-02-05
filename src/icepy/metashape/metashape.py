@@ -22,9 +22,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+import Metashape
 import numpy as np
 import pandas as pd
-import Metashape
+import logging
 
 from pathlib import Path
 from easydict import EasyDict as edict
@@ -45,6 +46,17 @@ REGION_RESIZE_FCT = 10.0
 
 
 def build_metashape_cfg(cfg: edict, epoch_dict: dict, epoch: int) -> edict:
+    """
+    # build_metashape_cfg Build metashape configuration dictionary, starting from global configuration dictionary.
+
+    Args:
+        cfg (edict): configuration dictionary for ICEpy
+        epoch_dict (dict): dictionary containing the correspondings between epoch progressive numbers and dates
+        epoch (int): current epoch.
+
+    Returns:
+        edict: Metashape configuration dictionary
+    """
     ms_cfg = edict()
 
     # Paths
@@ -115,9 +127,7 @@ class MetashapeProject:
             self.doc.read_only = False
         if self.cfg.use_opk:
             self.doc.chunk.euler_angles = Metashape.EulerAnglesOPK
-
-        # self.chunk = self.doc.chunk
-        print(f"Created project {self.project_path}.")
+        logging.info(f"Created project {self.project_path}.")
 
     def add_images(self) -> None:
         p = self.cfg.im_path.glob("*." + self.cfg.im_ext)
@@ -138,7 +148,7 @@ class MetashapeProject:
         elif len(self.cfg.cam_accuracy) == 3:
             accuracy = Metashape.Vector(self.cfg.cam_accuracy)
         else:
-            print(
+            logging.error(
                 "Wrong input type for accuracy parameter. Provide a list of floats (it can be a list of a single element or of three elements)."
             )
             return
@@ -156,7 +166,7 @@ class MetashapeProject:
             # if self.cfg.prm_to_fix:
             sensor.fixed_params = self.cfg.prm_to_fix
 
-            print(f"sensor {sensor} loaded.")
+            logging.info(f"sensor {sensor} loaded.")
 
     def add_gcps(self) -> None:
         gcps = read_gcp_file(self.cfg.gcp_filename)
@@ -201,7 +211,7 @@ class MetashapeProject:
         elif depth_filter == "AggressiveFiltering":
             filter = Metashape.FilterMode.AggressiveFiltering
         else:
-            print(
+            logging.error(
                 "Error: invalid choise of depth filtering. Choose one in [NoFiltering, MildFiltering, ModerateFiltering, AggressiveFiltering]"
             )
 
