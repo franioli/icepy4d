@@ -24,6 +24,7 @@ SOFTWARE.
 
 import Metashape
 import numpy as np
+import logging
 
 from typing import List
 from typing import Union
@@ -36,7 +37,7 @@ from ..io.importing import read_opencv_calibration
 
 def check_license() -> None:
     if Metashape.app.activated:
-        print("Metashape is activated: ", Metashape.app.activated)
+        logging.info("Metashape is activated: ", Metashape.app.activated)
     else:
         raise Exception(
             "No licence found. Please check that you linked your license (floating or standalone) wih the Metashape python module."
@@ -83,7 +84,7 @@ def create_new_project(
 
 def cameras_from_bundler(
     chunk: Metashape.Chunk,
-    fname: str,
+    fname: Union[str, Path],
     image_list: str,
 ) -> None:
     if image_list:
@@ -93,13 +94,15 @@ def cameras_from_bundler(
             load_image_list=True,
             image_list=str(image_list),
         )
-        print("Cameras loaded successfully from Bundler .out, using image list file.")
+        logging.info(
+            "Cameras loaded successfully from Bundler .out, using image list file."
+        )
     else:
         chunk.importCameras(
             str(fname),
             format=Metashape.CamerasFormat.CamerasFormatBundler,
         )
-        print("Cameras loaded successfully from Bundler .out.")
+        logging.info("Cameras loaded successfully from Bundler .out.")
 
 
 """ Input / outputs """
@@ -141,11 +144,11 @@ def find_gcp_in_data(data, label, verbose=False) -> List[dict]:
     for line in data:
         if line["label"] == label:
             if verbose:
-                print(f'GCP {label} found in image {line["image"]}.')
+                logging.info(f'GCP {label} found in image {line["image"]}.')
             markers.append(line)
             continue
     if not markers:
-        print(f"GCP {label} not found.")
+        logging.warning(f"GCP {label} not found.")
     return markers
 
 
@@ -235,7 +238,7 @@ def write_markers_by_camera(
                         file.write(f"{cam_name},{marker_name},{x:.4f},{y:.4f}\n")
 
     file.close()
-    print("Marker exported successfully")
+    logging.info("Marker exported successfully")
 
 
 def write_markers_by_marker(
@@ -269,7 +272,7 @@ def write_markers_by_marker(
             file.write(f"{marker_name},{label},{x:.4f},{y:.4f}\n")
 
     file.close()
-    print("Marker exported successfully")
+    logging.info("Marker exported successfully")
 
 
 def write_marker_world_coordinates(
@@ -295,7 +298,7 @@ def write_marker_world_coordinates(
         file.write(f"{marker_name:5},{X:15.4f},{Y:15.4f},{Z:15.4f}\n")
 
     file.close()
-    print("Marker exported successfully")
+    logging.info("Marker exported successfully")
 
 
 """ Get objects"""
@@ -488,7 +491,9 @@ def match_images_sensors(
         id = get_sensor_id_by_label(sensors, label)
         if id is not None:
             copy_sensor(cam.sensor, sensors[id])
-            print(f"Sensor associated. Camera: {cam.label} -> sensor: {label} {id}")
+            logging.info(
+                f"Sensor associated. Camera: {cam.label} -> sensor: {label} {id}"
+            )
         else:
             raise Exception("Sensor not found.")
 
@@ -544,7 +549,7 @@ def copy_camera_estimated_to_reference(
     if len(accuracy) == 1:
         accuracy = Metashape.Vector((accuracy, accuracy, accuracy))
     elif len(accuracy) != 3:
-        print(
+        logging.error(
             "Wrong input type for accuracy parameter. Provide a list of floats (it can be a list of a single element or of three elements)."
         )
         return
