@@ -115,7 +115,7 @@ if __name__ == "__main__":
         else:
             try:
                 path = epochdir / "matching"
-                features[epoch] = load_matches_from_disk()
+                features[epoch] = load_matches_from_disk(path)
             except FileNotFoundError as err:
                 logging.exception(err)
                 logging.warning("Performing new matching and tracking...")
@@ -232,13 +232,13 @@ if __name__ == "__main__":
                 continue
 
         # Create point cloud and save .ply to disk
-        pcd_epc = icepy_classes.PointCloud(points3d=points3d, points_col=triang.colors)
-        # pts = icepy_classes.Points()
-        # pts.append_features_from_numpy(
-        #     points3d,
-        #     track_ids=features[epoch][cams[0]].get_track_ids(),
-        #     colors=triang.colors,
-        # )
+        # pcd_epc = icepy_classes.PointCloud(points3d=points3d, points_col=triang.colors)
+        pts = icepy_classes.Points()
+        pts.append_features_from_numpy(
+            points3d,
+            track_ids=features[epoch][cams[0]].get_track_ids(),
+            colors=triang.colors,
+        )
 
         timer.update("relative orientation")
 
@@ -258,10 +258,9 @@ if __name__ == "__main__":
             write_bundler_out(
                 export_dir=epochdir,
                 im_dict=im_dict,
-                cams=cams,
                 cameras=cameras[epoch],
                 features=features[epoch],
-                point_cloud=pcd_epc,
+                points=pts,
                 targets=targets[epoch],
                 targets_to_use=valid_targets,
                 targets_enabled=[True for el in valid_targets],
