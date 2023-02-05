@@ -190,6 +190,9 @@ class Features:
         self._last_id = -1
         self._iter = 0
         self._descriptor_size = 256
+        """
+        __init__ Initialize Features object
+        """
 
     def __len__(self) -> int:
         """

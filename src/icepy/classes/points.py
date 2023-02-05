@@ -168,6 +168,9 @@ class Points:
         self._values = {}
         self._last_id = -1
         self._iter = 0
+        """
+        __init__ Initialize Points object.
+        """
 
     def __len__(self) -> int:
         """
@@ -346,17 +349,32 @@ class Points:
             pts[i, :] = np.float32(v.coordinates)
 
         return pts
-
-    def colors_to_numpy(self) -> np.ndarray:
         """
         colors_to_numpy Get points' colors stacked as numpy array.
 
         Returns:
             np.ndarray: nx3 numpy array of type np.float32 with RGB colors
         """
-        cols = np.empty((len(self), 3), dtype=np.float32)
-        for i, v in enumerate(self._values.values()):
-            cols[i, :] = np.float32(v.color)
+
+    def colors_to_numpy(self, as_uint8: bool = False) -> np.ndarray:
+        """
+        colors_to_numpy Get points' colors stacked as numpy array.
+
+
+        Args:
+            as_uint8 (bool, optional): Convert RGB colors to integers numbers at 8bit (np.uint8) with values ranging between 0 and 255. Defaults to False.
+
+        Returns:
+            np.ndarray: nx3 numpy array with RGB colors (either in as floating numbers or integers ranging between [0, 255])
+        """
+        if as_uint8:
+            cols = np.empty((len(self), 3), dtype=np.uint8)
+            for i, v in enumerate(self._values.values()):
+                cols[i, :] = np.uint8(v.color * 255)
+        else:
+            cols = np.empty((len(self), 3), dtype=np.float32)
+            for i, v in enumerate(self._values.values()):
+                cols[i, :] = np.float32(v.color)
 
         return cols
 
