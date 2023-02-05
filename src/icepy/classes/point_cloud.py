@@ -35,8 +35,8 @@ class PointCloud:
         self,
         points3d: np.ndarray = None,
         pcd_path: str = None,
-        points_col=None,
-        *scalar_fied: np.ndarray,
+        points_col: np.ndarray = None,
+        # *scalar_fied: np.ndarray = None,
         verbose: bool = False,
     ) -> None:
 
@@ -107,41 +107,3 @@ class PointCloud:
         """
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         o3d.io.write_point_cloud(str(path), self.pcd)
-
-
-""" Old functions replaced by PointCloud class """
-
-
-def create_point_cloud(points3d, points_col=None, path=None, *scalar_fied):
-    """Function to create a point cloud object by using Open3D library.
-    Input:  (nx3, float32) array of points 3D.
-            (nx3, float32) array of color of each point.
-                Colors are defined in [0,1] range as float numbers.
-            Path were to save the point cloud to disk in ply format.
-                If path is None, the point cloud is not saved to disk.
-            Scalar fields: to be implemented.
-            #TODO: implement scalar fields.
-    Return: Open3D point cloud object
-    """
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(points3d)
-    if points_col is not None:
-        pcd.colors = o3d.utility.Vector3dVector(points_col)
-    if path is not None:
-        write_ply(pcd, path)
-    return pcd
-
-
-def write_ply(pcd, path):
-    """Write point cloud to disk as .ply
-
-    Parameters
-    ----------
-    pcd : O3D point cloud
-    out_path : Path or str of output ply
-
-    Returns: None
-    """
-    path = Path(path)
-    path.mkdir(exist_ok=True, parents=True)
-    o3d.io.write_point_cloud(str(path), pcd)

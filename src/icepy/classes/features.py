@@ -31,7 +31,40 @@ from typing import Union, List, Tuple
 from pathlib import Path
 from copy import deepcopy
 
-from .camera import Camera
+
+def float32_type_check(
+    array: np.ndarray, cast_integers: bool = False, verbose: bool = False
+) -> np.ndarray:
+    """
+    float32_type_check Check if the numpy array is of type np.float32 and, if possible, return a casted array to np.float32
+
+    Args:
+        array (np.ndarray): Numpy array
+        cast_integers (bool, optional): Cast integers to float. Defaults to False.
+        verbose (bool, optional): Log output. Defaults to False.
+
+    Raises:
+        ValueError: Raise ValueError if the function is unable to safely cast the array to np.float32
+
+    Returns:
+        np.ndarray: np.float32 numpy array
+    """
+    if array.dtype == np.float64 or array.dtype == float:
+        if verbose:
+            logging.info("Input array are float64 numbers. Casting them to np.float32")
+        array = array.astype(np.float32)
+
+    if cast_integers:
+        if array.dtype == int or array.dtype == np.int32 or array.dtype == np.int64:
+            if verbose:
+                logging.info("Input array are int numbers. Casting them to np.float32")
+            array = array.astype(np.float32)
+    if array.dtype != np.float32:
+        raise ValueError(
+            "Invalid type of input array. It must be a numpy array of type np.float32"
+        )
+
+    return array
 
 
 class Feature:
@@ -39,12 +72,12 @@ class Feature:
 
     def __init__(
         self,
-        x: float,
-        y: float,
-        track_id: np.int64 = None,
+        x: np.float32,
+        y: np.float32,
+        track_id: np.int32 = None,
         descr: np.ndarray = None,
         score: np.float32 = None,
-        epoch: np.int64 = None,
+        epoch: np.int32 = None,
     ) -> None:
         """
         __init__ Create Feature object
@@ -52,10 +85,10 @@ class Feature:
         Args:
             x (Union[float, int]): x coordinate (as for OpenCV image coordinate system)
             y (Union[float, int]): y coordinate (as for OpenCV image coordinate system)
-            track_id (np.int64, optional): track_id. Defaults to None.
+            track_id (np.int32, optional): univocal track_id identifying the feature and the corresponding point in 3D world. Defaults to None.
             descr (np.ndarray, optional): descriptor as a numpy array with 128 or 256 elements. Defaults to None.
             score (float, optional): score. Defaults to None.
-            epoch (np.int64, optional): Epoch in which the feature is detected (or belongs to). Defaults to None.
+            epoch (np.int32, optional): Epoch in which the feature is detected (or belongs to). Defaults to None.
 
         Raises:
             AssertionError: Invalid shape of the descriptor. It must be a numpy array with 128 or 256 elements.
@@ -64,10 +97,12 @@ class Feature:
         self._y = np.float32(y)
 
         if track_id is not None:
-            assert isinstance(track_id, int) or isinstance(
-                track_id, np.int64
+            if isinstance(track_id, int) or isinstance(track_id, np.int64):
+                track_id = np.int32(track_id)
+            assert isinstance(
+                track_id, np.int32
             ), "Invalid track_id. It must be a integer number"
-            self._track = np.int64(track_id)
+            self._track = np.int32(track_id)
         else:
             self._track = None
 
@@ -83,7 +118,7 @@ class Feature:
                 descr = descr.reshape(-1, 1)
             elif descr.shape[1] not in [128, 256]:
                 raise AssertionError(msg)
-            self._descr = np.float32(descr)
+            self._descr = float32_type_check(descr)
         else:
             self._descr = None
 
@@ -98,10 +133,10 @@ class Feature:
         if epoch is not None:
             msg = "Invalid input argument epoch. It must be an integer number."
             try:
-                epoch = np.int64(epoch)
+                epoch = np.int32(epoch)
             except:
                 raise ValueError(msg)
-            assert isinstance(epoch, np.int64), msg
+            assert isinstance(epoch, np.int32), msg
             self.epoch = epoch
         else:
             self.epoch = None
@@ -122,10 +157,10 @@ class Feature:
         return np.array([self._x, self._y], dtype=np.float32).reshape(1, 2)
 
     @property
-    def track_id(self) -> np.int64:
+    def track_id(self) -> np.int32:
         "Get x coordinate of the feature"
         if self._track is not None:
-            return np.int64(self._track)
+            return np.int32(self._track)
         else:
             logging.warning("Track id is not available")
             return None
@@ -155,6 +190,9 @@ class Features:
         self._last_id = -1
         self._iter = 0
         self._descriptor_size = 256
+        """
+        __init__ Initialize Features object
+        """
 
     def __len__(self) -> int:
         """
@@ -163,9 +201,9 @@ class Features:
         Returns:
             int: number of features
         """
-        return self.num_features
+        return len(self._values)
 
-    def __getitem__(self, track_id: np.int64) -> Feature:
+    def __getitem__(self, track_id: np.int32) -> Feature:
         """
         __getitem__ Get Feature object by calling Features instance with [] based on track_id (e.g., features[track_id] to get first Feature object)
 
@@ -180,6 +218,38 @@ class Features:
         else:
             logging.warning(f"Feature with track id {track_id} not available.")
             return None
+
+    def __contains__(self, track_id: np.int32) -> bool:
+        """
+        __contains__ Check if a feature with given track_id is present in Features object.
+
+        Args:
+            track_id (np.int32): track_id of the feature to check
+
+        Returns:
+            bool: True if the feature is present.
+        """
+        if track_id in list(self._values.keys()):
+            return True
+        else:
+            return False
+
+    def __delitem__(self, track_id: np.int32) -> bool:
+        """
+        __delitem__ Deleate a feature with its given track_id, if this is present in Features object (log a warning otherwise).
+
+        Args:
+            track_id (np.int32): track_id of the feature to delete
+
+        Returns:
+            bool: True if the item was present and deleted, False otherwise.
+        """
+        if track_id not in self:
+            logging.warning(f"Feature with track_id {track_id} not present")
+            return False
+        else:
+            del self._values[track_id]
+            return True
 
     def __iter__(self):
         self._iter = 0
@@ -228,15 +298,15 @@ class Features:
             else:
                 self._descriptor_size = new_feature.descr.shape[0]
 
-    def set_last_track_id(self, last_track_id: np.int64) -> None:
+    def set_last_track_id(self, last_track_id: np.int32) -> None:
         """
         set_last_track_id set track_id of last feature to a custom value
 
         Args:
-            last_track_id (np.int64): track_id to set.
+            last_track_id (np.int32): track_id to set.
         """
         try:
-            last_id = np.int64(last_track_id)
+            last_id = np.int32(last_track_id)
         except:
             raise ValueError(
                 "Invalid input argument last_track_id. It must be an integer number."
@@ -249,8 +319,8 @@ class Features:
         y: np.ndarray,
         descr: np.ndarray = None,
         scores: np.ndarray = None,
-        track_ids: List[np.int64] = None,
-        epoch: np.int64 = None,
+        track_ids: List[np.int32] = None,
+        epoch: np.int32 = None,
     ) -> None:
         """
         append_features_from_numpy append new features to Features object, starting from numpy arrays of x and y coordinates, descriptors and scores.
@@ -261,38 +331,32 @@ class Features:
             descr (np.ndarray, optional): mxn numpy array containing the descriptors of all the features (where m is the dimension of the descriptor that can be either 128 or 256). Defaults to None.
             scores (np.ndarray, optional):  nx1 numpy array containing scores of all keypoints. Defaults to None.
             track_ids (List[int]): Sorted list containing the track_id of each point to be added to Features object. Default to None.
-            epoch (np.int64, optional): Epoch in which the incoming features are detected (or belongs to). Defaults to None.
+            epoch (np.int32, optional): Epoch in which the incoming features are detected (or belongs to). Defaults to None.
         """
         assert isinstance(x, np.ndarray), "invalid type of x vector"
         assert isinstance(y, np.ndarray), "invalid type of y vector"
-        assert descr.shape[0] in [
-            128,
-            256,
-        ], "invalid shape of the descriptor array. It must be of size mxn (m: descriptor size [128, 256], n: number of features"
-
         if not np.any(x):
             logging.warning("Empty input feature arrays. Nothing done.")
             return None
+        x = float32_type_check(x, cast_integers=True)
+        y = float32_type_check(y, cast_integers=True)
+        xx = x.flatten()
+        yy = y.flatten()
 
         if descr is not None:
+            assert descr.shape[0] in [
+                128,
+                256,
+            ], "invalid shape of the descriptor array. It must be of size mxn (m: descriptor size [128, 256], n: number of features"
             if len(self) > 0:
                 assert (
                     self._descriptor_size == descr.shape[0]
                 ), "Descriptor size of the new feature does not match with that of the existing feature"
             else:
                 self._descriptor_size = descr.shape[0]
-
-        if epoch is not None:
-            msg = "Invalid input argument epoch. It must be an integer number."
-            try:
-                epoch = np.int64(epoch)
-            except:
-                raise ValueError(msg)
-            assert isinstance(epoch, np.int64), msg
-            self.epoch = epoch
-
-        xx = x.flatten()
-        yy = y.flatten()
+            descr = float32_type_check(descr.T)
+        else:
+            descr = [None for _ in range(len(xx))]
 
         if track_ids is None:
             ids = range(self._last_id + 1, self._last_id + len(xx) + 1)
@@ -314,14 +378,19 @@ class Features:
             except ValueError:
                 ids = range(self._last_id + 1, self._last_id + len(xx) + 1)
 
-        if descr is not None:
-            descr = np.float32(descr.T)
-        else:
-            descr = [None for _ in range(len(xx))]
         if scores is not None:
-            scores = np.float32(scores.squeeze())
+            scores = float32_type_check(scores.squeeze())
         else:
             scores = [None for _ in range(len(xx))]
+
+        if epoch is not None:
+            msg = "Invalid input argument epoch. It must be an integer number."
+            try:
+                epoch = np.int32(epoch)
+            except:
+                raise ValueError(msg)
+            assert isinstance(epoch, np.int32), msg
+            self.epoch = epoch
 
         for id, x, y, d, s in zip(ids, xx, yy, descr, scores):
             self._values[id] = Feature(
@@ -405,14 +474,14 @@ class Features:
             score[i] = v.score
         return np.float32(score)
 
-    def get_track_ids(self) -> Tuple[np.int64]:
+    def get_track_ids(self) -> Tuple[np.int32]:
         """
         get_track_it Get a ordered tuple of track_id of all the features
 
         Returns:
             tuple: tuple of size (n,) with track_ids
         """
-        return tuple([np.int64(x) for x in self._values.keys()])
+        return tuple([np.int32(x) for x in self._values.keys()])
 
     def get_features_as_dict(self, get_track_id: bool = False) -> dict:
         """
@@ -463,7 +532,7 @@ class Features:
         self.filter_feature_by_index(indexes, verbose=verbose)
 
     def filter_feature_by_index(
-        self, indexes: List[np.int64], verbose: bool = False
+        self, indexes: List[np.int32], verbose: bool = False
     ) -> None:
         """
         delete_feature_by_mask Keep only inlier features, given a list of index (int values) of the features to keep.
@@ -482,7 +551,7 @@ class Features:
         self._values = new_dict
         self._last_id = last_id
 
-    def get_feature_by_index(self, indexes: List[np.int64]) -> dict:
+    def get_feature_by_index(self, indexes: List[np.int32]) -> dict:
         """
         get_feature_by_index Get inlier features, given a list of index (int values) of the features to keep.
 
