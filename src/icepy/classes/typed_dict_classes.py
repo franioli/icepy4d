@@ -36,13 +36,13 @@ class EpochDict(TypedDict):
     epoch: str
 
 
+class PointsDict(TypedDict):
+    epoch: Points
+
+
 class PointCloudDict(TypedDict):
     epoch: PointCloud
 
 
 class TargetDict(TypedDict):
     epoch: Targets
-
-
-class PointsDict(TypedDict):
-    epoch: Points

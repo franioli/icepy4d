@@ -35,6 +35,7 @@ from datetime import datetime
 
 from ..classes.camera import Camera
 from ..classes.features import Features
+from ..classes.points import Points
 from ..classes.point_cloud import PointCloud
 from ..classes.images import Image, ImageDS
 from ..classes.targets import Targets
@@ -84,7 +85,7 @@ def parse_command_line() -> Tuple[str, dict]:
     )
     parser.add_argument(
         "--log_name",
-        default="icepy",
+        default="log",
         type=str,
         help="Base name of the log file",
     )
@@ -117,7 +118,7 @@ def parse_command_line() -> Tuple[str, dict]:
 
     log_cfg = {
         "log_folder": args.log_folder,
-        "log_name": args.log_folder,
+        "log_name": args.log_name,
         "log_file_level": args.log_file_level,
         "log_console_level": args.log_console_level,
     }
@@ -130,7 +131,7 @@ def parse_yaml_cfg(cfg_file: Union[str, Path]) -> edict:
     parse_yaml_cfg _summary_
 
     Args:
-        cfg_file (Union[str, Path]): _description_
+        cfg_file (Union[str, Path]): path to the configuration file
 
     Raises:
         ValueError: _description_
@@ -320,6 +321,12 @@ class Inizialization:
 
         return self.targets
 
+    def init_points(self) -> PointsDict:
+        self.points: PointsDict = {
+            ep: Points() for ep in self.cfg.proc.epoch_to_process
+        }
+        return self.points
+
     def init_point_cloud(self) -> PointCloudDict:
         self.point_clouds: PointCloudDict = {
             ep: None for ep in self.cfg.proc.epoch_to_process
@@ -337,7 +344,7 @@ class Inizialization:
         self.init_cameras()
         self.init_features()
         self.init_targets()
-        self.init_point_cloud()
+        self.init_points()
         self.init_focals_dict()
 
 

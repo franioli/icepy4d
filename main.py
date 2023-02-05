@@ -75,17 +75,14 @@ if __name__ == "__main__":
 
     init = initialization.Inizialization(cfg)
     init.inizialize_icepy()
-    cameras = init.cameras
     cams = init.cams
-    features = init.features
     images = init.images
-    targets = init.targets
     epoch_dict = init.epoch_dict
+    cameras = init.cameras
+    features = init.features
+    targets = init.targets
+    points = init.points
     focals = init.focals_dict
-
-    # TMP @TODO: choose just one structure (points)!!
-    point_clouds = init.point_clouds
-    points = icepy_classes.PointsDict()
 
     """ Big Loop over epoches """
 
@@ -308,16 +305,14 @@ if __name__ == "__main__":
             #     points3d=points3d, points_col=triang.colors
             # )
 
-            points[epoch] = icepy_classes.Points()
             points[epoch].append_features_from_numpy(
                 points3d,
                 track_ids=features[epoch][cams[0]].get_track_ids(),
                 colors=triang.colors,
             )
 
-            point_clouds[epoch] = points[epoch].to_point_cloud()
             if cfg.proc.save_sparse_cloud:
-                point_clouds[epoch].write_ply(
+                points[epoch].to_point_cloud().write_ply(
                     cfg.paths.results_dir
                     / f"point_clouds/sparse_{epoch_dict[epoch]}.ply"
                 )
@@ -329,7 +324,7 @@ if __name__ == "__main__":
             # plot_features(images[cams[0]].read_image(epoch).value, features[epoch][cams[0]].kpts_to_numpy())
 
             # Clean variables
-            del relative_ori, triang, abs_ori, points3d, pcd_epc
+            del relative_ori, triang, abs_ori, points3d
             del T, new_K
             del ms_cfg, ms, ms_reader
             gc.collect()
@@ -370,6 +365,9 @@ if __name__ == "__main__":
         """Put this code into functions in visualization module of icepy"""
 
         # Visualize point cloud
+        # point_clouds = [
+        #     points[epoch].to_point_cloud() for epoch in cfg.proc.epoch_to_process
+        # ]
         # display_point_cloud(
         #     point_clouds,
         #     [cameras[epoch][cams[0]], cameras[epoch][cams[1]]],
@@ -433,7 +431,7 @@ if __name__ == "__main__":
             logging.info(f"Epoch {epoch}")
             dsms.append(
                 build_dsm(
-                    np.asarray(point_clouds[epoch].points),
+                    points[epoch].to_numpy(),
                     dsm_step=res,
                     xlim=xlim,
                     ylim=ylim,
