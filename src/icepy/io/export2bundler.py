@@ -8,7 +8,10 @@ from shutil import copy as scopy
 from typing import Union, List
 
 from ..classes.point_cloud import PointCloud
+from ..classes.points import Points
 from ..classes.targets import Targets
+from ..classes.typed_dict_classes import FeaturesDictEpoch, CamerasDictEpoch
+
 from ..utils.utils import create_directory
 from ..thirdparty.transformations import euler_from_matrix, euler_matrix
 
@@ -125,11 +128,10 @@ def write_bundler_out_all_epoches(
 
 def write_bundler_out(
     export_dir: Union[str, Path],
-    im_dict: List[Path],
-    cams: List[str],
-    cameras: dict,
-    features: dict,
-    point_cloud: PointCloud,
+    im_dict: dict,
+    cameras: CamerasDictEpoch,
+    features: FeaturesDictEpoch,
+    points: Points,
     targets: Targets = None,
     targets_to_use: List[str] = [],
     targets_enabled: List[bool] = [],
@@ -147,6 +149,7 @@ def write_bundler_out(
     """
     logging.info("Exporting results in Bundler format...")
 
+    cams = list(cameras.keys())
     export_dir = Path(export_dir)
     date = export_dir.name
     out_dir = export_dir / "metashape" / "data"
@@ -229,8 +232,8 @@ def write_bundler_out(
         file.write(f"{t[0]:.10f} {t[1]:.10f} {t[2]:.10f}\n")
 
     # Write points
-    obj_coor = deepcopy(point_cloud.get_points())
-    obj_col = deepcopy(point_cloud.get_colors())
+    obj_coor = deepcopy(points.to_numpy())
+    obj_col = deepcopy(points.colors_to_numpy())
     im_coor = {}
     for cam in cams:
         m = deepcopy(features[cam].kpts_to_numpy())
