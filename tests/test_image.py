@@ -4,7 +4,7 @@ import os
 
 from pathlib import Path
 
-from ..classes.images import ImageDS, Image
+from icepy.classes.images import ImageDS, Image
 
 
 def test_image_ds(data_dir):
