@@ -34,21 +34,21 @@ from matplotlib import pyplot as plt
 from datetime import datetime
 
 # icepy classes
-import src.icepy.classes as icepy_classes
+import icepy.classes as icepy_classes
 
 # icepy libraries
-import src.icepy.sfm as sfm
-import src.icepy.metashape.metashape as MS
-import src.icepy.utils.initialization as initialization
-import src.icepy.utils as icepy_utils
-import src.icepy.visualization as icepy_viz
+import icepy.sfm as sfm
+import icepy.metashape.metashape as MS
+import icepy.utils.initialization as initialization
+import icepy.utils as icepy_utils
+import icepy.visualization as icepy_viz
 
-from src.icepy.matching.matching_base import (
+from icepy.matching.matching_base import (
     MatchingAndTracking,
     load_matches_from_disk,
 )
-from src.icepy.utils.utils import homography_warping
-from src.icepy.io.export2bundler import write_bundler_out
+from icepy.utils.utils import homography_warping
+from icepy.io.export2bundler import write_bundler_out
 
 
 if __name__ == "__main__":

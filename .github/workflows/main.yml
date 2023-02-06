@@ -34,6 +34,7 @@ jobs:
           python -m pip install --upgrade pip
           pip3 install torch --extra-index-url https://download.pytorch.org/whl/cu116
           pip3 install -r requirements.txt
+          pip install -e .
       - name: Run pytest
         run: |
           python -m pytest
