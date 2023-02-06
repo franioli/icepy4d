@@ -33,16 +33,13 @@ from pathlib import Path
 from matplotlib import pyplot as plt
 from datetime import datetime
 
-# icepy classes
+# ICEpy4D
 import icepy.classes as icepy_classes
-
-# icepy libraries
 import icepy.sfm as sfm
 import icepy.metashape.metashape as MS
 import icepy.utils.initialization as initialization
 import icepy.utils as icepy_utils
 import icepy.visualization as icepy_viz
-
 from icepy.matching.matching_base import (
     MatchingAndTracking,
     load_matches_from_disk,
