@@ -3,7 +3,7 @@ import os
 
 from pathlib import Path
 
-from ..utils import setup_logger
+from icepy.utils import setup_logger
 
 
 def test_logger(log_dir):
