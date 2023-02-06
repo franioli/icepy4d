@@ -7,7 +7,7 @@ import tempfile
 # The path to our assets directory
 @pytest.fixture
 def data_dir():
-    return Path(os.path.split(__file__)[0]).parents[2] / "assets"
+    return Path(os.path.split(__file__)[0]).parents[0] / "assets"
 
 
 @pytest.fixture
@@ -25,4 +25,4 @@ def cfg_file(data_dir):
 # def epoch_dict(data_dir):
 
 if __name__ == "__main__":
-    print(Path(os.path.split(__file__)[0]).parents[2] / "assets")
+    print(Path(os.path.split(__file__)[0]).parents[0] / "assets")

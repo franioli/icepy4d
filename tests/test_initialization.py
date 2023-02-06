@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from easydict import EasyDict as edict
 
-from ..utils import initialization
+from icepy.utils import initialization
 
 
 def test_parse_yaml_cfg(data_dir, cfg_file):

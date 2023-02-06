@@ -13,6 +13,7 @@ easydict
 pytest
 flake8
 lmfit
+black
 # pycolmap
 # h5py
 # gdown

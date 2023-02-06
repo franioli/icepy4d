@@ -5,13 +5,13 @@ import logging
 from pathlib import Path
 
 # icepy classes
-import src.icepy.classes as icepy_classes
+import icepy.classes as icepy_classes
 
 # icepy libraries
-import src.icepy.utils.initialization as initialization
-import src.icepy.utils as icepy_utils
+import icepy.utils.initialization as initialization
+import icepy.utils as icepy_utils
 
-from src.icepy.matching.matching_base import (
+from icepy.matching.matching_base import (
     MatchingAndTracking,
     load_matches_from_disk,
 )
@@ -40,7 +40,7 @@ if __name__ == "__main__":
     features = init.features
     images = init.images
     targets = init.targets
-    point_clouds = init.point_clouds
+    points = init.points
     epoch_dict = init.epoch_dict
     focals = init.focals_dict
 
