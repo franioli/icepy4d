@@ -59,3 +59,20 @@ pip3 install jupyterlab
 ```
 
 - When using VScode and Matplotlib, use TkAgg as interactive backend.
+
+##### Install ICEpy4D
+
+Install ICEpy4D package by running from the root folder
+
+```bash
+pip install -e .
+```
+
+and try to import it
+
+```bash
+conda activate icepy
+python -c "import icepy"
+```
+
+If no error is given, ICEpy4D is successfully installed and it can be imported with `import icepy`
