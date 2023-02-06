@@ -1,21 +1,13 @@
 #%%
-import numpy as np
 import logging
-
 from pathlib import Path
 
-# icepy classes
+import numpy as np
+
 import icepy.classes as icepy_classes
-
-# icepy libraries
-import icepy.utils.initialization as initialization
 import icepy.utils as icepy_utils
-
-from icepy.matching.matching_base import (
-    MatchingAndTracking,
-    load_matches_from_disk,
-)
-
+import icepy.utils.initialization as initialization
+from icepy.matching.matching_base import MatchingAndTracking, load_matches_from_disk
 
 if __name__ == "__main__":
 
@@ -95,8 +87,8 @@ if __name__ == "__main__":
     }
 
     # Get time series of features
-    from typing import TypedDict
     import time
+    from typing import TypedDict
 
     def extract_feature_time_series(
         fdict: icepy_classes.FeaturesDict,
