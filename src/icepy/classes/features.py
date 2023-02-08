@@ -278,6 +278,15 @@ class Features:
         """
         return self._last_id
 
+    def get_track_id_list(self) -> list:
+        """
+        get_track_id_list get all the track_id of the features in Features object
+
+        Returns:
+            list: list containing track_id of the features
+        """
+        return list(self._values.keys())
+
     def append_feature(self, new_feature: Feature) -> None:
         """
         append_feature append a single Feature object to Features.
@@ -409,7 +418,8 @@ class Features:
         get_score: bool = False,
     ) -> dict:
         """
-        to_numpy Get all keypoints (with, optionally, descriptors and scores) stacked as numpy arrays.
+        to_numpy Get all keypoints as a nx2 numpy array of float32 coordinates.
+        If 'get_descr' and 'get_score' arguments are set to true, get also descriptors and scores as numpy arrays (default: return only keypoints). Outputs are returned in a dictionary with keys ["kpts", "descr", "scores"]
 
         Args:
             get_descr (bool, optional): get descriptors as mxn array. Defaults to False.

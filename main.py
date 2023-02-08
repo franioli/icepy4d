@@ -340,6 +340,82 @@ if __name__ == "__main__":
 
     timer_global.update("SfM")
 
+    """Tests"""
+    # Get time series of features
+    # if epoch < 190:
+    #     continue
+
+    import time
+    import pandas as pd
+
+    from tracking_features_utils import *
+
+    fdict = sort_features_by_cam(features, cams[0])
+
+    t0 = time.time()
+    bbox = np.array([800, 1500, 5500, 2500])
+    track_ids = []
+    for ep in cfg.proc.epoch_to_process:
+        # track_ids.extend(fdict[ep].get_track_id_list())
+        track_ids.extend(fdict[ep]._values.keys())
+    fts = {}
+    for id in track_ids:
+        out = tracked_time_series(
+            fdict,
+            id,
+            min_tracked_epoches=2,
+            rect=bbox,
+        )
+        if out is not None:
+            fts[id] = out
+    print(f"Elaspsed time {time.time() - t0} s")
+
+    # Create pandas df
+    out = {}
+    ss = ["ini", "fin"]
+    out["fid"] = []
+    for s in ss:
+        out[f"ep_{s}"] = []
+        out[f"date_{s}"] = []
+        for cam in cams:
+            out[f"x_{cam}_{s}"] = []
+            out[f"y_{cam}_{s}"] = []
+        out[f"X_{s}"] = []
+        out[f"Y_{s}"] = []
+        out[f"Z_{s}"] = []
+
+    for fid in list(fts.keys()):
+        out["fid"].append(fid)
+        eps = [list(fts[fid].keys())[0], list(fts[fid].keys())[-1]]
+        for i, s in enumerate(ss):
+            out[f"ep_{s}"].append(eps[i])
+            out[f"date_{s}"].append(epoch_dict[eps[i]])
+            for cam in cams:
+                out[f"x_{cam}_{s}"].append(features[eps[i]][cam][fid].x)
+                out[f"y_{cam}_{s}"].append(features[eps[i]][cam][fid].y)
+            out[f"X_{s}"].append(points[eps[i]][fid].X)
+            out[f"Y_{s}"].append(points[eps[i]][fid].Y)
+            out[f"Z_{s}"].append(points[eps[i]][fid].Z)
+
+    fts_df = pd.DataFrame.from_dict(out)
+    fts_df.to_csv("test.csv")
+
+    folder_out = Path("test_out")
+    folder_out.mkdir(parents=True, exist_ok=True)
+    # fid = 9646
+    for fid in fts.keys():
+        for ep in fts[fid].keys():
+            fout = folder_out / f"fid_{fid}_ep_{ep}.jpg"
+            icepy_viz.plot_feature(
+                images[cam].read_image(ep).value,
+                fts[fid][ep],
+                save_path=fout,
+                hide_fig=True,
+            )
+    plt.close("all")
+
+    """End tests"""
+
     # Check estimated focal lenghts:
     if cfg.proc.do_metashape_processing:
         logging.info("Checking estimated Focal Lenghts...")
