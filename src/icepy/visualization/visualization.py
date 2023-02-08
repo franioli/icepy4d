@@ -36,6 +36,7 @@ from pathlib import Path
 from copy import deepcopy
 
 from ..classes.camera import Camera
+from ..classes.features import Features, Feature
 from ..classes.point_cloud import PointCloud
 from ..sfm.geometry import project_points
 
@@ -60,7 +61,7 @@ def imshow_cv(
 """ Visualization of features and matches on images"""
 
 
-def make_matching_plot(
+def plot_matches(
     image0,
     image1,
     pts0,
@@ -104,37 +105,89 @@ def make_matching_plot(
         cv2.imwrite(path, out)
 
 
-def plot_features(image, features, title: str = None, ax=None):
-    """Plot detected features on the input image
-    Parameters
-    ----------
-    image : numpy array with BRG channels (OpenCV standard)
-    features : nx2 float32 array
-        array of 2D image coordinates of the features to plot
-    title: str
-        title of the axes of the plt
-    ax : matplotlib axes (default = None)
-        axis in which to make the plot. If nothing is given, the function create
-        a new figure and axes.
-    Return : None
+def plot_points(
+    image: np.ndarray,
+    points: np.ndarray,
+    title: str = None,
+    ax=None,
+    save_path: Union[str, Path] = None,
+    hide_fig: bool = False,
+    **kwargs,
+) -> None:
     """
-    im = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    Plot points on input image.
+
+    Args:
+        image (np.ndarray): A numpy array with RGB channels.
+        points (np.ndarray): An nx2 float32 array of 2D image coordinates of the features to plot.
+        title (str, optional): The title of the plot. Defaults to None.
+        ax (matplotlib.axes, optional): The axis in which to make the plot. If None, the function will create a new figure and axes. Defaults to None.
+        save_path (Union[str, Path], optional): The path to save the plot. Defaults to None.
+        hide_fig (bool, optional): Indicates whether to close the figure after plotting. Defaults to False.
+
+    Returns:
+        None
+    """
+
+    s = 6
+    c = "y"
+    marker = "o"
+    alpha = 0.8
+    edgecolors = "r"
+    linewidths = 1
+    size_inches = (18.5, 10.5)  # (23.8, 15,75) #
+    dpi = 600
 
     if ax is None:
         fig, ax = plt.subplots()
-    ax.imshow(im)
+    ax.imshow(image)
     ax.scatter(
-        features[:, 0],
-        features[:, 1],
-        s=6,
-        c="y",
-        marker="o",
-        alpha=0.8,
-        edgecolors="r",
-        linewidths=1,
+        points[:, 0],
+        points[:, 1],
+        s=s,
+        c=c,
+        marker=marker,
+        alpha=alpha,
+        edgecolors=edgecolors,
+        linewidths=linewidths,
     )
     if title is not None:
         ax.set_title(title)
+    if save_path is not None:
+        fig.set_size_inches(size_inches[0], size_inches[1])
+        fig.savefig(save_path, dpi=dpi)
+    if hide_fig is True:
+        plt.close(fig)
+
+
+def plot_features(
+    image: np.ndarray,
+    features: Features,
+    title: str = None,
+    ax=None,
+    save_path: Union[str, Path] = None,
+    hide_fig: bool = False,
+) -> None:
+    """Wrapper around plot_points to work if the input is a Features object"""
+    xy = features.to_numpy()["kpts"]
+    plot_points(
+        image, points=xy, title=title, ax=ax, save_path=save_path, hide_fig=hide_fig
+    )
+
+
+def plot_feature(
+    image: np.ndarray,
+    feature: Feature,
+    title: str = None,
+    ax=None,
+    save_path: Union[str, Path] = None,
+    hide_fig: bool = False,
+):
+    """Wrapper around plot_points to work if the input is a single Feature object"""
+    xy = feature.xy
+    plot_points(
+        image, points=xy, title=title, ax=ax, save_path=save_path, hide_fig=hide_fig
+    )
 
 
 def plot_projections(points3d, camera: Camera, image, title: str = None, ax=None):
