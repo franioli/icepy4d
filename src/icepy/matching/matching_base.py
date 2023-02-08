@@ -83,7 +83,7 @@ def MatchingAndTracking(
         if epoch - 1 not in features.keys():
             path = Path(cfg.paths.results_dir) / f"{epoch_dict[epoch-1]}/matching"
             logging.warning(
-                f"Feature from previous epoch not available in Features object. Try to load it from disk at {path}"
+                f"Feature from pNonerevious epoch not available in Features object. Try to load it from disk at {path}"
             )
             try:
                 fname = list(path.glob("*.pickle"))

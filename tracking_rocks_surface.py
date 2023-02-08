@@ -82,9 +82,7 @@ if __name__ == "__main__":
 
     # For debugging
     cam = cams[0]
-    fdict: icepy_classes.Feature = {
-        epoch: features[epoch][cam] for epoch in cfg.proc.epoch_to_process
-    }
+    fdict = {epoch: features[epoch][cam] for epoch in cfg.proc.epoch_to_process}
 
     # Get time series of features
     import time
@@ -189,12 +187,6 @@ if __name__ == "__main__":
                 return ts
         else:
             return ts
-
-    # fts: TrackedFeaturesDict = {
-    #     0: extract_feature_time_series(fdict, 0, min_tracked_epoches=1),
-    #     1: extract_feature_time_series(fdict, 1, min_tracked_epoches=1),
-    #     2: extract_feature_time_series(fdict, 2, min_tracked_epoches=1),
-    # }
 
     t0 = time.time()
     last_track_id = fdict[cfg.proc.epoch_to_process[-1]].last_track_id
