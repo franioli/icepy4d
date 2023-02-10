@@ -8,7 +8,7 @@ from functools import wraps
 
 import icepy.classes as icepy_classes
 
-from icepy.utils.spatial import *
+from icepy.utils.spatial_funs import *
 
 
 class FeaturesDictByCam(TypedDict):
