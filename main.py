@@ -345,35 +345,29 @@ if __name__ == "__main__":
     # if epoch < 190:
     #     continue
 
-    import time
     import pandas as pd
 
-    from tracking_features_utils import *
+    from icepy.tracking_features_utils import sort_features_by_cam, tracked_time_series
 
+    folder_out = Path("test_out")
+    folder_out.mkdir(parents=True, exist_ok=True)
+    save_figs = False
     fdict = sort_features_by_cam(features, cams[0])
-
-    t0 = time.time()
     bbox = np.array([800, 1500, 5500, 2500])
-    track_ids = []
-    for ep in cfg.proc.epoch_to_process:
-        # track_ids.extend(fdict[ep].get_track_id_list())
-        track_ids.extend(fdict[ep]._values.keys())
-    fts = {}
-    for id in track_ids:
-        out = tracked_time_series(
-            fdict,
-            id,
-            min_tracked_epoches=2,
-            rect=bbox,
-        )
-        if out is not None:
-            fts[id] = out
-    print(f"Elaspsed time {time.time() - t0} s")
+    logging.info("Extracting time series of tracked points...")
+    fts = tracked_time_series(
+        fdict,
+        min_tracked_epoches=2,
+        rect=bbox,
+    )
+    logging.info("Done.")
 
     # Create pandas df
+    min_dt = 2
     out = {}
     ss = ["ini", "fin"]
     out["fid"] = []
+    out["num_tracked_eps"] = []
     for s in ss:
         out[f"ep_{s}"] = []
         out[f"date_{s}"] = []
@@ -386,7 +380,8 @@ if __name__ == "__main__":
 
     for fid in list(fts.keys()):
         out["fid"].append(fid)
-        eps = [list(fts[fid].keys())[0], list(fts[fid].keys())[-1]]
+        out["num_tracked_eps"].append(len(fts[fid]))
+        eps = [fts[fid][0], fts[fid][-1]]
         for i, s in enumerate(ss):
             out[f"ep_{s}"].append(eps[i])
             out[f"date_{s}"].append(epoch_dict[eps[i]])
@@ -398,21 +393,90 @@ if __name__ == "__main__":
             out[f"Z_{s}"].append(points[eps[i]][fid].Z)
 
     fts_df = pd.DataFrame.from_dict(out)
-    fts_df.to_csv("test.csv")
+    fts_df["date_ini"] = pd.to_datetime(fts_df["date_ini"], format="%Y_%m_%d")
+    fts_df["date_fin"] = pd.to_datetime(fts_df["date_fin"], format="%Y_%m_%d")
+    fts_df["dt"] = pd.to_timedelta(fts_df["date_fin"] - fts_df["date_ini"], unit="D")
+    fts_df["dX"] = fts_df["X_fin"] - fts_df["X_ini"]
+    fts_df["dY"] = fts_df["Y_fin"] - fts_df["Y_ini"]
+    fts_df["dZ"] = fts_df["Z_fin"] - fts_df["Z_ini"]
+    fts_df["vX"] = fts_df["dX"] / fts_df["dt"].dt.days
+    fts_df["vY"] = fts_df["dY"] / fts_df["dt"].dt.days
+    fts_df["vZ"] = fts_df["dZ"] / fts_df["dt"].dt.days
+    fts_df = fts_df[fts_df["dt"] > pd.to_timedelta(min_dt, unit="D")]
 
-    folder_out = Path("test_out")
-    folder_out.mkdir(parents=True, exist_ok=True)
-    # fid = 9646
-    for fid in fts.keys():
-        for ep in fts[fid].keys():
-            fout = folder_out / f"fid_{fid}_ep_{ep}.jpg"
+    fts_df.to_csv(folder_out / "test.csv")
+
+    if save_figs:
+        for fid in fts.keys():
+            for ep in fts[fid].keys():
+                fout = folder_out / f"fid_{fid}_ep_{ep}.jpg"
+                icepy_viz.plot_feature(
+                    images[cam].read_image(ep).value,
+                    fdict[ep][fid],
+                    save_path=fout,
+                    hide_fig=True,
+                )
+
+        fid = 2332
+        eps = [182, 183]
+        fig, axes = plt.subplots(1, len(eps))
+        for ax, ep in zip(axes, eps):
             icepy_viz.plot_feature(
                 images[cam].read_image(ep).value,
-                fts[fid][ep],
-                save_path=fout,
-                hide_fig=True,
+                fdict[ep][fid],
+                ax=ax,
+                zoom_to_feature=True,
+                s=10,
+                marker="x",
+                c="r",
+                edgecolors=None,
+                window_size=200,
             )
     plt.close("all")
+
+    # Quiver plot
+    fig, ax = plt.subplots()
+    xy = points[list(points.keys())[0]].to_numpy()[:, 0:2]
+    ax.plot(xy[:, 0], xy[:, 1], ".", color=[0.7, 0.7, 0.7], markersize=1, alpha=0.8)
+    ax.quiver(
+        fts_df["X_ini"],
+        fts_df["Y_ini"],
+        fts_df["vX"],
+        fts_df["vY"],
+        fts_df["ep_ini"],
+        # scale=1,
+        # units='xy'
+        # width=0.5,
+        # headwidth=1,
+        # headlength=3,
+    )
+    ax.set_xlabel("x [m]")
+    ax.set_ylabel("y [m]")
+    ax.set_aspect("equal", "box")
+    fig.tight_layout()
+    plt.show()
+
+    # import plotly.graph_objects as go
+    # import plotly.figure_factory as ff
+
+    # # Create quiver figure
+    # fig = ff.create_quiver(
+    #     fts_df["X_ini"],
+    #     fts_df["Y_ini"],
+    #     fts_df["vX"],
+    #     fts_df["vY"],
+    #     scale=20,
+    #     arrow_scale=0.8,
+    #     name="tracked points",
+    #     line_width=2,
+    # )
+    # fig.add_trace(
+    #     go.Scatter(x=xy[:, 0], y=xy[:, 1], mode="pcd", marker_size=2, name="points")
+    # )
+    # fig.update_yaxes(
+    #     scaleratio=1,
+    # )
+    # fig.show()
 
     """End tests"""
 
