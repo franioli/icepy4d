@@ -113,7 +113,7 @@ def plot_points(
     save_path: Union[str, Path] = None,
     hide_fig: bool = False,
     **kwargs,
-) -> None:
+) -> plt.Axes:
     """
     Plot points on input image.
 
@@ -124,11 +124,11 @@ def plot_points(
         ax (matplotlib.axes, optional): The axis in which to make the plot. If None, the function will create a new figure and axes. Defaults to None.
         save_path (Union[str, Path], optional): The path to save the plot. Defaults to None.
         hide_fig (bool, optional): Indicates whether to close the figure after plotting. Defaults to False.
+        **kwargs: additional keyword arguments for plotting characteristics (e.g. `s`, `c`, `marker`, etc.). Refer to matplotlib.pyplot.scatter documentation for more information https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.scatter.html.
 
     Returns:
-        None
+        plt.Axes
     """
-
     s = 6
     c = "y"
     marker = "o"
@@ -137,6 +137,16 @@ def plot_points(
     linewidths = 1
     size_inches = (18.5, 10.5)  # (23.8, 15,75) #
     dpi = 600
+
+    # overwrite default values with kwargs if provided
+    s = kwargs.get("s", s)
+    c = kwargs.get("c", c)
+    marker = kwargs.get("marker", marker)
+    alpha = kwargs.get("alpha", alpha)
+    edgecolors = kwargs.get("edgecolors", edgecolors)
+    linewidths = kwargs.get("linewidths", linewidths)
+    size_inches = kwargs.get("size_inches", size_inches)
+    dpi = kwargs.get("dpi", dpi)
 
     if ax is None:
         fig, ax = plt.subplots()
@@ -158,6 +168,9 @@ def plot_points(
         fig.savefig(save_path, dpi=dpi)
     if hide_fig is True:
         plt.close(fig)
+        return None
+    else:
+        return ax
 
 
 def plot_features(
@@ -167,11 +180,18 @@ def plot_features(
     ax=None,
     save_path: Union[str, Path] = None,
     hide_fig: bool = False,
+    **kwargs,
 ) -> None:
     """Wrapper around plot_points to work if the input is a Features object"""
     xy = features.to_numpy()["kpts"]
-    plot_points(
-        image, points=xy, title=title, ax=ax, save_path=save_path, hide_fig=hide_fig
+    fig = plot_points(
+        image,
+        points=xy,
+        title=title,
+        ax=ax,
+        save_path=save_path,
+        hide_fig=hide_fig,
+        **kwargs,
     )
 
 
@@ -182,12 +202,25 @@ def plot_feature(
     ax=None,
     save_path: Union[str, Path] = None,
     hide_fig: bool = False,
-):
+    zoom_to_feature: bool = False,
+    window_size: int = 50,
+    **kwargs,
+) -> None:
     """Wrapper around plot_points to work if the input is a single Feature object"""
     xy = feature.xy
-    plot_points(
-        image, points=xy, title=title, ax=ax, save_path=save_path, hide_fig=hide_fig
+    ax = plot_points(
+        image,
+        points=xy,
+        title=title,
+        ax=ax,
+        save_path=save_path,
+        hide_fig=hide_fig,
+        **kwargs,
     )
+    if zoom_to_feature:
+        w = window_size  # px
+        ax.set_xlim([xy.squeeze()[0] - w, xy.squeeze()[0] + w])
+        ax.set_ylim([xy.squeeze()[1] - w, xy.squeeze()[1] + w])
 
 
 def plot_projections(points3d, camera: Camera, image, title: str = None, ax=None):
