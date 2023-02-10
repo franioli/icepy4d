@@ -341,9 +341,6 @@ if __name__ == "__main__":
     timer_global.update("SfM")
 
     """Tests"""
-    # Get time series of features
-    # if epoch < 190:
-    #     continue
 
     import pandas as pd
 
@@ -351,7 +348,7 @@ if __name__ == "__main__":
 
     folder_out = Path("test_out")
     folder_out.mkdir(parents=True, exist_ok=True)
-    save_figs = False
+    save_figs = True
     fdict = sort_features_by_cam(features, cams[0])
     bbox = np.array([800, 1500, 5500, 2500])
     logging.info("Extracting time series of tracked points...")
@@ -408,31 +405,37 @@ if __name__ == "__main__":
 
     if save_figs:
         for fid in fts.keys():
-            for ep in fts[fid].keys():
+            for ep in fts[fid]:
                 fout = folder_out / f"fid_{fid}_ep_{ep}.jpg"
                 icepy_viz.plot_feature(
                     images[cam].read_image(ep).value,
                     fdict[ep][fid],
                     save_path=fout,
                     hide_fig=True,
+                    zoom_to_feature=True,
+                    s=10,
+                    marker="x",
+                    c="r",
+                    edgecolors=None,
+                    window_size=300,
                 )
-
-        fid = 2332
-        eps = [182, 183]
-        fig, axes = plt.subplots(1, len(eps))
-        for ax, ep in zip(axes, eps):
-            icepy_viz.plot_feature(
-                images[cam].read_image(ep).value,
-                fdict[ep][fid],
-                ax=ax,
-                zoom_to_feature=True,
-                s=10,
-                marker="x",
-                c="r",
-                edgecolors=None,
-                window_size=200,
-            )
     plt.close("all")
+
+    fid = 2332
+    eps = [182, 183]
+    fig, axes = plt.subplots(1, len(eps))
+    for ax, ep in zip(axes, eps):
+        icepy_viz.plot_feature(
+            images[cam].read_image(ep).value,
+            fdict[ep][fid],
+            ax=ax,
+            zoom_to_feature=True,
+            s=10,
+            marker="x",
+            c="r",
+            edgecolors=None,
+            window_size=300,
+        )
 
     # Quiver plot
     fig, ax = plt.subplots()

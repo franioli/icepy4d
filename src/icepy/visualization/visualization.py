@@ -109,13 +109,15 @@ def plot_points(
     image: np.ndarray,
     points: np.ndarray,
     title: str = None,
-    ax=None,
+    ax: plt.Axes = None,
     save_path: Union[str, Path] = None,
     hide_fig: bool = False,
+    zoom_to_features: bool = False,
+    window_size: int = 50,
     **kwargs,
 ) -> plt.Axes:
     """
-    Plot points on input image.
+    plot_points  Plot points on input image.
 
     Args:
         image (np.ndarray): A numpy array with RGB channels.
@@ -124,10 +126,14 @@ def plot_points(
         ax (matplotlib.axes, optional): The axis in which to make the plot. If None, the function will create a new figure and axes. Defaults to None.
         save_path (Union[str, Path], optional): The path to save the plot. Defaults to None.
         hide_fig (bool, optional): Indicates whether to close the figure after plotting. Defaults to False.
+        zoom_to_features (bool, optional): Indicates whether to zoom in to the features in the plot. Defaults to False.
+        window_size (int, optional): The size of the zoom window. Defaults to 50.
         **kwargs: additional keyword arguments for plotting characteristics (e.g. `s`, `c`, `marker`, etc.). Refer to matplotlib.pyplot.scatter documentation for more information https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.scatter.html.
 
+
+
     Returns:
-        plt.Axes
+        plt.Axes: _description_
     """
     s = 6
     c = "y"
@@ -163,6 +169,13 @@ def plot_points(
     )
     if title is not None:
         ax.set_title(title)
+
+    if zoom_to_features:
+        w = window_size  # px
+        xc = points[:, 0].mean()
+        yc = points[:, 1].mean()
+        ax.set_xlim([xc - w, xc + w])
+        ax.set_ylim([yc - w, yc + w])
     if save_path is not None:
         fig.set_size_inches(size_inches[0], size_inches[1])
         fig.savefig(save_path, dpi=dpi)
@@ -215,12 +228,10 @@ def plot_feature(
         ax=ax,
         save_path=save_path,
         hide_fig=hide_fig,
+        zoom_to_features=zoom_to_feature,
+        window_size=window_size,
         **kwargs,
     )
-    if zoom_to_feature:
-        w = window_size  # px
-        ax.set_xlim([xy.squeeze()[0] - w, xy.squeeze()[0] + w])
-        ax.set_ylim([xy.squeeze()[1] - w, xy.squeeze()[1] + w])
 
 
 def plot_projections(points3d, camera: Camera, image, title: str = None, ax=None):

@@ -12,7 +12,7 @@ from scipy.spatial import Delaunay
 from matplotlib import path as mpath
 
 from ..utils.timer import AverageTimer
-from ..utils.spatial import point_in_hull, ccw_sort_points
+from ..utils.spatial_funs import point_in_hull, ccw_sort_points
 
 
 def display_inlier_outlier(cloud, ind):
