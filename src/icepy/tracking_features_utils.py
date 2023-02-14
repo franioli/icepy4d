@@ -1,10 +1,12 @@
 import numpy as np
 import time
 import pytest
+import pandas as pd
 
-from typing import TypedDict
+from typing import TypedDict, List, Union
 from scipy.spatial import Delaunay
 from functools import wraps
+from pathlib import Path
 
 import icepy.classes as icepy_classes
 
@@ -17,6 +19,10 @@ class FeaturesDictByCam(TypedDict):
 
 class FeaturesDictById(TypedDict):
     id: dict
+
+
+class Features_tracked_inexes(TypedDict):
+    fid: List[int]
 
 
 def timeit(func):
@@ -49,7 +55,7 @@ def sort_features_by_cam(
 
 
 @timeit
-def tracked_time_series(
+def tracked_feautues_time_series(
     fdict: FeaturesDictByCam,
     min_tracked_epoches: int = 1,
     rect: np.ndarray = None,
@@ -93,6 +99,138 @@ def tracked_time_series(
                 fts[track_id].extend(x for x in out if x not in fts[track_id])
 
     return fts
+
+
+@timeit
+def tracked_points_time_series(
+    points: icepy_classes.PointsDict,
+    min_tracked_epoches: int = 1,
+    volume: np.ndarray = None,
+) -> dict:
+    """
+    Calculates the time series of features that have been tracked.
+
+    Args:
+    fdict (FeaturesDictByCam): A dictionary containing features of each camera at different epochs.
+    min_tracked_epoches (int, optional): The minimum number of tracked epochs to be included in the time series. Defaults to 1.
+    rect (np.ndarray, optional): An optional rectangle used to filter the tracked features. Defaults to None.
+
+    Returns:
+    dict: A dictionary with track IDs as keys and the corresponding list of epochs in which the feature was tracked as values.
+
+    """
+
+    epoches = list(points.keys())
+    pts = {}
+    for i, epoch in enumerate(epoches):
+        track_ids = points[epoch].get_track_id_list()
+        for track_id in track_ids:
+            if volume is None:
+                out = [ep for ep in epoches[i:] if track_id in points[ep]]
+            else:
+                out = [
+                    ep
+                    for ep in epoches[i:]
+                    if (
+                        track_id in points[ep]
+                        and point_in_volume(points[ep][track_id].coordinates, volume)
+                    )
+                ]
+            if not out:
+                continue
+            if len(out) < min_tracked_epoches:
+                continue
+            if track_id not in pts.keys():
+                pts[track_id] = out
+            else:
+                pts[track_id].extend(x for x in out if x not in pts[track_id])
+
+    return pts
+
+
+@timeit
+def tracked_dict_to_df(
+    features: icepy_classes.FeaturesDict,
+    points: icepy_classes.PointsDict,
+    epoch_dict: icepy_classes.EpochDict,
+    fts: Features_tracked_inexes,
+    min_dt: int = None,
+    vx_lims: List = None,
+    vy_lims: List = None,
+    vz_lims: List = None,
+    save_path: Union[str, Path] = None,
+) -> pd.DataFrame:
+    """Convert dictionaries to a pandas DataFrame.
+
+    Args:
+        features (icepy_classes.FeaturesDict): A dictionary containing feature information.
+        points (icepy_classes.PointsDict): A dictionary containing point information.
+        epoch_dict (icepy_classes.EpochDict):
+        fts (Features_tracked_inexes): A dictionary containing information about features that were tracked.
+        min_dt (int, optional): The minimum number of days between `date_ini` and `date_fin`. Defaults to none.
+        save_path (Union[str, Path], optional): The file path where the DataFrame should be saved. Defaults to None.
+
+    Returns:
+        pd.DataFrame: A pandas DataFrame containing information about the features and points.
+
+    """
+    cams = list(features[list(features.keys())[0]].keys())
+    dict = {}
+    ss = ["ini", "fin"]
+    dict["fid"] = []
+    dict["num_tracked_eps"] = []
+    for s in ss:
+        dict[f"ep_{s}"] = []
+        dict[f"date_{s}"] = []
+        for cam in cams:
+            dict[f"x_{cam}_{s}"] = []
+            dict[f"y_{cam}_{s}"] = []
+        dict[f"X_{s}"] = []
+        dict[f"Y_{s}"] = []
+        dict[f"Z_{s}"] = []
+
+    for fid in list(fts.keys()):
+        dict["fid"].append(fid)
+        dict["num_tracked_eps"].append(len(fts[fid]))
+        eps = [fts[fid][0], fts[fid][-1]]
+        for i, s in enumerate(ss):
+            dict[f"ep_{s}"].append(eps[i])
+            dict[f"date_{s}"].append(epoch_dict[eps[i]])
+            for cam in cams:
+                dict[f"x_{cam}_{s}"].append(features[eps[i]][cam][fid].x)
+                dict[f"y_{cam}_{s}"].append(features[eps[i]][cam][fid].y)
+            dict[f"X_{s}"].append(points[eps[i]][fid].X)
+            dict[f"Y_{s}"].append(points[eps[i]][fid].Y)
+            dict[f"Z_{s}"].append(points[eps[i]][fid].Z)
+
+    fts_df = pd.DataFrame.from_dict(dict)
+    fts_df["date_ini"] = pd.to_datetime(fts_df["date_ini"], format="%Y_%m_%d")
+    fts_df["date_fin"] = pd.to_datetime(fts_df["date_fin"], format="%Y_%m_%d")
+    fts_df["dt"] = pd.to_timedelta(fts_df["date_fin"] - fts_df["date_ini"], unit="D")
+    fts_df["dX"] = fts_df["X_fin"] - fts_df["X_ini"]
+    fts_df["dY"] = fts_df["Y_fin"] - fts_df["Y_ini"]
+    fts_df["dZ"] = fts_df["Z_fin"] - fts_df["Z_ini"]
+    fts_df["vX"] = fts_df["dX"] / fts_df["dt"].dt.days
+    fts_df["vY"] = fts_df["dY"] / fts_df["dt"].dt.days
+    fts_df["vZ"] = fts_df["dZ"] / fts_df["dt"].dt.days
+
+    if min_dt is not None:
+        fts_df = fts_df[fts_df["dt"] >= pd.to_timedelta(min_dt, unit="D")]
+
+    if vx_lims is not None:
+        keep = (fts_df["vX"] >= vx_lims[0]) & (fts_df["vX"] < vx_lims[1])
+        fts_df = fts_df.loc[keep, :]
+    if vy_lims is not None:
+        keep = (fts_df["vY"] >= vy_lims[0]) & (fts_df["vY"] < vy_lims[1])
+        fts_df = fts_df.loc[keep, :]
+    if vz_lims is not None:
+        keep = (fts_df["vZ"] >= vz_lims[0]) & (fts_df["vZ"] < vz_lims[1])
+        fts_df = fts_df.loc[keep, :]
+
+    if save_path is not None:
+        fts_df.to_csv(save_path)
+
+    return fts_df
 
 
 # def tracked_time_series(
