@@ -13,9 +13,7 @@ from ..thirdparty.SuperGluePretrainedNetwork.models.utils import (
     frame2tensor,
 )
 from ..tiles import generateTiles
-from ..utils.spatial_funs import point_in_rect
 
-from icepy import visualization
 
 torch.set_grad_enabled(False)
 
@@ -61,7 +59,14 @@ def read_image(path, device, resize=-1, rotation=0, resize_float=True, crop=[]):
     return image, inp, scales
 
 
-def check_args(opt) -> None:
+def track_matches(pairs, maskBB, prevs, track_id, opt):
+
+    opt.resize_float = RESIZE_FLOAT
+    opt.viz_extension = VIZ_EXTENSION
+    opt.opencv_display = OPENCV_DISPLAY
+    opt.show_keypoints = SHOW_KEYPOINTS
+    opt.cache = CACHE
+
     assert not (
         opt.opencv_display and not opt.viz_matches
     ), "Must use --viz with --opencv_display"
@@ -83,17 +88,6 @@ def check_args(opt) -> None:
         logging.info(f"Will not resize images")
     else:
         raise ValueError("Cannot specify more than two integers for --resize")
-
-
-def track_matches(pairs, maskBB, prevs, track_id, opt):
-
-    opt.resize_float = RESIZE_FLOAT
-    opt.viz_extension = VIZ_EXTENSION
-    opt.opencv_display = OPENCV_DISPLAY
-    opt.show_keypoints = SHOW_KEYPOINTS
-    opt.cache = CACHE
-
-    check_args(opt)
 
     # Load the SuperPoint and SuperGlue models.
     device = "cuda" if torch.cuda.is_available() and not opt.force_cpu else "cpu"
@@ -147,7 +141,7 @@ def track_matches(pairs, maskBB, prevs, track_id, opt):
             opt["resize"],
             rot0,
             opt["resize_float"],
-            maskBB[cam],
+            maskBB[0],
         )
         image1, inp1, scales1 = read_image(
             name1,
@@ -155,7 +149,7 @@ def track_matches(pairs, maskBB, prevs, track_id, opt):
             opt["resize"],
             rot1,
             opt["resize_float"],
-            maskBB[cam],
+            maskBB[1],
         )
         if image0 is None or image1 is None:
             logging.error("Problem reading image pair: {} {}".format(name0, name1))
@@ -192,7 +186,16 @@ def track_matches(pairs, maskBB, prevs, track_id, opt):
         logging.info(f"Images subdivided in {rowDivisor}x{colDivisor} tiles")
         timer.update("create_tiles")
 
+        # import pdb
+        # pdb.set_trace()
+
+        # try:
+        #     if torch.is_tensor(prevs[cam]['keypoints0'][0]):
+        #         prev = {k: v[0].cpu().numpy() for k, v in prevs[cam].items()}
+        #     logging.info('Prev data are tensors: converted to np')
+        # except:
         prev = prevs[cam]
+
         kpts0_full.append(np.full(np.shape(prev["keypoints0"]), -1, dtype=(float)))
         kpts1_full.append(np.full(np.shape(prev["keypoints0"]), -1, dtype=(float)))
         wasMatched.append(np.full(len(prev["keypoints0"]), -1, dtype=(float)))
@@ -203,18 +206,28 @@ def track_matches(pairs, maskBB, prevs, track_id, opt):
         # mconf_full.append(np.full((len(prev['keypoints0'])), 0, dtype=(float)))
         track_id1_full.append(np.full(len(track_id), -1, dtype=(int)))
 
+        # TODO: CHECK IT!
         # Subract coordinates bounding box
         kpts0 = prev["keypoints0"] - np.array(maskBB[cam][0:2]).astype("float32")
 
-        # ttt = 1
-        # pts0 = kpts0 - np.array(limits0[ttt][0:2]).astype("float32")
-        # visualization.plot_points_cv2(np.uint8(tiles0[ttt]), pts0)
+        # import cv2
+        # ttt = 3
+        # pts0 = kpts0 - np.array(limits0[ttt][0:2]).astype('float32')
+        # img0 = np.uint8(tiles0[ttt])
+        # img0_kpts = cv2.drawKeypoints(img0,cv2.KeyPoint.convert(pts0),img0,(0,255,0),flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+        # plt.imshow(img0_kpts)
+        # plt.show()
 
         for t, tile0 in enumerate(tiles0):
-            # Keep only kpts in current tile and shfit kpts coordinates to tile origin
+            # Shift back to previuos keypoints
+            def rectContains(rect, pt):
+                logic = rect[0] < pt[0] < rect[2] and rect[1] < pt[1] < rect[3]
+                return logic
+
+            # Keep only kpts in current tile
             ptsInTile = np.zeros(len(kpts0), dtype=(bool))
             for i, kk in enumerate(kpts0):
-                ptsInTile[i] = point_in_rect(kk, limits0[t])
+                ptsInTile[i] = rectContains(limits0[t], kk)
             ptsInTileIdx = np.where(ptsInTile == True)[0]
             kpts0_tile = kpts0[ptsInTile] - np.array(limits0[t][0:2]).astype("float32")
             track_id0_tile = np.array(track_id)[ptsInTile]
@@ -249,6 +262,12 @@ def track_matches(pairs, maskBB, prevs, track_id, opt):
             mconf = conf[valid]
             track_id1 = track_id0_tile[valid]
 
+            # pts0 = mkpts0
+            # img0 = np.uint8(tiles0[t])
+            # img0_kpts = cv2.drawKeypoints(img0,cv2.KeyPoint.convert(pts0),img0,(0,255,0),flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+            # plt.imshow(img0_kpts)
+            # plt.show()
+
             for i, pt in enumerate(kpts0_tile):
                 if predTile["matches0"][i] > -1:
                     wasMatched[cam][ptsInTileIdx[i]] = 1
@@ -269,6 +288,11 @@ def track_matches(pairs, maskBB, prevs, track_id, opt):
                     # mconf_full[cam][ptsInTileIdx[0][i], :] = predTile['matches0']
                     #     [i]] + np.array(limits1[t][0:2]).astype('float32')
                     # TO DO: Keep track of the matching scores
+
+            # pts0 =  kpts1_full[0][ptsInTileIdx, :] + maskBB[1][0:2].astype('float32')
+            # img0 = cv2.cvtColor(images[0][1], cv2.COLOR_BGR2GRAY)
+            # img0_kpts = cv2.drawKeypoints(img0,cv2.KeyPoint.convert(pts0),img0,(0,255,0),flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+            # cv2.imwrite('dummy_out.jpg', img0_kpts)
 
             if t < 1:
                 mconf_full = mconf.copy()
@@ -309,6 +333,14 @@ def track_matches(pairs, maskBB, prevs, track_id, opt):
                     "Matches",
                     small_text,
                 )
+
+            # if do_viz_tile:
+            #     predTile['keypoints0']= kpts0
+            #     vizTile_path= output_dir / '{}_{}_matches_tile{}.{}'.format(stem0, stem1, t, opt.viz_extension)
+            #     tile_logging.info_opt= {'imstem0': stem0+'_'+str(t), 'imstem1': stem1+'_'+str(t), 'show_keypoints': True,
+            #            'fast_viz': opt.fast_viz, 'opencv_display': opt.opencv_display}
+            #     vizTileRes(vizTile_path, predTile,
+            #                tiles0[t], tiles1[t], matching, timerTile, tile_logging.info_opt)
 
             timerTile.print(f"Finished Tile Pairs {t:2} of {len(tiles0):2}")
 
@@ -354,6 +386,8 @@ def track_matches(pairs, maskBB, prevs, track_id, opt):
 
         timer.print("Finished pair {:5} of {:5}".format(cam + 1, len(pairs)))
 
+    # %%
+
     # Retrieve points that were matched in both the images
     validTracked = [m == 2 for m in wasMatched[0] + wasMatched[1]]
     mkpts1_cam0 = kpts1_full[0][validTracked]
@@ -367,36 +401,38 @@ def track_matches(pairs, maskBB, prevs, track_id, opt):
     track_id_cam1 = track_id1_full[1][validTracked].astype(np.int32)
 
     # Restore original image coordinates (not cropped)
-    mkpts1_cam0 = mkpts1_cam0 + np.array(maskBB[0][0:2]).astype("float32")
+    mkpts1_cam0 = mkpts1_cam0 + np.array(maskBB[1][0:2]).astype("float32")
     mkpts1_cam1 = mkpts1_cam1 + np.array(maskBB[1][0:2]).astype("float32")
 
+    # pts0 =  mkpts1_cam1
+    # img0 = cv2.cvtColor(images[1][1], cv2.COLOR_BGR2GRAY)
+    # img0_kpts = cv2.drawKeypoints(img0,cv2.KeyPoint.convert(pts0),img0,(0,255,0),flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+    # cv2.imwrite('dummy_out.jpg', img0_kpts)
+
     # Viz point mached on both the images
+    name0 = pairs[0][1]
+    name1 = pairs[1][1]
+    stem0, stem1 = Path(name0).stem, Path(name1).stem
+    viz_path = output_dir / "{}_{}_matches.{}".format(stem0, stem1, opt.viz_extension)
+    matches_path = output_dir / "{}_{}_matches.npz".format(stem0, stem1)
+    image0, _, _ = read_image(
+        name0,
+        device,
+        opt.resize,
+        rot0,
+        opt.resize_float,
+        maskBB[0],
+    )
+    image1, _, _ = read_image(
+        name1,
+        device,
+        opt.resize,
+        rot0,
+        opt.resize_float,
+        maskBB[1],
+    )
+
     if do_viz:
-
-        name0 = pairs[0][1]
-        name1 = pairs[1][1]
-        stem0, stem1 = Path(name0).stem, Path(name1).stem
-        viz_path = output_dir / "{}_{}_matches.{}".format(
-            stem0, stem1, opt.viz_extension
-        )
-        matches_path = output_dir / "{}_{}_matches.npz".format(stem0, stem1)
-        image0, _, _ = read_image(
-            name0,
-            device,
-            opt.resize,
-            rot0,
-            opt.resize_float,
-        )
-        image1, _, _ = read_image(
-            name1,
-            device,
-            opt.resize,
-            rot0,
-            opt.resize_float,
-        )
-
-        # visualization.plot_points_cv2(image1, mkpts1_cam1)
-
         # Visualize the matches.
         color = cm.jet(mconf_full)
         text = [
@@ -419,10 +455,10 @@ def track_matches(pairs, maskBB, prevs, track_id, opt):
         make_matching_plot(
             image0,
             image1,
-            mkpts1_cam0,
-            mkpts1_cam1,
-            mkpts1_cam0,
-            mkpts1_cam1,
+            mkpts1_cam0 - maskBB[1][0:2],
+            mkpts1_cam1 - maskBB[1][0:2],
+            mkpts1_cam0 - maskBB[1][0:2],
+            mkpts1_cam1 - maskBB[1][0:2],
             color,
             text,
             viz_path,
