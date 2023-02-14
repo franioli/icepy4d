@@ -14,7 +14,8 @@ from ..thirdparty.SuperGluePretrainedNetwork.models.utils import (
     process_resize,
 )
 
-from ..utils.utils import generateTiles
+from ..tiles import generateTiles
+
 
 torch.set_grad_enabled(False)
 
