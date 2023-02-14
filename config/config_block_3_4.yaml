@@ -14,7 +14,7 @@ proc:
   # It can be either 'all' for processing all the epochs,
   # A list of two integers for processing a range of epoches
   # or a list with the epoche numbers to be processed
-  epoch_to_process: [182, 184] # [180, 338] # "all" #
+  epoch_to_process: [181, 190] # [180, 338] # "all" #
 
   #- Switches to find and track matches
   do_matching: false
@@ -43,7 +43,7 @@ images:
   # It must be a list of list of lists (one list for each camera)
   # with the min/max coordinates as [xmin ymin xmax ymax]
   # mask_bounding_box: [[1000, 1500, 5600, 3700], [100, 1800, 4700, 4000]]
-  mask_bounding_box: [[900, 1000, 5600, 3900], [200, 1200, 4900, 4000]]
+  mask_bounding_box: [[900, 1000, 5600, 3900], [200, 1100, 4900, 4000]]
 
 #- Georeferencing (i.e. absolute orientation) information
 georef:
@@ -98,15 +98,15 @@ tracking:
   keypoint_threshold: 0.0001
   max_keypoints: 12288 # 8192
   superglue: "outdoor"
-  match_threshold: 0.6
-  viz_matches: false
-  fast_viz: false
+  match_threshold: 0.4
+  viz_matches: true
+  fast_viz: true
   force_cpu: false
   useTile: true
   writeTile2Disk: false
   do_viz_tile: false
-  rowDivisor: 3
-  colDivisor: 4
+  rowDivisor: 2
+  colDivisor: 3
 
 #- Metashape parameters for Bundle Adjustment and Dense Matching
 # Note that to use Metashape, you need a license properly configured and you need to enable do_metashape_processing in Proc section of this yaml file.

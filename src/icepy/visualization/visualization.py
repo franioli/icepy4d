@@ -133,7 +133,7 @@ def plot_points(
 
 
     Returns:
-        plt.Axes: _description_
+        plt.Axes: matplotlib axis
     """
     s = 6
     c = "y"
@@ -184,6 +184,57 @@ def plot_points(
         return None
     else:
         return ax
+
+
+def plot_points_cv2(
+    image: np.ndarray,
+    points: np.ndarray,
+    title: str = "figure",
+    save_path: str = None,
+) -> None:
+    """
+    Displays an OpenCV image with keypoints overlaid.
+
+    Args:
+        image (np.ndarray): An image read with OpenCV, represented as a numpy array with
+            three channels in BGR format.
+        points (np.ndarray): A numpy array of shape (n, 2) representing the (x, y)
+            coordinates of n keypoints in the image. The array should have data type np.float32.
+        title (str, optional): A string specifying the title of the window in which
+            the image will be displayed. Defaults to "figure".
+        save_path (str, optional): If specified, the image will be saved to this file
+            path in addition to being displayed.
+
+    Raises:
+        AssertionError: If the inputs do not meet the specified requirements.
+    """
+
+    # Check image type and number of channels
+    assert isinstance(image, np.ndarray), "Image must be a numpy array"
+    assert (
+        len(image.shape) == 3 and image.shape[2] == 3
+    ), "Image must have three channels"
+    # Check points type and shape
+    assert isinstance(points, np.ndarray), "Points must be a numpy array"
+    assert points.shape[1] == 2, "Points must be a nx2 numpy array"
+    # Check title type
+    assert isinstance(title, str), "Title must be a string"
+
+    img_kpts = cv2.drawKeypoints(
+        image,
+        cv2.KeyPoint.convert(points),
+        image,
+        (255, 0, 0),
+        flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS,
+    )
+    cv2.namedWindow(title, cv2.WINDOW_NORMAL)
+    cv2.imshow(title, img_kpts)
+
+    if save_path:
+        cv2.imwrite(save_path, img_kpts)
+
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
 
 def plot_features(

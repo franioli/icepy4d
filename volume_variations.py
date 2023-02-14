@@ -210,3 +210,26 @@ if __name__ == "__main__":
     fig.savefig(out_dir / f"{fout_name}_daily_diff_norm_cumulated.png", dpi=300)
 
     logger.info("Plots saved")
+
+    # Write image pairs to file (requires image Dastastores)
+    # import pickle
+
+    # with open("pairs.pickle", "rb") as handle:
+    #     pairs = pickle.load(handle)
+
+    # epoch_pairs = {}
+    # for i, pair in enumerate(pairs):
+    #     str = pair[0].replace(".", "_").split("_")[3:6]
+    #     date = f"{str[0]}_{str[1]}_{str[2]}"
+    #     ep0 = [i for i in epoch_dict if epoch_dict[i] == date]
+    #     str = pair[1].replace(".", "_").split("_")[3:6]
+    #     date = f"{str[0]}_{str[1]}_{str[2]}"
+    #     ep1 = [i for i in epoch_dict if epoch_dict[i] == date]
+    #     epoch_pairs[i] = (ep0[0], ep1[0])
+
+    # with open("image_pairs.txt", "w") as f:
+    #     f.write(f"date_ini,img_ini,date_fin,img_fin\n")
+    #     for k, v in epoch_pairs.items():
+    #         image0 = images[cams[1]][v[0]]
+    #         image1 = images[cams[1]][v[1]]
+    #         f.write(f"{epoch_dict[v[0]]},{image0},{epoch_dict[v[1]]},{image1}\n")

@@ -89,4 +89,4 @@ def point_in_volume(point: np.ndarray, volume: np.array) -> bool:
 def point3D_in_volume(point3D: icepy_classes.Point, volume: np.array) -> bool:
     """Wrapper around point_in_rect function to deal with Point object"""
     pt = point3D.coordinates.squeeze()
-    return point_in_rect(pt, volume)
+    return point_in_volume(pt, volume)
