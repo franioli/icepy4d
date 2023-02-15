@@ -6,10 +6,11 @@ import logging
 
 from pathlib import Path
 
+from icepy.utils import AverageTimer
+
 from ..thirdparty.SuperGluePretrainedNetwork.models.matching import Matching
 from ..thirdparty.SuperGluePretrainedNetwork.models.utils import (
     make_matching_plot,
-    AverageTimer,
     frame2tensor,
     process_resize,
 )
