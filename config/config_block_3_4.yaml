@@ -14,7 +14,7 @@ proc:
   # It can be either 'all' for processing all the epochs,
   # A list of two integers for processing a range of epoches
   # or a list with the epoche numbers to be processed
-  epoch_to_process: [181, 190] # [180, 338] # "all" #
+  epoch_to_process: [181, 182] # [180, 338] # "all" #
 
   #- Switches to find and track matches
   do_matching: false
@@ -72,7 +72,7 @@ other:
 
   #- Threshold [px] and confidence for PyDegensac robust estimation
   # (used to reject false matches and compute relative orientation)
-  pydegensac_treshold: 1
+  pydegensac_threshold: 1
   pydegensac_confidence: 0.9999
 
 #- Matching options
@@ -123,7 +123,7 @@ metashape:
     ]
 
   # A-priori accuracy [x, y, z] of cameras and GCPs
-  camera_accuracy: [0.001, 0.001, 0.001]
+  camera_accuracy: [0.01, 0.01, 0.01]
   gcp_accuracy: [0.01, 0.01, 0.01]
   collimation_accuracy: 1 # px
 
