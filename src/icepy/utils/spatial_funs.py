@@ -50,10 +50,42 @@ def point_in_rect(point: np.ndarray, rect: np.array) -> bool:
     return logic
 
 
+def points_in_rect(points: np.ndarray, rect: np.ndarray) -> np.ndarray:
+    """
+    points_in_rect checks which points are within a given bounding box
+
+    Args:
+        points (np.ndarray): numpy array with 2D x,y coordinates of shape (n,2)
+        rect (np.array): numpy array with bounding box coordinates as [xmin, ymin, xmax, ymax]
+
+    Returns:
+        np.ndarray: boolean numpy array of shape (n,) indicating whether each point is within the bounding box
+    """
+    logic = np.all(points > rect[:2], axis=1) & np.all(points < rect[2:], axis=1)
+    return logic
+
+
 def feature_in_rect(feature: icepy_classes.Feature, rect: np.array) -> bool:
     """Wrapper around point_in_rect function to deal with Feature object"""
     pt = feature.xy.squeeze()
     return point_in_rect(pt, rect)
+
+
+def select_features_by_rect(
+    features: icepy_classes.Features, rect: np.ndarray
+) -> icepy_classes.Features:
+    pts = features.to_numpy()["kpts"]
+    track_id_list = features.get_track_id_list()
+    valid = points_in_rect(pts, rect)
+
+    selected = icepy_classes.Features()
+    selected.append_features_from_numpy(
+        x=pts[valid, 0],
+        y=pts[valid, 1],
+        track_ids=list(np.array(track_id_list)[valid]),
+    )
+
+    return selected
 
 
 def point_in_volume(point: np.ndarray, volume: np.array) -> bool:

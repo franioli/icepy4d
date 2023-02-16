@@ -201,12 +201,12 @@ def MatchingAndTracking(
 
     # Run Pydegensac to estimate F matrix and reject outliers
     logging.info(
-        f"Geometric verification of the matches - Pydegensac parameters:  threshold {cfg.other.pydegensac_treshold} [px], confidence: {cfg.other.pydegensac_confidence}"
+        f"Geometric verification of the matches - Pydegensac parameters:  threshold {cfg.other.pydegensac_threshold} [px], confidence: {cfg.other.pydegensac_confidence}"
     )
     F, inlMask = pydegensac.findFundamentalMatrix(
         features[epoch][cams[0]].kpts_to_numpy(),
         features[epoch][cams[1]].kpts_to_numpy(),
-        px_th=cfg.other.pydegensac_treshold,
+        px_th=cfg.other.pydegensac_threshold,
         conf=cfg.other.pydegensac_confidence,
         max_iters=10000,
         laf_consistensy_coef=-1.0,

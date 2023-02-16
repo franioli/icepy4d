@@ -26,78 +26,12 @@ import cv2
 import os
 import matplotlib.pyplot as plt
 import numpy as np
+import logging
 
 from pathlib import Path
 from typing import List
 
-from .classes.images import Image, ImageDS
-
-
-def generateTiles(
-    image,
-    rowDivisor=2,
-    colDivisor=2,
-    overlap=200,
-    viz=False,
-    out_dir="tiles",
-    writeTile2Disk=True,
-):
-    assert not (image is None), "Invalid image input"
-
-    image = image.astype("float32")
-    H = image.shape[0]
-    W = image.shape[1]
-    DY = round(H / rowDivisor / 10) * 10
-    DX = round(W / colDivisor / 10) * 10
-    dim = (rowDivisor, colDivisor)
-
-    # TODO: implement checks on image dimension
-    # Check image dimensions
-    # if not W % colDivisor == 0:
-    #     print('Number of columns non divisible by the ColDivisor. Removing last column.')
-    #     image = image[:, 0:-1]
-    # if not H % rowDivisor == 0:
-    #     print('Number of rows non divisible by the RowDivisor. Removing last row')
-    #     image = image[0:-1, :]
-
-    tiles = []
-    limits = []
-    for col in range(0, colDivisor):
-        for row in range(0, rowDivisor):
-            tileIdx = np.ravel_multi_index((row, col), dim, order="F")
-            limits.append(
-                (
-                    max(0, col * DX - overlap),
-                    max(0, row * DY - overlap),
-                    max(0, col * DX - overlap) + DX + overlap,
-                    max(0, row * DY - overlap) + DY + overlap,
-                )
-            )
-            # print(f'Tile {tileIdx}: xlim = ({ limits[tileIdx][0], limits[tileIdx][2]}), ylim = {limits[tileIdx][1], limits[tileIdx][3]}')
-            tile = image[
-                limits[tileIdx][1] : limits[tileIdx][3],
-                limits[tileIdx][0] : limits[tileIdx][2],
-            ]
-            tiles.append(tile)
-            if writeTile2Disk:
-                isExist = os.path.exists(out_dir)
-                if not isExist:
-                    os.makedirs(out_dir)
-                cv2.imwrite(
-                    os.path.join(
-                        out_dir,
-                        "tile_"
-                        + str(tileIdx)
-                        + "_"
-                        + str(limits[tileIdx][0])
-                        + "_"
-                        + str(limits[tileIdx][1])
-                        + ".jpg",
-                    ),
-                    tile,
-                )
-
-    return tiles, limits
+from icepy.classes.images import Image, ImageDS
 
 
 class Tiler:
@@ -140,7 +74,12 @@ class Tiler:
 
     @property
     def tiles_limits(self) -> dict:
-        return self.limits
+        if not dict:
+            return self.limits
+        else:
+            logging.warning(
+                "Limits not available, compute them first with compute_limits_by_grid."
+            )
 
     def compute_limits_by_grid(self) -> None:
         """Method to compute the limits of each tile (i.e. xmin,ymin,xmax,xmax), given the number or row and columns of the tile grid.
@@ -180,16 +119,100 @@ class Tiler:
         if tile_idx is None:
             self.tiles = {}
         else:
-            self.tiles[idx] = []
+            self.tiles[tile_idx] = []
+
+    def display_tiles(self) -> None:
+        for idx, tile in self.tiles.items():
+            plt.subplot(tile_grid[0], tile_grid[1], idx + 1)
+            plt.imshow(tile)
+        plt.show()
+
+    # def write_tiles_to_disk(self, ) -> None:
+    #             isExist = os.path.exists(out_dir)
+    #             if not isExist:
+    #                 os.makedirs(out_dir)
+    #             cv2.imwrite(
+    #                 os.path.join(
+    #                     out_dir,
+    #                     "tile_"
+    #                     + str(tileIdx)
+    #                     + "_"
+    #                     + str(limits[tileIdx][0])
+    #                     + "_"
+    #                     + str(limits[tileIdx][1])
+    #                     + ".jpg",
+    #                 ),
+    #                 tile,
+    #             )
+
+
+"Old function"
+
+
+def generateTiles(
+    image,
+    rowDivisor=2,
+    colDivisor=2,
+    overlap=200,
+    viz=False,
+    out_dir="tiles",
+    writeTile2Disk=True,
+):
+    assert not (image is None), "Invalid image input"
+
+    image = image.astype("float32")
+    H = image.shape[0]
+    W = image.shape[1]
+    DY = round(H / rowDivisor / 10) * 10
+    DX = round(W / colDivisor / 10) * 10
+    dim = (rowDivisor, colDivisor)
+
+    tiles = []
+    limits = []
+    for col in range(0, colDivisor):
+        for row in range(0, rowDivisor):
+            tileIdx = np.ravel_multi_index((row, col), dim, order="F")
+            limits.append(
+                (
+                    max(0, col * DX - overlap),
+                    max(0, row * DY - overlap),
+                    max(0, col * DX - overlap) + DX + overlap,
+                    max(0, row * DY - overlap) + DY + overlap,
+                )
+            )
+            tile = image[
+                limits[tileIdx][1] : limits[tileIdx][3],
+                limits[tileIdx][0] : limits[tileIdx][2],
+            ]
+            tiles.append(tile)
+            if writeTile2Disk:
+                isExist = os.path.exists(out_dir)
+                if not isExist:
+                    os.makedirs(out_dir)
+                cv2.imwrite(
+                    os.path.join(
+                        out_dir,
+                        "tile_"
+                        + str(tileIdx)
+                        + "_"
+                        + str(limits[tileIdx][0])
+                        + "_"
+                        + str(limits[tileIdx][1])
+                        + ".jpg",
+                    ),
+                    tile,
+                )
+
+    return tiles, limits
 
 
 if __name__ == "__main__":
     """Test classes"""
 
-    images = ImageDS(Path("data/img2022/p1"))
-    img = Image(images.get_image_path(0))
+    images = ImageDS(Path("data/img/p1"))
+    img = images.read_image(0)
 
-    tile_grid = (2, 1)
+    tile_grid = (2, 2)
     origin = (1000, 0)
 
     tiles = Tiler(
@@ -200,11 +223,7 @@ if __name__ == "__main__":
 
     tiles.compute_limits_by_grid()
 
-    t = tiles.read_tile(1)
+    # t = tiles.read_tile(1)
 
     tiles.read_all_tiles()
-
-    for idx, tile in tiles.tiles.items():
-        plt.subplot(tile_grid[0], tile_grid[1], idx + 1)
-        plt.imshow(tile)
-    plt.show()
+    tiles.display_tiles()
