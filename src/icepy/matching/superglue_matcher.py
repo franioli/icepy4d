@@ -1,11 +1,9 @@
 """SuperGlue matcher implementation
-The network was proposed in 'SuperGlue: Learning Feature Matching with Graph Neural Networks' and is implemented by
-wrapping over author's source-code.
+The network was proposed in 'SuperGlue: Learning Feature Matching with Graph Neural Networks' and is implemented by wrapping over author's source-code.
 Note: the pretrained model only supports SuperPoint detections currently.
 References:
 - http://openaccess.thecvf.com/content_CVPR_2020/papers/Sarlin_SuperGlue_Learning_Feature_Matching_With_Graph_Neural_Networks_CVPR_2020_paper.pdf
 - https://github.com/magicleap/SuperGluePretrainedNetwork
-Authors:
 """
 
 import numpy as np
@@ -99,7 +97,7 @@ class SuperGlueMatcher:
             },
         }
 
-    def match(self, image0: np.ndarray, image1: np.ndarray):
+    def match(self, image0: np.ndarray, image1: np.ndarray) -> dict:
         """Matches keypoints and descriptors in two images using the SuperGlue algorithm.
 
         This method takes in two images as Numpy arrays, and returns the matches between keypoints
@@ -110,13 +108,16 @@ class SuperGlueMatcher:
             image1 (np.ndarray): the second image to match, as Numpy array
 
         Returns:
-            None
+            dict
         """
 
         if len(image0.shape) > 2:
             image0 = cv2.cvtColor(image0, cv2.COLOR_RGB2GRAY)
         if len(image1.shape) > 2:
             image1 = cv2.cvtColor(image1, cv2.COLOR_RGB2GRAY)
+
+        self.image0 = image0
+        self.image1 = image1
 
         tensor0 = frame2tensor(image0, self.device)
         tensor1 = frame2tensor(image1, self.device)
@@ -156,6 +157,8 @@ class SuperGlueMatcher:
 
         self.timer.print("SuperGlue matching")
 
+        return {0: self.mkpts0, 1: self.mkpts1}
+
     def geometric_verification(
         self,
         threshold: float = 1,
@@ -166,6 +169,21 @@ class SuperGlueMatcher:
         symmetric_error_check: bool = True,
         enable_degeneracy_check: bool = True,
     ) -> np.ndarray:
+        """
+        Computes the fundamental matrix and inliers between the two images using geometric verification.
+
+        Args:
+            threshold (float): Pixel error threshold for considering a correspondence an inlier.
+            confidence (float): The required confidence level in the results.
+            max_iters (int): The maximum number of iterations for estimating the fundamental matrix.
+            laf_consistensy_coef (float): The weight given to Local Affine Frame (LAF) consistency term for pydegensac.
+            error_type (str): The error function used for computing the residuals in the RANSAC loop.
+            symmetric_error_check (bool): If True, performs an additional check on the residuals in the opposite direction.
+            enable_degeneracy_check (bool): If True, enables the check for degeneracy using SVD.
+
+        Returns:
+            np.ndarray: A Boolean array that masks the correspondences that were identified as inliers.
+        """
         assert self.mkpts0 is not None, "Matches not available."
 
         try:
@@ -193,30 +211,35 @@ class SuperGlueMatcher:
             )
             self.inlMask = inliers > 0
             logging.info(
-                f"Pydegensac found {self.inlMask.sum()} inliers ({self.inlMask.sum()*100/len(self.mkpts0):.2f}%)"
+                f"MAGSAC++ found {self.inlMask.sum()} inliers ({self.inlMask.sum()*100/len(self.mkpts0):.2f}%)"
             )
 
         self.mkpts0 = self.mkpts0[self.inlMask]
         self.mkpts1 = self.mkpts1[self.inlMask]
 
-        return self.inlMask
+        return {0: self.mkpts0, 1: self.mkpts1, "inliers": self.inlMask}
 
     def viz_matches(
         self,
-        image0: np.ndarray,
-        image1: np.ndarray,
         path: str,
         fast_viz: bool = False,
         show_keypoints: bool = False,
         opencv_display: bool = False,
     ) -> None:
+        """
+        Visualize the matching result between two images.
+
+        Args:
+        - path (str): The output path to save the visualization.
+        - fast_viz (bool): Whether to use fast visualization method.
+        - show_keypoints (bool): Whether to show the detected keypoints.
+        - opencv_display (bool): Whether to use OpenCV for displaying the image.
+
+        Returns:
+        - None
+        """
         assert self.mkpts0 is not None, "Matches not available."
         # image0 = np.uint8(tensor0.cpu().numpy() * 255),
-
-        if fast_viz and len(image0.shape) > 2:
-            image0 = cv2.cvtColor(image0, cv2.COLOR_RGB2GRAY)
-        if fast_viz and len(image1.shape) > 2:
-            image1 = cv2.cvtColor(image1, cv2.COLOR_RGB2GRAY)
 
         color = cm.jet(self.match_conf)
         text = [
@@ -236,8 +259,8 @@ class SuperGlueMatcher:
         ]
 
         make_matching_plot(
-            image0,
-            image1,
+            self.image0,
+            self.image1,
             self.mkpts0,
             self.mkpts1,
             self.mkpts0,

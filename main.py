@@ -44,6 +44,8 @@ from icepy.matching.matching_base import (
     MatchingAndTracking,
     load_matches_from_disk,
 )
+from icepy.matching.match_by_preselection import match_by_preselection
+
 from icepy.utils.utils import homography_warping
 from icepy.io.export2bundler import write_bundler_out
 
@@ -97,35 +99,41 @@ if __name__ == "__main__":
 
         epochdir = Path(cfg.paths.results_dir) / epoch_dict[epoch]
 
-        # Perform matching and tracking
-        if cfg.proc.do_matching:
-            features = MatchingAndTracking(
-                cfg=cfg,
-                epoch=epoch,
-                images=images,
-                features=features,
-                epoch_dict=epoch_dict,
-            )
-        else:
-            try:
-                path = epochdir / "matching"
-                features[epoch] = load_matches_from_disk(path)
-            except FileNotFoundError as err:
-                logging.exception(err)
-                logging.warning("Performing new matching and tracking...")
-                features = MatchingAndTracking(
-                    cfg=cfg,
-                    epoch=epoch,
-                    images=images,
-                    features=features,
-                    epoch_dict=epoch_dict,
-                )
+        # # Perform matching and tracking
+        # if cfg.proc.do_matching:
+        #     features = MatchingAndTracking(
+        #         cfg=cfg,
+        #         epoch=epoch,
+        #         images=images,
+        #         features=features,
+        #         epoch_dict=epoch_dict,
+        #     )
+        # else:
+        #     try:
+        #         path = epochdir / "matching"
+        #         features[epoch] = load_matches_from_disk(path)
+        #     except FileNotFoundError as err:
+        #         logging.exception(err)
+        #         logging.warning("Performing new matching and tracking...")
+        #         features = MatchingAndTracking(
+        #             cfg=cfg,
+        #             epoch=epoch,
+        #             images=images,
+        #             features=features,
+        #             epoch_dict=epoch_dict,
+        #         )
+
+        features[epoch] = match_by_preselection(
+            images,
+            features[epoch],
+            epoch,
+            cfg,
+            n_tiles=10,
+            n_dist=2.5,
+            viz_results=True,
+        )
 
         timer.update("matching")
-
-        # For debugging purposes
-        # a = features[180]["p1"]
-        # b = features[181]["p1"]
 
         """ SfM """
 
@@ -155,7 +163,7 @@ if __name__ == "__main__":
             ],
         )
         relative_ori.estimate_pose(
-            threshold=cfg.other.pydegensac_treshold,
+            threshold=cfg.other.pydegensac_threshold,
             confidence=0.999999,
             scale_factor=np.linalg.norm(
                 cfg.georef.camera_centers_world[0] - cfg.georef.camera_centers_world[1]
@@ -340,6 +348,89 @@ if __name__ == "__main__":
 
     timer_global.update("SfM")
 
+    #%% match additional features from matches
+    import pydegensac
+    from copy import deepcopy
+
+    from icepy.tracking_features_utils import *
+    from icepy.matching.superglue_matcher import SuperGlueMatcher
+    from icepy.utils.spatial_funs import select_features_by_rect
+
+    ep = 181
+    bbox = np.array([1500, 1600, 3000, 2100])
+
+    cam = cams[0]
+    feats_0 = select_features_by_rect(features[ep][cam], bbox)
+    icepy_viz.plot_features(images[cam].read_image(ep).value, feats_0)
+
+    # fid = 6035
+    # fig, axes = plt.subplots(1, 2)
+    # for i, cam in enumerate(cams):
+    #     icepy_viz.plot_feature(
+    #         images[cam].read_image(ep).value, features[ep][cam][fid], ax=axes[i]
+    #     )
+
+    # fid = 5736
+    # fid = 6035
+
+    feats = deepcopy(features[ep])
+
+    for fid in feats_0.get_track_id_list():
+        win = 1000
+        patches_lim = {
+            cam: [
+                int(features[ep][cam][fid].x - win),
+                int(features[ep][cam][fid].y - win),
+                int(features[ep][cam][fid].x + win),
+                int(features[ep][cam][fid].y + win),
+            ]
+            for cam in cams
+        }
+        patches = {
+            cam: images[cam].read_image(ep).extract_patch(patches_lim[cam])
+            for cam in cams
+        }
+
+        # fig, ax = plt.subplots(1, 2)
+        # ax[0].imshow(patch0)
+        # ax[1].imshow(patch1)
+
+        matcher = SuperGlueMatcher(cfg.matching)
+        matcher.match(patches[cams[0]], patches[cams[1]])
+        inlMask = matcher.geometric_verification(
+            threshold=5, confidence=0.99, symmetric_error_check=False
+        )
+        matcher.viz_matches(path=f"test_out/test_fid_{fid}.png", fast_viz=True)
+        mkpts = {
+            cams[0]: matcher.mkpts0
+            + np.array(patches_lim[cams[0]][0:2]).astype(np.int32),
+            cams[1]: matcher.mkpts1
+            + np.array(patches_lim[cams[1]][0:2]).astype(np.int32),
+        }
+        for cam in cams:
+            feats[cam].append_features_from_numpy(mkpts[cam][:, 0], mkpts[cam][:, 1])
+
+    F, inlMask = pydegensac.findFundamentalMatrix(
+        feats[cams[0]].kpts_to_numpy(),
+        feats[cams[1]].kpts_to_numpy(),
+        px_th=1.5,
+        conf=cfg.other.pydegensac_confidence,
+        max_iters=10000,
+        laf_consistensy_coef=-1.0,
+        error_type="sampson",
+        symmetric_error_check=True,
+        enable_degeneracy_check=True,
+    )
+    logging.info(
+        f"Pydegensac found {inlMask.sum()} inliers ({inlMask.sum()*100/len(feats[cams[0]]):.2f}%)"
+    )
+    feats[cams[0]].filter_feature_by_mask(inlMask, verbose=True)
+    feats[cams[1]].filter_feature_by_mask(inlMask, verbose=True)
+
+    icepy_viz.plot_features(images[cams[0]].read_image(ep).value, feats[cams[0]])
+
+    #%%
+
     """Tests"""
 
     from scipy.spatial import KDTree
@@ -394,27 +485,27 @@ if __name__ == "__main__":
     # for key in delete:
     #     del fts[key]
 
-    if save_figs:
+    # if save_figs:
 
-        def save_tracked_task():
-            pass
+    #     def save_tracked_task():
+    #         pass
 
-        for fid in fts.keys():
-            for ep in fts[fid]:
-                fout = folder_out / f"fid_{fid}_ep_{ep}.jpg"
-                icepy_viz.plot_feature(
-                    images[cam].read_image(ep).value,
-                    fdict[ep][fid],
-                    save_path=fout,
-                    hide_fig=True,
-                    zoom_to_feature=True,
-                    s=10,
-                    marker="x",
-                    c="r",
-                    edgecolors=None,
-                    window_size=50,
-                )
-    plt.close("all")
+    #     for fid in fts.keys():
+    #         for ep in fts[fid]:
+    #             fout = folder_out / f"fid_{fid}_ep_{ep}.jpg"
+    #             icepy_viz.plot_feature(
+    #                 images[cam].read_image(ep).value,
+    #                 fdict[ep][fid],
+    #                 save_path=fout,
+    #                 hide_fig=True,
+    #                 zoom_to_feature=True,
+    #                 s=10,
+    #                 marker="x",
+    #                 c="r",
+    #                 edgecolors=None,
+    #                 window_size=50,
+    #             )
+    # plt.close("all")
 
     fid = 2154
     eps = [181, 183]
@@ -488,9 +579,12 @@ if __name__ == "__main__":
     pcd.points = o3d.utility.Vector3dVector(pts)
 
     kdtree = KDTree(pts)
+
     dist, res = kdtree.query(pts[0], 2)
 
     o3d.visualization.draw_geometries([points[ep].to_point_cloud().pcd, pcd])
+
+    dense = o3d.io.read_point_cloud("res/point_clouds/dense_2022_05_01.ply")
 
     # import plotly.graph_objects as go
     # import plotly.figure_factory as ff
