@@ -101,7 +101,7 @@ class Camera:
 
     @property
     def dist(self) -> np.ndarray:
-        """ " Get non-linear distortion parameter vector"""
+        """Get non-linear distortion parameter vector"""
         return self._dist
 
     @property
@@ -113,7 +113,7 @@ class Camera:
 
     @property
     def pose(self) -> np.ndarray:
-        """Get Pose Matrix (i.e., transformation from camera to world)
+        """Get Pose Matrix (i.e., transformation from camera to world) as:
         Pose = [ R' | C ]
         """
         return self.extrinsics_to_pose()

@@ -14,10 +14,10 @@ proc:
   # It can be either 'all' for processing all the epochs,
   # A list of two integers for processing a range of epoches
   # or a list with the epoche numbers to be processed
-  epoch_to_process: [180, 338] #[180, 185] #  "all" #
+  epoch_to_process: [200, 201] #[184, 338] # [180, 338] # "all" #
 
   #- Switches to find and track matches
-  do_matching: false
+  do_matching: true
   do_tracking: true
 
   #- Do space resection of first camera
@@ -43,14 +43,14 @@ images:
   # It must be a list of list of lists (one list for each camera)
   # with the min/max coordinates as [xmin ymin xmax ymax]
   # mask_bounding_box: [[1000, 1500, 5600, 3700], [100, 1800, 4700, 4000]]
-  mask_bounding_box: [[900, 1000, 5600, 3900], [200, 1200, 4900, 4000]]
+  mask_bounding_box: [[900, 1000, 5600, 3900], [200, 1100, 4900, 4000]]
 
 #- Georeferencing (i.e. absolute orientation) information
 georef:
   #- Camera centers obtained from Metashape model in July [m]
   camera_centers_world: [
-      [151.962, 99.065, 91.643], # p1
-      [309.261, 301.051, 135.008], # p2
+      [151.603, 99.254, 91.643], # p1
+      [312.889, 300.513, 135.113], # p2
     ]
 
   #- Targets' information
@@ -70,18 +70,13 @@ other:
   #- Point cloud processing
   do_SOR_filter: False
 
-  #- Threshold [px] and confidence for PyDegensac robust estimation
-  # (used to reject false matches and compute relative orientation)
-  pydegensac_treshold: 1
-  pydegensac_confidence: 0.9999
-
 #- Matching options
 matching:
   resize: [-1]
   keypoint_threshold: 0.0001
   max_keypoints: 8192 #2048 #   10240
-  superglue: "outdoor"
-  match_threshold: 0.10
+  weights: "outdoor"
+  match_threshold: 0.2
   viz_matches: true
   fast_viz: true
   force_cpu: false
@@ -91,39 +86,45 @@ matching:
   rowDivisor: 2
   colDivisor: 3
   overlap: 400
+  #- Threshold [px] and confidence for PyDegensac robust estimation
+  # (used to reject false matches and compute relative orientation)
+  pydegensac_threshold: 1
+  pydegensac_confidence: 0.9999
 
 #- Tracking options
 tracking:
   resize: [-1]
-  keypoint_threshold: 0.00001
+  keypoint_threshold: 0.0001
   max_keypoints: 12288 # 8192
-  superglue: "outdoor"
-  match_threshold: 0.3
-  viz_matches: false
-  fast_viz: false
+  weights: "outdoor"
+  match_threshold: 0.4
+  viz_matches: true
+  fast_viz: true
   force_cpu: false
   useTile: true
   writeTile2Disk: false
   do_viz_tile: false
-  rowDivisor: 2
-  colDivisor: 3
+  rowDivisor: 3
+  colDivisor: 4
+  pydegensac_threshold: 2
+  pydegensac_confidence: 0.999
 
 #- Metashape parameters for Bundle Adjustment and Dense Matching
 # Note that to use Metashape, you need a license properly configured and you need to enable do_metashape_processing in Proc section of this yaml file.
 metashape:
   # Processing parameters:
   optimize_cameras: true
-  build_dense: true
+  build_dense: true # true
 
   # List containing camera location. Note, that the order may differ from that of icepy, because Metashape imports the cameras based on alphabetic order of the images that they belong to (e.g., IMG_1289.jpg that belongs to p2 comes before IMG_2814.jpg that belongs to p1!)
   #TODO: fix camera ordering issue in Metashape.
   camera_location: [
-      [309.261, 301.051, 135.008], # p2
-      [151.962, 99.065, 91.643], # p1
+      [312.889, 300.513, 135.113], # p2
+      [151.603, 99.254, 91.643], # p1
     ]
 
   # A-priori accuracy [x, y, z] of cameras and GCPs
-  camera_accuracy: [0.001, 0.001, 0.001]
+  camera_accuracy: [0.01, 0.01, 0.01]
   gcp_accuracy: [0.01, 0.01, 0.01]
   collimation_accuracy: 1 # px
 

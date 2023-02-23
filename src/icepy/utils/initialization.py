@@ -32,6 +32,7 @@ from easydict import EasyDict as edict
 from pathlib import Path
 from typing import List, Union, Tuple, TypedDict
 from datetime import datetime
+from pprint import pprint
 
 from ..classes.camera import Camera
 from ..classes.features import Features
@@ -113,9 +114,6 @@ def parse_command_line() -> Tuple[str, dict]:
         )
 
     cfg_file = Path(args.config)
-    if not cfg_file.exists():
-        sys.exit("Configuration file does not exist! Aborting...")
-
     log_cfg = {
         "log_folder": args.log_folder,
         "log_name": args.log_name,
@@ -128,17 +126,21 @@ def parse_command_line() -> Tuple[str, dict]:
 
 def parse_yaml_cfg(cfg_file: Union[str, Path]) -> edict:
     """
-    parse_yaml_cfg _summary_
+    Parse a YAML configuration file and return it as an easydict.
 
     Args:
-        cfg_file (Union[str, Path]): path to the configuration file
+        cfg_file (Union[str, Path]): The path to the configuration file in YAML format.
 
     Raises:
-        ValueError: _description_
+        ValueError: If the input of epochs to process is invalid.
 
     Returns:
-        edict: _description_
+        edict: A dictionary-like object containing the configuration parameters.
     """
+
+    cfg_file = Path(cfg_file)
+    if not cfg_file.exists():
+        sys.exit("Configuration file does not exist! Aborting.")
 
     with open(cfg_file) as file:
         cfg = edict(yaml.safe_load(file))
@@ -211,10 +213,14 @@ def validate_cfg(cfg: edict) -> None:
             logging.info("Image datastores created successfully.")
 
 
-def print_cfg(cfg) -> None:
-    # TODO: implement printing of configuration
-    for key, value in cfg.items():
-        print(key + " : " + str(value))
+def print_cfg(cfg: edict):
+    """
+    Print the configuration parameters in a clear and easy-to-read format.
+
+    Args:
+        cfg (edict): A dictionary-like object containing the configuration parameters.
+    """
+    pprint(dict(cfg), indent=2)
 
 
 class Inizialization:
