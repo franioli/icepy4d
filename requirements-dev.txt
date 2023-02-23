@@ -15,8 +15,9 @@ flake8
 lmfit
 black
 mkdocs
-mkdocstrings
 mkdocs-material
+mkdocstrings
+mkdocstrings-python
 # pycolmap
 # h5py
 # gdown
