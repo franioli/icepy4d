@@ -10,7 +10,12 @@ exifread
 tqdm
 pyyaml
 easydict
+pytest
+flake8
 lmfit
+black
+mkdocs
+mkdocs-material
 # pycolmap
 # h5py
 # gdown
