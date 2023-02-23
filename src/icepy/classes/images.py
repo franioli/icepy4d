@@ -36,7 +36,7 @@ from .camera import Camera
 from ..utils.sensor_width_database import SensorWidthDatabase
 from ..sfm.geometry import undistort_image
 
-
+# @TODO: remove variable number of outputs
 def read_image(
     path: Union[str, Path],
     color: bool = True,
@@ -65,6 +65,7 @@ def read_image(
         image = cv2.imread(str(path), flag)
     except:
         logging.error(f"Impossible to load image {path}")
+        return None, None
 
     if color:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -282,7 +283,7 @@ class Image:
         """Extract image patch
         Parameters
         __________
-        - limits (List[int]): List containing the bounding box coordinates as: [xmin, xmax, ymin, ymax]
+        - limits (List[int]): List containing the bounding box coordinates as: [xmin, ymin, xmax, ymax]
         __________
         Return: patch (np.ndarray)
         """

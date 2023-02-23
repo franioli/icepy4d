@@ -12,6 +12,7 @@ from scipy.spatial import Delaunay
 from matplotlib import path as mpath
 
 from ..utils.timer import AverageTimer
+from ..utils.spatial_funs import point_in_hull, ccw_sort_points
 
 
 def display_inlier_outlier(cloud, ind):
@@ -24,36 +25,6 @@ def display_inlier_outlier(cloud, ind):
     o3d.visualization.draw_geometries(
         [inlier_cloud, outlier_cloud],
     )
-
-
-def in_hull(p, hull):
-    """
-    Test if points in `p` are in `hull`
-    `p` should be a `NxK` coordinates of `N` points in `K` dimensions
-    `hull` is either a scipy.spatial.Delaunay object or the `MxK` array of the
-    coordinates of `M` points in `K`dimensions for which Delaunay triangulation
-    will be computed
-    """
-    if not isinstance(hull, Delaunay):
-        hull = Delaunay(hull)
-
-    return hull.find_simplex(p) >= 0
-
-
-def ccw_sort(p: np.ndarray) -> np.ndarray:
-    """
-    ccw_sort Sort 2D points in array in counter-clockwise direction around a baricentric mid point
-
-    Args:
-        p (np.ndarray): nx2 numpy array containing 2D points
-
-    Returns:
-        np.ndarray: nx2 array with sorted points
-    """
-    mean = np.mean(p, axis=0)
-    d = p - mean
-    s = np.arctan2(d[:, 0], d[:, 1])
-    return p[np.argsort(s), :]
 
 
 def meshing_task(pcd_path: Path, out_dir: Path, cfg: dict) -> bool:
@@ -168,7 +139,7 @@ class Meshing:
         self.timer.update("Filter by density")
 
     def filter_mesh_by_convex_hull(self):
-        keep = in_hull(
+        keep = point_in_hull(
             np.asarray(self.mesh.vertices), np.asarray(self.convex_hull.vertices)
         )
         idx = list(compress(range(len(keep)), keep))
@@ -198,7 +169,7 @@ class Meshing:
         else:
             raise ValueError("Cutting point cloud implemented only on Y-Z plane")
 
-        poly_sorted = ccw_sort(poly)
+        poly_sorted = ccw_sort_points(poly)
         poly_sorted = np.concatenate(
             (poly_sorted, poly_sorted[0, :].reshape(1, 2)), axis=0
         )

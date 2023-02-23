@@ -1,14 +1,66 @@
 import pytest
-import os
+import sys
 
+from datetime import datetime
 from pathlib import Path
 from easydict import EasyDict as edict
 
-from icepy.utils import initialization
+from icepy.classes import ImageDS
+from icepy.utils.initialization import (
+    parse_command_line,
+    parse_yaml_cfg,
+    Inizialization,
+)
+
+
+def test_parse_command_line():
+    # Test default config
+    sys.argv = ["./main.py", "-c", "config.yaml"]
+    cfg_file, log_cfg = parse_command_line()
+    assert cfg_file == Path("config.yaml")
+    assert log_cfg == {
+        "log_folder": "logs",
+        "log_name": "log",
+        "log_file_level": "info",
+        "log_console_level": "info",
+    }
+
+    # Test custom config
+    sys.argv = [
+        "./main.py",
+        "-c",
+        "config.yaml",
+        "--log_folder",
+        "log",
+        "--log_name",
+        "new_log",
+        "--log_file_level",
+        "debug",
+        "--log_console_level",
+        "error",
+    ]
+    cfg_file, log_cfg = parse_command_line()
+    assert cfg_file == Path("config.yaml")
+    assert log_cfg == {
+        "log_folder": "log",
+        "log_name": "new_log",
+        "log_file_level": "debug",
+        "log_console_level": "error",
+    }
+
+    with pytest.raises(ValueError, match="Not enough input arguments"):
+        sys.argv = ["./main.py"]
+        parse_command_line()
 
 
 def test_parse_yaml_cfg(data_dir, cfg_file):
-    cfg = initialization.parse_yaml_cfg(cfg_file)
+
+    with pytest.raises(
+        SystemExit, match="Configuration file does not exist! Aborting."
+    ):
+        parse_yaml_cfg("non_existent_config.yaml")
+
+    cfg = parse_yaml_cfg(cfg_file)
     assert isinstance(
         cfg, edict
     ), "Unable to create valid cfg dictionary from yaml file"
@@ -25,9 +77,9 @@ def test_parse_yaml_cfg(data_dir, cfg_file):
     ], "Unable to expand epoch_to_process from pair of values"
 
 
-def test_inizialization(cfg_file):
-    cfg = initialization.parse_yaml_cfg(cfg_file)
-    init = initialization.Inizialization(cfg)
+def test_inizialization_epoch_dict(cfg_file):
+    cfg = parse_yaml_cfg(cfg_file)
+    init = Inizialization(cfg)
     init.init_image_ds()
     epoch_dict = init.init_epoch_dict()
     assert isinstance(epoch_dict, dict), "Unable to build epoch_dict dictionary"
