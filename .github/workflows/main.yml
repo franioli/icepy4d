@@ -15,7 +15,7 @@ on:
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  test_and_doc:
+  test:
     # The type of runner that the job will run on
     runs-on: ${{ matrix.os }}
     strategy:
@@ -40,24 +40,7 @@ jobs:
       - name: Run pytest
         run: |
           python -m pytest
-      - name: Build docs
-        run: |
-          pip install mkdocs mkdocs-material mkdocstrings mkdocstrings-python
-          mkdocs gh-deploy --force --clean --verbose
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          python-version: 3.x
-      - uses: actions/cache@v2
-        with:
-          key: ${{ github.ref }}
-          path: .cache
-      - run: pip install mkdocs mkdocs-material mkdocstrings mkdocstrings-python
-      - run: mkdocs gh-deploy --force
-      
+
 # conda update -n base -c conda-forge conda
 # conda install -c conda-forge gdal
 # cd src/icepy

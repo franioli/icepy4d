@@ -32,7 +32,7 @@ nav:
           - Templatematch: matching/templatematch.md
       - Sfm:
           - Two-view Geometry: sfm/two_view_geometry.md
-          - Absolute orientation: sfm/absolute_orientation.md triangulation.md
+          - Absolute orientation: sfm/absolute_orientation.md
           - Triangulation: sfm/triangulation.md
           - Incremental reconstruction: sfm/reconstruction.md
       - Visualization: visualization.md
