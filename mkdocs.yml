@@ -3,7 +3,7 @@ site_name: ICEpy4D
 theme:
   name: material
   palette:
-    primary: green
+    primary: indigo
   font:
     text: Open Sans
   features:
@@ -18,5 +18,5 @@ plugins:
 
 nav:
   - Home: index.md
-  - Prova: prova.md
-      
+  - Classes:
+      - Camera: camera.md
