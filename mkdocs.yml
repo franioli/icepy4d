@@ -18,8 +18,8 @@ plugins:
 
 nav:
   - Home: index.md
-  - Getting started:
-      - Installation: installation.md
+  - Installation: installation.md
+  - Getting started: getting_started.md
   - Modules:
       - Classes:
           - Camera: classes/camera.md

@@ -15,7 +15,7 @@ jobs:
       - name: Install Python libs
         run: |
           pip install --no-deps -r requirements-dev.txt
-          pip install click
+          pip install click importlib_metadata
       - uses: actions/cache@v3
         with:
           key: ${{ github.ref }}
