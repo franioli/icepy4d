@@ -1,0 +1,38 @@
+site_name: ICEpy4D
+
+theme:
+  name: material
+  palette:
+    primary: indigo
+  font:
+    text: Open Sans
+  features:
+    - navigation.path
+    - navigation.footer
+
+repo_url: https://github.com/franioli/icepy4d
+
+plugins:
+  - search
+  - mkdocstrings
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Installation: installation.md
+  - Modules:
+      - Classes:
+          - Camera: classes/camera.md
+          - Images: classes/images.md
+          - Features: classes/features.md
+          - Point Cloud: classes/point_cloud.md
+      - Matching:
+          - Matching: matching/matching.md
+          - Tracking: matching/tracking.md
+          - Templatematch: matching/templatematch.md
+      - Sfm:
+          - Two-view Geometry: sfm/two_view_geometry.md
+          - Absolute orientation: sfm/absolute_orientation.md triangulation.md
+          - Triangulation: sfm/triangulation.md
+          - Incremental reconstruction: sfm/reconstruction.md
+      - Visualization: visualization.md
