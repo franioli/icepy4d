@@ -1,6 +1,6 @@
-import numpy as np
-import pytest
-from icepy.matching.match_by_preselection import find_centroids_kmeans
+# import numpy as np
+# import pytest
+# from icepy.matching.match_by_preselection import find_centroids_kmeans
 
 # def test_find_centroids_kmeans():
 #     data = np.array([[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]])
