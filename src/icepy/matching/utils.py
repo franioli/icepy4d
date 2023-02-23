@@ -1,6 +1,49 @@
 import cv2
 import torch
 import logging
+import pickle
+import logging
+
+from typing import List, Union
+from pathlib import Path
+
+from ..classes.features import Features
+
+
+def load_matches_from_disk(dir: Union[str, Path]) -> Features:
+    """
+    load_matches_from_disk Load features from pickle file
+
+    Args:
+        dir (Union[str, Path]): path of the folder containing the pickle file
+
+    Raises:
+        FileNotFoundError: No pickle file found or multiple pickle file found.
+
+    Returns:
+        Features: Loaded features
+    """
+    try:
+        fname = list(dir.glob("*.pickle"))
+        if len(fname) < 1:
+            msg = f"No pickle file found in the epoch directory {dir}"
+            logging.error(msg)
+            raise FileNotFoundError(msg)
+        if len(fname) > 1:
+            msg = f"More than one pickle file is present in the epoch directory {dir}"
+            logging.error(msg)
+            raise FileNotFoundError(msg)
+        with open(fname[0], "rb") as f:
+            try:
+                loaded_features = pickle.load(f)
+                logging.info(f"Loaded features from {fname[0]}")
+                return loaded_features
+            except:
+                msg = f"Invalid pickle file in epoch directory {dir}"
+                logging.error(msg)
+                raise FileNotFoundError(msg)
+    except FileNotFoundError as err:
+        logging.exception(err)
 
 
 def process_resize(w, h, resize):

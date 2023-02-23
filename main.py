@@ -40,11 +40,11 @@ import icepy.metashape.metashape as MS
 import icepy.utils.initialization as initialization
 import icepy.utils as icepy_utils
 import icepy.visualization as icepy_viz
-from icepy.matching.matching_base import (
-    MatchingAndTracking,
-    load_matches_from_disk,
-)
+
 from icepy.matching.match_by_preselection import match_by_preselection
+from icepy.matching.tracking_base import tracking_base
+from icepy.matching.matching_base import MatchingAndTracking
+from icepy.matching.utils import load_matches_from_disk
 
 from icepy.utils.utils import homography_warping
 from icepy.io.export2bundler import write_bundler_out
@@ -98,40 +98,69 @@ if __name__ == "__main__":
         iter += 1
 
         epochdir = Path(cfg.paths.results_dir) / epoch_dict[epoch]
+        match_dir = epochdir / "matching"
 
-        # # Perform matching and tracking
-        # if cfg.proc.do_matching:
-        #     features = MatchingAndTracking(
-        #         cfg=cfg,
-        #         epoch=epoch,
-        #         images=images,
-        #         features=features,
-        #         epoch_dict=epoch_dict,
-        #     )
-        # else:
-        #     try:
-        #         path = epochdir / "matching"
-        #         features[epoch] = load_matches_from_disk(path)
-        #     except FileNotFoundError as err:
-        #         logging.exception(err)
-        #         logging.warning("Performing new matching and tracking...")
-        #         features = MatchingAndTracking(
-        #             cfg=cfg,
-        #             epoch=epoch,
-        #             images=images,
-        #             features=features,
-        #             epoch_dict=epoch_dict,
-        #         )
+        # Perform matching and tracking
+        do_preselection = True
+        if cfg.proc.do_matching:
+            if do_preselection:
+                if cfg.proc.do_tracking and epoch > cfg.proc.epoch_to_process[0]:
+                    features[epoch] = tracking_base(
+                        images,
+                        features[epoch - 1],
+                        cams,
+                        epoch_dict,
+                        epoch,
+                        cfg.tracking,
+                        epochdir,
+                    )
 
-        features[epoch] = match_by_preselection(
-            images,
-            features[epoch],
-            epoch,
-            cfg,
-            n_tiles=10,
-            n_dist=2.5,
-            viz_results=True,
-        )
+                features[epoch] = match_by_preselection(
+                    images,
+                    features[epoch],
+                    cams,
+                    epoch,
+                    cfg.matching,
+                    match_dir,
+                    n_tiles=4,
+                    n_dist=1.5,
+                    viz_results=True,
+                    fast_viz=False,
+                )
+            else:
+                features = MatchingAndTracking(
+                    cfg=cfg,
+                    epoch=epoch,
+                    images=images,
+                    features=features,
+                    epoch_dict=epoch_dict,
+                )
+        else:
+            try:
+                features[epoch] = load_matches_from_disk(match_dir)
+            except FileNotFoundError as err:
+                logging.exception(err)
+                logging.warning("Performing new matching and tracking...")
+                if do_preselection:
+                    features[epoch] = match_by_preselection(
+                        images,
+                        features[epoch],
+                        cams,
+                        epoch,
+                        cfg.matching,
+                        match_dir,
+                        n_tiles=6,
+                        n_dist=1.5,
+                        viz_results=True,
+                    )
+                else:
+                    features = MatchingAndTracking(
+                        cfg=cfg,
+                        epoch=epoch,
+                        images=images,
+                        features=features,
+                        epoch_dict=epoch_dict,
+                    )
 
         timer.update("matching")
 
@@ -155,6 +184,7 @@ if __name__ == "__main__":
 
         # --- Perform Relative orientation of the two cameras ---#
         # Initialize RelativeOrientation class with a list containing the two cameras and a list contaning the matched features location on each camera.
+        # @TODO: decide wheter to do a deep copy of the arguments or directly modify them in the function (and state it in docs).
         relative_ori = sfm.RelativeOrientation(
             [cameras[epoch][cams[0]], cameras[epoch][cams[1]]],
             [
@@ -163,7 +193,7 @@ if __name__ == "__main__":
             ],
         )
         relative_ori.estimate_pose(
-            threshold=cfg.other.pydegensac_threshold,
+            threshold=cfg.matching.pydegensac_threshold,
             confidence=0.999999,
             scale_factor=np.linalg.norm(
                 cfg.georef.camera_centers_world[0] - cfg.georef.camera_centers_world[1]
@@ -348,126 +378,118 @@ if __name__ == "__main__":
 
     timer_global.update("SfM")
 
-    #%% match additional features from matches
-    import pydegensac
-    from copy import deepcopy
+    # #%% match additional features from matches
+    # import pydegensac
+    # from copy import deepcopy
 
-    from icepy.tracking_features_utils import *
-    from icepy.matching.superglue_matcher import SuperGlueMatcher
-    from icepy.utils.spatial_funs import select_features_by_rect
+    # from icepy.tracking_features_utils import *
+    # from icepy.matching.superglue_matcher import SuperGlueMatcher
+    # from icepy.utils.spatial_funs import select_features_by_rect
 
-    ep = 181
-    bbox = np.array([1500, 1600, 3000, 2100])
+    # ep = 181
+    # bbox = np.array([1500, 1600, 3000, 2100])
 
-    cam = cams[0]
-    feats_0 = select_features_by_rect(features[ep][cam], bbox)
-    icepy_viz.plot_features(images[cam].read_image(ep).value, feats_0)
+    # cam = cams[0]
+    # feats_0 = select_features_by_rect(features[ep][cam], bbox)
+    # icepy_viz.plot_features(images[cam].read_image(ep).value, feats_0)
 
-    # fid = 6035
-    # fig, axes = plt.subplots(1, 2)
-    # for i, cam in enumerate(cams):
-    #     icepy_viz.plot_feature(
-    #         images[cam].read_image(ep).value, features[ep][cam][fid], ax=axes[i]
+    # # fid = 6035
+    # # fig, axes = plt.subplots(1, 2)
+    # # for i, cam in enumerate(cams):
+    # #     icepy_viz.plot_feature(
+    # #         images[cam].read_image(ep).value, features[ep][cam][fid], ax=axes[i]
+    # #     )
+
+    # # fid = 5736
+    # # fid = 6035
+
+    # feats = deepcopy(features[ep])
+
+    # for fid in feats_0.get_track_id_list():
+    #     win = 1000
+    #     patches_lim = {
+    #         cam: [
+    #             int(features[ep][cam][fid].x - win),
+    #             int(features[ep][cam][fid].y - win),
+    #             int(features[ep][cam][fid].x + win),
+    #             int(features[ep][cam][fid].y + win),
+    #         ]
+    #         for cam in cams
+    #     }
+    #     patches = {
+    #         cam: images[cam].read_image(ep).extract_patch(patches_lim[cam])
+    #         for cam in cams
+    #     }
+
+    #     matcher = SuperGlueMatcher(cfg.matching)
+    #     matcher.match(patches[cams[0]], patches[cams[1]])
+    #     inlMask = matcher.geometric_verification(
+    #         threshold=5, confidence=0.99, symmetric_error_check=False
     #     )
+    #     matcher.viz_matches(path=f"test_out/test_fid_{fid}.png", fast_viz=True)
+    #     mkpts = {
+    #         cams[0]: matcher.mkpts0
+    #         + np.array(patches_lim[cams[0]][0:2]).astype(np.int32),
+    #         cams[1]: matcher.mkpts1
+    #         + np.array(patches_lim[cams[1]][0:2]).astype(np.int32),
+    #     }
+    #     for cam in cams:
+    #         feats[cam].append_features_from_numpy(mkpts[cam][:, 0], mkpts[cam][:, 1])
 
-    # fid = 5736
-    # fid = 6035
+    # F, inlMask = pydegensac.findFundamentalMatrix(
+    #     feats[cams[0]].kpts_to_numpy(),
+    #     feats[cams[1]].kpts_to_numpy(),
+    #     px_th=1.5,
+    #     conf=cfg.other.pydegensac_confidence,
+    #     max_iters=10000,
+    #     laf_consistensy_coef=-1.0,
+    #     error_type="sampson",
+    #     symmetric_error_check=True,
+    #     enable_degeneracy_check=True,
+    # )
+    # logging.info(
+    #     f"Pydegensac found {inlMask.sum()} inliers ({inlMask.sum()*100/len(feats[cams[0]]):.2f}%)"
+    # )
+    # feats[cams[0]].filter_feature_by_mask(inlMask, verbose=True)
+    # feats[cams[1]].filter_feature_by_mask(inlMask, verbose=True)
 
-    feats = deepcopy(features[ep])
-
-    for fid in feats_0.get_track_id_list():
-        win = 1000
-        patches_lim = {
-            cam: [
-                int(features[ep][cam][fid].x - win),
-                int(features[ep][cam][fid].y - win),
-                int(features[ep][cam][fid].x + win),
-                int(features[ep][cam][fid].y + win),
-            ]
-            for cam in cams
-        }
-        patches = {
-            cam: images[cam].read_image(ep).extract_patch(patches_lim[cam])
-            for cam in cams
-        }
-
-        # fig, ax = plt.subplots(1, 2)
-        # ax[0].imshow(patch0)
-        # ax[1].imshow(patch1)
-
-        matcher = SuperGlueMatcher(cfg.matching)
-        matcher.match(patches[cams[0]], patches[cams[1]])
-        inlMask = matcher.geometric_verification(
-            threshold=5, confidence=0.99, symmetric_error_check=False
-        )
-        matcher.viz_matches(path=f"test_out/test_fid_{fid}.png", fast_viz=True)
-        mkpts = {
-            cams[0]: matcher.mkpts0
-            + np.array(patches_lim[cams[0]][0:2]).astype(np.int32),
-            cams[1]: matcher.mkpts1
-            + np.array(patches_lim[cams[1]][0:2]).astype(np.int32),
-        }
-        for cam in cams:
-            feats[cam].append_features_from_numpy(mkpts[cam][:, 0], mkpts[cam][:, 1])
-
-    F, inlMask = pydegensac.findFundamentalMatrix(
-        feats[cams[0]].kpts_to_numpy(),
-        feats[cams[1]].kpts_to_numpy(),
-        px_th=1.5,
-        conf=cfg.other.pydegensac_confidence,
-        max_iters=10000,
-        laf_consistensy_coef=-1.0,
-        error_type="sampson",
-        symmetric_error_check=True,
-        enable_degeneracy_check=True,
-    )
-    logging.info(
-        f"Pydegensac found {inlMask.sum()} inliers ({inlMask.sum()*100/len(feats[cams[0]]):.2f}%)"
-    )
-    feats[cams[0]].filter_feature_by_mask(inlMask, verbose=True)
-    feats[cams[1]].filter_feature_by_mask(inlMask, verbose=True)
-
-    icepy_viz.plot_features(images[cams[0]].read_image(ep).value, feats[cams[0]])
+    # icepy_viz.plot_features(images[cams[0]].read_image(ep).value, feats[cams[0]])
 
     #%%
 
     """Tests"""
 
+    import open3d as o3d
     from scipy.spatial import KDTree
 
     from icepy.tracking_features_utils import *
 
     folder_out = Path("test_out")
     folder_out.mkdir(parents=True, exist_ok=True)
-    save_figs = True
+    viz = False
+    save_figs = False
+    min_dt = 2
+
     fdict = sort_features_by_cam(features, cams[0])
-    bbox = np.array([800, 1500, 5500, 2500])
-    logging.info("Extracting time series of tracked points...")
+    # bbox = np.array([800, 1500, 5500, 2500])
+    vol = np.array(
+        [
+            [0.0, 120.0, 110.0],
+            [0.0, 340.0, 110.0],
+            [-80.0, 120.0, 110.0],
+            [-80.0, 340.0, 110.0],
+            [0.0, 120.0, 140.0],
+            [0.0, 340.0, 140.0],
+            [-80.0, 120.0, 140.0],
+            [-80.0, 340.0, 140.0],
+        ]
+    )
     # fts = tracked_features_time_series(
     #     fdict,
     #     min_tracked_epoches=2,
     #     rect=bbox,
     # )
-    # logging.info("Done.")
-
-    vol = np.array(
-        [
-            [-4.654959, 128.5829, 100.9684],
-            [-40.67112, 267.0233, 100.4994],
-            [-58.75271, 114.5074, 100.4880],
-            [-94.76888, 252.9477, 100.0190],
-            [-5.093231, 128.6312, 148.9062],
-            [-41.10939, 267.0716, 148.4372],
-            [-59.19098, 114.5557, 148.4258],
-            [-95.20715, 252.9961, 147.9568],
-        ]
-    )
-    fts = tracked_points_time_series(points, min_tracked_epoches=2, volume=vol)
-    logging.info("Done.")
-
-    logging.info("Converting to pandas df...")
-    save_path = folder_out / "test.csv"
-    min_dt = 3
+    fts = tracked_points_time_series(points, min_tracked_epoches=min_dt, volume=vol)
     fts_df = tracked_dict_to_df(
         features,
         points,
@@ -477,19 +499,17 @@ if __name__ == "__main__":
         vx_lims=[0, 0.3],
         vy_lims=[-0.05, 0.05],
         vz_lims=[-0.2, 0],
-        save_path=save_path,
+        save_path=folder_out / "test.csv",
     )
-    logging.info("Done.")
+    logging.info("Time series of tracked points and onverted to pandas df")
 
     # delete = [k for k, v in fts.items() if 180 in v]
     # for key in delete:
     #     del fts[key]
 
     # if save_figs:
-
     #     def save_tracked_task():
     #         pass
-
     #     for fid in fts.keys():
     #         for ep in fts[fid]:
     #             fout = folder_out / f"fid_{fid}_ep_{ep}.jpg"
@@ -506,22 +526,22 @@ if __name__ == "__main__":
     #                 window_size=50,
     #             )
     # plt.close("all")
-
-    fid = 2154
-    eps = [181, 183]
-    fig, axes = plt.subplots(1, len(eps))
-    for ax, ep in zip(axes, eps):
-        icepy_viz.plot_feature(
-            images[cam].read_image(ep).value,
-            features[ep][cam][fid],
-            ax=ax,
-            zoom_to_feature=True,
-            s=10,
-            marker="x",
-            c="r",
-            edgecolors=None,
-            window_size=300,
-        )
+    if viz:
+        fid = 2155
+        eps = [181, 182]
+        fig, axes = plt.subplots(1, len(eps))
+        for ax, ep in zip(axes, eps):
+            icepy_viz.plot_feature(
+                images[cam].read_image(ep).value,
+                features[ep][cam][fid],
+                ax=ax,
+                zoom_to_feature=True,
+                s=10,
+                marker="x",
+                c="r",
+                edgecolors=None,
+                window_size=300,
+            )
 
     # plot all the features plot
     # f_tracked: icepy_classes.FeaturesDict = {
@@ -545,9 +565,13 @@ if __name__ == "__main__":
 
     # Quiver plot
     fig, ax = plt.subplots()
-    ep = 182
-    xy = points[ep].to_numpy()[:, 0:2]
-    ax.plot(xy[:, 0], xy[:, 1], ".", color=[0.7, 0.7, 0.7], markersize=1, alpha=0.8)
+    dense = o3d.io.read_point_cloud("test_out/dense.ply")
+    xy = np.asarray(dense.points)[:, 0:2]
+    ax.plot(xy[:, 0], xy[:, 1], ".", color=[0.7, 0.7, 0.7], markersize=0.5, alpha=0.8)
+    # ax.plot(xy[:, 0], xy[:, 1], "."
+
+    # xy = points[ep].to_numpy()[:, 0:2]
+    # ax.plot(xy[:, 0], xy[:, 1], ".", color=[0.7, 0.7, 0.7], markersize=1, alpha=0.8)
     quiver = ax.quiver(
         fts_df["X_ini"],
         fts_df["Y_ini"],
@@ -566,25 +590,75 @@ if __name__ == "__main__":
     # Week 0:
     ep_st, ep_fin = 181, 184
     eps = {ep: epoch_dict[ep] for ep in range(ep_st, ep_fin)}
-    # for ep in eps:
-    #     for fid in
-    ep = list(eps.keys())[0]
-    date = eps[ep]
 
+    ep = list(eps.keys())[1]
+    date = eps[ep]
     pts = fts_df[fts_df["ep_ini"] == ep][["X_ini", "Y_ini", "Z_ini"]].to_numpy()
 
-    import open3d as o3d
-
+    # dense = o3d.io.read_point_cloud("test_out/dense.ply")
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(pts)
-
-    kdtree = KDTree(pts)
-
-    dist, res = kdtree.query(pts[0], 2)
-
     o3d.visualization.draw_geometries([points[ep].to_point_cloud().pcd, pcd])
 
-    dense = o3d.io.read_point_cloud("res/point_clouds/dense_2022_05_01.ply")
+    pts = fts_df[["X_ini", "Y_ini", "Z_ini"]].to_numpy()
+    # rng = np.random.default_rng()
+    # pts = rng.uniform(vol[:, :2].min(), vol[:, :2].max(), (5, 3))
+    # xmin, ymin, xmax, ymax = (
+    #     vol[:, 0].min(),
+    #     vol[:, 1].min(),
+    #     vol[:, 0].max(),
+    #     vol[:, 1].max(),
+    # )
+    # res = 20
+    # X, Y = np.meshgrid(np.arange(xmin, xmax, res), np.arange(ymin, ymax, res))
+
+    # from itertools import compress, product
+    # nodes = zip(X.flatten(), Y.flatten())
+    # lim = [
+    #     (node[0] - res / 2, node[1] - res / 2, node[0] + res / 2, node[1] + res / 2)
+    #     for node in nodes
+    # ]
+    # pts_in_rect = lambda input: point_in_rect(input[0], input[1])
+    # pts_lims = product(pts, lim)
+    # out = list(compress(nodes, map(pts_in_rect, pts_lims)))
+
+    from scipy.stats import binned_statistic_2d
+
+    step = 10
+    xmin, ymin, xmax, ymax = (
+        vol[:, 0].min(),
+        vol[:, 1].min(),
+        vol[:, 0].max(),
+        vol[:, 1].max(),
+    )
+    pts = fts_df[["X_ini", "Y_ini", "Z_ini"]].to_numpy()
+    x = np.arange(xmin, xmax, step)
+    y = np.arange(ymin, ymax, step)
+    ret = binned_statistic_2d(
+        pts[:, 0].flatten(),
+        pts[:, 1].flatten(),
+        None,
+        "count",
+        bins=[x, y],
+        expand_binnumbers=True,
+    )
+    binned_points = list(zip(ret.binnumber[0] - 1, ret.binnumber[1] - 1))
+
+    X, Y = np.meshgrid(x, y)
+    Z = np.full_like(X, vol[4, 2])
+    xyz_grid = np.array(list(zip(X.flatten(), Y.flatten(), Z.flatten())))
+
+    dense = o3d.io.read_point_cloud("test_out/dense.ply")
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(xyz_grid)
+    o3d.visualization.draw_geometries([pcd, dense])
+
+    vx, vy, vz = [], [], []
+    for bin in binned_points:
+        vx = []
+
+    # for key, group in groupby(L, key_func):
+    #     print(f"{key}: {list(group)}")
 
     # import plotly.graph_objects as go
     # import plotly.figure_factory as ff

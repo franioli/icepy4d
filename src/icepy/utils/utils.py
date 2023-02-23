@@ -22,15 +22,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-import os
 import cv2
 import numpy as np
 
 from copy import deepcopy
 from pathlib import Path
 
-from ..visualization.visualization import imshow_cv
-from ..utils.timer import AverageTimer
 
 # --- File system ---#
 
@@ -129,7 +126,6 @@ def homography_warping(
     cam_1: np.ndarray,
     image: np.ndarray,
     out_path: str = None,
-    timer: AverageTimer = None,
 ) -> np.ndarray:
 
     print("Performing homography warping based on extrinsics matrix...")
@@ -152,10 +148,6 @@ def homography_warping(
     if out_path is not None:
         cv2.imwrite(out_path, warped_image)
         print(f"Warped image {Path(out_path).stem} exported correctely")
-    else:
-        imshow_cv(warped_image, convert_RGB2BRG=False)
-
-    timer.update("Homography warping")
 
     return cv2.cvtColor(warped_image, cv2.COLOR_BGR2RGB)
 
