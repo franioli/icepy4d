@@ -1,4 +1,4 @@
-"""SuperGlue matcher implementation
+"""SuperGlue tracker implementation
 The network was proposed in 'SuperGlue: Learning Feature Matching with Graph Neural Networks' and is implemented by wrapping over author's source-code.
 Note: the pretrained model only supports SuperPoint detections currently.
 References:
@@ -44,7 +44,7 @@ SUPERGLUE_DESC_DIM = 256
 SINKHORN_ITERATIONS = 20
 
 
-class SuperGlueMatcher:
+class SuperGlueTracker:
     def __init__(self, opt: dict) -> None:
         """Initializes a SuperGlueMatcher object with the given options dictionary.
 
@@ -75,7 +75,7 @@ class SuperGlueMatcher:
         missing_keys = [key for key in required_keys if key not in opt]
         if missing_keys:
             raise KeyError(
-                f"Missing required keys: {', '.join(missing_keys)} in SuperGlue Matcher option dictionary"
+                f"Missing required keys: {', '.join(missing_keys)} in SuperGlue Tracker option dictionary"
             )
         self.opt = edict(opt)
 
@@ -152,8 +152,6 @@ class SuperGlueMatcher:
         )
         self.matches0 = unpack["matches0"]
         self.matches1 = unpack["matches1"]
-        self.conf0 = unpack["matching_scores0"]
-        self.conf1 = unpack["matching_scores1"]
 
         valid_idx_0 = self.matches0 > -1
         valid_idx_1 = self.matches0[valid_idx_0]
@@ -226,11 +224,6 @@ class SuperGlueMatcher:
 
         self.mkpts0 = self.mkpts0[self.inlMask]
         self.mkpts1 = self.mkpts1[self.inlMask]
-        self.match_conf = self.match_conf[self.inlMask]
-        self.descriptors0 = self.descriptors0[:, self.inlMask]
-        self.descriptors1 = self.descriptors1[:, self.inlMask]
-        self.scores0 = self.scores0[self.inlMask]
-        self.scores1 = self.scores1[self.inlMask]
 
         return {0: self.mkpts0, 1: self.mkpts1, "inliers": self.inlMask}
 

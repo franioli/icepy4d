@@ -43,7 +43,10 @@ from ..sfm.geometry import project_points
 # matplotlib.use("TkAgg")
 
 
-def imshow_cv(
+""" Visualization of images"""
+
+
+def imshow_cv2(
     img: np.ndarray, win_name: str = None, convert_RGB2BRG: bool = True
 ) -> None:
     """Wrapper for visualizing an image with OpenCV"""
@@ -58,10 +61,93 @@ def imshow_cv(
     cv2.destroyAllWindows()
 
 
+def plot_image_pair(
+    imgs: List[np.ndarray], dpi: int = 100, size: float = 6, pad: float = 0.5
+) -> plt.figure:
+    n = len(imgs)
+    assert n == 2, "number of images must be two"
+    figsize = (size * n, size * 3 / 4) if size is not None else None
+    fig, ax = plt.subplots(1, n, figsize=figsize, dpi=dpi)
+    for i in range(n):
+        ax[i].imshow(imgs[i], cmap=plt.get_cmap("gray"), vmin=0, vmax=255)
+        ax[i].get_yaxis().set_ticks([])
+        ax[i].get_xaxis().set_ticks([])
+        for spine in ax[i].spines.values():  # remove frame
+            spine.set_visible(False)
+    plt.tight_layout(pad=pad)
+    return fig
+
+
 """ Visualization of features and matches on images"""
 
 
+def plot_keypoints(kpts0, kpts1, color="w", ps=2):
+    ax = plt.gcf().axes
+    ax[0].scatter(kpts0[:, 0], kpts0[:, 1], c=color, s=ps)
+    ax[1].scatter(kpts1[:, 0], kpts1[:, 1], c=color, s=ps)
+
+
+def draw_matches(kpts0, kpts1, color, lw=1.5, ps=4):
+    fig = plt.gcf()
+    ax = fig.axes
+    fig.canvas.draw()
+
+    color = np.array(color)
+    if color.shape == (3,):
+        color = np.repeat(color.reshape(1, 3), len(kpts0), axis=0)
+    if color.shape != (len(kpts0), 3):
+        raise ValueError("invalid color input.")
+    if color.dtype == np.int64:
+        color = color / 255.0
+
+    transFigure = fig.transFigure.inverted()
+    fkpts0 = transFigure.transform(ax[0].transData.transform(kpts0))
+    fkpts1 = transFigure.transform(ax[1].transData.transform(kpts1))
+
+    fig.lines = [
+        matplotlib.lines.Line2D(
+            (fkpts0[i, 0], fkpts1[i, 0]),
+            (fkpts0[i, 1], fkpts1[i, 1]),
+            zorder=1,
+            transform=fig.transFigure,
+            c=color[i],
+            linewidth=lw,
+        )
+        for i in range(len(kpts0))
+    ]
+
+
 def plot_matches(
+    image0,
+    image1,
+    pts0,
+    pts1,
+    color: List[int] = [0, 255, 0],
+    point_size=1,
+    line_thickness=1,
+    path=None,
+    fast_viz: bool = False,
+):
+    if fast_viz:
+        plot_matches_cv2(
+            image0,
+            image1,
+            pts0,
+            pts1,
+            point_size=point_size,
+            line_thickness=line_thickness,
+            path=path,
+        )
+        return
+
+    fig = plot_image_pair([image0, image1])
+    plot_keypoints(pts0, pts1, color="r", ps=point_size)
+    draw_matches(pts0, pts1, color, lw=line_thickness, ps=point_size)
+    fig.savefig(str(path), bbox_inches="tight", pad_inches=0)
+    plt.close()
+
+
+def plot_matches_cv2(
     image0,
     image1,
     pts0,
