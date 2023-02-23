@@ -12,11 +12,11 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v2
       - name: Install Python libs
-        run: pip install --no-deps -r requirements.txt
+        run: pip install --no-deps -r requirements-dev.txt
       - name: Install Crystal libs
         run: shards install
       - name: Build site
         run: mkdocs build
       - name: Deploy to gh-pages
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: mkdocs gh-deploy --force
