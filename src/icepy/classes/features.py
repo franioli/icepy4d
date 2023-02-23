@@ -30,6 +30,9 @@ import time
 from typing import Union, List, Tuple
 from pathlib import Path
 from copy import deepcopy
+from itertools import compress
+
+from icepy.utils import timeit
 
 
 def float32_type_check(
@@ -278,6 +281,15 @@ class Features:
         """
         return self._last_id
 
+    def get_track_id_list(self) -> list:
+        """
+        get_track_id_list get all the track_id of the features in Features object
+
+        Returns:
+            list: list containing track_id of the features
+        """
+        return list(self._values.keys())
+
     def append_feature(self, new_feature: Feature) -> None:
         """
         append_feature append a single Feature object to Features.
@@ -379,7 +391,7 @@ class Features:
                 ids = range(self._last_id + 1, self._last_id + len(xx) + 1)
 
         if scores is not None:
-            scores = float32_type_check(scores.squeeze())
+            scores = float32_type_check(scores)  # .squeeze()
         else:
             scores = [None for _ in range(len(xx))]
 
@@ -392,16 +404,18 @@ class Features:
             assert isinstance(epoch, np.int32), msg
             self.epoch = epoch
 
-        for id, x, y, d, s in zip(ids, xx, yy, descr, scores):
-            self._values[id] = Feature(
+        for t_id, x, y, d, s in zip(ids, xx, yy, descr, scores):
+            if s is not None:
+                score_val = s[0] if s.shape == (1,) else s
+            self._values[t_id] = Feature(
                 x,
                 y,
-                track_id=id,
+                track_id=t_id,
                 descr=d,
-                score=s,
+                score=score_val,
                 epoch=epoch,
             )
-            self._last_id = id
+            self._last_id = t_id
 
     def to_numpy(
         self,
@@ -409,7 +423,8 @@ class Features:
         get_score: bool = False,
     ) -> dict:
         """
-        to_numpy Get all keypoints (with, optionally, descriptors and scores) stacked as numpy arrays.
+        to_numpy Get all keypoints as a nx2 numpy array of float32 coordinates.
+        If 'get_descr' and 'get_score' arguments are set to true, get also descriptors and scores as numpy arrays (default: return only keypoints). Outputs are returned in a dictionary with keys ["kpts", "descr", "scores"]
 
         Args:
             get_descr (bool, optional): get descriptors as mxn array. Defaults to False.
@@ -520,6 +535,7 @@ class Features:
             inlier_mask (List[bool]): boolean mask with True value in correspondance of the features to keep. inlier_mask must have the same length as the total number of features.
             verbose (bool): log number of filtered features. Defaults to False.
         """
+        inlier_mask = np.array(inlier_mask)
         assert np.array_equal(
             inlier_mask, inlier_mask.astype(bool)
         ), "Invalid type of input argument for inlier_mask. It must be a boolean vector with the same lenght as the number of features stored in the Features object."
@@ -528,7 +544,8 @@ class Features:
         ), "Invalid shape of input argument for inlier_mask. It must be a boolean vector with the same lenght as the number of features stored in the Features object."
 
         feat_idx = list(self._values.keys())
-        indexes = [feat_idx[i] for i, x in enumerate(inlier_mask) if x]
+        # indexes = [feat_idx[i] for i, x in enumerate(inlier_mask) if x] # Slow
+        indexes = list(compress(feat_idx, inlier_mask))
         self.filter_feature_by_index(indexes, verbose=verbose)
 
     def filter_feature_by_index(
@@ -542,14 +559,18 @@ class Features:
             verbose (bool): log number of filtered features. Defaults to False.
 
         """
-        new_dict = {k: v for k, v in self._values.items() if v.track_id in indexes}
-        if verbose:
-            logging.info(
-                f"Features filtered: {len(self)-len(new_dict)}/{len(self)} removed. New features size: {len(new_dict)}."
-            )
-        last_id = list(new_dict.keys())[-1]
-        self._values = new_dict
-        self._last_id = last_id
+        for k in set(self._values.keys()) - set(indexes):
+            del self._values[k]
+
+        # Deprecated approach (~600 times slower)
+        # new_dict = {k: v for k, v in self._values.items() if v.track_id in indexes}
+        # if verbose:
+        #     logging.info(
+        #         f"Features filtered: {len(self)-len(new_dict)}/{len(self)} removed. New features size: {len(new_dict)}."
+        #     )
+        # last_id = list(new_dict.keys())[-1]
+        # self._values = new_dict
+        # self._last_id = last_id
 
     def get_feature_by_index(self, indexes: List[np.int32]) -> dict:
         """
@@ -587,7 +608,7 @@ class Features:
 if __name__ == "__main__":
     """Test classes"""
 
-    from src.icepy.utils import setup_logger
+    from icepy.utils import setup_logger
 
     setup_logger()
 
@@ -604,7 +625,7 @@ if __name__ == "__main__":
     features_new = Features()
     for _ in range(rep_times):
         t0 = time.time()
-        features_new.append_features_from_numpy(x, y, descr)
+        features_new.append_features_from_numpy(x, y, descr, scores)
         t1 = time.time()
         logging.info(
             f"Append features from numpy array to dict of Feature objects: Elapsed time {t1-t0:.4f} s"
@@ -621,5 +642,8 @@ if __name__ == "__main__":
     print(next(features_new).xy)
     # for f in features_new:
     #     print(f.xy)
+
+    mask = np.random.randint(0, 2, n_feat).astype(bool)
+    features_new.filter_feature_by_mask(mask)
 
     print("Done")

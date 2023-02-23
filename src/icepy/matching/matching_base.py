@@ -6,48 +6,13 @@ from easydict import EasyDict as edict
 from typing import List, Union
 from pathlib import Path
 
+# from .utils import load_matches_from_disk
 from .match_pairs import match_pair
 from .track_matches import track_matches
 
 from ..classes.features import Features
 
 DEBUG = True
-
-
-def load_matches_from_disk(dir: Union[str, Path]) -> Features:
-    """
-    load_matches_from_disk Load features from pickle file
-
-    Args:
-        dir (Union[str, Path]): path of the folder containing the pickle file
-
-    Raises:
-        FileNotFoundError: No pickle file found or multiple pickle file found.
-
-    Returns:
-        Features: Loaded features
-    """
-    try:
-        fname = list(dir.glob("*.pickle"))
-        if len(fname) < 1:
-            msg = f"No pickle file found in the epoch directory {dir}"
-            logging.error(msg)
-            raise FileNotFoundError(msg)
-        if len(fname) > 1:
-            msg = f"More than one pickle file is present in the epoch directory {dir}"
-            logging.error(msg)
-            raise FileNotFoundError(msg)
-        with open(fname[0], "rb") as f:
-            try:
-                loaded_features = pickle.load(f)
-                logging.info(f"Loaded features from {fname[0]}")
-                return loaded_features
-            except:
-                msg = f"Invalid pickle file in epoch directory {dir}"
-                logging.error(msg)
-                raise FileNotFoundError(msg)
-    except FileNotFoundError as err:
-        logging.exception(err)
 
 
 def MatchingAndTracking(
@@ -201,13 +166,13 @@ def MatchingAndTracking(
 
     # Run Pydegensac to estimate F matrix and reject outliers
     logging.info(
-        f"Geometric verification of the matches - Pydegensac parameters:  threshold {cfg.other.pydegensac_treshold} [px], confidence: {cfg.other.pydegensac_confidence}"
+        f"Geometric verification of the matches - Pydegensac parameters:  threshold {cfg.matching.pydegensac_threshold} [px], confidence: {cfg.matching.pydegensac_confidence}"
     )
     F, inlMask = pydegensac.findFundamentalMatrix(
         features[epoch][cams[0]].kpts_to_numpy(),
         features[epoch][cams[1]].kpts_to_numpy(),
-        px_th=cfg.other.pydegensac_treshold,
-        conf=cfg.other.pydegensac_confidence,
+        px_th=cfg.matching.pydegensac_threshold,
+        conf=cfg.matching.pydegensac_confidence,
         max_iters=10000,
         laf_consistensy_coef=-1.0,
         error_type="sampson",
@@ -222,8 +187,9 @@ def MatchingAndTracking(
     features[epoch][cams[1]].filter_feature_by_mask(inlMask, verbose=True)
 
     # Write matched points to disk
-    im_stems = images[cams[0]].get_image_stem(epoch), images[cams[1]].get_image_stem(
-        epoch
+    im_stems = (
+        images[cams[0]].get_image_stem(epoch),
+        images[cams[1]].get_image_stem(epoch),
     )
     for jj, cam in enumerate(cams):
         features[epoch][cam].save_as_txt(epochdir / f"{im_stems[jj]}_mktps.txt")
