@@ -19,6 +19,7 @@ mkdocs
 mkdocs-material
 mkdocstrings
 mkdocstrings-python
+mkdocstrings-crystal
 # pycolmap
 # h5py
 # gdown
