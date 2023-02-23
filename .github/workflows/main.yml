@@ -40,11 +40,24 @@ jobs:
       - name: Run pytest
         run: |
           python -m pytest
-      - name: build docs
+      - name: Build docs
         run: |
           pip install mkdocs mkdocs-material mkdocstrings mkdocstrings-python
           mkdocs gh-deploy --force --clean --verbose
-
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.x
+      - uses: actions/cache@v2
+        with:
+          key: ${{ github.ref }}
+          path: .cache
+      - run: pip install mkdocs mkdocs-material mkdocstrings mkdocstrings-python
+      - run: mkdocs gh-deploy --force
+      
 # conda update -n base -c conda-forge conda
 # conda install -c conda-forge gdal
 # cd src/icepy
