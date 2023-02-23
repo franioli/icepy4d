@@ -6,13 +6,19 @@ jobs:
     name: Deploy docs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - name: Download source
+        uses: actions/checkout@v3
+      - name: Install Python
+        uses: actions/setup-python@v3
         with:
           python-version: 3.8
-      - uses: actions/cache@v2
+      - name: Install Python libs
+        run: pip install --no-deps -r requirements-dev.txt
+      - uses: actions/cache@v3
         with:
           key: ${{ github.ref }}
           path: .cache
-      - run: pip install mkdocs mkdocs-material mkdocstrings mkdocstrings-python
-      - run: mkdocs gh-deploy --force
+      - name: Build site
+        run: mkdocs build
+      - name: Deploy to gh-pages
+        run: mkdocs gh-deploy --force
