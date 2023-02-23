@@ -38,6 +38,10 @@ jobs:
       - name: Run pytest
         run: |
           python -m pytest
+      - name: build documentation
+        run: pip install mkdocs-material
+        run: pip install mkdocs-static-i18n
+        run: mkdocs gh-deploy --force
 
 # conda update -n base -c conda-forge conda
 # conda install -c conda-forge gdal
