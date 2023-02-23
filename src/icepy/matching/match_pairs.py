@@ -152,7 +152,7 @@ def match_pair(pair, maskBB, opt):
             "max_keypoints": opt.max_keypoints,
         },
         "superglue": {
-            "weights": opt.superglue,
+            "weights": opt.weights,
             "sinkhorn_iterations": SINKHORN_ITERATIONS,
             "match_threshold": opt.match_threshold,
         },

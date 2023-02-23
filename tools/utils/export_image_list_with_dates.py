@@ -21,17 +21,86 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
+import argparse
+import sys
+import logging
 
 from pathlib import Path
 
-from lib.base_classes.images import ImageDS, Image
+from icepy.classes.images import ImageDS, Image
+
+
+def parse_command_line():
+    """
+    parse_command_line Parse command line input
+
+    Returns:
+        Tuple[str, dict]: Tuple containing the path of the configuration file and a dictionary containing parameters to setup the logger
+    """
+    parser = argparse.ArgumentParser(
+        description="""Read image exif info and store them as a csv file \
+            Check -h or --help for options.
+        Usage: ./main.py """
+    )
+    parser.add_argument(
+        "-c",
+        "--config",
+        type=str,
+        help="Path of to the configuration file",
+    )
+    parser.add_argument(
+        "--log_folder",
+        default="logs",
+        type=str,
+        help="Folder for storing logs (default: 'logs')",
+    )
+    parser.add_argument(
+        "--log_name",
+        default="log",
+        type=str,
+        help="Base name of the log file",
+    )
+    parser.add_argument(
+        "--log_file_level",
+        default="info",
+        type=str,
+        help="Set log level for logging to file \
+            (possible options are: 'debug', 'info', \
+            'warning', 'error', 'critical')",
+    )
+    parser.add_argument(
+        "--log_console_level",
+        default="info",
+        type=str,
+        help="Set log level for logging to stdout \
+            (possible options are: 'debug', 'info', \
+            'warning', 'error', 'critical')",
+    )
+    args = parser.parse_args()
+
+    if not len(sys.argv) > 1:
+        raise ValueError(
+            "Not enough input arguments. Specify at least the configuration file. Use --help (or -h) for help."
+        )
+
+    cfg_file = Path(args.config)
+    log_cfg = {
+        "log_folder": args.log_folder,
+        "log_name": args.log_name,
+        "log_file_level": args.log_file_level,
+        "log_console_level": args.log_console_level,
+    }
+
+    return cfg_file, log_cfg
 
 
 if __name__ == "__main__":
 
-    ROOT_DIR = "tmp"  # "data/img"
-    IM_DIR_LIST = ["p1", "p2"]
-    IM_EXT = "jpg"
+    ROOT_DIR = "/mnt/labmgf/Belvedere/belvedereStereo/img"  # "data/img"
+    IM_DIR_LIST = ["pi2_jpg"]
+    IM_EXT = None
+
+    logging.info("")
 
     ROOT_DIR = Path(ROOT_DIR)
     for dir in IM_DIR_LIST:
