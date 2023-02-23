@@ -1,5 +1,16 @@
 # Camera
 
+You can easily import Icepy classes by
+```python
+import icepy.classes as icepy_classes
+```
+
+and access to the Camera class by
+
+```python
+import icepy.classes as icepy_classes
+```
+
 ::: icepy.classes.camera.Camera
     handler: python
     options:
@@ -27,5 +38,5 @@
         - C_from_P
         - build_pose_matrix
         - euler_from_R
-      show_root_heading: false
+      show_root_heading: true
       show_source: true
