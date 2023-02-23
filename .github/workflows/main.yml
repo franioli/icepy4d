@@ -36,11 +36,8 @@ jobs:
           pip3 install -r requirements.txt
           pip install -e .
       - name: Run pytest
-          run: python -m pytest
-      - name: build documentation
         run: |
-          pip install mkdocs-material
-          mkdocs gh-deploy --force
+          python -m pytest
 
 # conda update -n base -c conda-forge conda
 # conda install -c conda-forge gdal
