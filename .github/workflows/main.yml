@@ -38,6 +38,10 @@ jobs:
       - name: Run pytest
         run: |
           python -m pytest
+      - name: build docs
+        run: |
+          pip install mkdocs
+          mkdocs gh-deploy --force --clean --verbose
 
 # conda update -n base -c conda-forge conda
 # conda install -c conda-forge gdal
