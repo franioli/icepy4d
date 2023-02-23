@@ -11,6 +11,7 @@ tqdm
 pyyaml
 easydict
 lmfit
+pytest
 # pycolmap
 # h5py
 # gdown
