@@ -6,15 +6,17 @@ import logging
 
 from pathlib import Path
 
+from icepy.utils import AverageTimer
+
 from ..thirdparty.SuperGluePretrainedNetwork.models.matching import Matching
 from ..thirdparty.SuperGluePretrainedNetwork.models.utils import (
     make_matching_plot,
-    AverageTimer,
     frame2tensor,
     process_resize,
 )
 
-from ..utils.utils import generateTiles
+from ..tiles import generateTiles
+
 
 torch.set_grad_enabled(False)
 
@@ -150,7 +152,7 @@ def match_pair(pair, maskBB, opt):
             "max_keypoints": opt.max_keypoints,
         },
         "superglue": {
-            "weights": opt.superglue,
+            "weights": opt.weights,
             "sinkhorn_iterations": SINKHORN_ITERATIONS,
             "match_threshold": opt.match_threshold,
         },
