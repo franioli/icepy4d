@@ -38,15 +38,11 @@ jobs:
       - name: Run pytest
         run: |
           python -m pytest
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
-        with:
-          python-version: 3.x
-      - run: pip install mkdocs mkdocs-material mkdocstrings mkdocstrings-python
-      - run: mkdocs gh-deploy --force --clean --verbose
+      - name: build docs
+        run: |
+          pip install mkdocs mkdocs-material mkdocstrings mkdocstrings-python
+          mkdocs gh-deploy --force --clean --verbose
+
 # conda update -n base -c conda-forge conda
 # conda install -c conda-forge gdal
 # cd src/icepy
