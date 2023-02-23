@@ -1,4 +1,3 @@
-
 repos:
   - repo: https://github.com/kynan/nbstripout
     rev: 0.6.1
@@ -6,6 +5,6 @@ repos:
       - id: nbstripout
         files: ".ipynb"
   - repo: https://github.com/psf/black
-    rev: 22.12.0
+    rev: 22.10.0
     hooks:
-    - id: black
+      - id: black

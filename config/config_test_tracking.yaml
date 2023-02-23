@@ -72,7 +72,7 @@ other:
 
   #- Threshold [px] and confidence for PyDegensac robust estimation
   # (used to reject false matches and compute relative orientation)
-  pydegensac_treshold: 2
+  pydegensac_threshold: 2
   pydegensac_confidence: 0.9999
 
 #- Matching options

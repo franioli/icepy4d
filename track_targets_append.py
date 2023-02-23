@@ -30,10 +30,10 @@ from copy import deepcopy
 from pathlib import Path
 from typing import List, Union
 
-from src.icepy.classes.images import ImageDS
-from src.icepy.classes.targets import Targets
-from src.icepy.matching.templatematch import TemplateMatch, Stats, MatchResult
-from src.icepy.utils.timer import AverageTimer
+from icepy.classes.images import ImageDS
+from icepy.classes.targets import Targets
+from icepy.matching.templatematch import TemplateMatch, Stats, MatchResult
+from icepy.utils.timer import AverageTimer
 
 
 class TrackTargets:

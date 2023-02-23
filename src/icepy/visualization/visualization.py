@@ -36,13 +36,17 @@ from pathlib import Path
 from copy import deepcopy
 
 from ..classes.camera import Camera
+from ..classes.features import Features, Feature
 from ..classes.point_cloud import PointCloud
 from ..sfm.geometry import project_points
 
 # matplotlib.use("TkAgg")
 
 
-def imshow_cv(
+""" Visualization of images"""
+
+
+def imshow_cv2(
     img: np.ndarray, win_name: str = None, convert_RGB2BRG: bool = True
 ) -> None:
     """Wrapper for visualizing an image with OpenCV"""
@@ -57,10 +61,93 @@ def imshow_cv(
     cv2.destroyAllWindows()
 
 
+def plot_image_pair(
+    imgs: List[np.ndarray], dpi: int = 100, size: float = 6, pad: float = 0.5
+) -> plt.figure:
+    n = len(imgs)
+    assert n == 2, "number of images must be two"
+    figsize = (size * n, size * 3 / 4) if size is not None else None
+    fig, ax = plt.subplots(1, n, figsize=figsize, dpi=dpi)
+    for i in range(n):
+        ax[i].imshow(imgs[i], cmap=plt.get_cmap("gray"), vmin=0, vmax=255)
+        ax[i].get_yaxis().set_ticks([])
+        ax[i].get_xaxis().set_ticks([])
+        for spine in ax[i].spines.values():  # remove frame
+            spine.set_visible(False)
+    plt.tight_layout(pad=pad)
+    return fig
+
+
 """ Visualization of features and matches on images"""
 
 
-def make_matching_plot(
+def plot_keypoints(kpts0, kpts1, color="w", ps=2):
+    ax = plt.gcf().axes
+    ax[0].scatter(kpts0[:, 0], kpts0[:, 1], c=color, s=ps)
+    ax[1].scatter(kpts1[:, 0], kpts1[:, 1], c=color, s=ps)
+
+
+def draw_matches(kpts0, kpts1, color, lw=1.5, ps=4):
+    fig = plt.gcf()
+    ax = fig.axes
+    fig.canvas.draw()
+
+    color = np.array(color)
+    if color.shape == (3,):
+        color = np.repeat(color.reshape(1, 3), len(kpts0), axis=0)
+    if color.shape != (len(kpts0), 3):
+        raise ValueError("invalid color input.")
+    if color.dtype == np.int64:
+        color = color / 255.0
+
+    transFigure = fig.transFigure.inverted()
+    fkpts0 = transFigure.transform(ax[0].transData.transform(kpts0))
+    fkpts1 = transFigure.transform(ax[1].transData.transform(kpts1))
+
+    fig.lines = [
+        matplotlib.lines.Line2D(
+            (fkpts0[i, 0], fkpts1[i, 0]),
+            (fkpts0[i, 1], fkpts1[i, 1]),
+            zorder=1,
+            transform=fig.transFigure,
+            c=color[i],
+            linewidth=lw,
+        )
+        for i in range(len(kpts0))
+    ]
+
+
+def plot_matches(
+    image0,
+    image1,
+    pts0,
+    pts1,
+    color: List[int] = [0, 255, 0],
+    point_size=1,
+    line_thickness=1,
+    path=None,
+    fast_viz: bool = False,
+):
+    if fast_viz:
+        plot_matches_cv2(
+            image0,
+            image1,
+            pts0,
+            pts1,
+            point_size=point_size,
+            line_thickness=line_thickness,
+            path=path,
+        )
+        return
+
+    fig = plot_image_pair([image0, image1])
+    plot_keypoints(pts0, pts1, color="r", ps=point_size)
+    draw_matches(pts0, pts1, color, lw=line_thickness, ps=point_size)
+    fig.savefig(str(path), bbox_inches="tight", pad_inches=0)
+    plt.close()
+
+
+def plot_matches_cv2(
     image0,
     image1,
     pts0,
@@ -104,37 +191,184 @@ def make_matching_plot(
         cv2.imwrite(path, out)
 
 
-def plot_features(image, features, title: str = None, ax=None):
-    """Plot detected features on the input image
-    Parameters
-    ----------
-    image : numpy array with BRG channels (OpenCV standard)
-    features : nx2 float32 array
-        array of 2D image coordinates of the features to plot
-    title: str
-        title of the axes of the plt
-    ax : matplotlib axes (default = None)
-        axis in which to make the plot. If nothing is given, the function create
-        a new figure and axes.
-    Return : None
+def plot_points(
+    image: np.ndarray,
+    points: np.ndarray,
+    title: str = None,
+    ax: plt.Axes = None,
+    save_path: Union[str, Path] = None,
+    hide_fig: bool = False,
+    zoom_to_features: bool = False,
+    window_size: int = 50,
+    **kwargs,
+) -> plt.Axes:
     """
-    im = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    plot_points  Plot points on input image.
+
+    Args:
+        image (np.ndarray): A numpy array with RGB channels.
+        points (np.ndarray): An nx2 float32 array of 2D image coordinates of the features to plot.
+        title (str, optional): The title of the plot. Defaults to None.
+        ax (matplotlib.axes, optional): The axis in which to make the plot. If None, the function will create a new figure and axes. Defaults to None.
+        save_path (Union[str, Path], optional): The path to save the plot. Defaults to None.
+        hide_fig (bool, optional): Indicates whether to close the figure after plotting. Defaults to False.
+        zoom_to_features (bool, optional): Indicates whether to zoom in to the features in the plot. Defaults to False.
+        window_size (int, optional): The size of the zoom window. Defaults to 50.
+        **kwargs: additional keyword arguments for plotting characteristics (e.g. `s`, `c`, `marker`, etc.). Refer to matplotlib.pyplot.scatter documentation for more information https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.scatter.html.
+
+
+
+    Returns:
+        plt.Axes: matplotlib axis
+    """
+    s = 6
+    c = "y"
+    marker = "o"
+    alpha = 0.8
+    edgecolors = "r"
+    linewidths = 1
+    size_inches = (18.5, 10.5)  # (23.8, 15,75) #
+    dpi = 600
+
+    # overwrite default values with kwargs if provided
+    s = kwargs.get("s", s)
+    c = kwargs.get("c", c)
+    marker = kwargs.get("marker", marker)
+    alpha = kwargs.get("alpha", alpha)
+    edgecolors = kwargs.get("edgecolors", edgecolors)
+    linewidths = kwargs.get("linewidths", linewidths)
+    size_inches = kwargs.get("size_inches", size_inches)
+    dpi = kwargs.get("dpi", dpi)
 
     if ax is None:
         fig, ax = plt.subplots()
-    ax.imshow(im)
+    ax.imshow(image)
     ax.scatter(
-        features[:, 0],
-        features[:, 1],
-        s=6,
-        c="y",
-        marker="o",
-        alpha=0.8,
-        edgecolors="r",
-        linewidths=1,
+        points[:, 0],
+        points[:, 1],
+        s=s,
+        c=c,
+        marker=marker,
+        alpha=alpha,
+        edgecolors=edgecolors,
+        linewidths=linewidths,
     )
     if title is not None:
         ax.set_title(title)
+
+    if zoom_to_features:
+        w = window_size  # px
+        xc = points[:, 0].mean()
+        yc = points[:, 1].mean()
+        ax.set_xlim([xc - w, xc + w])
+        ax.set_ylim([yc - w, yc + w])
+    if save_path is not None:
+        fig.set_size_inches(size_inches[0], size_inches[1])
+        fig.savefig(save_path, dpi=dpi)
+    if hide_fig is True:
+        plt.close(fig)
+        return None
+    else:
+        return ax
+
+
+def plot_points_cv2(
+    image: np.ndarray,
+    points: np.ndarray,
+    title: str = "figure",
+    save_path: str = None,
+) -> None:
+    """
+    Displays an OpenCV image with keypoints overlaid.
+
+    Args:
+        image (np.ndarray): An image read with OpenCV, represented as a numpy array with
+            three channels in BGR format.
+        points (np.ndarray): A numpy array of shape (n, 2) representing the (x, y)
+            coordinates of n keypoints in the image. The array should have data type np.float32.
+        title (str, optional): A string specifying the title of the window in which
+            the image will be displayed. Defaults to "figure".
+        save_path (str, optional): If specified, the image will be saved to this file
+            path in addition to being displayed.
+
+    Raises:
+        AssertionError: If the inputs do not meet the specified requirements.
+    """
+
+    # Check image type and number of channels
+    assert isinstance(image, np.ndarray), "Image must be a numpy array"
+    assert (
+        len(image.shape) == 3 and image.shape[2] == 3
+    ), "Image must have three channels"
+    # Check points type and shape
+    assert isinstance(points, np.ndarray), "Points must be a numpy array"
+    assert points.shape[1] == 2, "Points must be a nx2 numpy array"
+    # Check title type
+    assert isinstance(title, str), "Title must be a string"
+
+    img_kpts = cv2.drawKeypoints(
+        image,
+        cv2.KeyPoint.convert(points),
+        image,
+        (255, 0, 0),
+        flags=cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS,
+    )
+    cv2.namedWindow(title, cv2.WINDOW_NORMAL)
+    cv2.imshow(title, img_kpts)
+
+    if save_path:
+        cv2.imwrite(save_path, img_kpts)
+
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+
+def plot_features(
+    image: np.ndarray,
+    features: Features,
+    title: str = None,
+    ax=None,
+    save_path: Union[str, Path] = None,
+    hide_fig: bool = False,
+    **kwargs,
+) -> None:
+    """Wrapper around plot_points to work if the input is a Features object"""
+    xy = features.to_numpy()["kpts"]
+    fig = plot_points(
+        image,
+        points=xy,
+        title=title,
+        ax=ax,
+        save_path=save_path,
+        hide_fig=hide_fig,
+        **kwargs,
+    )
+
+
+def plot_feature(
+    image: np.ndarray,
+    feature: Feature,
+    title: str = None,
+    ax=None,
+    save_path: Union[str, Path] = None,
+    hide_fig: bool = False,
+    zoom_to_feature: bool = False,
+    window_size: int = 50,
+    **kwargs,
+) -> None:
+    """Wrapper around plot_points to work if the input is a single Feature object"""
+    xy = feature.xy
+    ax = plot_points(
+        image,
+        points=xy,
+        title=title,
+        ax=ax,
+        save_path=save_path,
+        hide_fig=hide_fig,
+        zoom_to_features=zoom_to_feature,
+        window_size=window_size,
+        **kwargs,
+    )
 
 
 def plot_projections(points3d, camera: Camera, image, title: str = None, ax=None):

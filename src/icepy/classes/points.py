@@ -256,6 +256,15 @@ class Points:
         """
         return self._last_id
 
+    def get_track_id_list(self) -> list:
+        """
+        get_track_id_list get all the track_id of the points in Points object
+
+        Returns:
+            list: list containing track_id of the points
+        """
+        return list(self._values.keys())
+
     def append_point(self, new_point: Point) -> None:
         """
         append_point append a single Feature object to Features.
