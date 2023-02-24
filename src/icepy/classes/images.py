@@ -44,16 +44,16 @@ def read_image(
     crop: List[int] = None,
 ) -> np.ndarray:
     """
-    Read image with OpenCV and return it as np array
-    __________
-    Parameters:
-    - path (str or Path): image path
-    - color (bool, default=True): read color image or grayscale
-    - resize (List, default=[-1]): If not [-1], image is resized at [w, h] dimensions
-    - crop (List, default=None): If not None, List containing bounding box for cropping the image as [xmin, xmax, ymin, ymax]
-    __________
-    Return
-        image (np.ndarray): image
+    Reads image with OpenCV and returns it as a NumPy array.
+
+    Args:
+        path (Union[str, Path]): The path of the image.
+        color (bool, optional): Whether to read the image as color (RGB) or grayscale. Defaults to True.
+        resize (List[int], optional): If not [-1], image is resized at [width, height] dimensions. Defaults to [-1].
+        crop (List[int], optional): If not None, a List containing the bounding box for cropping the image as [xmin, xmax, ymin, ymax]. Defaults to None.
+
+    Returns:
+        np.ndarray: The image as a NumPy array.
     """
 
     if color:
@@ -102,6 +102,18 @@ def process_resize(w, h, resize):
 
 
 class Image:
+    """A class representing an image.
+
+    Attributes:
+        _path (Path): The path to the image file.
+        _value_array (np.ndarray): Numpy array containing pixel values. If available, it can be accessed with `Image.value`.
+        _width (int): The width of the image in pixels.
+        _height (int): The height of the image in pixels.
+        _exif_data (dict): The EXIF metadata of the image, if available.
+        _date_time (datetime): The date and time the image was taken, if available.
+
+    """
+
     def __init__(self, path: Union[str, Path], image: np.ndarray = None) -> None:
         """
         __init__ Create Image object
@@ -124,9 +136,7 @@ class Image:
 
     @property
     def height(self) -> int:
-        """
-        The height of the image (i.e. number of pixels in the vertical direction).
-        """
+        """Returns the height of the image"""
         if self._height:
             return int(self._height)
         else:
@@ -135,9 +145,7 @@ class Image:
 
     @property
     def width(self) -> int:
-        """
-        The width of the image (i.e. number of pixels in the horizontal direction).
-        """
+        """Returns the width of the image"""
         if self._width:
             return int(self._width)
         else:
@@ -146,48 +154,43 @@ class Image:
 
     @property
     def name(self) -> str:
-        """
-        Name of the image (including extension)
-        """
+        """Returns the name of the image (including extension)"""
         return self._path.name
 
     @property
     def stem(self) -> str:
-        """
-        Name of the image (excluding extension)
-        """
+        """Returns the name of the image (excluding extension)"""
         return self._path.stem
 
     @property
     def path(self) -> str:
-        """
-        Path of the image
-        """
+        """Path of the image"""
         return self._path
 
     @property
     def parent(self) -> str:
-        """
-        Path to the parent folder of the image
-        """
+        """Path to the parent folder of the image"""
         return self._path.parent
 
     @property
     def extension(self) -> str:
-        """
-        Returns the extension  of the image
-        """
+        """Returns the extension  of the image"""
         return self._path.suffix
 
     @property
     def exif(self) -> dict:
+        """
+        exif Returns the exif of the image
+
+        Returns:
+            dict: Dictionary containing Exif information
+        """
         return self._exif_data
 
     @property
     def date(self) -> str:
-        """
-        date Returns the date of the image from exif as a string
-        """
+        """Returns the date of the image from exif as a string"""
+
         if self._date_time is not None:
             return self._date_time.strftime("%Y:%m:%d")
         else:
@@ -232,7 +235,7 @@ class Image:
         else:
             logging.error(f"Input paht {self.path} not valid.")
 
-    def clean_image(self) -> None:
+    def reset_image(self) -> None:
         self._value_array = None
 
     def read_exif(self) -> None:
@@ -299,10 +302,12 @@ class Image:
 
         Equation: focal_px=max(w_px,h_px)*focal_mm / ccdw_mm
 
-        Ref:
-        - https://github.com/colmap/colmap/blob/e3948b2098b73ae080b97901c3a1f9065b976a45/src/util/bitmap.cc#L282
-        - https://openmvg.readthedocs.io/en/latest/software/SfM/SfMInit_ImageListing/
-        - https://photo.stackexchange.com/questions/40865/how-can-i-get-the-image-sensor-dimensions-in-mm-to-get-circle-of-confusion-from # noqa: E501
+        Note:
+            References for this functions can be found:
+
+            * https://github.com/colmap/colmap/blob/e3948b2098b73ae080b97901c3a1f9065b976a45/src/util/bitmap.cc#L282
+            * https://openmvg.readthedocs.io/en/latest/software/SfM/SfMInit_ImageListing/
+            * https://photo.stackexchange.com/questions/40865/how-can-i-get-the-image-sensor-dimensions-in-mm-to-get-circle-of-confusion-from # noqa: E501
 
         Returns:
             K (np.ndarray): intrinsics matrix (3x3 numpy array).

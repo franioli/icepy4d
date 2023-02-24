@@ -311,15 +311,15 @@ class Camera:
 
         return np.dot(C_block, Rc_block)
 
-    def pose_to_extrinsics(self, pose: np.ndarray):
+    def pose_to_extrinsics(self, pose: np.ndarray) -> np.ndarray:
         """
         Returns the Pose matrix given an extrinsics matrix.
 
         Args:
-            pose: The extrinsics matrix.
+            pose (np.ndarray): The extrinsics matrix.
 
         Returns:
-            The computed Pose matrix.
+             np.ndarray: The computed Pose matrix.
         """
         Rc = pose[0:3, 0:3]
         C = pose[0:3, 3:4]
@@ -340,7 +340,7 @@ class Camera:
             points3d: A numpy array of shape (n, 3) representing the 3D points to be projected.
 
         Returns:
-            A numpy array of shape (n, 2) representing the 2D projected points in image coordinates.
+             np.ndarray: A numpy array of shape (n, 2) representing the 2D projected points in image coordinates.
         """
 
         # Checks points:
@@ -364,10 +364,7 @@ class Camera:
         """Factorize the camera matrix into intrinsic and extrinsic parameters, i.e., K, R, and t, as P = K[R | t].
 
         Returns:
-            A tuple containing:
-            - K: A numpy array of shape (3, 3) representing the camera's intrinsic matrix.
-            - R: A numpy array of shape (3, 3) representing the camera's rotation matrix.
-            - t: A numpy array of shape (3, 1) representing the camera's translation vector.
+            A tuple containing: K: A numpy array of shape (3, 3) representing the camera's intrinsic matrix, R: A numpy array of shape (3, 3) representing the camera's rotation matrix, t: A numpy array of shape (3, 1) representing the camera's translation vector.
         """
         # factor first 3*3 part
         K, R = linalg.rq(self.P[:, :3])
@@ -424,11 +421,15 @@ class Camera:
         pose[0:3, 3:4] = C
         return pose
 
-    def euler_from_R(self, R):
+    def euler_from_R(self, R: np.ndarray) -> list:
         """
-        Compute Euler angles from rotation matrix
-        - ------
-        Returns:  [omega, phi, kappa]
+        Compute Euler angles from a given rotation matrix.
+
+        Args:
+            R (np.ndarray): A 3x3 rotation matrix.
+
+        Returns:
+            Tuple[float, float, float]: A tuple containing the computed Euler angles in radians, ordered as (omega, phi, kappa).
         """
         omega = np.arctan2(R[2, 1], R[2, 2])
         phi = np.arctan2(-R[2, 0], np.sqrt(R[2, 1] ** 2 + R[2, 2] ** 2))

@@ -39,5 +39,7 @@ icepy_classes.Camera
         - C_from_P
         - build_pose_matrix
         - euler_from_R
+      members_order: "alphabetical"
       show_root_heading: true
       show_source: true
+
