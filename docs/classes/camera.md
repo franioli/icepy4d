@@ -1,6 +1,7 @@
 # Camera
 
 You can easily import Icepy classes by
+
 ```python
 import icepy.classes as icepy_classes
 ```
@@ -11,7 +12,7 @@ and directly access to the Camera class by
 icepy_classes.Camera
 ```
 
-::: src.icepy.classes.camera.Camera
+::: icepy.classes.camera.Camera
     handler: python
     options:
       members:
