@@ -1,12 +1,14 @@
 # Welcome to ICEpy4D
+
 ## Image-based Continuos monitoring of glaciers' Evolution with deep learning sfm and low-cost stereo-cameras
 
-`ICEpy4D` is a Python package for 4D Image-based Continuos monitoring of glaciers' Evolution with deep learning SfM and low-cost stereo-cameras.
+[ICEpy4D](https://github.com/franioli/icepy4d) is a Python package for 4D Image-based Continuos monitoring of glaciers' Evolution with deep learning SfM and low-cost stereo-cameras.
 
 `ICEpy4D` is a under active development.
 
 ## Project layout
 
+    main.py       # Main code for running ICEpy4D
     src/
         icepy     # Source code for ICEpy4D
     data/ 
@@ -15,7 +17,6 @@
             cam2 
         calib/    # Calibration files folder
         targets/  # Target files folder
-
-    docs/
-        index.md  # The documentation homepage.
-        ...       # Other markdown pages, images and other files.
+    tools/        # Various tools for point collimation, estimate 3D rototranslation etc.   
+    docs/         # The documentation homepage.
+    tests/        # Folder containing code for unit tests with PyTest
