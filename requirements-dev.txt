@@ -17,8 +17,7 @@ black
 isort
 mkdocs
 mkdocs-material
-mkdocstrings
-mkdocstrings-python
+mkdocstrings[python]
 # pycolmap
 # h5py
 # gdown

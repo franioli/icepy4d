@@ -5,10 +5,10 @@ You can easily import Icepy classes by
 import icepy.classes as icepy_classes
 ```
 
-and access to the Camera class by
+and directly access to the Camera class by
 
 ```python
-import icepy.classes as icepy_classes
+icepy_classes.Camera
 ```
 
 ::: src.icepy.classes.camera.Camera
