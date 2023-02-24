@@ -14,7 +14,10 @@ repo_url: https://github.com/franioli/icepy4d
 
 plugins:
   - search
-  - mkdocstrings
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src] # search packages in the src folder
 
 nav:
   - Home: index.md

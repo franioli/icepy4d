@@ -101,7 +101,7 @@ if __name__ == "__main__":
         match_dir = epochdir / "matching"
 
         # Perform matching and tracking
-        do_preselection = True
+        do_preselection = False
         if cfg.proc.do_matching:
             if do_preselection:
                 if cfg.proc.do_tracking and epoch > cfg.proc.epoch_to_process[0]:
@@ -125,7 +125,7 @@ if __name__ == "__main__":
                     n_tiles=4,
                     n_dist=1.5,
                     viz_results=True,
-                    fast_viz=False,
+                    fast_viz=True,
                 )
             else:
                 features = MatchingAndTracking(
@@ -378,82 +378,15 @@ if __name__ == "__main__":
 
     timer_global.update("SfM")
 
-    # #%% match additional features from matches
-    # import pydegensac
-    # from copy import deepcopy
-
-    # from icepy.tracking_features_utils import *
-    # from icepy.matching.superglue_matcher import SuperGlueMatcher
-    # from icepy.utils.spatial_funs import select_features_by_rect
-
-    # ep = 181
-    # bbox = np.array([1500, 1600, 3000, 2100])
-
-    # cam = cams[0]
-    # feats_0 = select_features_by_rect(features[ep][cam], bbox)
-    # icepy_viz.plot_features(images[cam].read_image(ep).value, feats_0)
-
-    # # fid = 6035
-    # # fig, axes = plt.subplots(1, 2)
-    # # for i, cam in enumerate(cams):
-    # #     icepy_viz.plot_feature(
-    # #         images[cam].read_image(ep).value, features[ep][cam][fid], ax=axes[i]
-    # #     )
-
-    # # fid = 5736
-    # # fid = 6035
-
-    # feats = deepcopy(features[ep])
-
-    # for fid in feats_0.get_track_id_list():
-    #     win = 1000
-    #     patches_lim = {
-    #         cam: [
-    #             int(features[ep][cam][fid].x - win),
-    #             int(features[ep][cam][fid].y - win),
-    #             int(features[ep][cam][fid].x + win),
-    #             int(features[ep][cam][fid].y + win),
-    #         ]
-    #         for cam in cams
-    #     }
-    #     patches = {
-    #         cam: images[cam].read_image(ep).extract_patch(patches_lim[cam])
-    #         for cam in cams
-    #     }
-
-    #     matcher = SuperGlueMatcher(cfg.matching)
-    #     matcher.match(patches[cams[0]], patches[cams[1]])
-    #     inlMask = matcher.geometric_verification(
-    #         threshold=5, confidence=0.99, symmetric_error_check=False
-    #     )
-    #     matcher.viz_matches(path=f"test_out/test_fid_{fid}.png", fast_viz=True)
-    #     mkpts = {
-    #         cams[0]: matcher.mkpts0
-    #         + np.array(patches_lim[cams[0]][0:2]).astype(np.int32),
-    #         cams[1]: matcher.mkpts1
-    #         + np.array(patches_lim[cams[1]][0:2]).astype(np.int32),
-    #     }
-    #     for cam in cams:
-    #         feats[cam].append_features_from_numpy(mkpts[cam][:, 0], mkpts[cam][:, 1])
-
-    # F, inlMask = pydegensac.findFundamentalMatrix(
-    #     feats[cams[0]].kpts_to_numpy(),
-    #     feats[cams[1]].kpts_to_numpy(),
-    #     px_th=1.5,
-    #     conf=cfg.other.pydegensac_confidence,
-    #     max_iters=10000,
-    #     laf_consistensy_coef=-1.0,
-    #     error_type="sampson",
-    #     symmetric_error_check=True,
-    #     enable_degeneracy_check=True,
+    # camera_model = "OPENCV"
+    # export_solution_to_colmap(
+    #     export_dir=epochdir,
+    #     im_dict=im_dict,
+    #     cameras=cameras[epoch],
+    #     features=features[epoch],
+    #     points=pts,
+    #     camera_model=camera_model,
     # )
-    # logging.info(
-    #     f"Pydegensac found {inlMask.sum()} inliers ({inlMask.sum()*100/len(feats[cams[0]]):.2f}%)"
-    # )
-    # feats[cams[0]].filter_feature_by_mask(inlMask, verbose=True)
-    # feats[cams[1]].filter_feature_by_mask(inlMask, verbose=True)
-
-    # icepy_viz.plot_features(images[cams[0]].read_image(ep).value, feats[cams[0]])
 
     #%%
 
