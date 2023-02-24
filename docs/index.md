@@ -1,17 +1,18 @@
-# Welcome to MkDocs
+# Welcome to ICEpy4D
+## Image-based Continuos monitoring of glaciers' Evolution with deep learning sfm and low-cost stereo-cameras
 
-For full documentation visit [mkdocs.org](https://www.mkdocs.org).
+`ICEpy4D` is a Python package for 4D Image-based Continuos monitoring of glaciers' Evolution with deep learning SfM and low-cost stereo-cameras.
 
-## Commands
-
-* `mkdocs new [dir-name]` - Create a new project.
-* `mkdocs serve` - Start the live-reloading docs server.
-* `mkdocs build` - Build the documentation site.
-* `mkdocs -h` - Print help message and exit.
+`ICEpy4D` is a under active development.
 
 ## Project layout
 
-    mkdocs.yml    # The configuration file.
+    src/
+        icepy     # Source code for ICEpy4D
+    data/
+        img/
+        calib/
+        
     docs/
         index.md  # The documentation homepage.
         ...       # Other markdown pages, images and other files.
