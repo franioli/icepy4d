@@ -9,10 +9,13 @@
 
     src/
         icepy     # Source code for ICEpy4D
-    data/
-        img/
-        calib/
-        
+    data/ 
+        img/      # Image folder (one subfolder per cam)
+            cam1
+            cam2 
+        calib/    # Calibration files folder
+        targets/  # Target files folder
+
     docs/
         index.md  # The documentation homepage.
         ...       # Other markdown pages, images and other files.
