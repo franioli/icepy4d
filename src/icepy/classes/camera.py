@@ -35,7 +35,24 @@ from ..io.importing import read_opencv_calibration
 
 
 class Camera:
-    """Class to manage Pinhole Cameras."""
+    """Class to manage Pinhole Cameras.
+
+    Attributes:
+        _w (int): Image width in pixels.
+        _h (int): Image height in pixels.
+        _K (np.ndarray): Calibration matrix (intrinsics).
+        _dist (np.ndarray): Distortion vector in OpenCV format.
+        _extrinsics (np.ndarray): Extrinsics matrix (transformation from world to camera).
+
+    Note:
+        All the Camera members are private in order to guarantee consistency
+        between the different possible expressions of the exterior orientation.
+        Use ONLY Getter and Setter methods to access Camera parameters from outside the Class.
+        Use the method "update_extrinsics" to update Camera Exterior Orientataion given a new extrinsics matrix.
+        If you need to update the camera EO from a pose matrix or from R,t, compute the extrinsics matrix
+        first with the methods Camera.pose_to_extrinsics (pose) or Camera.Rt_to_extrinsics(R,t),
+        that return the extrinsics matrix.
+    """
 
     def __init__(
         self,
@@ -47,20 +64,21 @@ class Camera:
         t: np.ndarray = None,
         extrinsics: np.ndarray = None,
         calib_path: Union[str, Path] = None,
-        logging: logging = None,
     ):
-        """Initialize pinhole camera model
-        All the Camera members are private in order to guarantee consistency
-        between the different possible expressions of the exterior orientation.
+        """Initialize the pinhole camera model.
 
-        Note: use ONLY Getter and Setter methods to access to Camera parameters from outside the Class.
+        Args:
+            width (np.ndarray): Image width in pixels.
+            height (np.ndarray): Image height in pixels.
+            K (np.ndarray, optional): Calibration matrix (intrinsics). Defaults to None.
+            dist (np.ndarray, optional): Distortion vector in OpenCV format. Defaults to None.
+            R (np.ndarray, optional): Rotation matrix (from world to camera coordinates). Defaults to None.
+            t (np.ndarray, optional): Translation vector (from world to camera coordinates). Defaults to None.
+            extrinsics (np.ndarray, optional): Extrinsics matrix (transformation from world to camera). Defaults to None.
+            calib_path (Union[str, Path], optional): Path to camera calibration file. Defaults to None.
 
-        For code safety, use the method "update_extrinsics" to update Camera
-        Exterior Orientataion given a new extrinsics matrix. If you need to
-        update the camera EO from a pose matrix or from R,t, compute the
-        extrinsics matrix first with the methods Camera.pose_to_extrinsics
-        (pose) or Camera.Rt_to_extrinsics(R,t), that return the extrinsics
-        matrix.
+        Raises:
+            FileNotFoundError: If `calib_path` is provided and file not found.
         """
 
         self._w = width  # Image width [px]
@@ -79,6 +97,12 @@ class Camera:
         if calib_path is not None:
             self.read_calibration_from_file(calib_path)
 
+    def __repr__(self) -> str:
+        return f"Camera(w={self._w}, h={self._h}, K={self._K}, dist={self._dist}, extrinsics={self._extrinsics})"
+
+    def __str__(self) -> str:
+        return self.__repr__()
+
     # Getters
     @property
     def width(self) -> np.ndarray:
@@ -92,22 +116,33 @@ class Camera:
 
     @property
     def K(self) -> np.ndarray:
-        """Get Intrinsics matrix
-        K = [ fx s  cx ] = [ c   s     xH ] (Forstner notation)
-            | 0  fy cy |   | 0  c(1+m) yH |
-            [ 0  0   1 ]   [ 0   0     1  ]
+        """Returns the intrinsic matrix of the camera.
+
+        Returns:
+            np.ndarray: A 3x3 matrix that represents the intrinsic matrix of the camera. The matrix is represented as:
+                K = [ fx s  cx ]
+                    | 0  fy cy |
+                    [ 0  0   1 ]
         """
         return self._K
 
     @property
     def dist(self) -> np.ndarray:
-        """Get non-linear distortion parameter vector"""
+        """Returns the non-linear distortion parameter vector of the camera.
+
+        Returns:
+            np.ndarray: A 1xn array containing the non-linear distortion parameters as OpenCV standard:
+            [k1 k2 p1 p2 [k3 [k4 k5 k6]]
+        """
         return self._dist
 
     @property
     def extrinsics(self) -> np.ndarray:
-        """Get Extrinsics Matrix (i.e., transformation from world to camera)
-        Extrinsics = [ R | t]
+        """Returns the extrinsic matrix of the camera.
+
+        Returns:
+            np.ndarray: A 3x4 matrix that represents the extrinsic matrix of the camera. The matrix is represented as:
+                Extrinsics = [ R | t]
         """
         return self._extrinsics
 
@@ -120,35 +155,53 @@ class Camera:
 
     @property
     def C(self) -> np.ndarray:
-        """Get camera center (i.e., coordinates of the projective centre in world reference system, that is the translation from camera to world)
-        C = - R' * t
+        """Returns the camera center of the camera  (i.e., coordinates of the projective centre in world reference system, that is the translation from camera to world)
+
+        Returns:
+            np.ndarray: A 3x1 matrix that represents the camera center of the camera. The matrix is represented as:
+                C = - R' * t
         """
         pose = self.extrinsics_to_pose()
         return pose[0:3, 3:4]
 
     @property
     def t(self) -> np.ndarray:
-        """Get translation vector (i.e., translation from world to camera)
-        t = - R * C
+        """Returns the translation vector of the camera. (i.e., translation from world to camera)
+
+        Returns:
+            np.ndarray: A 3x1 matrix that represents the translation vector of the camera. The matrix is represented as:
+                t = - R * C
         """
         return self._extrinsics[0:3, 3:4]
 
     @property
     def R(self) -> np.ndarray:
-        """Get rotation matrix (i.e., rotation matrix from world to camera),
-        where R is the first 3x3 block of the extrinsics matrix that is used to project a point in the world to the camera:
-        x = K * [ R | t ] * X
+        """Returns the rotation matrix of the camera (i.e., rotation matrix from world to camera).
+
+        Returns:
+            np.ndarray: A 3x3 matrix that represents the rotation matrix of the camera. R is used to project a point in the world to the camera as:
+                R = Extrinsics[0:3, 0:3]
+                x = K * [ R | t ] * X
         """
         return self._extrinsics[0:3, 0:3]
 
     @property
     def euler_angles(self) -> Tuple[float]:
-        """Get Omega Phi and Kappa rotation angles, in degress, from Camera Pose matrix (i.e., they are angles from the Camera to the World and they describe the orientation of the camera in the 3D space)"""
+        """Returns the Euler angles of the camera.
+
+        Returns:
+            Tuple[float]: A tuple of 3 floating-point values representing the Euler angles of the camera. The angles are in degrees and describe the orientation of the camera in 3D space (i.e., they are angles from the Camera to the World and they describe the orientation of the camera in the 3D space). The angles are obtained from the camera pose matrix.
+        """
         return np.rad2deg(self.euler_from_R(self.R.T))
 
     @property
     def P(self) -> np.ndarray:
-        """Get Projective matrix P = K [ R | t ]"""
+        """Get Projective matrix P = K [ R | t ]
+
+        Returns:
+            numpy.ndarray: The projective matrix P = K [R|t], where K is the camera internal orientation matrix, and R and t are the rotation matrix and translation vector representing the camera external orientation, respectively.
+        """
+
         RT = np.zeros((3, 4))
         RT[:, 0:3] = self.R
         RT[:, 3:4] = self.t
@@ -156,16 +209,49 @@ class Camera:
 
     # Setters
     def update_K(self, K: np.ndarray) -> None:
+        """
+        Update the internal orientation matrix of the camera.
+
+        Args:
+            K (np.ndarray): A 3x3 numpy array representing the internal orientation matrix of the camera.
+
+        Returns:
+            None
+        """
         self._K = K
 
     def update_dist(self, dist: np.ndarray) -> None:
+        """
+        Update the distortion coefficients of the camera.
+
+        Args:
+            dist (np.ndarray): A 1x5 numpy array representing the distortion coefficients of the camera.
+
+        Returns:
+            None
+        """
         self._dist = dist
 
     def update_extrinsics(self, extrinsics: np.ndarray) -> None:
-        """Update Camera Exterior Orientataion given a new extrinsics matrix.
-        Note that, for code safety, this is the only method to update the camera Exterior Orientation.
-        If you need to update the camera EO from a pose matrix or from R,t, compute the extrinsics matrix first with the method self.pose_to_extrinsics(pose) or Rt_to_extrinsics(R,t)
         """
+        Update the exterior orientation matrix of the camera.
+
+        Note:
+            update_extrinsics() is is the only method to update the camera Exterior Orientation.
+            If you need to update the camera EO from a pose matrix or from R,t, compute the extrinsics matrix first with the method self.pose_to_extrinsics(pose) or Rt_to_extrinsics(R,t)
+
+        Args:
+            extrinsics (np.ndarray): A 4x4 numpy array (extrinsics in homogeneous coordinates) representing the exterior orientation matrix of the camera.
+
+        Returns:
+            None
+
+        Raises:
+            ValueError: If the dimension of the extrinsics matrix is not 4x4.
+            ValueError: If the data type of the extrinsics matrix is not np.float64.
+            ValueError: If the last row of the extrinsics matrix is not [0 0 0 1], i.e., the extrinsics are not in homogeneous coordinates.
+        """
+
         assert extrinsics.shape == (
             4,
             4,
@@ -186,14 +272,15 @@ class Camera:
 
     def read_calibration_from_file(self, path: Union[str, Path]) -> None:
         """
-        Read camera internal orientation from file and save in camera class.
-        The file must contain the full K matrix and distortion vector,
-        according to OpenCV standards, and organized in one line, as follow:
-        width height fx 0. cx 0. fy cy 0. 0. 1. k1, k2, p1, p2, [k3, [k4, k5, k6
-        Values must be float(include the . after integers) and divided by a
-        white space.
-        -------
-        Returns: None
+        Reads the camera's internal orientation from a file and saves it in the camera class.
+
+        Args:
+            path: The path to the file containing the full K matrix and distortion vector, according to OpenCV standards,
+                organized in one line as follows: width height fx 0. cx 0. fy cy 0. 0. 1. k1 k2 p1 p2 [k3 [k4 k5 k6]].
+                Values must be floats and divided by a white space.
+
+        Returns:
+            None
         """
 
         w, h, K, dist = read_opencv_calibration(path)
@@ -203,8 +290,15 @@ class Camera:
         self._dist = dist
 
     def extrinsics_to_pose(self, extrinsics: np.ndarray = None) -> np.ndarray:
-        """Compute Pose matrix (i.e., transformation from camera to world) from extrinsics matrix (i.e, transformation from world to camera)"""
+        """
+        Computes the Pose matrix (i.e., transformation from camera to world) from the extrinsics matrix (i.e, transformation from world to camera).
 
+        Args:
+            extrinsics: The extrinsics matrix to use. If None, the camera's own extrinsics matrix will be used.
+
+        Returns:
+            The computed Pose matrix.
+        """
         if extrinsics is None:
             extrinsics = self._extrinsics
 
@@ -218,8 +312,15 @@ class Camera:
         return np.dot(C_block, Rc_block)
 
     def pose_to_extrinsics(self, pose: np.ndarray):
-        """Returns Pose matrix given an extrinsics matrix"""
+        """
+        Returns the Pose matrix given an extrinsics matrix.
 
+        Args:
+            pose: The extrinsics matrix.
+
+        Returns:
+            The computed Pose matrix.
+        """
         Rc = pose[0:3, 0:3]
         C = pose[0:3, 3:4]
         R = Rc.T
@@ -230,14 +331,18 @@ class Camera:
         return t_block @ R_block
 
     def project_point(self, points3d: np.ndarray) -> np.ndarray:
-        """Project 3D points to image coordinates. The function makes use of the Projection  matrix P and the non-linear distortion parameters stored in Camera Class.
-        !Warning: This method replicates the project_points function in lib.geometry. However the function project_points can't be imported due to a circular import. If any change to one of the two functions are made, manually update also the other one!
-        -----------
-        Parameters:
-            - points3d (nx3 numpy array)
+        """Project 3D points onto the image plane using the camera's projection matrix and non-linear distortion parameters.
+
+        Note:
+            This method replicates the `project_points` function in `lib.geometry`. However, the `project_points` function cannot be imported due to a circular import. If any changes are made to one of the two functions, the other one must also be manually updated.
+
+        Args:
+            points3d: A numpy array of shape (n, 3) representing the 3D points to be projected.
+
         Returns:
-            - projctions (nx2 numpy array): 2D projected points in image coordinates
+            A numpy array of shape (n, 2) representing the 2D projected points in image coordinates.
         """
+
         # Checks points:
         assert (
             points3d.shape[1] == 3
@@ -256,8 +361,14 @@ class Camera:
         return m.astype("float32")
 
     def factor_P(self) -> Tuple[np.ndarray]:
-        """Factorize the camera matrix into K, R, t as P = K[R | t]."""
+        """Factorize the camera matrix into intrinsic and extrinsic parameters, i.e., K, R, and t, as P = K[R | t].
 
+        Returns:
+            A tuple containing:
+            - K: A numpy array of shape (3, 3) representing the camera's intrinsic matrix.
+            - R: A numpy array of shape (3, 3) representing the camera's rotation matrix.
+            - t: A numpy array of shape (3, 1) representing the camera's translation vector.
+        """
         # factor first 3*3 part
         K, R = linalg.rq(self.P[:, :3])
 
