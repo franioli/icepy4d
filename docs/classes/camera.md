@@ -11,7 +11,7 @@ and access to the Camera class by
 import icepy.classes as icepy_classes
 ```
 
-::: icepy.classes.camera.Camera
+::: src.icepy.classes.camera.Camera
     handler: python
     options:
       members:
