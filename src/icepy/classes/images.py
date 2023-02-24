@@ -189,12 +189,18 @@ class Image:
 
     @property
     def date(self) -> str:
-        """Returns the date of the image from exif as a string"""
+        """
+        Returns the date and time of the image in a string format.
+        If the information is not available in the EXIF metadata, it returns None.
 
+        Returns:
+            str or None: The date and time of the image in the format "YYYY:MM:DD HH:MM:SS", or None if not available.
+        """
         if self._date_time is not None:
             return self._date_time.strftime("%Y:%m:%d")
         else:
             logging.error("No exif data available.")
+            return
 
     @property
     def time(self) -> str:
@@ -206,6 +212,7 @@ class Image:
             return self._date_time.strftime("%H:%M:%S")
         else:
             logging.error("No exif data available.")
+            return None
 
     @property
     def value(self) -> np.ndarray:
@@ -217,8 +224,19 @@ class Image:
         else:
             return self.read_image(self._path)
 
-    def get_datetime(self):
-        return self._date_time
+    def get_datetime(self) -> datetime:
+        """
+        Returns the date and time of the image in a string format.
+        If the information is not available in the EXIF metadata, it returns None.
+
+        Returns:
+            datetime: The date and time of the image as datetime object
+        """
+        if self._date_time is not None:
+            return self._date_time
+        else:
+            logging.error("No exif data available.")
+            return
 
     def read_image(
         self,

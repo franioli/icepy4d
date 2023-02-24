@@ -78,6 +78,14 @@ def float32_type_check(
 class Point:
     """
     Point Class for storing 3D point information and relative modules for getting image projections and building point clouds
+
+    Attributes:
+        _track_id (int): Univocal track ID identifying the point and the corresponding features on the images.
+        _X (float): X coordinate of the point.
+        _Y (float): Y coordinate of the point.
+        _Z (float): Z coordinate of the point.
+        _color (np.ndarray): (3,) or (3,1) or (1,3) numpy array of type np.float32 with the point colors, as float values in the range [0,1].
+        _cov (np.ndarray): 3x3 numpy array containing the covariance matrix.
     """
 
     def __init__(
@@ -164,6 +172,18 @@ class Point:
 
 
 class Points:
+    """
+    Points class represents a collection of several 3D Point objects.
+
+    Attributes:
+        _values (dict): A dictionary that maps Point IDs to Point objects.
+        _last_id (int): The last assigned Point ID.
+        _iter (int): An iterator used to iterate over the point IDs.
+
+    Note:
+        Use getters and setters methods to access to the features stored in Points object.
+    """
+
     def __init__(self):
         self._values = {}
         self._last_id = -1
@@ -256,14 +276,14 @@ class Points:
         """
         return self._last_id
 
-    def get_track_id_list(self) -> list:
+    def get_track_ids(self) -> Tuple[np.int32]:
         """
-        get_track_id_list get all the track_id of the points in Points object
+        get_track_it Get a ordered tuple of track_id of all the points
 
         Returns:
-            list: list containing track_id of the points
+            tuple: tuple of size (n,) with track_ids
         """
-        return list(self._values.keys())
+        return tuple([np.int32(x) for x in self._values.keys()])
 
     def append_point(self, new_point: Point) -> None:
         """
@@ -293,7 +313,7 @@ class Points:
             )
         self._last_id = last_id
 
-    def append_features_from_numpy(
+    def append_points_from_numpy(
         self,
         coordinates: np.ndarray,
         track_ids: List[np.int32] = None,
@@ -358,12 +378,6 @@ class Points:
             pts[i, :] = np.float32(v.coordinates)
 
         return pts
-        """
-        colors_to_numpy Get points' colors stacked as numpy array.
-
-        Returns:
-            np.ndarray: nx3 numpy array of type np.float32 with RGB colors
-        """
 
     def colors_to_numpy(self, as_uint8: bool = False) -> np.ndarray:
         """
@@ -397,15 +411,6 @@ class Points:
 
         pcd = PointCloud(points3d=self.to_numpy(), points_col=self.colors_to_numpy())
         return pcd
-
-    def get_track_ids(self) -> Tuple[np.int32]:
-        """
-        get_track_it Get a ordered tuple of track_id of all the points
-
-        Returns:
-            tuple: tuple of size (n,) with track_ids
-        """
-        return tuple([np.int32(x) for x in self._values.keys()])
 
     def reset_points(self):
         """Reset Points instance"""

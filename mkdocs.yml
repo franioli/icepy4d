@@ -1,4 +1,6 @@
 site_name: ICEpy4D
+repo_url: https://github.com/franioli/icepy4d
+site_author: Francesco Ioli
 
 theme:
   name: material
@@ -9,8 +11,6 @@ theme:
   features:
     - navigation.path
     - navigation.footer
-
-repo_url: https://github.com/franioli/icepy4d
 
 plugins:
   - search
@@ -28,6 +28,7 @@ nav:
           - Camera: classes/camera.md
           - Images: classes/images.md
           - Features: classes/features.md
+          - Points: classes/points.md
           - Point Cloud: classes/point_cloud.md
       - Matching:
           - Matching: matching/matching.md
