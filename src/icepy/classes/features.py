@@ -71,6 +71,18 @@ def float32_type_check(
 
 
 class Feature:
+    """
+    Feature class represents a feature detected in an image.
+
+    Attributes:
+        _x (float): The x coordinate of the feature in the image.
+        _y (float): The y coordinate of the feature in the image.
+        _track (int): The univocal track_id identifying the feature and the corresponding point in 3D world.
+        _descr (numpy.ndarray): The descriptor of the feature as a numpy array with 128 or 256 elements.
+        _score (float): The score of the feature.
+        epoch (int): The epoch in which the feature is detected (or belongs to).
+    """
+
     __slots__ = ("_x", "_y", "_track", "_descr", "_score", "epoch")
 
     def __init__(
@@ -95,6 +107,9 @@ class Feature:
 
         Raises:
             AssertionError: Invalid shape of the descriptor. It must be a numpy array with 128 or 256 elements.
+
+        Note:
+            All the member of Feature class are private. Access them with getters and setters.
         """
         self._x = np.float32(x)
         self._y = np.float32(y)
@@ -188,6 +203,19 @@ class Feature:
 
 
 class Features:
+    """
+    Features class represents a collection of several Feature objects detected in an image.
+
+    Attributes:
+        _values (dict): A dictionary that maps feature IDs to Feature objects.
+        _last_id (int): The last assigned feature ID.
+        _iter (int): An iterator used to iterate over the feature IDs.
+        _descriptor_size (int): The size of the feature descriptors in the collection.
+
+    Note:
+        Use getters and setters methods to access to the features stored in Features object.
+    """
+
     def __init__(self):
         self._values = {}
         self._last_id = -1
@@ -281,14 +309,14 @@ class Features:
         """
         return self._last_id
 
-    def get_track_id_list(self) -> list:
+    def get_track_ids(self) -> Tuple[np.int32]:
         """
-        get_track_id_list get all the track_id of the features in Features object
+        get_track_ids Get a ordered tuple of track_id of all the features
 
         Returns:
-            list: list containing track_id of the features
+            tuple: tuple of size (n,) with track_ids
         """
-        return list(self._values.keys())
+        return tuple([np.int32(x) for x in self._values.keys()])
 
     def append_feature(self, new_feature: Feature) -> None:
         """
@@ -488,15 +516,6 @@ class Features:
         for i, v in enumerate(self._values.values()):
             score[i] = v.score
         return np.float32(score)
-
-    def get_track_ids(self) -> Tuple[np.int32]:
-        """
-        get_track_it Get a ordered tuple of track_id of all the features
-
-        Returns:
-            tuple: tuple of size (n,) with track_ids
-        """
-        return tuple([np.int32(x) for x in self._values.keys()])
 
     def get_features_as_dict(self, get_track_id: bool = False) -> dict:
         """

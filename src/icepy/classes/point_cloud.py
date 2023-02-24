@@ -31,6 +31,10 @@ from typing import Union
 
 
 class PointCloud:
+    """
+    Class that wraps around an Open3D point cloud object.
+    """
+
     def __init__(
         self,
         points3d: np.ndarray = None,
@@ -69,15 +73,22 @@ class PointCloud:
         points_col=None,
         *scalar_fied: np.ndarray,
     ) -> o3d.geometry.PointCloud:
-        """Function to create a point cloud object by using Open3D library.
-        ---------
-        Parameters:
-        - points3d (nx3, float32): array of points 3D.
-        - points_col (nx3, float32): array of color of each point.
-                    Colors are defined in [0,1] range as float numbers.
-        - Scalar fields: to be implemented. #@TODO: implement scalar fields.
-        Return: Open3D point cloud object
         """
+        Creates a point cloud object using Open3D library.
+
+        Args:
+            points3d (np.ndarray): A numpy array of shape (n, 3) with float32 dtype containing the 3D points.
+            points_col (Optional[np.ndarray]): A numpy array of shape (n, 3) with float32 dtype containing the color of each point. Colors are defined in the range [0, 1] as float numbers. Defaults to None.
+            scalar_fied (Tuple[np.ndarray]): Tuple of numpy arrays representing scalar fields. To be implemented. Defaults to empty tuple.
+
+        Returns:
+            o3d.geometry.PointCloud: An Open3D point cloud object.
+
+        TODO:
+            implement scalar fields.
+
+        """
+
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(points3d)
         if points_col is not None:
@@ -96,14 +107,16 @@ class PointCloud:
             logging.info("Point cloud filtered by Statistical Oulier Removal")
 
     def write_ply(self, path: Union[str, Path]) -> None:
-        """Write point cloud to disk as .ply
+        """Write point cloud to disk as .ply format.
 
-        Parameters
-        ----------
-        pcd : O3D point cloud
-        out_path (Path or str) Path were to save the point cloud to disk in ply format.
+        Args:
+            path (Union[str, Path]): Path or string of the file where to save the point cloud to disk in .ply format.
 
-        Returns: None
+        Returns:
+            None. The point cloud is saved to disk.
+
+        Raises:
+            IOError: If the point cloud could not be saved to disk.
         """
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         o3d.io.write_point_cloud(str(path), self.pcd)
