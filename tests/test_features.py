@@ -131,7 +131,7 @@ def test_filter_feature_by_mask():
         False,
         True,
     ]  # Only keep 1st, 3rd, and 5th features
-    features.filter_feature_by_mask(inlier_mask, verbose=True)
+    features.filter_feature_by_mask(inlier_mask)
     assert (
         len(features) == 3
     ), "Unable to filter a Features object by mask"  # Check that we only have 3 features left
@@ -139,7 +139,7 @@ def test_filter_feature_by_mask():
     features = Features()
     features.append_features_from_numpy(x, y, descr, scores)
     indexes = [0, 2, 4]
-    features.filter_feature_by_index(indexes, verbose=True)
+    features.filter_feature_by_index(indexes)
     assert len(features) == 3, "Unable to filter a Features object by index"
 
 

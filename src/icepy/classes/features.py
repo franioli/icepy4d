@@ -544,15 +544,12 @@ class Features:
         self._last_id = -1
         self._iter = 0
 
-    def filter_feature_by_mask(
-        self, inlier_mask: List[bool], verbose: bool = False
-    ) -> None:
+    def filter_feature_by_mask(self, inlier_mask: List[bool]) -> None:
         """
         delete_feature_by_mask Keep only inlier features, given a mask array as a list of boolean values. Note that this function does NOT take into account the track_id of the features! Inlier mask must have the same lenght as the number of features stored in the Features instance.
 
         Args:
             inlier_mask (List[bool]): boolean mask with True value in correspondance of the features to keep. inlier_mask must have the same length as the total number of features.
-            verbose (bool): log number of filtered features. Defaults to False.
         """
         inlier_mask = np.array(inlier_mask)
         assert np.array_equal(
@@ -563,9 +560,8 @@ class Features:
         ), "Invalid shape of input argument for inlier_mask. It must be a boolean vector with the same lenght as the number of features stored in the Features object."
 
         feat_idx = list(self._values.keys())
-        # indexes = [feat_idx[i] for i, x in enumerate(inlier_mask) if x] # Slow
         indexes = list(compress(feat_idx, inlier_mask))
-        self.filter_feature_by_index(indexes, verbose=verbose)
+        self.filter_feature_by_index(indexes)
 
     def filter_feature_by_index(self, indexes: List[np.int32]) -> None:
         """
