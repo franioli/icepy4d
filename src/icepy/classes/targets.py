@@ -27,24 +27,32 @@ import numpy as np
 import pandas as pd
 import logging
 
-from typing import List, Tuple
+from typing import List, Tuple, Union
 from pathlib import Path
 
 
 class Targets:
     """
     Class to store Target information, including image coordinates and object coordinates
-    Targets are stored as numpy arrays:
-        Targets.im_coor: [nx2] List of array of containing xy coordinates of the
-                        target projections on each image
-        Targets.obj_coor: nx3 array of XYZ object coordinates(it can be empty)
+    Targets are stored as numpy arrays
+
+    Attributes:
+        im_coor (List[np.ndarray]): A list of nx2 numpy arrays, where each numpy array contains the xy coordinates of the target projections on each image.
+        obj_coor (np.ndarray): A nx3 numpy array containing XYZ object coordinates (can be empty).
     """
 
     def __init__(
         self,
-        im_file_path=None,
-        obj_file_path=None,
-    ):
+        im_file_path: List[Union[str, Path]] = None,
+        obj_file_path: Union[str, Path] = None,
+    ) -> None:
+        """
+        Initialize a new instance of the Targets class.
+
+        Args:
+            im_file_path (List[Union[str, Path]], optional): A list of file paths to read image coordinates from. Defaults to None.
+            obj_file_path (Union[str, Path], optional): A file path to read object coordinates from. Defaults to None.
+        """
         self.reset_targets()
 
         # If im_coord_path is provided, read image coordinates from file
@@ -54,22 +62,29 @@ class Targets:
         if obj_file_path is not None:
             self.read_obj_coord_from_txt(obj_file_path)
 
-    def __len__(self):
-        """Get total number of featues stored"""
+    def __len__(self) -> int:
+        """
+        Return the total number of features stored.
+
+        Returns:
+            int: The total number of features stored.
+        """
         return len(self.im_coor)
 
-    def reset_targets(self):
-        """
-        Reset Target instance to empy list and None objects
-        """
+    def reset_targets(self) -> None:
+        """Reset Target instance to empy list and None objects"""
         self.im_coor = []
         self.obj_coor = None
 
-    def get_im_coord(self, cam_id=None):
+    def get_im_coord(self, cam_id=None) -> np.ndarray:
         """
-        Return image coordinates as numpy array
-        If numeric camera id(integer) is provided, the function returns the
-        image coordinates in that camera, otherwise the list with the projections on all the cameras is returned.
+        Return the image coordinates as a numpy array.
+
+        Args:
+            cam_id (int, optional): The camera ID to return the image coordinates for. If not provided, returns the list with the projections on all the cameras. Defaults to None.
+
+        Returns:
+            np.ndarray: A numpy array containing the image coordinates.
         """
         if cam_id is None:
             return np.float32(self.im_coor)
@@ -77,19 +92,40 @@ class Targets:
             # Return object coordinates as numpy array
             return np.float32(self.im_coor[cam_id].iloc[:, 1:])
 
-    def get_obj_coord(self):
+    def get_obj_coord(self) -> np.ndarray:
+        """
+        Return the object coordinates as a numpy array.
+
+        Returns:
+            np.ndarray: A numpy array containing the object coordinates.
+        """
         # Return object coordinates as numpy array
         return np.float32(self.obj_coor.iloc[:, 1:])
 
-    def append_obj_cord(self, new_obj_coor):
-        # TODO: add check on dimension and add description
+    def append_obj_cord(self, new_obj_coor) -> None:
+        """
+        Append new object coordinates to the current object coordinates.
+
+        Args:
+            new_obj_coor (np.ndarray): The new object coordinates to append.
+
+        TODO: add checks on input dimensions
+        """
         if self.obj_coor is None:
             self.obj_coor = new_obj_coor
         else:
             self.obj_coor = np.append(self.obj_coor, new_obj_coor, axis=0)
 
-    def get_target_labels(self, cam_id=None):
-        """Return target labels as a list"""
+    def get_target_labels(self, cam_id=None) -> List[str]:
+        """
+        Returns target labels as a list.
+
+        Args:
+            cam_id (int, optional): Numeric id of the camera for which the target labels are requested.
+
+        Returns:
+            List: Target labels as a list.
+        """
         if cam_id is not None:
             return list(self.im_coor[cam_id].label)
         else:
@@ -174,17 +210,29 @@ class Targets:
         path,
         delimiter: str = ",",
         header: int = 0,
-    ):
+    ) -> None:
         """
-        Read image target image coordinates from .txt file in a pandas dataframe
-        organized as follows:
+        Read target image coordinates from a .txt file and store them in a pandas DataFrame organized as follows:
+
             - One line per target
             - label, then first x coordinate, then y coordinate
-            - Coordinates separated by a delimiter(default ',')
+            - Coordinates separated by a delimiter (default: ',')
             e.g.
             # label,x,y
             target_1,1000,2000
             target_2,2000,3000
+
+        Args:
+            camera_id (int): The numeric (integer) ID of the camera to which the target coordinates belong.
+            path (Union[str, Path]): The path to the input file.
+            delimiter (str, optional): The delimiter used in the input file (default: ',').
+            header (int, optional): The row number to use as the column names. Default is 0 (the first row).
+
+        Raises:
+            FileNotFoundError: If the input path does not exist.
+
+        Returns:
+            None
         """
         assert isinstance(
             camera_id, int
@@ -205,17 +253,28 @@ class Targets:
         path=None,
         delimiter: str = ",",
         header: int = 0,
-    ):
+    ) -> None:
         """
-        Read image target image coordinates from .txt file in a pandas dataframe
-        organized as follows:
+        Read target object coordinates from a .txt file and store them in a pandas DataFrame organized as follows:
+
             - One line per target
             - label, then first x coordinate, then y coordinate
-            - Coordinates separated by a delimiter(default ',')
+            - Coordinates separated by a delimiter (default: ',')
             e.g.
             # label,X,Y,Z
             target_1,1000,2000,3000
             target_1,2000,3000,3000
+
+        Args:
+            path (Union[str, Path]): The path to the input file.
+            delimiter (str, optional): The delimiter used in the input file (default: ',').
+            header (int, optional): The row number to use as the column names. Default is 0 (the first row).
+
+        Raises:
+            FileNotFoundError: If the input path does not exist.
+
+        Returns:
+            None.
         """
 
         path = Path(path)

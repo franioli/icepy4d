@@ -6,6 +6,8 @@
 
 `ICEpy4D` is a under active development.
 
+[  [code](https://github.com/franioli/icepy4d) ![github](assets/GitHub-icon.png)  |  [documentation](franioli.github.io/icepy4d/) ]
+
 ## Project layout
 
     main.py       # Main code for running ICEpy4D

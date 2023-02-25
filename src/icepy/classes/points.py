@@ -446,7 +446,7 @@ class Points:
         delete_feature_by_mask Keep only inlier points, given a list of index (int values) of the points to keep.
 
         Args:
-            inlier_mask (List[int]): List with the index of the points to keep.
+            indexes (List[int]): List with the index of the points to keep.
             verbose (bool): log number of filtered points. Defaults to False.
 
         """
@@ -465,7 +465,6 @@ class Points:
 
         Args:
             indexes (List[int]): List with the index of the points to keep.
-            verbose (bool, optional): log number of filtered features. Defaults to False.
 
         Returns:
             dict: dictionary containing the selected points with track_id as keys and Point object as values {track_id: Point}

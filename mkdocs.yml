@@ -18,6 +18,8 @@ plugins:
       handlers:
         python:
           paths: [src] # search packages in the src folder
+          options:
+            show_source: false
 
 nav:
   - Home: index.md
@@ -30,6 +32,7 @@ nav:
           - Features: classes/features.md
           - Points: classes/points.md
           - Point Cloud: classes/point_cloud.md
+          - Targets: classes/targets.md
       - Matching:
           - Matching: matching/matching.md
           - Tracking: matching/tracking.md
