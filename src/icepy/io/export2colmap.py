@@ -2,9 +2,17 @@ import os
 
 from typing import Union
 from pathlib import Path
+from enum import Enum
 
 import icepy.classes as icepy_classes
 from icepy.thirdparty.transformations import quaternion_from_matrix
+
+
+class CameraModels(Enum):
+    PINHOLE = 0
+    RADIAL = 1
+    OPENCV = 2
+    FULL_OPENCV = 3
 
 
 def export_solution_to_colmap(
@@ -13,7 +21,7 @@ def export_solution_to_colmap(
     cameras: icepy_classes.CamerasDictEpoch,
     features: icepy_classes.FeaturesDictEpoch,
     points: icepy_classes.Points,
-    camera_model: str = "OPENCV",
+    camera_model: CameraModels = CameraModels.OPENCV,
 ) -> bool:
 
     cams = list(cameras.keys())
@@ -34,7 +42,7 @@ def export_solution_to_colmap(
             cameras[cam].dist[2],
             cameras[cam].dist[3],
         ]
-        line = f"""{cam_id} {camera_model} {cameras[cam].width} {cameras[cam].height} {" ".join(str(x) for x in params)}\n"""
+        line = f"""{cam_id} {CameraModels.OPENCV} {cameras[cam].width} {cameras[cam].height} {" ".join(str(x) for x in params)}\n"""
         file.write(line)
     file.close()
 

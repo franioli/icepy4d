@@ -1,27 +1,3 @@
-"""
-MIT License
-
-Copyright (c) 2022 Francesco Ioli
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-"""
-
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
@@ -49,7 +25,16 @@ from ..sfm.geometry import project_points
 def imshow_cv2(
     img: np.ndarray, win_name: str = None, convert_RGB2BRG: bool = True
 ) -> None:
-    """Wrapper for visualizing an image with OpenCV"""
+    """Wrapper for visualizing an image with OpenCV
+
+    Args:
+        img (np.ndarray): Input image.
+        win_name (str): Name of the window. Default is None.
+        convert_RGB2BRG (bool): Whether to convert RGB to BGR. Default is True.
+
+    Returns:
+        None: This function does not return anything.
+    """
     if win_name is None:
         win_name = "image"
     if convert_RGB2BRG:
@@ -64,6 +49,18 @@ def imshow_cv2(
 def plot_image_pair(
     imgs: List[np.ndarray], dpi: int = 100, size: float = 6, pad: float = 0.5
 ) -> plt.figure:
+    """Plot a pair of images.
+
+    Args:
+        imgs (List[np.ndarray]): A list containing two images.
+        dpi (int): Dots per inch. Default is 100.
+        size (float): Figure size. Default is 6.
+        pad (float): Padding between subplots. Default is 0.5.
+
+    Returns:
+        plt.figure: Figure object of the plotted images.
+    """
+
     n = len(imgs)
     assert n == 2, "number of images must be two"
     figsize = (size * n, size * 3 / 4) if size is not None else None
@@ -127,7 +124,24 @@ def plot_matches(
     line_thickness=1,
     path=None,
     fast_viz: bool = False,
-):
+) -> None:
+    """Plot matching points between two images.
+
+    Args:
+        image0: The first image.
+        image1: The second image.
+        pts0: List of 2D points in the first image.
+        pts1: List of 2D points in the second image.
+        color: RGB color of the matching lines.
+        point_size: Size of the circles representing the points.
+        line_thickness: Thickness of the lines connecting the points.
+        path: Path to save the output image.
+        fast_viz: If True, use OpenCV to display the image.
+
+    Returns:
+        None.
+    """
+
     if fast_viz:
         plot_matches_cv2(
             image0,
@@ -158,7 +172,24 @@ def plot_matches_cv2(
     line_thickness=1,
     path=None,
     margin=10,
-):
+) -> None:
+    """Plot matching points between two images using OpenCV.
+
+    Args:
+        image0: The first image.
+        image1: The second image.
+        pts0: List of 2D points in the first image.
+        pts1: List of 2D points in the second image.
+        pts_col: RGB color of the points.
+        point_size: Size of the circles representing the points.
+        line_col: RGB color of the matching lines.
+        line_thickness: Thickness of the lines connecting the points.
+        path: Path to save the output image.
+        margin: Margin between the two images in the output.
+
+    Returns:
+        None.
+    """
     if image0.ndim > 2:
         image0 = cv2.cvtColor(image0, cv2.COLOR_BGR2GRAY)
     if image1.ndim > 2:
@@ -371,22 +402,29 @@ def plot_feature(
     )
 
 
-def plot_projections(points3d, camera: Camera, image, title: str = None, ax=None):
-    """Project 3D point to a camera and plot projections over the image
-    Parameters
-    ----------
-    points3d: nx3 float32 array
-        Array of 3D points in the object space
-    camera: Camera object
-        Camera object contining exterior and interior orientation
-    image: numpy array with BRG channels (OpenCV standard)
-    title: str
-        title of the axes of the plt
-    ax : matplotlib axes (default = None)
-        axis in which to make the plot. If nothing is given, the function create
-        a new figure and axes.
-    Return : None
+def plot_projections(
+    points3d, camera: Camera, image, title: str = None, ax=None
+) -> None:
     """
+    Project 3D points to a camera and plot their projections on an image.
+
+    Args:
+        points3d: numpy.ndarray
+            Array of shape (n, 3) containing 3D points in object space.
+        camera: Camera object
+            Camera object containing exterior and interior orientation.
+        image: numpy.ndarray
+            Image with BGR channels in OpenCV standard.
+        title: str, optional
+            Title of the axes of the plot.
+        ax: matplotlib axes, optional
+            Axis in which to make the plot. If nothing is given, the function creates
+            a new figure and axes.
+
+    Returns:
+        None
+    """
+
     if ax is None:
         fig, ax = plt.subplots()
 
@@ -401,7 +439,29 @@ def plot_projection_error(
     title: str = None,
     ax=None,
     convert_BRG2RGB=True,
-):
+) -> None:
+    """
+    Plot the projection error of 3D points on an image.
+
+    Args:
+        projections: numpy.ndarray
+            Array of shape (n, 2) containing the projections of 3D points on an image.
+        projection_error: numpy.ndarray
+            Array of shape (n,) containing the projection error for each point.
+        image: numpy.ndarray
+            Image with BGR channels in OpenCV standard.
+        title: str, optional
+            Title of the plot.
+        ax: matplotlib axes, optional
+            Axis in which to make the plot. If nothing is given, the function creates
+            a new figure and axes.
+        convert_BRG2RGB: bool, optional
+            Whether to convert the image from BGR to RGB.
+
+    Returns:
+        None
+    """
+
     if convert_BRG2RGB:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
@@ -426,8 +486,26 @@ def plot_projection_error(
 
 
 def draw_epip_lines(img0, img1, lines, pts0, pts1, fast_viz=True):
-    """img0 - image on which we draw the epilines for the points in img2
-    lines - corresponding epilines"""
+    """
+    Draw epipolar lines on two images for corresponding points.
+
+    Args:
+        img0: numpy.ndarray
+            Image on which we draw the epilines for the points in img1.
+        img1: numpy.ndarray
+            Image on which we draw the epilines for the points in img0.
+        lines: numpy.ndarray
+            Array of shape (n, 3) containing epipolar lines.
+        pts0: numpy.ndarray
+            Array of shape (n, 2) containing points in img0.
+        pts1: numpy.ndarray
+            Array of shape (n, 2) containing points in img1.
+        fast_viz: bool, optional
+            Whether to use a fast visualization method.
+
+    Returns:
+        Two numpy.ndarrays containing the input images with epipolar lines and points drawn on them.
+    """
     r, c, _ = img0.shape
     if not fast_viz:
         img0 = cv2.cvtColor(img0, cv2.COLOR_BGR2RGB)
