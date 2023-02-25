@@ -567,29 +567,15 @@ class Features:
         indexes = list(compress(feat_idx, inlier_mask))
         self.filter_feature_by_index(indexes, verbose=verbose)
 
-    def filter_feature_by_index(
-        self, indexes: List[np.int32], verbose: bool = False
-    ) -> None:
+    def filter_feature_by_index(self, indexes: List[np.int32]) -> None:
         """
         delete_feature_by_mask Keep only inlier features, given a list of index (int values) of the features to keep.
 
         Args:
-            inlier_mask (List[int]): List with the index of the features to keep.
-            verbose (bool): log number of filtered features. Defaults to False.
-
+            indexes (List[int]): List with the index of the features to keep.
         """
         for k in set(self._values.keys()) - set(indexes):
             del self._values[k]
-
-        # Deprecated approach (~600 times slower)
-        # new_dict = {k: v for k, v in self._values.items() if v.track_id in indexes}
-        # if verbose:
-        #     logging.info(
-        #         f"Features filtered: {len(self)-len(new_dict)}/{len(self)} removed. New features size: {len(new_dict)}."
-        #     )
-        # last_id = list(new_dict.keys())[-1]
-        # self._values = new_dict
-        # self._last_id = last_id
 
     def get_feature_by_index(self, indexes: List[np.int32]) -> dict:
         """
@@ -597,7 +583,6 @@ class Features:
 
         Args:
             indexes (List[int]): List with the index of the features to keep.
-            verbose (bool, optional): log number of filtered features. Defaults to False.
 
         Returns:
             dict: dictionary containing the selected features with track_id as keys and Feature object as values {track_id: Feature}
