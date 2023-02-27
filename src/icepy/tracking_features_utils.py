@@ -95,7 +95,7 @@ def tracked_features_time_series(
     epoches = list(fdict.keys())
     fts = {}
     for i, epoch in enumerate(epoches):
-        track_ids = fdict[epoch].get_track_id_list()
+        track_ids = fdict[epoch].get_track_ids()
         for track_id in track_ids:
             if rect is None:
                 out = [ep for ep in epoches if track_id in fdict[ep]]
@@ -145,7 +145,7 @@ def tracked_points_time_series(
     point_epochs = [
         (track_id, epoch)
         for epoch in epoches
-        for track_id in points[epoch].get_track_id_list()
+        for track_id in points[epoch].get_track_ids()
     ]
 
     # Filter the points based on the given volume, if any
@@ -191,7 +191,7 @@ def tracked_points_time_series_old(
     epoches = list(points.keys())
     pts = {}
     for i, epoch in enumerate(epoches):
-        track_ids = points[epoch].get_track_id_list()
+        track_ids = points[epoch].get_track_ids()
         for track_id in track_ids:
             if volume is None:
                 out = [ep for ep in epoches[i:] if track_id in points[ep]]

@@ -75,7 +75,7 @@ def select_features_by_rect(
     features: icepy_classes.Features, rect: np.ndarray
 ) -> icepy_classes.Features:
     pts = features.to_numpy()["kpts"]
-    track_id_list = features.get_track_id_list()
+    track_id_list = features.get_track_ids()
     valid = points_in_rect(pts, rect)
 
     selected = icepy_classes.Features()
