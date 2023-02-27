@@ -2,6 +2,17 @@ import numpy as np
 import pandas as pd
 import argparse
 
+" Transformation for Belvedere North-West terminus, from Local RS to WGS84-UTM32N "
+BELV_LOC2UTM = np.array(
+    [
+        [0.706579327583, -0.70687371492, -0.00012600114, 416614.833],
+        [0.706873714924, 0.706579267979, 0.000202054813, 5090932.706],
+        [-0.00005382637, -0.00023195939, 0.999462246895, 1767.547],
+        [0.0, 0.0, 0.0, 1.0],
+    ]
+)
+BELV_UTM2LOC = np.linalg.inv(BELV_LOC2UTM)
+
 
 def parse_command_line():
     pass
@@ -100,17 +111,6 @@ def get_coordinates_from_df(
 def print_vector(vector):
     for i in vector:
         print(f"{i.squeeze():05.3f}")
-
-
-BELV_LOC2UTM = np.array(
-    [
-        [0.706579327583, -0.70687371492, -0.00012600114, 416614.833],
-        [0.706873714924, 0.706579267979, 0.000202054813, 5090932.706],
-        [-0.00005382637, -0.00023195939, 0.999462246895, 1767.547],
-        [0.0, 0.0, 0.0, 1.0],
-    ]
-)
-BELV_UTM2LOC = np.linalg.inv(BELV_LOC2UTM)
 
 
 if __name__ == "__main__":
