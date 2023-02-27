@@ -85,7 +85,7 @@ class Solution:
             return False
 
     @staticmethod
-    def read_solution(path: Union[str, Path]) -> dict:
+    def read_solution(path: Union[str, Path], ignore_errors: bool = False):
         """
         Loads a Solution object from a binary file
 
@@ -93,12 +93,16 @@ class Solution:
             path (Union[str, Path]): The path to the binary file
 
         Returns:
-            dict: A Solution object
+            Solution: A Solution object
         """
         path = Path(path)
-        assert path.exists(), "Input path does not exists"
+        if not ignore_errors:
+            assert path.exists(), "Input path does not exists"
 
-        with open(path, "rb") as inp:
-            solution = pickle.load(inp)
-
-        return solution
+        try:
+            with open(path, "rb") as inp:
+                solution = pickle.load(inp)
+            return solution
+        except:
+            logging.error("Unable to read Solution from pickle file")
+            return None
