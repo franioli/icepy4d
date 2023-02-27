@@ -86,6 +86,8 @@ if __name__ == "__main__":
 
     """ Big Loop over epoches """
 
+    LOAD_EXISTING_SOLUTION = True  # False #
+
     logging.info("------------------------------------------------------")
     logging.info("Processing started:")
     timer = icepy_utils.AverageTimer()
@@ -100,6 +102,18 @@ if __name__ == "__main__":
 
         epochdir = Path(cfg.paths.results_dir) / epoch_dict[epoch]
         match_dir = epochdir / "matching"
+
+        if LOAD_EXISTING_SOLUTION:
+            path = f"{epochdir}/{epoch_dict[epoch]}.pickle"
+            logging.info(f"Loading solution from {path}")
+            solution = Solution.read_solution(path, ignore_errors=True)
+            if solution is not None:
+                cameras[epoch], _, features[epoch], points[epoch] = solution
+                del solution
+                logging.info("Solution loaded.")
+                continue
+            else:
+                logging.error("Unable to import solution.")
 
         # Perform matching and tracking
         do_preselection = False
