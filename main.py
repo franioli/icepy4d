@@ -40,6 +40,7 @@ import icepy.metashape.metashape as MS
 import icepy.utils.initialization as initialization
 import icepy.utils as icepy_utils
 import icepy.visualization as icepy_viz
+from icepy.classes.solution import Solution
 
 from icepy.matching.match_by_preselection import match_by_preselection
 from icepy.matching.tracking_base import tracking_base
@@ -266,7 +267,7 @@ if __name__ == "__main__":
         # Create point cloud and save .ply to disk
         # pcd_epc = icepy_classes.PointCloud(points3d=points3d, points_col=triang.colors)
         pts = icepy_classes.Points()
-        pts.append_features_from_numpy(
+        pts.append_points_from_numpy(
             points3d,
             track_ids=features[epoch][cams[0]].get_track_ids(),
             colors=triang.colors,
@@ -340,7 +341,7 @@ if __name__ == "__main__":
             #     points3d=points3d, points_col=triang.colors
             # )
 
-            points[epoch].append_features_from_numpy(
+            points[epoch].append_points_from_numpy(
                 points3d,
                 track_ids=features[epoch][cams[0]].get_track_ids(),
                 colors=triang.colors,
@@ -373,6 +374,11 @@ if __name__ == "__main__":
                 homography_warping(
                     cameras[ep_ini][cam], cameras[epoch][cam], image, out_path, timer
                 )
+
+            # Save solution as a pickle object
+            solution = Solution(cameras[epoch], images, features[epoch], points[epoch])
+            solution.save_solutions(f"{epochdir}/{epoch_dict[epoch]}.pickle")
+            del solution
 
         timer.print(f"Epoch {epoch} completed")
 

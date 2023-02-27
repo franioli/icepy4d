@@ -320,7 +320,7 @@ class Points:
         colors: np.ndarray = None,
     ) -> None:
         """
-        append_features_from_numpy append new features to Features object, starting from a nx3 numpy array containing XYZ coordinates.
+        append_points_from_numpy append new features to Features object, starting from a nx3 numpy array containing XYZ coordinates.
 
         Args:
             coordinates (np.ndarray): nx3 numpy array containing x coordinates of all keypoints
@@ -504,7 +504,7 @@ if __name__ == "__main__":
 
     points = Points()
     t0 = time.time()
-    points.append_features_from_numpy(coordinates=coord, colors=cols)
+    points.append_points_from_numpy(coordinates=coord, colors=cols)
     t1 = time.time()
     logging.info(
         f"Append features from numpy array to dict of Feature objects: Elapsed time {t1-t0:.4f} s"
