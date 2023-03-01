@@ -31,8 +31,7 @@ from typing import Union, List, Tuple
 from pathlib import Path
 from copy import deepcopy
 from itertools import compress
-
-from icepy.utils import timeit
+from matplotlib import pyplot as plt
 
 
 def float32_type_check(
@@ -603,6 +602,55 @@ class Features:
         path = Path(path)
         with open(path, "wb") as f:
             pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+    def plot_features(
+        self,
+        image: np.ndarray,
+        **kwargs,
+    ) -> None:
+        """
+        plot_features Plot features on input image.
+
+        Args:
+            image (np.ndarray): A numpy array with RGB channels.
+            **kwargs: additional keyword arguments for plotting characteristics (e.g. `s`, `c`, `marker`, etc.). Refer to matplotlib.pyplot.scatter documentation for more information https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.scatter.html.
+
+        Note:
+            This methods is a simplified version of icepy.visualization.visualization.plot_points() function. It cannot be called directly inside this method due to a circular import problem.
+
+        Returns:
+            None
+        """
+        points = self.to_numpy()["kpts"]
+
+        s = 6
+        c = "y"
+        marker = "o"
+        alpha = 0.8
+        edgecolors = "r"
+        linewidths = 1
+
+        # overwrite default values with kwargs if provided
+        s = kwargs.get("s", s)
+        c = kwargs.get("c", c)
+        marker = kwargs.get("marker", marker)
+        alpha = kwargs.get("alpha", alpha)
+        edgecolors = kwargs.get("edgecolors", edgecolors)
+        linewidths = kwargs.get("linewidths", linewidths)
+
+        _, ax = plt.subplots()
+        ax.imshow(image)
+        ax.scatter(
+            points[:, 0],
+            points[:, 1],
+            s=s,
+            c=c,
+            marker=marker,
+            alpha=alpha,
+            edgecolors=edgecolors,
+            linewidths=linewidths,
+        )
+        plt.show()
 
 
 if __name__ == "__main__":
