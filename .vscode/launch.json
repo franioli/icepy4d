@@ -14,7 +14,7 @@
       "justMyCode": true,
       "args": [
         "--config",
-        "config/config_block_3_4.yaml",
+        "config/config_2022.yaml",
         "--log_name",
         "icepy",
         "--log_file_level",
@@ -36,7 +36,7 @@
       },
       "args": [
         "--config",
-        "config/config_block_3_4.yaml",
+        "config/config_2022.yaml",
         "--log_name",
         "icepy",
         "--log_file_level",
