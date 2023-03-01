@@ -16,8 +16,6 @@ from ..classes.features import Features, Feature
 from ..classes.point_cloud import PointCloud
 from ..sfm.geometry import project_points
 
-# matplotlib.use("TkAgg")
-
 
 """ Visualization of images"""
 
@@ -246,8 +244,6 @@ def plot_points(
         zoom_to_features (bool, optional): Indicates whether to zoom in to the features in the plot. Defaults to False.
         window_size (int, optional): The size of the zoom window. Defaults to 50.
         **kwargs: additional keyword arguments for plotting characteristics (e.g. `s`, `c`, `marker`, etc.). Refer to matplotlib.pyplot.scatter documentation for more information https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.scatter.html.
-
-
 
     Returns:
         plt.Axes: matplotlib axis
@@ -535,7 +531,7 @@ def get_colors(inp, colormap, vmin=None, vmax=None):
 
 
 def display_point_cloud(
-    point_cloud: Union[PointCloud, Dict[int, PointCloud]],
+    point_clouds: Union[PointCloud, List[PointCloud]],
     cameras: List[Camera] = None,
     viz_rs: bool = True,
     win_name: str = "Point cloud",
@@ -556,10 +552,10 @@ def display_point_cloud(
     None.
     """
 
-    if isinstance(point_cloud, dict):
-        plt_objs = [x.pcd for x in list(point_cloud.values())]
-    else:
-        plt_objs = [point_cloud.pcd]
+    if isinstance(point_clouds, PointCloud):
+        plt_objs = [point_clouds.pcd]
+    elif isinstance(point_clouds, List):
+        plt_objs = [x.pcd for x in point_clouds]
 
     if cameras is not None:
         num_cams = len(cameras)
