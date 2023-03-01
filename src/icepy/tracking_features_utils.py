@@ -277,6 +277,9 @@ def tracked_dict_to_df(
     fts_df["vX"] = fts_df["dX"] / fts_df["dt"].dt.days
     fts_df["vY"] = fts_df["dY"] / fts_df["dt"].dt.days
     fts_df["vZ"] = fts_df["dZ"] / fts_df["dt"].dt.days
+    fts_df["V"] = np.linalg.norm(fts_df[["vX", "vY", "vZ"]].to_numpy(), axis=1).reshape(
+        -1, 1
+    )
 
     if min_dt is not None:
         fts_df = fts_df[fts_df["dt"] >= pd.to_timedelta(min_dt, unit="D")]
