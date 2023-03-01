@@ -1,4 +1,3 @@
-import importlib
 import logging
 import numpy as np
 import cv2
@@ -13,6 +12,7 @@ import icepy.classes as icepy_classes
 import icepy.visualization as icepy_viz
 from icepy.classes.images import read_image
 from icepy.matching.superglue_matcher import SuperGlueMatcher
+from icepy.matching.utils import geometric_verification
 
 from scipy.spatial import KDTree
 from scipy.cluster.vq import kmeans, vq, whiten
@@ -60,6 +60,77 @@ def find_centroids_kmeans(
         ax.scatter(centroids[:, 0], centroids[:, 1], c="r")
 
     return (centroids, classes)
+
+
+def find_matches_on_patches(
+    images: icepy_classes.ImagesDict,
+    patches_lim: dict,
+    epoch: int,
+    features: icepy_classes.FeaturesDict,
+    cfg: dict,
+    do_geometric_verification: bool = True,
+    geometric_verification_threshold: float = 5,
+    viz_results: bool = True,
+    fast_viz: bool = True,
+    viz_path: Union[Path, str] = None,
+):
+    """
+    Find and verify matches between patches of two images.
+
+    Args:
+        images (icepy_classes.ImagesDict): A dictionary of `ImagesDict` instances, where each instance represents an image captured by a specific camera.
+        patches_lim (dict): A dictionary containing the patch limits (x1, y1, x2, y2) for each camera, where x1 and y1 are the coordinates of the top-left corner of the patch, and x2 and y2 are the coordinates of the bottom-right corner of the patch.
+        epoch (int): An integer indicating the epoch number.
+        features (icepy_classes.FeaturesDict): A dictionary of `FeaturesDict` instances, where each instance represents the detected features in an image captured by a specific camera.
+        cfg (dict): A dictionary containing the configuration parameters for the matching algorithm.
+        viz_results (bool, optional): A boolean indicating whether to visualize the matched features. Defaults to True.
+        fast_viz (bool, optional): A boolean indicating whether to use fast visualization. Defaults to True.
+        viz_path (Union[Path, str], optional): A path to the directory where the visualization results will be saved. Defaults to None.
+    """
+
+    logging.info("Geometric verification of matches on full images patches...")
+    cams = list(features.keys())
+    for cam in cams:
+        if patches_lim[cam][0] < 0:
+            patches_lim[cam][0] = 0
+        if patches_lim[cam][1] < 0:
+            patches_lim[cam][1] = 0
+        if patches_lim[cam][2] > images[cam].read_image(epoch).width:
+            patches_lim[cam][2] = images[cam].read_image(epoch).width
+        if patches_lim[cam][3] > images[cam].read_image(epoch).height:
+            patches_lim[cam][3] = images[cam].read_image(epoch).width
+    patches = {
+        cam: images[cam].read_image(epoch).extract_patch(patches_lim[cam])
+        for cam in cams
+    }
+
+    matcher = SuperGlueMatcher(cfg)
+    mkpts = matcher.match(patches[cams[0]], patches[cams[1]])
+    if do_geometric_verification:
+        mkpts = matcher.geometric_verification(
+            threshold=geometric_verification_threshold,
+            confidence=0.99,
+            symmetric_error_check=False,
+        )
+    if viz_results:
+        matcher.viz_matches(
+            viz_path,
+            fast_viz=fast_viz,
+        )
+
+    mkpts = {
+        cams[0]: matcher.mkpts0 + np.array(patches_lim[cams[0]][0:2]).astype(np.int32),
+        cams[1]: matcher.mkpts1 + np.array(patches_lim[cams[1]][0:2]).astype(np.int32),
+    }
+    descriptors = {cams[0]: matcher.descriptors0, cams[1]: matcher.descriptors1}
+    scores = {cams[0]: matcher.scores0, cams[1]: matcher.scores1}
+    for cam in cams:
+        features[cam].append_features_from_numpy(
+            x=mkpts[cam][:, 0],
+            y=mkpts[cam][:, 1],
+            descr=descriptors[cam],
+            scores=scores[cam],
+        )
 
 
 def match_by_preselection(
@@ -179,85 +250,24 @@ def match_by_preselection(
             ]
             for cam in cams
         }
-        for cam in cams:
-            if patches_lim[cam][0] < 0:
-                patches_lim[cam][0] = 0
-            if patches_lim[cam][1] < 0:
-                patches_lim[cam][1] = 0
-            if patches_lim[cam][2] > images[cam].read_image(epoch).width:
-                patches_lim[cam][2] = images[cam].read_image(epoch).width
-            if patches_lim[cam][3] > images[cam].read_image(epoch).height:
-                patches_lim[cam][3] = images[cam].read_image(epoch).width
-        patches = {
-            cam: images[cam].read_image(epoch).extract_patch(patches_lim[cam])
-            for cam in cams
-        }
-
-        matcher = SuperGlueMatcher(cfg)
-        mkpts = matcher.match(patches[cams[0]], patches[cams[1]])
-        mkpts = matcher.geometric_verification(
-            threshold=10, confidence=0.99, symmetric_error_check=False
+        find_matches_on_patches(
+            images,
+            patches_lim,
+            epoch,
+            features,
+            cfg,
+            viz_results,
+            fast_viz,
+            viz_path=out_dir / f"{im_stems[0]}_{im_stems[1]}_matches_patch_{i}.png",
         )
-        if viz_results:
-            matcher.viz_matches(
-                path=out_dir / f"{im_stems[0]}_{im_stems[1]}_matches_patch_{i}.png",
-                fast_viz=fast_viz,
-            )
-
-        mkpts = {
-            cams[0]: matcher.mkpts0
-            + np.array(patches_lim[cams[0]][0:2]).astype(np.int32),
-            cams[1]: matcher.mkpts1
-            + np.array(patches_lim[cams[1]][0:2]).astype(np.int32),
-        }
-        descriptors = {cams[0]: matcher.descriptors0, cams[1]: matcher.descriptors1}
-        scores = {cams[0]: matcher.scores0, cams[1]: matcher.scores1}
-        for cam in cams:
-            features[cam].append_features_from_numpy(
-                x=mkpts[cam][:, 0],
-                y=mkpts[cam][:, 1],
-                descr=descriptors[cam],
-                scores=scores[cam],
-            )
-
+    logging.info("Matching by patches completed.")
     timer.update("matching by patches")
 
-    logging.info("Geometric verification of matches on full images...")
-    try:
-        pydegensac = importlib.import_module("pydegensac")
-        F, inlMask = pydegensac.findFundamentalMatrix(
-            features[cams[0]].kpts_to_numpy(),
-            features[cams[1]].kpts_to_numpy(),
-            px_th=cfg.pydegensac_threshold,
-            conf=cfg.pydegensac_confidence,
-            max_iters=10000,
-            laf_consistensy_coef=-1.0,
-            error_type="sampson",
-            symmetric_error_check=True,
-            enable_degeneracy_check=True,
-        )
-        logging.info(
-            f"Pydegensac found {inlMask.sum()} inliers ({inlMask.sum()*100/len(features[cams[0]]):.2f}%)"
-        )
-    except:
-        logging.error(
-            "Pydegensac not available. Using MAGSAC++ (OpenCV) for geometric verification."
-        )
-        F, inliers = cv2.findFundamentalMat(
-            features[cams[0]].kpts_to_numpy(),
-            features[cams[1]].kpts_to_numpy(),
-            cv2.USAC_MAGSAC,
-            0.5,
-            0.999,
-            100000,
-        )
-        inlMask = inliers > 0
-        logging.info(
-            f"MAGSAC++ found {inlMask.sum()} inliers ({inlMask.sum()*100/len(features[cams[0]].kpts_to_numpy()):.2f}%)"
-        )
-
-    features[cams[0]].filter_feature_by_mask(inlMask, verbose=True)
-    features[cams[1]].filter_feature_by_mask(inlMask, verbose=True)
+    geometric_verification(
+        features,
+        threshold=cfg.pydegensac_threshold,
+        confidence=cfg.pydegensac_confidence,
+    )
     timer.update("Geometric verification")
 
     if viz_results:
