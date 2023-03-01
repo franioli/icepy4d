@@ -25,9 +25,7 @@ SOFTWARE.
 #%%
 import numpy as np
 import cv2
-import gc
 import logging
-import shutil
 
 from pathlib import Path
 from matplotlib import pyplot as plt
@@ -35,27 +33,17 @@ from datetime import datetime
 
 # ICEpy4D
 import icepy.classes as icepy_classes
-import icepy.sfm as sfm
-import icepy.metashape.metashape as MS
 import icepy.utils.initialization as initialization
 import icepy.utils as icepy_utils
 import icepy.visualization as icepy_viz
 from icepy.classes.solution import Solution
-
-from icepy.matching.match_by_preselection import match_by_preselection
-from icepy.matching.tracking_base import tracking_base
-from icepy.matching.matching_base import MatchingAndTracking
-from icepy.matching.utils import load_matches_from_disk
-
-from icepy.utils.utils import homography_warping
-from icepy.io.export2bundler import write_bundler_out
 
 import matplotlib
 
 matplotlib.use("TkAgg")
 
 
-cfg_file = Path("config/config_block_3_4.yaml")
+cfg_file = Path("config/config_2022_exp.yaml")
 
 """ Inizialize Variables """
 # Setup logger
@@ -185,6 +173,7 @@ logging.info("Time series of tracked points and onverted to pandas df")
 #             )
 # plt.close("all")
 if viz:
+    cam = cams[0]
     fid = 2155
     eps = [181, 182]
     fig, axes = plt.subplots(1, len(eps))

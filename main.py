@@ -50,7 +50,7 @@ from icepy.io.export2bundler import write_bundler_out
 
 
 # Temporary parameters TODO: put them in config file
-LOAD_EXISTING_SOLUTION = True  # False #
+LOAD_EXISTING_SOLUTION = False  # False #
 DO_PRESELECTION = False
 DO_ADDITIONAL_MATCHING = True
 
