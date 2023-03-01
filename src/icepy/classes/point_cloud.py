@@ -166,6 +166,3 @@ class PointCloud:
 
 if __name__ == "__main__":
     pass
-
-    # test_pointcloud_creation()
-    # test_pointcloud_filter()
