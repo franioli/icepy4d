@@ -3,6 +3,7 @@
 from pathlib import Path
 from typing import Union
 
+
 def str_replace(
     dir: Union[str, Path], src: str, dst: str, file_pattern: str = None
 ) -> None:
@@ -29,7 +30,6 @@ def str_replace_posix(
         file.rename(file.parent / name.replace(src, dst))
 
 
-
 if __name__ == "__main__":
 
     folder = "res/point_clouds"
@@ -39,5 +39,3 @@ if __name__ == "__main__":
     dst_pattern = ""
 
     str_replace(dir=folder, src=src_pattern, dst=dst_pattern, file_pattern=file_pattern)
-
-    

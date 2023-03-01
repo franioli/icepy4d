@@ -95,7 +95,7 @@ def tracked_features_time_series(
     epoches = list(fdict.keys())
     fts = {}
     for i, epoch in enumerate(epoches):
-        track_ids = fdict[epoch].get_track_id_list()
+        track_ids = fdict[epoch].get_track_ids()
         for track_id in track_ids:
             if rect is None:
                 out = [ep for ep in epoches if track_id in fdict[ep]]
@@ -145,7 +145,7 @@ def tracked_points_time_series(
     point_epochs = [
         (track_id, epoch)
         for epoch in epoches
-        for track_id in points[epoch].get_track_id_list()
+        for track_id in points[epoch].get_track_ids()
     ]
 
     # Filter the points based on the given volume, if any
@@ -191,7 +191,7 @@ def tracked_points_time_series_old(
     epoches = list(points.keys())
     pts = {}
     for i, epoch in enumerate(epoches):
-        track_ids = points[epoch].get_track_id_list()
+        track_ids = points[epoch].get_track_ids()
         for track_id in track_ids:
             if volume is None:
                 out = [ep for ep in epoches[i:] if track_id in points[ep]]
@@ -277,6 +277,9 @@ def tracked_dict_to_df(
     fts_df["vX"] = fts_df["dX"] / fts_df["dt"].dt.days
     fts_df["vY"] = fts_df["dY"] / fts_df["dt"].dt.days
     fts_df["vZ"] = fts_df["dZ"] / fts_df["dt"].dt.days
+    fts_df["V"] = np.linalg.norm(fts_df[["vX", "vY", "vZ"]].to_numpy(), axis=1).reshape(
+        -1, 1
+    )
 
     if min_dt is not None:
         fts_df = fts_df[fts_df["dt"] >= pd.to_timedelta(min_dt, unit="D")]

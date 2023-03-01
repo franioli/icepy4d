@@ -40,6 +40,7 @@ import icepy.metashape.metashape as MS
 import icepy.utils.initialization as initialization
 import icepy.utils as icepy_utils
 import icepy.visualization as icepy_viz
+from icepy.classes.solution import Solution
 
 from icepy.matching.match_by_preselection import match_by_preselection
 from icepy.matching.tracking_base import tracking_base
@@ -49,8 +50,16 @@ from icepy.matching.utils import load_matches_from_disk
 from icepy.utils.utils import homography_warping
 from icepy.io.export2bundler import write_bundler_out
 
+import matplotlib
+
+matplotlib.use("TkAgg")
 
 if __name__ == "__main__":
+
+    # Temporary parameters TODO: put them in config file
+    LOAD_EXISTING_SOLUTION = False  # False #
+    DO_PRESELECTION = False
+    DO_ADDITIONAL_MATCHING = True
 
     initialization.print_welcome_msg()
 
@@ -100,10 +109,21 @@ if __name__ == "__main__":
         epochdir = Path(cfg.paths.results_dir) / epoch_dict[epoch]
         match_dir = epochdir / "matching"
 
+        if LOAD_EXISTING_SOLUTION:
+            path = f"{epochdir}/{epoch_dict[epoch]}.pickle"
+            logging.info(f"Loading solution from {path}")
+            solution = Solution.read_solution(path, ignore_errors=True)
+            if solution is not None:
+                cameras[epoch], _, features[epoch], points[epoch] = solution
+                del solution
+                logging.info("Solution loaded.")
+                continue
+            else:
+                logging.error("Unable to import solution.")
+
         # Perform matching and tracking
-        do_preselection = False
         if cfg.proc.do_matching:
-            if do_preselection:
+            if DO_PRESELECTION:
                 if cfg.proc.do_tracking and epoch > cfg.proc.epoch_to_process[0]:
                     features[epoch] = tracking_base(
                         images,
@@ -141,26 +161,63 @@ if __name__ == "__main__":
             except FileNotFoundError as err:
                 logging.exception(err)
                 logging.warning("Performing new matching and tracking...")
-                if do_preselection:
-                    features[epoch] = match_by_preselection(
-                        images,
-                        features[epoch],
-                        cams,
-                        epoch,
-                        cfg.matching,
-                        match_dir,
-                        n_tiles=6,
-                        n_dist=1.5,
-                        viz_results=True,
-                    )
-                else:
-                    features = MatchingAndTracking(
-                        cfg=cfg,
-                        epoch=epoch,
-                        images=images,
-                        features=features,
-                        epoch_dict=epoch_dict,
-                    )
+                features = MatchingAndTracking(
+                    cfg=cfg,
+                    epoch=epoch,
+                    images=images,
+                    features=features,
+                    epoch_dict=epoch_dict,
+                )
+
+        # # Run additional matching on selected patches:
+        if DO_ADDITIONAL_MATCHING:
+
+            from icepy.matching.match_by_preselection import find_matches_on_patches
+            from icepy.matching.utils import geometric_verification
+
+            logging.info("Performing additional matching on user-specified patches")
+            im_stems = [images[cam].get_image_stem(epoch) for cam in cams]
+            patches = [
+                {"p1": [0, 500, 2000, 2000], "p2": [4000, 0, 6000, 1500]},
+                {"p1": [1000, 1500, 4500, 2500], "p2": [1500, 1500, 5000, 2500]},
+                {"p1": [2000, 2000, 3000, 3000], "p2": [2100, 2100, 3100, 3100]},
+                {"p1": [2300, 1700, 3300, 2700], "p2": [3000, 1900, 4000, 2900]},
+                # {"p1": [3200, 1600, 4200, 2600], "p2": [5000, 1800, 6000, 2800]},
+                # {"p1": [1200, 1600, 2200, 2600], "p2": [3200, 1300, 4200, 2300]},
+            ]
+            sg_opt = {
+                "weights": cfg.matching.weights,
+                "keypoint_threshold": 0.0001,
+                "max_keypoints": 8192,
+                "match_threshold": 0.2,
+                "force_cpu": False,
+            }
+            for i, patches_lim in enumerate(patches):
+                find_matches_on_patches(
+                    images=images,
+                    patches_lim=patches_lim,
+                    epoch=epoch,
+                    features=features[epoch],
+                    cfg=sg_opt,
+                    do_geometric_verification=True,
+                    geometric_verification_threshold=10,
+                    viz_results=True,
+                    fast_viz=True,
+                    viz_path=match_dir
+                    / f"{im_stems[0]}_{im_stems[1]}_matches_patch_{i}.png",
+                )
+
+            # Run again geometric verification
+            geometric_verification(
+                features[epoch],
+                threshold=cfg.matching.pydegensac_threshold,
+                confidence=cfg.matching.pydegensac_confidence,
+            )
+            logging.info("Matching by patches completed.")
+
+            # For debugging
+            # for cam in cams:
+            #     features[epoch][cam].plot_features(images[cam].read_image(epoch).value)
 
         timer.update("matching")
 
@@ -266,7 +323,7 @@ if __name__ == "__main__":
         # Create point cloud and save .ply to disk
         # pcd_epc = icepy_classes.PointCloud(points3d=points3d, points_col=triang.colors)
         pts = icepy_classes.Points()
-        pts.append_features_from_numpy(
+        pts.append_points_from_numpy(
             points3d,
             track_ids=features[epoch][cams[0]].get_track_ids(),
             colors=triang.colors,
@@ -340,7 +397,7 @@ if __name__ == "__main__":
             #     points3d=points3d, points_col=triang.colors
             # )
 
-            points[epoch].append_features_from_numpy(
+            points[epoch].append_points_from_numpy(
                 points3d,
                 track_ids=features[epoch][cams[0]].get_track_ids(),
                 colors=triang.colors,
@@ -373,6 +430,11 @@ if __name__ == "__main__":
                 homography_warping(
                     cameras[ep_ini][cam], cameras[epoch][cam], image, out_path, timer
                 )
+
+            # Save solution as a pickle object
+            solution = Solution(cameras[epoch], images, features[epoch], points[epoch])
+            solution.save_solutions(f"{epochdir}/{epoch_dict[epoch]}.pickle")
+            del solution
 
         timer.print(f"Epoch {epoch} completed")
 
@@ -496,15 +558,17 @@ if __name__ == "__main__":
     #         edgecolors=None,
     #     )
 
-    # Quiver plot
-    fig, ax = plt.subplots()
-    dense = o3d.io.read_point_cloud("test_out/dense.ply")
-    xy = np.asarray(dense.points)[:, 0:2]
-    ax.plot(xy[:, 0], xy[:, 1], ".", color=[0.7, 0.7, 0.7], markersize=0.5, alpha=0.8)
-    # ax.plot(xy[:, 0], xy[:, 1], "."
+    # Quiver 2D plot
 
-    # xy = points[ep].to_numpy()[:, 0:2]
-    # ax.plot(xy[:, 0], xy[:, 1], ".", color=[0.7, 0.7, 0.7], markersize=1, alpha=0.8)
+    # stp = 1
+    # dense = o3d.io.read_point_cloud("test_out/dense.ply")
+    # xyz = np.asarray(dense.voxel_down_sample(stp).points)
+    ep = 182
+    xyz = points[ep].to_numpy()
+
+    fig, ax = plt.subplots()
+    ax.plot(xyz[:, 0], xyz[:, 1], ".", color=[0.7, 0.7, 0.7], markersize=0.5, alpha=0.8)
+    ax.axis("equal")
     quiver = ax.quiver(
         fts_df["X_ini"],
         fts_df["Y_ini"],
@@ -520,6 +584,35 @@ if __name__ == "__main__":
     fig.tight_layout()
     plt.show()
 
+    # Quiver plot 3D
+    fig = plt.figure()
+    ax = fig.add_subplot(projection="3d")
+    ax.plot(
+        xyz[:, 0],
+        xyz[:, 1],
+        xyz[:, 2],
+        ".",
+        color=[0.7, 0.7, 0.7],
+        markersize=2,
+        alpha=0.8,
+    )
+    ax.axis("equal")
+    quiver = ax.quiver(
+        fts_df["X_ini"],
+        fts_df["Y_ini"],
+        fts_df["Z_ini"],
+        fts_df["vX"],
+        fts_df["vY"],
+        fts_df["vZ"],
+        length=100,
+    )
+    ax.set_xlabel("x [m]")
+    ax.set_ylabel("y [m]")
+    ax.set_zlabel("z [m]")
+    ax.set_aspect("equal", "box")
+    fig.tight_layout()
+    plt.show()
+
     # Week 0:
     ep_st, ep_fin = 181, 184
     eps = {ep: epoch_dict[ep] for ep in range(ep_st, ep_fin)}
@@ -529,11 +622,45 @@ if __name__ == "__main__":
     pts = fts_df[fts_df["ep_ini"] == ep][["X_ini", "Y_ini", "Z_ini"]].to_numpy()
 
     # dense = o3d.io.read_point_cloud("test_out/dense.ply")
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(pts)
-    o3d.visualization.draw_geometries([points[ep].to_point_cloud().pcd, pcd])
+    # pcd = o3d.geometry.PointCloud()
+    # pcd.points = o3d.utility.Vector3dVector(pts)
+    # o3d.visualization.draw_geometries([points[ep].to_point_cloud().pcd, pcd])
 
-    pts = fts_df[["X_ini", "Y_ini", "Z_ini"]].to_numpy()
+    pts = fts_df[(fts_df["ep_ini"] >= ep_st) & (fts_df["ep_ini"] < ep_fin)][
+        ["X_ini", "Y_ini", "Z_ini"]
+    ].to_numpy()
+    vel = fts_df[(fts_df["ep_ini"] >= ep_st) & (fts_df["ep_ini"] < ep_fin)][
+        ["vX", "vY", "vZ"]
+    ].to_numpy()
+
+    fig = plt.figure()
+    ax = fig.add_subplot(projection="3d")
+    # ax.plot(
+    #     xyz[:, 0],
+    #     xyz[:, 1],
+    #     xyz[:, 2],
+    #     ".",
+    #     color=[0.7, 0.7, 0.7],
+    #     markersize=2,
+    #     alpha=0.8,
+    # )
+    quiver = ax.quiver(
+        pts[:, 0],
+        pts[:, 1],
+        pts[:, 2],
+        vel[:, 0],
+        vel[:, 1],
+        vel[:, 2],
+        length=100,
+    )
+    ax.axis("equal")
+    ax.set_xlabel("x [m]")
+    ax.set_ylabel("y [m]")
+    ax.set_zlabel("z [m]")
+    ax.set_aspect("equal", "box")
+    fig.tight_layout()
+    plt.show()
+
     # rng = np.random.default_rng()
     # pts = rng.uniform(vol[:, :2].min(), vol[:, :2].max(), (5, 3))
     # xmin, ymin, xmax, ymax = (
@@ -589,6 +716,9 @@ if __name__ == "__main__":
     vx, vy, vz = [], [], []
     for bin in binned_points:
         vx = []
+
+    pcd = icepy_classes.PointCloud(pcd_path="test_out/dense_2022.ply")
+    icepy_viz.display_point_cloud([pcd], list(cameras[ep].values()), plot_scale=20)
 
     # for key, group in groupby(L, key_func):
     #     print(f"{key}: {list(group)}")

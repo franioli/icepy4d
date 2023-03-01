@@ -14,10 +14,10 @@ proc:
   # It can be either 'all' for processing all the epochs,
   # A list of two integers for processing a range of epoches
   # or a list with the epoche numbers to be processed
-  epoch_to_process: [181, 182] #[184, 338] # [180, 338] # "all" #
+  epoch_to_process: [180, 338] #[184, 338] # [180, 338] # "all" #
 
   #- Switches to find and track matches
-  do_matching: false
+  do_matching: true
   do_tracking: true
 
   #- Do space resection of first camera
@@ -88,7 +88,7 @@ matching:
   overlap: 400
   #- Threshold [px] and confidence for PyDegensac robust estimation
   # (used to reject false matches and compute relative orientation)
-  pydegensac_threshold: 1
+  pydegensac_threshold: 1.5
   pydegensac_confidence: 0.9999
 
 #- Tracking options
@@ -114,7 +114,7 @@ tracking:
 metashape:
   # Processing parameters:
   optimize_cameras: true
-  build_dense: false # true
+  build_dense: true # true
 
   # List containing camera location. Note, that the order may differ from that of icepy, because Metashape imports the cameras based on alphabetic order of the images that they belong to (e.g., IMG_1289.jpg that belongs to p2 comes before IMG_2814.jpg that belongs to p1!)
   #TODO: fix camera ordering issue in Metashape.

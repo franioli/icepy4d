@@ -31,8 +31,7 @@ from typing import Union, List, Tuple
 from pathlib import Path
 from copy import deepcopy
 from itertools import compress
-
-from icepy.utils import timeit
+from matplotlib import pyplot as plt
 
 
 def float32_type_check(
@@ -544,15 +543,12 @@ class Features:
         self._last_id = -1
         self._iter = 0
 
-    def filter_feature_by_mask(
-        self, inlier_mask: List[bool], verbose: bool = False
-    ) -> None:
+    def filter_feature_by_mask(self, inlier_mask: List[bool]) -> None:
         """
         delete_feature_by_mask Keep only inlier features, given a mask array as a list of boolean values. Note that this function does NOT take into account the track_id of the features! Inlier mask must have the same lenght as the number of features stored in the Features instance.
 
         Args:
             inlier_mask (List[bool]): boolean mask with True value in correspondance of the features to keep. inlier_mask must have the same length as the total number of features.
-            verbose (bool): log number of filtered features. Defaults to False.
         """
         inlier_mask = np.array(inlier_mask)
         assert np.array_equal(
@@ -563,9 +559,8 @@ class Features:
         ), "Invalid shape of input argument for inlier_mask. It must be a boolean vector with the same lenght as the number of features stored in the Features object."
 
         feat_idx = list(self._values.keys())
-        # indexes = [feat_idx[i] for i, x in enumerate(inlier_mask) if x] # Slow
         indexes = list(compress(feat_idx, inlier_mask))
-        self.filter_feature_by_index(indexes, verbose=verbose)
+        self.filter_feature_by_index(indexes)
 
     def filter_feature_by_index(self, indexes: List[np.int32]) -> None:
         """
@@ -607,6 +602,55 @@ class Features:
         path = Path(path)
         with open(path, "wb") as f:
             pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+    def plot_features(
+        self,
+        image: np.ndarray,
+        **kwargs,
+    ) -> None:
+        """
+        plot_features Plot features on input image.
+
+        Args:
+            image (np.ndarray): A numpy array with RGB channels.
+            **kwargs: additional keyword arguments for plotting characteristics (e.g. `s`, `c`, `marker`, etc.). Refer to matplotlib.pyplot.scatter documentation for more information https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.scatter.html.
+
+        Note:
+            This methods is a simplified version of icepy.visualization.visualization.plot_points() function. It cannot be called directly inside this method due to a circular import problem.
+
+        Returns:
+            None
+        """
+        points = self.to_numpy()["kpts"]
+
+        s = 6
+        c = "y"
+        marker = "o"
+        alpha = 0.8
+        edgecolors = "r"
+        linewidths = 1
+
+        # overwrite default values with kwargs if provided
+        s = kwargs.get("s", s)
+        c = kwargs.get("c", c)
+        marker = kwargs.get("marker", marker)
+        alpha = kwargs.get("alpha", alpha)
+        edgecolors = kwargs.get("edgecolors", edgecolors)
+        linewidths = kwargs.get("linewidths", linewidths)
+
+        _, ax = plt.subplots()
+        ax.imshow(image)
+        ax.scatter(
+            points[:, 0],
+            points[:, 1],
+            s=s,
+            c=c,
+            marker=marker,
+            alpha=alpha,
+            edgecolors=edgecolors,
+            linewidths=linewidths,
+        )
+        plt.show()
 
 
 if __name__ == "__main__":
