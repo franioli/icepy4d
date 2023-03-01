@@ -26,6 +26,7 @@ import open3d as o3d
 import numpy as np
 import logging
 import laspy
+import pytest
 
 from pathlib import Path
 from typing import Union
@@ -59,15 +60,15 @@ class PointCloud:
         TODO: additional wrapper for plotting point clouds
 
         """
-        if points3d is not None:
-            self.pcd = self.create_point_cloud(points3d, points_col)
+        if isinstance(points3d, np.ndarray):
+            self.from_numpy(points3d, points_col)
         elif pcd_path is not None:
             o3d_format = [".ply", ".pcd", ".txt", ".csv"]
             pcd_path = Path(pcd_path)
             if any(pcd_path.suffix in e for e in [".las", ".laz"]):
                 self.read_las(pcd_path)
             elif any(pcd_path.suffix in e for e in o3d_format):
-                self.pcd = o3d.io.read_point_cloud(pcd_path)
+                o3d.io.read_point_cloud(pcd_path)
             else:
                 logging.error(
                     "Invalid file format. It mus be a las (it uses laspy) or one among [.ply, .pcd, .txt, .csv] (it uses open3d)"
@@ -85,9 +86,12 @@ class PointCloud:
         """Get point coordinates as nx3 numpy array"""
         return np.asarray(self.pcd.points)
 
-    def get_colors(self) -> np.ndarray:
+    def get_colors(self, as_float: bool = False) -> np.ndarray:
         """Get point colors as nx3 numpy array of integers values (0-255)"""
-        return (np.asarray(self.pcd.colors) * 255.0).astype(int)
+        if as_float:
+            return self.pcd.colors.astype(np.float32)
+        else:
+            return (np.asarray(self.pcd.colors) * 255.0).astype(int)
 
     def read_las(self, path: Union[str, Path]):
         """
@@ -97,23 +101,23 @@ class PointCloud:
             path (Union[str, Path]): path to the point cloud
 
         TODO:
-            read also metadata and scalar fields
+            read also metadata, scalar fields, normals etc.
         """
         try:
             las = laspy.read(path)
         except:
             logging.error(f"Unable to read {path.name}.")
             raise ValueError(f"Unable to read {path.name}.")
-        self.create_point_cloud(points3d=las.xyz)
+        self.from_numpy(points3d=las.xyz)
 
-    def create_point_cloud(
+    def from_numpy(
         self,
         points3d: np.ndarray,
         points_col: np.ndarray = None,
         # *scalar_fied: np.ndarray,
-    ) -> o3d.geometry.PointCloud:
+    ) -> None:
         """
-        Creates a point cloud object using Open3D library.
+        Creates a point cloud object from numpy array using Open3D library.
 
         Args:
             points3d (np.ndarray): A numpy array of shape (n, 3) with float32 dtype containing the 3D points.
@@ -121,24 +125,23 @@ class PointCloud:
             scalar_fied (Tuple[np.ndarray]): Tuple of numpy arrays representing scalar fields. To be implemented. Defaults to empty tuple.
 
         Returns:
-            o3d.geometry.PointCloud: An Open3D point cloud object.
+            None
 
         TODO:
             implement scalar fields.
 
         """
-
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(points3d)
+        self.pcd = o3d.geometry.PointCloud()
+        self.pcd.points = o3d.utility.Vector3dVector(points3d)
         if points_col is not None:
-            pcd.colors = o3d.utility.Vector3dVector(points_col)
-
-        return pcd
+            self.pcd.colors = o3d.utility.Vector3dVector(points_col)
 
     def sor_filter(self, nb_neighbors: int = 10, std_ratio: float = 3.0):
-
-        _, ind = self.pcd.remove_statistic_verbose
-        pcd_epc = pcd_epc.select_by_index(ind)
+        _, ind = self.pcd.remove_statistical_outlier(
+            nb_neighbors=nb_neighbors,
+            std_ratio=std_ratio,
+        )
+        self.pcd = self.pcd.select_by_index(ind)
         if self._verbose:
             logging.info("Point cloud filtered by Statistical Oulier Removal")
 
@@ -159,3 +162,10 @@ class PointCloud:
 
     def write_las(self, path: Union[str, Path]):
         pass
+
+
+if __name__ == "__main__":
+    pass
+
+    # test_pointcloud_creation()
+    # test_pointcloud_filter()

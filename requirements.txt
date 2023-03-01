@@ -4,6 +4,7 @@ matplotlib
 opencv-python
 kornia
 open3d
+laspy
 pydegensac
 scipy
 exifread
