@@ -15,14 +15,9 @@ import importlib
 
 from easydict import EasyDict as edict
 from pathlib import Path
-from typing import Tuple, Union
 
-
-from ..classes.features import Features
 from ..classes.images import ImageDS
 from ..utils.initialization import parse_yaml_cfg
-from ..tiles import generateTiles
-
 
 from icepy.matching.utils import read_image, frame2tensor
 from icepy.utils import AverageTimer
@@ -193,46 +188,54 @@ class SuperGlueMatcher:
 
         Returns:
             np.ndarray: A Boolean array that masks the correspondences that were identified as inliers.
+
+        TODO: This method should be just a wrapper around the geometric_verification. Use a separate geometric_verification function instead.
         """
         assert self.mkpts0 is not None, "Matches not available."
 
         try:
             pydegensac = importlib.import_module("pydegensac")
-            self.F, self.inlMask = pydegensac.findFundamentalMatrix(
-                self.mkpts0,
-                self.mkpts1,
-                px_th=threshold,
-                conf=confidence,
-                max_iters=max_iters,
-                laf_consistensy_coef=laf_consistensy_coef,
-                error_type=error_type,
-                symmetric_error_check=symmetric_error_check,
-                enable_degeneracy_check=enable_degeneracy_check,
-            )
-            logging.info(
-                f"Pydegensac found {self.inlMask.sum()} inliers ({self.inlMask.sum()*100/len(self.mkpts0):.2f}%)"
-            )
+            use_pydegensac = True
         except:
             logging.error(
                 "Pydegensac not available. Using MAGSAC++ (OpenCV) for geometric verification."
             )
-            self.F, inliers = cv2.findFundamentalMat(
-                self.mkpts0, self.mkpts1, cv2.USAC_MAGSAC, 0.5, 0.999, 100000
-            )
-            self.inlMask = inliers > 0
-            logging.info(
-                f"MAGSAC++ found {self.inlMask.sum()} inliers ({self.inlMask.sum()*100/len(self.mkpts0):.2f}%)"
-            )
+            use_pydegensac = False
+        try:
+            if use_pydegensac:
+                self.F, self.inlMask = pydegensac.findFundamentalMatrix(
+                    self.mkpts0,
+                    self.mkpts1,
+                    px_th=threshold,
+                    conf=confidence,
+                    max_iters=max_iters,
+                    laf_consistensy_coef=laf_consistensy_coef,
+                    error_type=error_type,
+                    symmetric_error_check=symmetric_error_check,
+                    enable_degeneracy_check=enable_degeneracy_check,
+                )
+                logging.info(
+                    f"Pydegensac found {self.inlMask.sum()} inliers ({self.inlMask.sum()*100/len(self.mkpts0):.2f}%)"
+                )
+            else:
+                self.F, inliers = cv2.findFundamentalMat(
+                    self.mkpts0, self.mkpts1, cv2.USAC_MAGSAC, 0.5, 0.999, 100000
+                )
+                self.inlMask = inliers > 0
+                logging.info(
+                    f"MAGSAC++ found {self.inlMask.sum()} inliers ({self.inlMask.sum()*100/len(self.mkpts0):.2f}%)"
+                )
+            self.mkpts0 = self.mkpts0[self.inlMask]
+            self.mkpts1 = self.mkpts1[self.inlMask]
+            self.match_conf = self.match_conf[self.inlMask]
+            self.descriptors0 = self.descriptors0[:, self.inlMask]
+            self.descriptors1 = self.descriptors1[:, self.inlMask]
+            self.scores0 = self.scores0[self.inlMask]
+            self.scores1 = self.scores1[self.inlMask]
+        except ValueError as err:
+            logging.error(f"Unable to perform geometric verification: {err}.")
 
-        self.mkpts0 = self.mkpts0[self.inlMask]
-        self.mkpts1 = self.mkpts1[self.inlMask]
-        self.match_conf = self.match_conf[self.inlMask]
-        self.descriptors0 = self.descriptors0[:, self.inlMask]
-        self.descriptors1 = self.descriptors1[:, self.inlMask]
-        self.scores0 = self.scores0[self.inlMask]
-        self.scores1 = self.scores1[self.inlMask]
-
-        return {0: self.mkpts0, 1: self.mkpts1, "inliers": self.inlMask}
+        return {0: self.mkpts0, 1: self.mkpts1}
 
     def viz_matches(
         self,

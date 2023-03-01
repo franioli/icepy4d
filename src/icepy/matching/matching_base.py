@@ -183,8 +183,8 @@ def MatchingAndTracking(
         f"Pydegensac found {inlMask.sum()} inliers ({inlMask.sum()*100/len(features[epoch][cams[0]]):.2f}%)"
     )
 
-    features[epoch][cams[0]].filter_feature_by_mask(inlMask, verbose=True)
-    features[epoch][cams[1]].filter_feature_by_mask(inlMask, verbose=True)
+    features[epoch][cams[0]].filter_feature_by_mask(inlMask)
+    features[epoch][cams[1]].filter_feature_by_mask(inlMask)
 
     # Write matched points to disk
     im_stems = (
