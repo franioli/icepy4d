@@ -25,6 +25,7 @@ SOFTWARE.
 import open3d as o3d
 import numpy as np
 import logging
+import laspy
 
 from pathlib import Path
 from typing import Union
@@ -33,6 +34,8 @@ from typing import Union
 class PointCloud:
     """
     Class that wraps around an Open3D point cloud object.
+
+    TODO: implement metadata (e.g. from las file) and scalar fields.
     """
 
     def __init__(
@@ -43,14 +46,37 @@ class PointCloud:
         # *scalar_fied: np.ndarray = None,
         verbose: bool = False,
     ) -> None:
+        """
+        __init__ _summary_
 
+        Args:
+            points3d (np.ndarray, optional): _description_. Defaults to None.
+            pcd_path (str, optional): _description_. Defaults to None.
+            points_col (np.ndarray, optional): _description_. Defaults to None.
+            verbose (bool, optional): _description_. Defaults to False.
+
+        TODO: implement support for laspy
+        TODO: additional wrapper for plotting point clouds
+
+        """
         if points3d is not None:
             self.pcd = self.create_point_cloud(points3d, points_col)
         elif pcd_path is not None:
-            self.pcd = o3d.io.read_point_cloud(pcd_path)
+            o3d_format = [".ply", ".pcd", ".txt", ".csv"]
+            pcd_path = Path(pcd_path)
+            if any(pcd_path.suffix in e for e in [".las", ".laz"]):
+                self.read_las(pcd_path)
+            elif any(pcd_path.suffix in e for e in o3d_format):
+                self.pcd = o3d.io.read_point_cloud(pcd_path)
+            else:
+                logging.error(
+                    "Invalid file format. It mus be a las (it uses laspy) or one among [.ply, .pcd, .txt, .csv] (it uses open3d)"
+                )
         self._verbose = verbose
 
-    # Getters
+    def __len__(self):
+        return len(self.pcd.points)
+
     def get_pcd(self) -> o3d.geometry.PointCloud:
         """Get Open3d object"""
         return self.pcd
@@ -63,15 +89,28 @@ class PointCloud:
         """Get point colors as nx3 numpy array of integers values (0-255)"""
         return (np.asarray(self.pcd.colors) * 255.0).astype(int)
 
-    def __len__(self):
-        return len(self.pcd.points)
+    def read_las(self, path: Union[str, Path]):
+        """
+        read_las Read las point cloud and extract points coordinates.
 
-    # Methods
+        Args:
+            path (Union[str, Path]): path to the point cloud
+
+        TODO:
+            read also metadata and scalar fields
+        """
+        try:
+            las = laspy.read(path)
+        except:
+            logging.error(f"Unable to read {path.name}.")
+            raise ValueError(f"Unable to read {path.name}.")
+        self.create_point_cloud(points3d=las.xyz)
+
     def create_point_cloud(
         self,
         points3d: np.ndarray,
-        points_col=None,
-        *scalar_fied: np.ndarray,
+        points_col: np.ndarray = None,
+        # *scalar_fied: np.ndarray,
     ) -> o3d.geometry.PointCloud:
         """
         Creates a point cloud object using Open3D library.
@@ -98,10 +137,7 @@ class PointCloud:
 
     def sor_filter(self, nb_neighbors: int = 10, std_ratio: float = 3.0):
 
-        _, ind = self.pcd.remove_statistical_outlier(
-            nb_neighbors=nb_neighbors,
-            std_ratio=std_ratio,
-        )
+        _, ind = self.pcd.remove_statistic_verbose
         pcd_epc = pcd_epc.select_by_index(ind)
         if self._verbose:
             logging.info("Point cloud filtered by Statistical Oulier Removal")
@@ -120,3 +156,6 @@ class PointCloud:
         """
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         o3d.io.write_point_cloud(str(path), self.pcd)
+
+    def write_las(self, path: Union[str, Path]):
+        pass
