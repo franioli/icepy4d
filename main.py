@@ -57,7 +57,7 @@ matplotlib.use("TkAgg")
 if __name__ == "__main__":
 
     # Temporary parameters TODO: put them in config file
-    LOAD_EXISTING_SOLUTION = False  # False #
+    LOAD_EXISTING_SOLUTION = True  # False #
     DO_PRESELECTION = False
     DO_ADDITIONAL_MATCHING = True
 
@@ -566,52 +566,57 @@ if __name__ == "__main__":
     ep = 182
     xyz = points[ep].to_numpy()
 
-    fig, ax = plt.subplots()
-    ax.plot(xyz[:, 0], xyz[:, 1], ".", color=[0.7, 0.7, 0.7], markersize=0.5, alpha=0.8)
-    ax.axis("equal")
-    quiver = ax.quiver(
-        fts_df["X_ini"],
-        fts_df["Y_ini"],
-        fts_df["vX"],
-        fts_df["vY"],
-        fts_df["ep_ini"],
-    )
-    ax.set_xlabel("x [m]")
-    ax.set_ylabel("y [m]")
-    ax.set_aspect("equal", "box")
-    cbar = plt.colorbar(quiver)
-    cbar.set_label("epoch of detection")
-    fig.tight_layout()
-    plt.show()
+    if viz:
+        fig, ax = plt.subplots()
+        ax.plot(
+            xyz[:, 0], xyz[:, 1], ".", color=[0.7, 0.7, 0.7], markersize=0.5, alpha=0.8
+        )
+        ax.axis("equal")
+        quiver = ax.quiver(
+            fts_df["X_ini"],
+            fts_df["Y_ini"],
+            fts_df["vX"],
+            fts_df["vY"],
+            fts_df["ep_ini"],
+        )
+        ax.set_xlabel("x [m]")
+        ax.set_ylabel("y [m]")
+        ax.set_aspect("equal", "box")
+        cbar = plt.colorbar(quiver)
+        cbar.set_label("epoch of detection")
+        fig.tight_layout()
+        plt.show()
 
-    # Quiver plot 3D
-    fig = plt.figure()
-    ax = fig.add_subplot(projection="3d")
-    ax.plot(
-        xyz[:, 0],
-        xyz[:, 1],
-        xyz[:, 2],
-        ".",
-        color=[0.7, 0.7, 0.7],
-        markersize=2,
-        alpha=0.8,
-    )
-    ax.axis("equal")
-    quiver = ax.quiver(
-        fts_df["X_ini"],
-        fts_df["Y_ini"],
-        fts_df["Z_ini"],
-        fts_df["vX"],
-        fts_df["vY"],
-        fts_df["vZ"],
-        length=100,
-    )
-    ax.set_xlabel("x [m]")
-    ax.set_ylabel("y [m]")
-    ax.set_zlabel("z [m]")
-    ax.set_aspect("equal", "box")
-    fig.tight_layout()
-    plt.show()
+        # Quiver plot 3D
+        fig = plt.figure()
+        ax = fig.add_subplot(projection="3d")
+        ax.plot(
+            xyz[:, 0],
+            xyz[:, 1],
+            xyz[:, 2],
+            ".",
+            color=[0.7, 0.7, 0.7],
+            markersize=2,
+            alpha=0.8,
+        )
+        quiver = ax.quiver(
+            fts_df["X_ini"],
+            fts_df["Y_ini"],
+            fts_df["Z_ini"],
+            fts_df["vX"],
+            fts_df["vY"],
+            fts_df["vZ"],
+            length=100,
+        )
+        ax.set_xlabel("x [m]")
+        ax.set_ylabel("y [m]")
+        ax.set_zlabel("z [m]")
+        ax.set_xlim([190, -30])
+        ax.set_ylim([680, 850])
+        ax.set_zlim([-120, 20])
+        ax.set_aspect("equal", "box")
+        fig.tight_layout()
+        plt.show()
 
     # Week 0:
     ep_st, ep_fin = 181, 184
