@@ -8,7 +8,7 @@
 
 ##### Requirements
 
-- 64-bit Python `>= 3.8` but `< 3.11`
+- 64-bit Python `>= 3.8` but `< 3.10`
 - a NVIDIA graphic card with CUDA capability is strongly reccomended.
 
 ##### Create Anaconda environment
