@@ -16,12 +16,7 @@ import importlib
 from easydict import EasyDict as edict
 from pathlib import Path
 
-from ..classes.images import ImageDS
-from ..utils.initialization import parse_yaml_cfg
-
-from icepy.matching.utils import read_image, frame2tensor
 from icepy.utils import AverageTimer
-
 
 from icepy.thirdparty.SuperGluePretrainedNetwork.models.superpoint import SuperPoint
 from icepy.thirdparty.SuperGluePretrainedNetwork.models.superglue import SuperGlue
@@ -37,6 +32,10 @@ NMS_RADIUS = 3
 # SuperGlue Parameters
 SUPERGLUE_DESC_DIM = 256
 SINKHORN_ITERATIONS = 20
+
+
+def frame2tensor(frame, device):
+    return torch.from_numpy(frame / 255.0).float()[None, None].to(device)
 
 
 class SuperGlueMatcher:
@@ -57,6 +56,10 @@ class SuperGlueMatcher:
         Raises:
             KeyError: if one or more required options are missing from the options dictionary
             FileNotFoundError: if the specified SuperGlue model weights file cannot be found
+
+        TODO:
+            add default values for config dictionary and update it
+
         """
         if not isinstance(opt, dict):
             raise TypeError("opt must be a dictionary")
@@ -127,9 +130,10 @@ class SuperGlueMatcher:
 
         self.timer = AverageTimer()
         matching = Matching(self.config).eval().to(self.device)
-        self.pred = matching({"image0": tensor0, "image1": tensor1})
-        self.timer.update("matching")
+        with torch.inference_mode():
+            self.pred = matching({"image0": tensor0, "image1": tensor1})
         unpack = {k: v[0].cpu().numpy() for k, v in self.pred.items()}
+        self.timer.update("matching")
 
         self.features0 = edict(
             {
@@ -294,92 +298,106 @@ class SuperGlueMatcher:
         )
 
 
-class SuperPoint_features:
-    def __init__(
-        self,
-        max_keypoints: int = 2048,
-        keypoint_threshold: float = 0.0001,
-        use_cuda: bool = True,
-        #  weights_path: Path = MODEL_WEIGHTS_PATH,
-    ) -> None:
-        """Configures the object.
-        Args:
-            max_keypoints: max keypoints to detect in an image.
-            keypoint_threshold: threshold for keypoints detection
-            use_cuda (optional): flag controlling the use of GPUs via CUDA. Defaults to True.
-            # weights_path (optional): Path to the model weights. Defaults to MODEL_WEIGHT_PATH.
-        """
-        self._use_cuda = use_cuda and torch.cuda.is_available()
-        self._config = {
-            "superpoint": {
-                "nms_radius": NMS_RADIUS,
-                "keypoint_threshold": keypoint_threshold,
-                "max_keypoints": max_keypoints,
-            },
-        }
+# class SuperPoint_features:
+#     def __init__(
+#         self,
+#         max_keypoints: int = 2048,
+#         keypoint_threshold: float = 0.0001,
+#         use_cuda: bool = True,
+#         #  weights_path: Path = MODEL_WEIGHTS_PATH,
+#     ) -> None:
+#         """Configures the object.
+#         Args:
+#             max_keypoints: max keypoints to detect in an image.
+#             keypoint_threshold: threshold for keypoints detection
+#             use_cuda (optional): flag controlling the use of GPUs via CUDA. Defaults to True.
+#             # weights_path (optional): Path to the model weights. Defaults to MODEL_WEIGHT_PATH.
+#         """
+#         self._use_cuda = use_cuda and torch.cuda.is_available()
+#         self._config = {
+#             "superpoint": {
+#                 "nms_radius": NMS_RADIUS,
+#                 "keypoint_threshold": keypoint_threshold,
+#                 "max_keypoints": max_keypoints,
+#             },
+#         }
 
-    def detect_and_describe(self, im_path: Path):
-        """Jointly generate keypoint detections and their associated descriptors from a single image."""
-        # TODO(ayushbaid): fix inference issue #110
-        device = torch.device("cuda" if self._use_cuda else "cpu")
-        model = SuperPoint(self._config).eval().to(device)
+#     def detect_and_describe(self, im_path: Path):
+#         """Jointly generate keypoint detections and their associated descriptors from a single image."""
+#         # TODO(ayushbaid): fix inference issue #110
+#         device = torch.device("cuda" if self._use_cuda else "cpu")
+#         model = SuperPoint(self._config).eval().to(device)
 
-        # Read image and transform to tensor
-        image, image_tensor, _ = read_image(im_path, device, [2400], 0, True)
+#         # Read image and transform to tensor
+#         image, image_tensor, _ = read_image(im_path, device, [2400], 0, True)
 
-        # Compute features.
-        with torch.no_grad():
-            model_results = model({"image": image_tensor})
-        torch.cuda.empty_cache()
+#         # Compute features.
+#         with torch.no_grad():
+#             model_results = model({"image": image_tensor})
+#         torch.cuda.empty_cache()
 
-        return model_results
+#         return model_results
 
-        # keypoints = model_results["keypoints"][0].detach().cpu().numpy()
-        # scores = model_results["scores"][0].detach().cpu().numpy()
-        # descriptors = model_results["descriptors"][0].detach().cpu().numpy()
+# keypoints = model_results["keypoints"][0].detach().cpu().numpy()
+# scores = model_results["scores"][0].detach().cpu().numpy()
+# descriptors = model_results["descriptors"][0].detach().cpu().numpy()
 
-        # features = Features
-        # features.append_features(
-        #     {
-        #         "kpts": keypoints,
-        #         "descr": descriptors,
-        #         "score": scores,
-        #     }
-        # )
+# features = Features
+# features.append_features(
+#     {
+#         "kpts": keypoints,
+#         "descr": descriptors,
+#         "score": scores,
+#     }
+# )
 
-        # return features
+# return features
 
 
 if __name__ == "__main__":
+    import os
 
-    cfg_file = "config/config_base.yaml"
-    cfg = parse_yaml_cfg(cfg_file)
+    im_path0 = "assets/img/cam1/IMG_2637.jpg"
+    im_path1 = "assets/img/cam2/IMG_1112.jpg"
+    img0 = cv2.imread(im_path0)
+    img1 = cv2.imread(im_path1)
 
-    cams = cfg.paths.camera_names
-
-    # Create Image Datastore objects
-    images = dict.fromkeys(cams)
-    for cam in cams:
-        images[cam] = ImageDS(cfg.paths.image_dir / cam)
-
-    img0 = images[cams[0]].get_image_path(0)
-    img1 = images[cams[1]].get_image_path(0)
-
-    superpoint_detector = SuperPoint_features(cfg.matching.max_keypoints)
-    features0 = superpoint_detector.detect_and_describe(img0)
-    features1 = superpoint_detector.detect_and_describe(img1)
-
-    device = torch.device("cuda")
-    matching = Matching().eval().to(device)
-
-    _, tens0, _ = read_image(img0, device, [2400], 0, True)
-    _, tens1, _ = read_image(img1, device, [2400], 0, True)
-
-    data = {
-        "image0": tens0,
-        "image1": tens1,
+    suerglue_cfg = {
+        "weights": "indoor",
+        "keypoint_threshold": 0.001,
+        "max_keypoints": 4096,
+        "match_threshold": 0.3,
+        "force_cpu": False,
     }
-    data = {**data, **{k + "0": v for k, v in features0.items()}}
-    data = {**data, **{k + "1": v for k, v in features1.items()}}
+    matcher = SuperGlueMatcher(suerglue_cfg)
+    mkpts = matcher.match(img0, img1)
+    mkpts = matcher.geometric_verification(
+        threshold=1,
+        confidence=0.99,
+        symmetric_error_check=False,
+    )
+    matcher.viz_matches("test.png")
 
-    pred = matching(data)
+    os.remove("test.png")
+
+    print("Matching succeded.")
+
+    # Test Superpoint class
+    # device = torch.device("cuda")
+    # superpoint_detector = SuperPoint_features(cfg.matching.max_keypoints)
+    # features0 = superpoint_detector.detect_and_describe(img0)
+    # features1 = superpoint_detector.detect_and_describe(img1)
+
+    # matching = Matching().eval().to(device)
+
+    # _, tens0, _ = read_image(img0, device, [2400], 0, True)
+    # _, tens1, _ = read_image(img1, device, [2400], 0, True)
+
+    # data = {
+    #     "image0": tens0,
+    #     "image1": tens1,
+    # }
+    # data = {**data, **{k + "0": v for k, v in features0.items()}}
+    # data = {**data, **{k + "1": v for k, v in features1.items()}}
+
+    # pred = matching(data)

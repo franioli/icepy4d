@@ -105,73 +105,313 @@ for epoch in cfg.proc.epoch_to_process:
 
 """Tests"""
 
+# import open3d as o3d
+# from scipy.spatial import KDTree
+
+# from icepy.tracking_features_utils import *
+
+# folder_out = Path("test_out")
+# folder_out.mkdir(parents=True, exist_ok=True)
+# viz = False
+# save_figs = False
+# min_dt = 2
+
+# fdict = sort_features_by_cam(features, cams[0])
+# # bbox = np.array([800, 1500, 5500, 2500])
+# vol = np.array(
+#     [
+#         [0.0, 120.0, 110.0],
+#         [0.0, 340.0, 110.0],
+#         [-150.0, 120.0, 110.0],
+#         [-150.0, 340.0, 110.0],
+#         [0.0, 120.0, 140.0],
+#         [0.0, 340.0, 140.0],
+#         [-150.0, 120.0, 140.0],
+#         [-150.0, 340.0, 140.0],
+#     ]
+# )
+# # fts = tracked_features_time_series(
+# #     fdict,
+# #     min_tracked_epoches=2,
+# #     rect=bbox,
+# # )
+# fts = tracked_points_time_series(points, min_tracked_epoches=min_dt, volume=vol)
+# fts_df = tracked_dict_to_df(
+#     features,
+#     points,
+#     epoch_dict,
+#     fts,
+#     min_dt=min_dt,
+#     vx_lims=[0, 0.3],
+#     vy_lims=[-0.05, 0.05],
+#     vz_lims=[-0.2, 0],
+#     save_path=folder_out / "test.csv",
+# )
+# logging.info("Time series of tracked points and onverted to pandas df")
+
+# Binned stats
+
+# from icepy.binned_stats import *
+
+# # Get points and compute displacements
+# pts0 = fts_df[["X_ini", "Y_ini", "Z_ini"]].to_numpy()
+# displacement = fts_df[["dX", "dY", "dZ"]].to_numpy()
+# magnitude = np.linalg.norm(displacement, axis=1)
+# unit_vector = displacement / magnitude[:, np.newaxis]
+
+# # Define grid
+# step = 10
+# xmin, ymin, xmax, ymax = (
+#     vol[:, 0].min(),
+#     vol[:, 1].min(),
+#     vol[:, 0].max(),
+#     vol[:, 1].max(),
+# )
+# x_nodes = np.arange(xmin, xmax, step)
+# y_nodes = np.arange(ymin, ymax, step)
+
+# xnode, ynode, magnitude_binned = compute_binned_stats(
+#     pts0[:, 0:2],
+#     displacement.reshape(-1, 1),
+#     statistic="median",
+#     x_nodes=x_nodes,
+#     y_nodes=y_nodes,
+#     display_results=True,
+# )
+# _, _, dx = compute_binned_stats(
+#     pts0[:, 0:2],
+#     displacement[:, 0:1],
+#     statistic="median",
+#     x_nodes=x_nodes,
+#     y_nodes=y_nodes,
+# )
+# _, _, dy = compute_binned_stats(
+#     pts0[:, 0:2],
+#     displacement[:, 1:2],
+#     statistic="median",
+#     x_nodes=x_nodes,
+#     y_nodes=y_nodes,
+# )
+# _, _, dz = compute_binned_stats(
+#     pts0[:, 0:2],
+#     displacement[:, 2:3],
+#     statistic="median",
+#     x_nodes=x_nodes,
+#     y_nodes=y_nodes,
+# )
+
+
+""" Tracking all features for one week around 26 July 2022"""
+
 import open3d as o3d
-from scipy.spatial import KDTree
 
 from icepy.tracking_features_utils import *
+from icepy.belvedere_rototranslation import belv_loc2utm
+
+min_dt = 1
 
 folder_out = Path("test_out")
 folder_out.mkdir(parents=True, exist_ok=True)
-viz = False
-save_figs = False
-min_dt = 2
-
-fdict = sort_features_by_cam(features, cams[0])
-# bbox = np.array([800, 1500, 5500, 2500])
-vol = np.array(
-    [
-        [0.0, 120.0, 110.0],
-        [0.0, 340.0, 110.0],
-        [-80.0, 120.0, 110.0],
-        [-80.0, 340.0, 110.0],
-        [0.0, 120.0, 140.0],
-        [0.0, 340.0, 140.0],
-        [-80.0, 120.0, 140.0],
-        [-80.0, 340.0, 140.0],
-    ]
-)
-# fts = tracked_features_time_series(
-#     fdict,
-#     min_tracked_epoches=2,
-#     rect=bbox,
-# )
-fts = tracked_points_time_series(points, min_tracked_epoches=min_dt, volume=vol)
+fts = tracked_points_time_series(points, min_tracked_epoches=min_dt)
 fts_df = tracked_dict_to_df(
     features,
     points,
     epoch_dict,
     fts,
     min_dt=min_dt,
-    vx_lims=[0, 0.3],
-    vy_lims=[-0.05, 0.05],
-    vz_lims=[-0.2, 0],
+    vx_lims=[0, 0.4],
+    vy_lims=[-0.10, 0.10],
+    vz_lims=[-0.3, 0],
     save_path=folder_out / "test.csv",
 )
-logging.info("Time series of tracked points and onverted to pandas df")
+logging.info("Time series of tracked points and converted to pandas df")
 
-# delete = [k for k, v in fts.items() if 180 in v]
-# for key in delete:
-#     del fts[key]
+pts_utm = belv_loc2utm(fts_df[["X_ini", "Y_ini", "Z_ini"]].to_numpy().T).T
+fts_df["East_ini"] = pts_utm[:, 0]
+fts_df["North_ini"] = pts_utm[:, 1]
+fts_df["h_ini"] = pts_utm[:, 2]
+pts_utm = belv_loc2utm(fts_df[["X_fin", "Y_fin", "Z_fin"]].to_numpy().T).T
+fts_df["East_fin"] = pts_utm[:, 0]
+fts_df["North_fin"] = pts_utm[:, 1]
+fts_df["h_fin"] = pts_utm[:, 2]
 
-# if save_figs:
-#     def save_tracked_task():
-#         pass
-#     for fid in fts.keys():
-#         for ep in fts[fid]:
-#             fout = folder_out / f"fid_{fid}_ep_{ep}.jpg"
-#             icepy_viz.plot_feature(
-#                 images[cam].read_image(ep).value,
-#                 fdict[ep][fid],
-#                 save_path=fout,
-#                 hide_fig=True,
-#                 zoom_to_feature=True,
-#                 s=10,
-#                 marker="x",
-#                 c="r",
-#                 edgecolors=None,
-#                 window_size=50,
-#             )
-# plt.close("all")
+fts_df["dE"] = fts_df["East_fin"] - fts_df["East_ini"]
+fts_df["dN"] = fts_df["North_fin"] - fts_df["North_ini"]
+fts_df["dh"] = fts_df["h_fin"] - fts_df["h_ini"]
+fts_df["vE"] = fts_df["dE"] / fts_df["dt"].dt.days
+fts_df["vN"] = fts_df["dN"] / fts_df["dt"].dt.days
+fts_df["vh"] = fts_df["dh"] / fts_df["dt"].dt.days
+fts_df["V"] = np.linalg.norm(fts_df[["vX", "vY", "vZ"]].to_numpy(), axis=1).reshape(
+    -1, 1
+)
+fts_df.to_csv(folder_out / "tracked_points_utm.csv")
+
+# Binned stats
+
+from icepy.binned_stats import *
+
+# Get points and compute displacements
+pts0 = fts_df[["East_fin", "North_fin", "h_ini"]].to_numpy()
+velocity = fts_df[["vE", "vN", "vh"]].to_numpy()
+magnitude = fts_df["V"].to_numpy()
+
+# Define grid
+step = 5
+buffer = 20
+xmin, ymin, xmax, ymax = (
+    pts0[:, 0].min() - buffer,
+    pts0[:, 1].min() - buffer,
+    pts0[:, 0].max() + buffer,
+    pts0[:, 1].max() + buffer,
+)
+x_nodes = np.arange(xmin, xmax, step)
+y_nodes = np.arange(ymin, ymax, step)
+
+# Compute binned median
+nodesE, nodesN, V = compute_binned_stats(
+    pts0[:, 0:2],
+    magnitude.reshape(-1, 1),
+    statistic="median",
+    x_nodes=x_nodes,
+    y_nodes=y_nodes,
+    display_results=True,
+)
+_, _, vE = compute_binned_stats(
+    pts0[:, 0:2],
+    velocity[:, 0:1],
+    statistic="median",
+    x_nodes=x_nodes,
+    y_nodes=y_nodes,
+)
+_, _, vN = compute_binned_stats(
+    pts0[:, 0:2],
+    velocity[:, 1:2],
+    statistic="median",
+    x_nodes=x_nodes,
+    y_nodes=y_nodes,
+)
+_, _, vh = compute_binned_stats(
+    pts0[:, 0:2],
+    velocity[:, 2:3],
+    statistic="median",
+    x_nodes=x_nodes,
+    y_nodes=y_nodes,
+)
+
+msk = np.invert(np.isnan(V.flatten()))
+binned_df = pd.DataFrame(
+    {
+        "nodeE": nodesE.flatten()[msk],
+        "nodeN": nodesN.flatten()[msk],
+        "vE": vE.flatten()[msk],
+        "vN": vN.flatten()[msk],
+        "vh": vh.flatten()[msk],
+        "V": V.flatten()[msk],
+    }
+)
+binned_df.to_csv(folder_out / "tracked_points_binned_utm.csv")
+
+
+# downsample_stp = 2
+# dense = o3d.io.read_point_cloud("test_out/dense.ply")
+# xyz = np.asarray(dense.voxel_down_sample(downsample_stp).points)
+fig, ax = plt.subplots()
+# ax.plot(xyz[:, 0], xyz[:, 1], ".", color=[0.7, 0.7, 0.7], markersize=0.5, alpha=0.8)
+ax.axis("equal")
+quiver = ax.quiver(
+    xnode,
+    ynode,
+    dx,
+    dy,
+    magnitude_binned,
+    scale=5,
+)
+ax.set_xlabel("x [m]")
+ax.set_ylabel("y [m]")
+ax.set_aspect("equal", "box")
+cbar = plt.colorbar(quiver)
+cbar.set_label("epoch of detection")
+fig.tight_layout()
+plt.show()
+
+
+#######
+
+# Binned statistics from single weeks
+
+
+def extract_df_fields_from_epoch_range(
+    df: pd.DataFrame, ep_st: int, ep_fin: int, fields: List[str]
+) -> np.ndarray:
+    return fts_df[(fts_df["ep_ini"] >= ep_st) & (fts_df["ep_ini"] < ep_fin)][
+        fields
+    ].to_numpy()
+
+
+# Define grid
+step = 5
+xmin, ymin, xmax, ymax = (
+    vol[:, 0].min(),
+    vol[:, 1].min(),
+    vol[:, 0].max(),
+    vol[:, 1].max(),
+)
+x_nodes = np.arange(xmin, xmax, step)
+y_nodes = np.arange(ymin, ymax, step)
+
+dt = 5
+magnitude_binned = {}
+for ep in cfg.proc.epoch_to_process[:-dt]:
+    pts = extract_df_fields_from_epoch_range(
+        fts_df, ep, ep + dt, fields=["X_ini", "Y_ini", "Z_ini"]
+    )
+    displacement = extract_df_fields_from_epoch_range(
+        fts_df, ep, ep + dt, fields=["dX", "dY", "dZ"]
+    )
+    vel = extract_df_fields_from_epoch_range(
+        fts_df, ep, ep + dt, fields=["vX", "vY", "vZ", "V"]
+    )
+    xnode, ynode, magnitude_binned[ep] = compute_binned_stats(
+        pts[:, 0:2],
+        vel[:, 3:4],
+        statistic="median",
+        x_nodes=x_nodes,
+        y_nodes=y_nodes,
+        # display_results=True,
+    )
+
+xx_nodes, yy_nodes = np.meshgrid(x_nodes, y_nodes)
+plot_binned_stats(x_nodes=xx_nodes, y_nodes=yy_nodes, values=magnitude_binned[190])
+
+
+def get_point_TS(
+    xx_nodes: np.ndarray, yy_nodes: np.ndarray, values: dict, coord: Tuple
+):
+    msk = np.logical_and(xx_nodes == coord[0], yy_nodes == coord[1])
+
+    val = {}
+    for id, array in values.items():
+        val[id] = array[msk]
+
+    return val
+
+
+coord = (-40.0, 230)
+valTS = get_point_TS(
+    xx_nodes=xx_nodes, yy_nodes=yy_nodes, values=magnitude_binned, coord=coord
+)
+
+
+def plot_TS(val_TS):
+    (
+        fig,
+        ax,
+    ) = plt.subplots()
+    ax.plot(list(valTS.keys()), list(valTS.values()))
+
+
+########
+
 if viz:
     cam = cams[0]
     fid = 2155
@@ -340,53 +580,6 @@ plt.show()
 # pts_lims = product(pts, lim)
 # out = list(compress(nodes, map(pts_in_rect, pts_lims)))
 
-from scipy.stats import binned_statistic_2d
-
-step = 10
-xmin, ymin, xmax, ymax = (
-    vol[:, 0].min(),
-    vol[:, 1].min(),
-    vol[:, 0].max(),
-    vol[:, 1].max(),
-)
-pts0 = fts_df[["X_ini", "Y_ini", "Z_ini"]].to_numpy()
-pts1 = fts_df[["X_fin", "Y_fin", "Z_fin"]].to_numpy()
-
-x = np.arange(xmin, xmax, step)
-y = np.arange(ymin, ymax, step)
-ret = binned_statistic_2d(
-    pts0[:, 0].flatten(),
-    pts0[:, 1].flatten(),
-    None,
-    "count",
-    bins=[x, y],
-    expand_binnumbers=True,
-)
-binned_points = list(zip(ret.binnumber[0] - 1, ret.binnumber[1] - 1))
-
-X, Y = np.meshgrid(x, y)
-Z = np.full_like(X, vol[4, 2])
-xyz_grid = np.array(list(zip(X.flatten(), Y.flatten(), Z.flatten())))
-
-dense = o3d.io.read_point_cloud("test_out/dense.ply")
-pcd = o3d.geometry.PointCloud()
-pcd.points = o3d.utility.Vector3dVector(xyz_grid)
-o3d.visualization.draw_geometries([pcd, dense])
-
-
-displacement = pts1 - pts0
-magnitude = np.linalg.norm(displacement, axis=1)
-unit_vector = displacement / magnitude[:, np.newaxis]
-
-vx, vy, vz = [], [], []
-for bin in binned_points:
-    vx = []
-
-pcd = icepy_classes.PointCloud(pcd_path="test_out/dense_2022.ply")
-icepy_viz.display_point_cloud([pcd], list(cameras[ep].values()), plot_scale=20)
-
-# for key, group in groupby(L, key_func):
-#     print(f"{key}: {list(group)}")
 
 # import plotly.graph_objects as go
 # import plotly.figure_factory as ff
@@ -411,6 +604,10 @@ icepy_viz.display_point_cloud([pcd], list(cameras[ep].values()), plot_scale=20)
 # fig.show()
 
 """End tests"""
+
+
+""" Various"""
+
 
 # Check estimated focal lenghts:
 if cfg.proc.do_metashape_processing:
