@@ -53,11 +53,20 @@ from icepy.io.export2bundler import write_bundler_out
 LOAD_EXISTING_SOLUTION = False  # False #
 DO_PRESELECTION = False
 DO_ADDITIONAL_MATCHING = True
+PATCHES = [
+    {"p1": [0, 500, 2000, 2000], "p2": [4000, 0, 6000, 1500]},
+    {"p1": [1000, 1500, 4500, 2500], "p2": [1500, 1500, 5000, 2500]},
+    {"p1": [2000, 2000, 3000, 3000], "p2": [2100, 2100, 3100, 3100]},
+    {"p1": [2300, 1700, 3300, 2700], "p2": [3000, 1900, 4000, 2900]},
+    # {"p1": [3200, 1600, 4200, 2600], "p2": [5000, 1800, 6000, 2800]},
+    # {"p1": [1200, 1600, 2200, 2600], "p2": [3200, 1300, 4200, 2300]},
+]
+
 
 initialization.print_welcome_msg()
 
 cfg_file, log_cfg = initialization.parse_command_line()
-# cfg_file = Path("config/config_test.yaml")
+# cfg_file = Path("config/config_2022_exp.yaml")
 
 """ Inizialize Variables """
 # Setup logger
@@ -116,6 +125,7 @@ for epoch in cfg.proc.epoch_to_process:
 
     # Perform matching and tracking
     if cfg.proc.do_matching:
+
         if DO_PRESELECTION:
             if cfg.proc.do_tracking and epoch > cfg.proc.epoch_to_process[0]:
                 features[epoch] = tracking_base(
@@ -148,6 +158,48 @@ for epoch in cfg.proc.epoch_to_process:
                 features=features,
                 epoch_dict=epoch_dict,
             )
+
+        # Run additional matching on selected patches:
+        if DO_ADDITIONAL_MATCHING:
+
+            from icepy.matching.match_by_preselection import find_matches_on_patches
+            from icepy.matching.utils import geometric_verification
+
+            logging.info("Performing additional matching on user-specified patches")
+            im_stems = [images[cam].get_image_stem(epoch) for cam in cams]
+            sg_opt = {
+                "weights": cfg.matching.weights,
+                "keypoint_threshold": 0.0001,
+                "max_keypoints": 8192,
+                "match_threshold": 0.2,
+                "force_cpu": False,
+            }
+            for i, patches_lim in enumerate(PATCHES):
+                find_matches_on_patches(
+                    images=images,
+                    patches_lim=patches_lim,
+                    epoch=epoch,
+                    features=features[epoch],
+                    cfg=sg_opt,
+                    do_geometric_verification=True,
+                    geometric_verification_threshold=10,
+                    viz_results=True,
+                    fast_viz=True,
+                    viz_path=match_dir
+                    / f"{im_stems[0]}_{im_stems[1]}_matches_patch_{i}.png",
+                )
+
+            # Run again geometric verification
+            geometric_verification(
+                features[epoch],
+                threshold=cfg.matching.pydegensac_threshold,
+                confidence=cfg.matching.pydegensac_confidence,
+            )
+            logging.info("Matching by patches completed.")
+
+            # For debugging
+            # for cam in cams:
+            #     features[epoch][cam].plot_features(images[cam].read_image(epoch).value)
     else:
         try:
             features[epoch] = load_matches_from_disk(match_dir)
@@ -161,56 +213,6 @@ for epoch in cfg.proc.epoch_to_process:
                 features=features,
                 epoch_dict=epoch_dict,
             )
-
-    # # Run additional matching on selected patches:
-    if DO_ADDITIONAL_MATCHING:
-
-        from icepy.matching.match_by_preselection import find_matches_on_patches
-        from icepy.matching.utils import geometric_verification
-
-        logging.info("Performing additional matching on user-specified patches")
-        im_stems = [images[cam].get_image_stem(epoch) for cam in cams]
-        patches = [
-            {"p1": [0, 500, 2000, 2000], "p2": [4000, 0, 6000, 1500]},
-            {"p1": [1000, 1500, 4500, 2500], "p2": [1500, 1500, 5000, 2500]},
-            {"p1": [2000, 2000, 3000, 3000], "p2": [2100, 2100, 3100, 3100]},
-            {"p1": [2300, 1700, 3300, 2700], "p2": [3000, 1900, 4000, 2900]},
-            # {"p1": [3200, 1600, 4200, 2600], "p2": [5000, 1800, 6000, 2800]},
-            # {"p1": [1200, 1600, 2200, 2600], "p2": [3200, 1300, 4200, 2300]},
-        ]
-        sg_opt = {
-            "weights": cfg.matching.weights,
-            "keypoint_threshold": 0.0001,
-            "max_keypoints": 8192,
-            "match_threshold": 0.2,
-            "force_cpu": False,
-        }
-        for i, patches_lim in enumerate(patches):
-            find_matches_on_patches(
-                images=images,
-                patches_lim=patches_lim,
-                epoch=epoch,
-                features=features[epoch],
-                cfg=sg_opt,
-                do_geometric_verification=True,
-                geometric_verification_threshold=10,
-                viz_results=True,
-                fast_viz=True,
-                viz_path=match_dir
-                / f"{im_stems[0]}_{im_stems[1]}_matches_patch_{i}.png",
-            )
-
-        # Run again geometric verification
-        geometric_verification(
-            features[epoch],
-            threshold=cfg.matching.pydegensac_threshold,
-            confidence=cfg.matching.pydegensac_confidence,
-        )
-        logging.info("Matching by patches completed.")
-
-        # For debugging
-        # for cam in cams:
-        #     features[epoch][cam].plot_features(images[cam].read_image(epoch).value)
 
     timer.update("matching")
 
