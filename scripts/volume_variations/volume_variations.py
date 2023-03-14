@@ -24,9 +24,9 @@ from icepy.pcd_proc.cloudcompare import DemOfDifference, make_pairs
 PCD_DIR = "res/point_clouds_meshed"
 PCD_PATTERN = "sampled*.ply"
 OUT_DIR = "res/volumes_variations"
-DOD_DIR = "z"
+DOD_DIR = "x"
 TSTEP = 5
-GRID_STEP = 0.2
+GRID_STEP = 0.3
 
 
 LOG_LEVEL = logging.INFO
@@ -174,9 +174,9 @@ if __name__ == "__main__":
     fig, ax = plt.subplots()
     fig.set_tight_layout(True)
     ax.grid(visible=True, which="both")
-    ax.plot(df["date_in"], df["volume_daily_normalized"])
+    ax.plot(df["date_in"], -df["volume_daily_normalized"])
     ax.set_xlabel("day")
-    ax.set_ylabel("Volume [$m^3$]")
+    ax.set_ylabel("-dV [$m^3$]")
     ax.set_title(f"Daily volume differences - Step {TSTEP} days")
     ax.grid(True)
     ax.minorticks_on()
@@ -193,9 +193,9 @@ if __name__ == "__main__":
     # Make plot for Cumulated volumes
     fig, ax = plt.subplots()
     fig.set_tight_layout(True)
-    ax.plot(df["date_in"], df["volume_daily_norm_cumul"])
+    ax.plot(df["date_in"], -df["volume_daily_norm_cumul"])
     ax.set_xlabel("Day")
-    ax.set_ylabel("Volume [$m^3$]")
+    ax.set_ylabel("-dV cumulated [$m^3$]")
     ax.set_title(f"Cumulated volume difference - Step {TSTEP} days")
     ax.grid(True)
     ax.minorticks_on()
