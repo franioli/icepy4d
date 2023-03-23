@@ -1,18 +1,25 @@
 import logging
+import multiprocessing
+from itertools import compress
+from pathlib import Path
+from typing import Union, List
+
 import numpy as np
 import open3d as o3d
-import multiprocessing
-
-from os import getpid
-from itertools import repeat, compress
 from easydict import EasyDict as edict
-from pathlib import Path
-from typing import Union
-from scipy.spatial import Delaunay
 from matplotlib import path as mpath
 
-from ..utils.timer import AverageTimer
-from ..utils.spatial_funs import point_in_hull, ccw_sort_points
+from icepy.utils.spatial_funs import ccw_sort_points, point_in_hull
+from icepy.utils.timer import AverageTimer
+
+# def filter_mesh_by_convex_hull(mesh, pcd):
+#     convex_hull = pcd.compute_convex_hull()
+
+#     keep = point_in_hull(np.asarray(mesh.vertices), np.asarray(convex_hull.vertices))
+#     idx = list(compress(range(len(keep)), keep))
+#     mesh = mesh.select_by_index(idx)
+
+#     return mesh
 
 
 def display_inlier_outlier(cloud, ind):
@@ -27,17 +34,87 @@ def display_inlier_outlier(cloud, ind):
     )
 
 
-def meshing_task(pcd_path: Path, out_dir: Path, cfg: dict) -> bool:
+def filter_pcd_by_polyline(
+    pcd: o3d.geometry.PointCloud,
+    polyline_path: str,
+    dir: str = "x",
+) -> o3d.geometry.PointCloud:
     """
-    meshing_task Task function for running meshing and sampling with a parallel pool.
+    Filters a point cloud based on a given polyline in the X-Y plane.
 
     Args:
-        pcd_path (Path): path to the current point cloud (is passed by map)
-        out_dir (Path): output directory
-        cfg (dict): configuration dictionary (see Meshing class)
+        pcd (o3d.geometry.PointCloud): The input point cloud.
+        polyline_path (str): The path to a text file containing the polyline coordinates.
+        dir (str, optional): The plane on which to cut the point cloud. Can be "x", "y" or "z". Defaults to "x".
+
+    Returns:
+        o3d.geometry.PointCloud: The filtered point cloud.
+
+    Raises:
+        ValueError: If the given direction is not "x", "y" or "z".
+
+    NOTE:
+        The polyline is defined by a set of points, which are loaded from a text file specified by polyline_path. The polyline is sorted in a counterclockwise order and closed to form a polygon. The point cloud is then filtered based on whether the point lies inside or outside the polygon in the specified plane.
     """
-    meshing = Meshing(pcd_path, out_dir=out_dir, cfg=cfg)
-    return meshing.run()
+    with open(polyline_path, "r") as f:
+        poly = np.loadtxt(f, delimiter=" ")
+    if dir == "x":
+        poly = poly[:, 1:]
+    else:
+        raise ValueError("Cutting point cloud implemented only on Y-Z plane")
+
+    poly_sorted = ccw_sort_points(poly)
+    poly_sorted = np.concatenate((poly_sorted, poly_sorted[0, :].reshape(1, 2)), axis=0)
+    codes = [mpath.Path.LINETO for row in poly_sorted]
+    codes[0] = mpath.Path.MOVETO
+    codes[-1] = mpath.Path.CLOSEPOLY
+    polygon = mpath.Path(poly_sorted, codes)
+
+    if dir == "x":
+        points = np.asarray(pcd.points)[:, 1:]
+    keep = polygon.contains_points(points)
+    idx = list(compress(range(len(keep)), keep))
+    pcd_out = pcd.select_by_index(idx)
+
+    return pcd_out
+
+
+def read_and_merge_point_clouds(pcd_names: List[str]) -> o3d.geometry.PointCloud:
+    """Merge multiple point clouds into a single point cloud.
+
+    Args:
+        pcd_names (List[str]): A list of file paths of point clouds to merge.
+
+    Returns:
+        o3d.geometry.PointCloud: A merged point cloud containing all points from input point clouds.
+
+    Raises:
+        FileNotFoundError: If any of the input point cloud files do not exist.
+
+    Notes:
+        This function reads multiple point cloud files specified by file paths in `pcd_names`, and merges them into a single point cloud. The merged point cloud contains all points from the input point clouds, with the corresponding colors.
+    """
+    input_pcds = {}
+    for k, path in enumerate(pcd_names):
+        if not Path(path).is_file():
+            raise FileNotFoundError(f"File not found: {path}")
+        input_pcds[k] = o3d.io.read_point_cloud(path)
+
+    tot_points = sum(len(pcd.points) for pcd in input_pcds.values())
+    pts_all = np.empty((tot_points, 3))
+    col_all = np.empty((tot_points, 3))
+
+    idx = 0
+    for pcd in input_pcds.values():
+        pts_all[idx : idx + len(pcd.points)] = np.asarray(pcd.points)
+        col_all[idx : idx + len(pcd.points)] = np.asarray(pcd.colors)
+        idx += len(pcd.points)
+
+    merged = o3d.geometry.PointCloud()
+    merged.points = o3d.utility.Vector3dVector(pts_all)
+    merged.colors = o3d.utility.Vector3dVector(col_all)
+
+    return merged
 
 
 class Meshing:
@@ -204,9 +281,9 @@ class Meshing:
         return True
 
     def run(self) -> bool:
+        # NOTE: filter_mesh_by_density() MUST be callded before filter_mesh_by_convex_hull() because of a bug in the density array when filtering the mesh first. Fix it
         self.read_pcd()
         self.poisson_meshing()
-        # # TODO: filter_mesh_by_density() MUST be callded before filter_mesh_by_convex_hull() because of a bug in the density array when filtering the mesh first. Fix it
         self.filter_mesh_by_density()
         self.filter_mesh_by_convex_hull()
         if self.cfg.sample_mesh:
@@ -222,21 +299,9 @@ class Meshing:
         return True
 
 
-def start_process():
-    logging.info(
-        f"Starting {multiprocessing.current_process().name} with process {getpid()}"
-    )
-
-
 if __name__ == "__main__":
 
-    multiprocessing.set_start_method("spawn")
-
-    MP = False
-
-    NUM_WORKERS = None
-
-    PCD_DIR = "res/point_clouds"  #
+    PCD_DIR = "res/point_clouds"
     PCD_PATTERN = "dense_2022*.ply"
     OUT_DIR = "res/point_clouds_meshed"
 
@@ -246,7 +311,21 @@ if __name__ == "__main__":
         level=LOG_LEVEL,
     )
 
-    cfg = {
+    pcd_list = sorted(Path(PCD_DIR).glob(PCD_PATTERN))
+    n = len(pcd_list)
+
+    polyline_path = "test/poly.poly"
+    output_dir = "test"
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(exist_ok=True)
+
+    pcd = o3d.io.read_point_cloud(str(pcd_list[0]))
+    cropped = filter_pcd_by_polyline(pcd, polyline_path, dir="x")
+    o3d.io.write_point_cloud(str(output_dir / f"test.ply"), cropped)
+
+    # Test meshing
+    CFG = {
         "do_SOR": False,
         "poisson_depth": 9,
         "min_mesh_denisty": 9,
@@ -255,28 +334,8 @@ if __name__ == "__main__":
         "num_sampled_points": 4 * 10**6,
         "crop_polyline_path": "data/crop_polyline.poly",
     }
+    m = Meshing(pcd_list[0], out_dir=output_dir, cfg=CFG)
+    if not m.run():
+        raise RuntimeError(f"Unable to mesh point cloud {pcd_list[0]}")
 
-    pcd_list = sorted(Path(PCD_DIR).glob(PCD_PATTERN))
-    n = len(pcd_list)
-
-    # Test task
-    # res = meshing_task(pcd_list[0], OUT_DIR, cfg)
-
-    if MP:
-        if NUM_WORKERS is None:
-            p = multiprocessing.Pool(initializer=start_process)
-        else:
-            p = multiprocessing.Pool(
-                processes=NUM_WORKERS,
-                initializer=start_process,
-            )
-        result = p.starmap(
-            meshing_task,
-            zip(pcd_list, list(repeat(OUT_DIR, n)), list(repeat(cfg, n))),
-        )
-        p.close()
-        p.join()
-
-    else:
-        for pcd in pcd_list:
-            meshing_task(pcd, OUT_DIR, cfg)
+    print("done.")

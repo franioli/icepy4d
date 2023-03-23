@@ -603,6 +603,25 @@ class Features:
         with open(path, "wb") as f:
             pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
 
+    # def save_as_h5(self, path: Union[str, Path]) -> bool:
+    #         key1, key2 = images[cams[0]][epoch], images[cams[1]][epoch]
+
+    #         mkpts0 = features[epoch][cams[0]].kpts_to_numpy()
+    #         mkpts1 = features[epoch][cams[1]].kpts_to_numpy()
+    #         n_matches = len(mkpts0)
+
+    #         output_dir = Path(epochdir)
+    #         db_name = output_dir / f"{epoch_dict[epoch]}.h5"
+    #         with h5py.File(db_name, mode="w") as f_match:
+    #             group = f_match.require_group(key1)
+    #             if n_matches >= MIN_MATCHES:
+    #                 group.create_dataset(
+    #                     key2, data=np.concatenate([mkpts0, mkpts1], axis=1)
+    #                 )
+    #         kpts = defaultdict(list)
+    #         match_indexes = defaultdict(dict)
+    #         total_kpts = defaultdict(int)
+
     def plot_features(
         self,
         image: np.ndarray,

@@ -1,46 +1,85 @@
-import pandas as pd
-
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, Union
 from pathlib import Path
-from datetime import datetime, timedelta
 
 import cloudComPy as cc  # import the CloudComPy module
 
-
-def find_closest_date_idx(
-    datetime_list: List[datetime],
-    date_to_find: datetime,
-):
-    closest = min(datetime_list, key=lambda sub: abs(sub - date_to_find))
-    for idx, date in enumerate(datetime_list):
-        if date == closest:
-            return idx
+ALLOWED_PCD_EXT = [".asc", ".las", ".E57", ".ply", ".pcd", ".bin"]
 
 
-def make_pairs(
-    pcd_list: List[Path], step: int = 1, date_format: str = "%Y_%m_%d"
-) -> dict:
-    dt = timedelta(step)
-    idx = pcd_list[0].stem.find("202")
-    dates_str = [date.stem[idx:] for date in pcd_list]
-    dates = [datetime.strptime(date, date_format) for date in dates_str]
+def cut_point_cloud_by_polyline(
+    pcd: cc.ccPointCloud,
+    polyline_path: str,
+    direction: str = "z",
+    inside: bool = True,
+    output_pah: Union[str, Path] = None,
+    delete_original: bool = False,
+) -> cc.ccPointCloud:
+    """
+    cut_point_cloud_by_polyline - Function to crop a point cloud using a polyline.
 
-    pair_dict = {}
-    for i in range(len(pcd_list) - step):
-        date_in = dates[i]
-        date_f = date_in + dt
-        idx_closest = find_closest_date_idx(dates, date_f)
-        pair_dict[i] = (str(pcd_list[i]), str(pcd_list[idx_closest]))
+    NOTE:
+        Function is currently not working!
 
-    return (pair_dict, dates)
+    Args:
+        pcd (cc.ccPointCloud): Point cloud object to be cropped.
+        polyline_path (str): Path to polyline file.
+        direction (str, optional): Direction along which to perform cropping, can be "x", "y" or "z". Defaults to "z".
+        inside (bool, optional): Flag to control cropping within (True) or outside (False) the polyline region. Defaults to True.
+        output_pah (Union[str, Path], optional): Path to output cropped point cloud file. Defaults to None.
+        delete_original (bool, optional): Flag to control whether to delete the original point cloud object. Defaults to False.
+
+    Raises:
+        RuntimeError: If unable to crop point cloud.
+        IOError: If unable to save cropped point cloud to specified file path.
+
+    Returns:
+        cc.ccPointCloud: Cropped point cloud object.
+    """
+    assert direction in [
+        "x",
+        "y",
+        "z",
+    ], "Invalid direction provided. Provide the name of the axis as a string. The following directions are allowed: ['x', 'y', 'z']"
+    if direction == "y":
+        direction = 0
+    if direction == "x":
+        direction = 1
+    if direction == "z":
+        direction = 2
+
+    polyline = cc.loadPolyline(polyline_path)
+    polyline.setClosed(True)
+
+    cropped = pcd.crop2D(polyline, direction, inside)
+    if cropped is None:
+        raise RuntimeError("Unable to crop point cloud.")
+
+    if output_pah := Path(output_pah):
+        assert (
+            output_pah.suffix in ALLOWED_PCD_EXT
+        ), f"Invalid point cloud extension. It must be one of the followings {ALLOWED_PCD_EXT}"
+        output_pah.parent.mkdir(exist_ok=True, parents=True)
+        if not cc.SavePointCloud(cropped, str(output_pah)):
+            raise IOError(f"Unable to save cropped point cloud to {output_pah}.")
+
+    # Free memory by deleting original CC entities
+    cc.deleteEntity(polyline)
+    if delete_original:
+        cc.deleteEntity(pcd)
+
+    return cropped
 
 
 class DemOfDifference:
     def __init__(self, pcd_pair: Tuple[str]) -> None:
         self.pcd_pair = pcd_pair
         self.pcd0 = cc.loadPointCloud(self.pcd_pair[0])
+        if self.pcd0 is None:
+            raise IOError(f"Unable to read point cloud {self.pcd_pair[0]}")
         self.pcd1 = cc.loadPointCloud(self.pcd_pair[1])
+        if self.pcd1 is None:
+            raise IOError(f"Unable to read point cloud {self.pcd_pair[1]}")
 
     def compute_volume(
         self,
@@ -80,29 +119,22 @@ class DemOfDifference:
     def cut_point_clouds_by_polyline(
         self, polyline_path: str, direction: str = "x"
     ) -> None:
-        assert direction in [
-            "x",
-            "y",
-            "z",
-        ], "Invalid direction provided. Provide the name of the axis as a string. The following directions are allowed: ['x', 'y', 'z']"
-        if direction == "y":
-            self.direction = 0
-        if direction == "x":
-            self.direction = 1
-        if direction == "z":
-            self.direction = 2
+        """
+        cut_point_clouds_by_polyline Function is currently not working!
 
-        self.polyline = cc.loadPolyline(polyline_path)
-        self.polyline.setClosed(True)
+        TODO:
+            find bug to make function cut_point_cloud_by_polyline() working
 
-        self.pcd0 = self.pcd0.crop2D(self.polyline, self.direction, True)
-        self.pcd1 = self.pcd1.crop2D(self.polyline, self.direction, True)
-
-        pcd = cc.loadPointCloud(self.pcd_pair[0])
-        poly = cc.loadPolyline(polyline_path)
-        poly.setClosed(True)
-        cropped = pcd.crop2D(poly, 1, True)
-        ret = cc.SavePointCloud(cropped, "cloudcompy/test.ply")
+        Args:
+            polyline_path (str): _description_
+            direction (str, optional): _description_. Defaults to "x".
+        """
+        self.pcd0 = cut_point_cloud_by_polyline(
+            self.pcd0, polyline_path, direction, delete_original=True
+        )
+        self.pcd1 = cut_point_cloud_by_polyline(
+            self.pcd1, polyline_path, direction, delete_original=True
+        )
 
     def print_result(self) -> None:
         print(
@@ -164,3 +196,21 @@ class DemOfDifference:
     #         df = pd.read_csv(fname, sep=sep)
 
     #     return df
+
+
+if __name__ == "__main__":
+
+    pcd_path = "test/dense_2022_06_02.ply"
+    polyline_path = "test/poly.poly"
+
+    output_dir = "test"
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(exist_ok=True)
+
+    pcd = cc.loadPointCloud(pcd_path)
+
+    out_path = output_dir / "test.ply"
+    cropped = cut_point_cloud_by_polyline(
+        pcd, polyline_path, direction="x", output_pah=out_path
+    )

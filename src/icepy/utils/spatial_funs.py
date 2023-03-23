@@ -2,7 +2,8 @@ import numpy as np
 
 from scipy.spatial import Delaunay
 
-import icepy.classes as icepy_classes
+from icepy.classes.features import Features, Feature
+from icepy.classes.points import Point
 
 
 def ccw_sort_points(p: np.ndarray) -> np.ndarray:
@@ -65,20 +66,18 @@ def points_in_rect(points: np.ndarray, rect: np.ndarray) -> np.ndarray:
     return logic
 
 
-def feature_in_rect(feature: icepy_classes.Feature, rect: np.array) -> bool:
+def feature_in_rect(feature: Feature, rect: np.array) -> bool:
     """Wrapper around point_in_rect function to deal with Feature object"""
     pt = feature.xy.squeeze()
     return point_in_rect(pt, rect)
 
 
-def select_features_by_rect(
-    features: icepy_classes.Features, rect: np.ndarray
-) -> icepy_classes.Features:
+def select_features_by_rect(features: Features, rect: np.ndarray) -> Features:
     pts = features.to_numpy()["kpts"]
     track_id_list = features.get_track_ids()
     valid = points_in_rect(pts, rect)
 
-    selected = icepy_classes.Features()
+    selected = Features()
     selected.append_features_from_numpy(
         x=pts[valid, 0],
         y=pts[valid, 1],
@@ -118,7 +117,7 @@ def point_in_volume(point: np.ndarray, volume: np.array) -> bool:
     return x_min <= x <= x_max and y_min <= y <= y_max and z_min <= z <= z_max
 
 
-def point3D_in_volume(point3D: icepy_classes.Point, volume: np.array) -> bool:
+def point3D_in_volume(point3D: Point, volume: np.array) -> bool:
     """Wrapper around point_in_rect function to deal with Point object"""
     pt = point3D.coordinates.squeeze()
     return point_in_volume(pt, volume)

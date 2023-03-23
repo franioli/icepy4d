@@ -31,7 +31,7 @@ NMS_RADIUS = 3
 
 # SuperGlue Parameters
 SUPERGLUE_DESC_DIM = 256
-SINKHORN_ITERATIONS = 20
+SINKHORN_ITERATIONS = 10
 
 
 def frame2tensor(frame, device):
@@ -225,12 +225,12 @@ class SuperGlueMatcher:
                 self.F, inliers = cv2.findFundamentalMat(
                     self.mkpts0, self.mkpts1, cv2.USAC_MAGSAC, 0.5, 0.999, 100000
                 )
-                self.inlMask = inliers > 0
+                self.inlMask = (inliers > 0).squeeze()
                 logging.info(
                     f"MAGSAC++ found {self.inlMask.sum()} inliers ({self.inlMask.sum()*100/len(self.mkpts0):.2f}%)"
                 )
-            self.mkpts0 = self.mkpts0[self.inlMask]
-            self.mkpts1 = self.mkpts1[self.inlMask]
+            self.mkpts0 = self.mkpts0[self.inlMask, :]
+            self.mkpts1 = self.mkpts1[self.inlMask, :]
             self.match_conf = self.match_conf[self.inlMask]
             self.descriptors0 = self.descriptors0[:, self.inlMask]
             self.descriptors1 = self.descriptors1[:, self.inlMask]

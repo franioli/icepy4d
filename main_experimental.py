@@ -22,23 +22,23 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+import logging
+from datetime import datetime
+from pathlib import Path
+
+import cv2
+import matplotlib
+
 #%%
 import numpy as np
-import cv2
-import logging
-
-from pathlib import Path
 from matplotlib import pyplot as plt
-from datetime import datetime
 
 # ICEpy4D
 import icepy.classes as icepy_classes
-import icepy.utils.initialization as initialization
 import icepy.utils as icepy_utils
+import icepy.utils.initialization as initialization
 import icepy.visualization as icepy_viz
 from icepy.classes.solution import Solution
-
-import matplotlib
 
 matplotlib.use("TkAgg")
 
@@ -90,11 +90,85 @@ for epoch in cfg.proc.epoch_to_process:
 
     # Load Existing solution
 
-    path = f"{epochdir}/{epoch_dict[epoch]}.pickle"
+    path = epochdir / f"{epoch_dict[epoch]}.pickle"
     logging.info(f"Loading solution from {path}")
     solution = Solution.read_solution(path, ignore_errors=True)
     if solution is not None:
         cameras[epoch], _, features[epoch], points[epoch] = solution
+        # logging.info("Solution imported.")
+
+        # # TMP fct to export to h5
+        # from collections import defaultdict
+        # from copy import deepcopy
+
+        # import h5py
+        # import torch
+
+        # MIN_MATCHES = 20
+
+        # def features_to_h5(features: icepy_classes.FeaturesDictEpoch) -> bool:
+        #     key1, key2 = images[cams[0]][epoch], images[cams[1]][epoch]
+
+        #     mkpts0 = features[epoch][cams[0]].kpts_to_numpy()
+        #     mkpts1 = features[epoch][cams[1]].kpts_to_numpy()
+        #     n_matches = len(mkpts0)
+
+        #     output_dir = Path(epochdir)
+        #     db_name = output_dir / f"{epoch_dict[epoch]}.h5"
+        #     with h5py.File(db_name, mode="w") as f_match:
+        #         group = f_match.require_group(key1)
+        #         if n_matches >= MIN_MATCHES:
+        #             group.create_dataset(
+        #                 key2, data=np.concatenate([mkpts0, mkpts1], axis=1)
+        #             )
+        #     kpts = defaultdict(list)
+        #     match_indexes = defaultdict(dict)
+        #     total_kpts = defaultdict(int)
+
+        #     with h5py.File(db_name, mode="r") as f_match:
+        #         for k1 in f_match.keys():
+        #             group = f_match[k1]
+        #             for k2 in group.keys():
+        #                 matches = group[k2][...]
+        #                 total_kpts[k1]
+        #                 kpts[k1].append(matches[:, :2])
+        #                 kpts[k2].append(matches[:, 2:])
+        #                 current_match = (
+        #                     torch.arange(len(matches)).reshape(-1, 1).repeat(1, 2)
+        #                 )
+        #                 current_match[:, 0] += total_kpts[k1]
+        #                 current_match[:, 1] += total_kpts[k2]
+        #                 total_kpts[k1] += len(matches)
+        #                 total_kpts[k2] += len(matches)
+        #                 match_indexes[k1][k2] = current_match
+
+        #     for k in kpts.keys():
+        #         kpts[k] = np.round(np.concatenate(kpts[k], axis=0))
+        #     unique_kpts = {}
+        #     unique_match_idxs = {}
+        #     out_match = defaultdict(dict)
+        #     for k in kpts.keys():
+        #         uniq_kps, uniq_reverse_idxs = torch.unique(
+        #             torch.from_numpy(kpts[k]), dim=0, return_inverse=True
+        #         )
+        #         unique_match_idxs[k] = uniq_reverse_idxs
+        #         unique_kpts[k] = uniq_kps.numpy()
+        #     for k1, group in match_indexes.items():
+        #         for k2, m in group.items():
+        #             m2 = deepcopy(m)
+        #             m2[:, 0] = unique_match_idxs[k1][m2[:, 0]]
+        #             m2[:, 1] = unique_match_idxs[k2][m2[:, 1]]
+        #             out_match[k1][k2] = m2.numpy()
+        #     with h5py.File(output_dir / f"keypoints.h5", mode="w") as f_kp:
+        #         for k, kpts1 in unique_kpts.items():
+        #             f_kp[k] = kpts1
+
+        #     with h5py.File(output_dir / f"matches.h5", mode="w") as f_match:
+        #         for k1, gr in out_match.items():
+        #             group = f_match.require_group(k1)
+        #             for k2, match in gr.items():
+        #                 group[k2] = match
+
         del solution
         logging.info("Solution loaded.")
         continue
@@ -205,8 +279,8 @@ for epoch in cfg.proc.epoch_to_process:
 
 import open3d as o3d
 
-from icepy.tracking_features_utils import *
 from icepy.belvedere_rototranslation import belv_loc2utm
+from icepy.tracking_features_utils import *
 
 min_dt = 1
 

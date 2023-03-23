@@ -130,14 +130,26 @@ def write_mat_to_csv(mat: np.ndarray, fname: str, sep: str = " "):
 
 if __name__ == "__main__":
 
-    P = [-1.8212855433302195, 219.2598752180853, 74.55843482880829]
+    # P = [-1.8212855433302195, 219.2598752180853, 74.55843482880829]
 
-    F10_utm = apply_transformation(BELV_LOC2UTM, np.array(P).reshape(3, 1))
-    print_vector(F10_utm)
+    # F10_utm = apply_transformation(BELV_LOC2UTM, np.array(P).reshape(3, 1))
+    # print_vector(F10_utm)
 
-    write_mat_to_csv(BELV_UTM2LOC, "BELV_UTM2LOC.csv")
-    write_mat_to_csv(BELV_LOC2UTM, "BELV_LOC2UTM.csv")
+    # write_mat_to_csv(BELV_UTM2LOC, "BELV_UTM2LOC.csv")
+    # write_mat_to_csv(BELV_LOC2UTM, "BELV_LOC2UTM.csv")
 
+    fname = "scripts/rototranslation/targets_loc.txt"
+    points = pd.read_csv(fname)
+
+    coor = get_coordinates_from_df(points, to_homogeneous=True)
+
+    out = apply_transformation(BELV_LOC2UTM, coor.T).T
+
+    points_utm = points.copy()
+    points_utm[["X", "Y", "Z"]] = out
+
+    fout = "scripts/rototranslation/targets_utm.txt"
+    points_utm.to_csv(fout)
 
 # import numpy as np
 # import pandas as pd
