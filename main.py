@@ -22,32 +22,28 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-#%%
-import numpy as np
-import cv2
 import gc
 import logging
 import shutil
-
 from pathlib import Path
+
+import cv2
+import numpy as np
 
 # ICEpy4D
 import icepy.classes as icepy_classes
-import icepy.sfm as sfm
 import icepy.metashape.metashape as MS
-import icepy.utils.initialization as initialization
+import icepy.sfm as sfm
 import icepy.utils as icepy_utils
+import icepy.utils.initialization as initialization
 import icepy.visualization as icepy_viz
 from icepy.classes.solution import Solution
-
-from icepy.matching.match_by_preselection import match_by_preselection
-from icepy.matching.tracking_base import tracking_base
-from icepy.matching.matching_base import MatchingAndTracking
-from icepy.matching.utils import load_matches_from_disk
-
-from icepy.utils.utils import homography_warping
 from icepy.io.export2bundler import write_bundler_out
-
+from icepy.matching.match_by_preselection import match_by_preselection
+from icepy.matching.matching_base import MatchingAndTracking
+from icepy.matching.tracking_base import tracking_base
+from icepy.matching.utils import load_matches_from_disk
+from icepy.utils.utils import homography_warping
 
 # Temporary parameters TODO: put them in config file
 LOAD_EXISTING_SOLUTION = False  # False #

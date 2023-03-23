@@ -22,16 +22,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-import numpy as np
-import logging
 import importlib
-
+import logging
 from typing import List
 
+import cv2
+import numpy as np
+
 from ..classes.camera import Camera
-
 from .geometry import estimate_pose
-
 
 """ RelativeOrientation class"""
 
