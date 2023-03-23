@@ -31,6 +31,25 @@ from ..classes.camera import Camera
 def estimate_pose(kpts0, kpts1, K0, K1, thresh, conf=0.9999):
     """
     Estimate camera pose given matched points and intrinsics matrix.
+
+    Args:
+        kpts0 (np.ndarray): A Nx2 array of keypoints in the first image.
+        kpts1 (np.ndarray): A Nx2 array of keypoints in the second image.
+        K0 (np.ndarray): A 3x3 intrinsics matrix of the first camera.
+        K1 (np.ndarray): A 3x3 intrinsics matrix of the second camera.
+        thresh (float): The inlier threshold for RANSAC.
+        conf (float, optional): The confidence level for RANSAC. Defaults to 0.9999.
+
+    Returns:
+        tuple: A tuple containing the rotation matrix, translation vector, and
+        boolean mask indicating inliers.
+
+        - R (np.ndarray): A 3x3 rotation matrix.
+        - t (np.ndarray): A 3x1 translation vector.
+        - inliers (np.ndarray): A boolean array indicating which keypoints are inliers.
+
+    NOTE:
+        R, t make up a tuple that performs a change of basis from the first camera's coordinate system to the second camera's coordinate system. Therefore, if the first camera has its own exterior orientation with respect to a world reference system, R and t estimated can be as the components of the extrinsics matrix (transformation from world to camera) of the second camera (be careful, R,t are NOT the components of the pose matrix of the second camera, because they describe transformation from 'first camera's coordinate system to the second'!). See https://docs.opencv.org/3.4/d9/d0c/group__calib3d.html#gadb7d2dfcc184c1d2f496d8639f4371c0 for more info.
     """
     if len(kpts0) < 5:
         return None
@@ -59,8 +78,14 @@ def estimate_pose(kpts0, kpts1, K0, K1, thresh, conf=0.9999):
 
 def project_points(points3d, camera: Camera):
     """
-    Project 3D points (Nx3 array) to image coordinates, given a Camera object
-    Returns: 2D projected points (Nx2 array) in image coordinates
+    Project 3D points (Nx3 array) to image coordinates, given a Camera object.
+
+    Args:
+        points3d (np.ndarray): A Nx3 array of 3D points.
+        camera (Camera): A Camera object containing the camera's intrinsic and extrinsic parameters.
+
+    Returns:
+        np.ndarray: A Nx2 array of 2D projected points in image coordinates.
     """
     rvec, _ = cv2.Rodrigues(camera.R)
     tvec = camera.t

@@ -13,6 +13,7 @@ sandbox/
 volumes/
 logs/
 test_out/
+test/
 
 # VScode
 # .vscode/
