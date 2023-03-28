@@ -4,7 +4,7 @@ import multiprocessing
 from pathlib import Path
 from multiprocessing import Pool
 
-from icepy.point_cloud_proc.open3d_fun import Meshing
+from icepy.point_cloud_proc.open3d_fun import MeshingPoisson
 
 PCD_DIR = "res/point_clouds"
 PCD_PATTERN = "dense_2022*.ply"
@@ -32,7 +32,7 @@ if __name__ == "__main__":
     pcd_list = sorted(Path(PCD_DIR).glob(PCD_PATTERN))
     n = len(pcd_list)
     for pcd in pcd_list:
-        m = Meshing(pcd, out_dir=OUT_DIR, cfg=CFG)
+        m = MeshingPoisson(pcd, out_dir=OUT_DIR, cfg=CFG)
         if not m.run():
             raise RuntimeError(f"Unable to mesh point cloud {pcd}")
 
