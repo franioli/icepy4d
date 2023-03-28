@@ -157,15 +157,15 @@ def extract_glacier_border():
             if pcd_border is None:
                 raise IOError(f"Unable to read point cloud {pcd_path}")
 
-            ylims = (220.0, 230.0)
+            ylims = (222.0, 228.0)
             sf_num = pcd_border.getScalarFieldDic()["Coord. Y"]
             pcd_border.setCurrentOutScalarField(sf_num)
             pcd_border = cc.filterBySFValue(ylims[0], ylims[1], pcd_border)
 
             x_coord_sf = pcd_border.toNpArrayCopy()[:, 0]
             median_x = np.median(x_coord_sf)
-            sf_min = median_x - 20
-            sf_max = median_x + 20
+            sf_min = median_x - 10
+            sf_max = median_x + 10
             sf_num = pcd_border.getScalarFieldDic()["Coord. X"]
             pcd_border.setCurrentOutScalarField(sf_num)
             pcd_border = cc.filterBySFValue(sf_min, sf_max, pcd_border)
@@ -183,7 +183,7 @@ def extract_glacier_border():
 
 if __name__ == "__main__":
 
-    # detect_border_by_geometry()
+    detect_border_by_geometry()
     extract_glacier_border()
 
     print("done.")
