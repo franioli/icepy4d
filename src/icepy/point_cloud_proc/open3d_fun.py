@@ -117,7 +117,7 @@ def read_and_merge_point_clouds(pcd_names: List[str]) -> o3d.geometry.PointCloud
     return merged
 
 
-class Meshing:
+class MeshingPoisson:
     def __init__(
         self,
         pcd_path: Union[str, Path],
@@ -334,7 +334,7 @@ if __name__ == "__main__":
         "num_sampled_points": 4 * 10**6,
         "crop_polyline_path": "data/crop_polyline.poly",
     }
-    m = Meshing(pcd_list[0], out_dir=output_dir, cfg=CFG)
+    m = MeshingPoisson(pcd_list[0], out_dir=output_dir, cfg=CFG)
     if not m.run():
         raise RuntimeError(f"Unable to mesh point cloud {pcd_list[0]}")
 
