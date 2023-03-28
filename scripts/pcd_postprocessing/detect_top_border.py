@@ -13,9 +13,11 @@ from icepy.point_cloud_proc.open3d_fun import (
     read_and_merge_point_clouds,
 )
 
-PCD_DIR = "res/point_clouds"
-PCD_PATTERN = "dense_2022*.ply"
-OUT_DIR = "res/point_clouds_meshed"
+PCD_DIR = "res/detect_top_border/"
+PCD_PATTERN = "border_*.ply"
+POLYLINE_PATH = "res/detect_top_border/poly.poly"
+OUT_DIR = "res/detect_top_border"
+FOUT_NAME = "top_border_coords.txt"
 
 LOG_LEVEL = logging.INFO
 logging.basicConfig(
@@ -24,108 +26,136 @@ logging.basicConfig(
 )
 
 
-def detect_glacier_border():
+def merge_sparse_dense():
+
+    PCD_DIR = "res/point_clouds"
+    PCD_PATTERN = "dense_2022*.ply"
 
     pcd_list = sorted(Path(PCD_DIR).glob(PCD_PATTERN))
-    n = len(pcd_list)
-
-    polyline_path = "test/poly.poly"
-    output_dir = "test/detect_border"
-
-    output_dir = Path(output_dir)
+    output_dir = Path(OUT_DIR)
     output_dir.mkdir(exist_ok=True)
 
-    pcd_path = pcd_list[0]
+    for pcd_path in pcd_list:
+        logging.info(f"Processing pcd {pcd_path.name}")
 
-    with open(output_dir / "surf_heigth.txt", "w") as f:
-        f.write(f"pcd_name,mean,median,std,min,max\n")
+        fnames = [str(pcd_path), str(pcd_path).replace("dense", "sparse")]
 
+        out_name = pcd_path.name.replace("dense", "merged")
+        pcd = read_and_merge_point_clouds(fnames)
+        cropped = filter_pcd_by_polyline(pcd, POLYLINE_PATH, dir="x")
+        o3d.io.write_point_cloud(str(output_dir / out_name), cropped)
+        # o3d.visualization.draw_geometries([cropped])
+
+
+def export_coordinates_as_scalar_fields(pcd) -> True:
+    sf_names = ["Coord. X", "Coord. Y", "Coord. Z"]
+    coords = pcd.toNpArrayCopy()
+    for i, name in enumerate(sf_names):
+        sf_num = pcd.addScalarField(name)
+        sf = pcd.getScalarField(sf_num)
+        sf.fromNpArrayCopy(coords[:, i])
+    return True
+
+
+def detect_border_by_geometry():
+    PCD_PATTERN = "merged_*.ply"
+    pcd_list = sorted(Path(PCD_DIR).glob(PCD_PATTERN))
+    output_dir = Path(OUT_DIR)
+    output_dir.mkdir(exist_ok=True)
+    for pcd_path in pcd_list:
+        base_name = PCD_PATTERN.split("_")[0]
+        pcd_date = pcd_path.stem.replace(base_name + "_", "")
+        logging.info(f"Processing pcd {pcd_date}")
+
+        pcd = cc.loadPointCloud(str(pcd_path))
+        if pcd is None:
+            raise IOError(f"Unable to read point cloud {pcd_path}")
+
+        # if not cc.computeFeature( cc.GeomFeature.Linearity, 2, [pcd]):
+        #     raise RuntimeError(
+        #         f"Unable to compute geometric features from point cloud {path}"
+        #     )
+        # logging.info("Geometric features computed successfully.")
+
+        # radius = 2.0
+        # feature_to_compute = cc.GeomFeature.Linearity
+        # lim_percentile = (95, 100)
+        # featstr = str(feature_to_compute).split(".")[-1]
+
+        radius_list = [2.0, 0.15]
+        features_to_compute = [
+            cc.GeomFeature.Linearity,
+            cc.GeomFeature.Verticality,
+        ]
+
+        logging.info(f"Computing geometric features")
+        for feature, radius in tqdm(zip(features_to_compute, radius_list)):
+            if not cc.computeFeature(feature, radius, [pcd]):
+                raise RuntimeError(
+                    f"Unable to compute geometric features from point cloud {path}"
+                )
+        logging.info("Geometric features computed successfully.")
+
+        # Make Linearity sf active and filter by percentile
+        lim_percentile = (95, 100)
+        dic = pcd.getScalarFieldDic()
+        sf_num = dic[list(dic.keys())[-2]]
+        sf = pcd.getScalarField(sf_num)
+        pcd.setCurrentOutScalarField(sf_num)
+        sf_min = np.nanpercentile(sf.toNpArray(), lim_percentile[0])
+        sf_max = np.nanpercentile(sf.toNpArray(), lim_percentile[1])
+        pcd_filtered = cc.filterBySFValue(sf_min, sf_max, pcd)
+
+        # Make Verticality sf active and filter by percentile
+        lim_percentile = (95, 100)
+        dic = pcd_filtered.getScalarFieldDic()
+        sf_num = dic[list(dic.keys())[-1]]
+        sf = pcd_filtered.getScalarField(sf_num)
+        pcd_filtered.setCurrentOutScalarField(sf_num)
+        sf_min = np.nanpercentile(sf.toNpArray(), lim_percentile[0])
+        sf_max = np.nanpercentile(sf.toNpArray(), lim_percentile[1])
+        pcd_filtered = cc.filterBySFValue(sf_min, sf_max, pcd_filtered)
+        if not export_coordinates_as_scalar_fields(pcd_filtered):
+            raise RuntimeError(f"Unable to export coordinates as scalar")
+
+        path = str(output_dir / ("filtered_" + pcd_date))
+        if not cc.SavePointCloud(pcd_filtered, path):
+            raise IOError(f"Unable to save cropped point cloud to {path}.")
+
+        lim_percentile = (60, 95)
+        z_coord_sf = pcd_filtered.toNpArrayCopy()[:, 2]
+        sf_num = pcd_filtered.getScalarFieldDic()["Coord. Z"]
+        sf_min = np.nanpercentile(z_coord_sf, lim_percentile[0])
+        sf_max = np.nanpercentile(z_coord_sf, lim_percentile[1])
+        pcd_filtered.setCurrentOutScalarField(sf_num)
+        pcd_border = cc.filterBySFValue(sf_min, sf_max, pcd_filtered)
+
+        path = str(output_dir / ("border_" + pcd_date))
+        if not cc.SavePointCloud(pcd_border, path):
+            raise IOError(f"Unable to save cropped point cloud to {path}.")
+
+        cc.deleteEntity(pcd)
+        cc.deleteEntity(pcd_filtered)
+
+
+def extract_glacier_border():
+
+    pcd_list = sorted(Path(PCD_DIR).glob(PCD_PATTERN))
+    output_dir = Path(OUT_DIR)
+    output_dir.mkdir(exist_ok=True)
+    base_name = PCD_PATTERN.split("_")[0]
+
+    with open(output_dir / FOUT_NAME, "w") as f:
+        f.write(
+            f"pcd_name,date,x_mean,x_median,x_std,y_mean,y_median,y_std,z_mean,z_median,z_std\n"
+        )
         for pcd_path in pcd_list:
             logging.info(f"Processing pcd {pcd_path.name}")
 
-            fnames = [str(pcd_path), str(pcd_path).replace("dense", "sparse")]
-
-            out_name = pcd_path.name.replace("dense", "merged")
-            pcd = read_and_merge_point_clouds(fnames)
-            cropped = filter_pcd_by_polyline(pcd, polyline_path, dir="x")
-            o3d.io.write_point_cloud(str(output_dir / out_name), cropped)
-            # o3d.visualization.draw_geometries([cropped])
-
-            path = str(output_dir / out_name)
-            pcd = cc.loadPointCloud(path)
-            if pcd is None:
-                raise IOError(f"Unable to read point cloud {path}")
-
-            # if not cc.computeFeature( cc.GeomFeature.Linearity, 2, [pcd]):
-            #     raise RuntimeError(
-            #         f"Unable to compute geometric features from point cloud {path}"
-            #     )
-            # logging.info("Geometric features computed successfully.")
-
-            # radius = 2.0
-            # feature_to_compute = cc.GeomFeature.Linearity
-            # lim_percentile = (95, 100)
-            # featstr = str(feature_to_compute).split(".")[-1]
-
-            radius_list = [2.0, 0.15]
-            features_to_compute = [
-                cc.GeomFeature.Linearity,
-                cc.GeomFeature.Verticality,
-            ]
-
-            logging.info(f"Computing geometric features")
-            for feature, radius in tqdm(zip(features_to_compute, radius_list)):
-                if not cc.computeFeature(feature, radius, [pcd]):
-                    raise RuntimeError(
-                        f"Unable to compute geometric features from point cloud {path}"
-                    )
-            logging.info("Geometric features computed successfully.")
-
-            def export_coordinates_as_scalar_fields(pcd) -> True:
-                sf_names = ["Coord. X", "Coord. Y", "Coord. Z"]
-                coords = pcd.toNpArrayCopy()
-                for i, name in enumerate(sf_names):
-                    sf_num = pcd.addScalarField(name)
-                    sf = pcd.getScalarField(sf_num)
-                    sf.fromNpArrayCopy(coords[:, i])
-                return True
-
-            # Make Linearity sf active and filter by percentile
-            lim_percentile = (95, 100)
-            dic = pcd.getScalarFieldDic()
-            sf_num = dic[list(dic.keys())[-2]]
-            sf = pcd.getScalarField(sf_num)
-            pcd.setCurrentOutScalarField(sf_num)
-            sf_min = np.nanpercentile(sf.toNpArray(), lim_percentile[0])
-            sf_max = np.nanpercentile(sf.toNpArray(), lim_percentile[1])
-            pcd_filtered = cc.filterBySFValue(sf_min, sf_max, pcd)
-
-            # Make Verticality sf active and filter by percentile
-            lim_percentile = (95, 100)
-            dic = pcd_filtered.getScalarFieldDic()
-            sf_num = dic[list(dic.keys())[-1]]
-            sf = pcd_filtered.getScalarField(sf_num)
-            pcd_filtered.setCurrentOutScalarField(sf_num)
-            sf_min = np.nanpercentile(sf.toNpArray(), lim_percentile[0])
-            sf_max = np.nanpercentile(sf.toNpArray(), lim_percentile[1])
-            pcd_filtered = cc.filterBySFValue(sf_min, sf_max, pcd_filtered)
-            export_coordinates_as_scalar_fields(pcd_filtered)
-
-            path = str(output_dir / out_name.replace("merged", "filtered"))
-            if not cc.SavePointCloud(pcd_filtered, path):
-                raise IOError(f"Unable to save cropped point cloud to {path}.")
-
-            lim_percentile = (60, 95)
-            z_coord_sf = pcd_filtered.toNpArrayCopy()[:, 2]
-            sf_num = pcd_filtered.getScalarFieldDic()["Coord. Z"]
-            sf_min = np.nanpercentile(z_coord_sf, lim_percentile[0])
-            sf_max = np.nanpercentile(z_coord_sf, lim_percentile[1])
-            pcd_filtered.setCurrentOutScalarField(sf_num)
-            pcd_border = cc.filterBySFValue(sf_min, sf_max, pcd_filtered)
-
-            path = str(output_dir / out_name.replace("merged", "border"))
-            if not cc.SavePointCloud(pcd_border, path):
-                raise IOError(f"Unable to save cropped point cloud to {path}.")
+            pcd_date = pcd_path.stem.replace(base_name + "_", "")
+            pcd_border = cc.loadPointCloud(str(pcd_path))
+            if pcd_border is None:
+                raise IOError(f"Unable to read point cloud {pcd_path}")
 
             ylims = (220.0, 230.0)
             sf_num = pcd_border.getScalarFieldDic()["Coord. Y"]
@@ -140,28 +170,20 @@ def detect_glacier_border():
             pcd_border.setCurrentOutScalarField(sf_num)
             pcd_border = cc.filterBySFValue(sf_min, sf_max, pcd_border)
 
-            path = str(output_dir / out_name.replace("merged", "border_cut"))
-            if not cc.SavePointCloud(pcd_border, path):
-                raise IOError(f"Unable to save cropped point cloud to {path}.")
-
-            z_coord = pcd_border.toNpArrayCopy()[:, 2]
-            mean_z = np.mean(z_coord)
-            median_z = np.median(z_coord)
-            std_z = np.std(z_coord)
-            min_z = np.min(z_coord)
-            max_z = np.max(z_coord)
+            coords = pcd_border.toNpArrayCopy()
+            mean = np.mean(coords, axis=0)
+            median = np.median(coords, axis=0)
+            std = np.std(coords, axis=0)
 
             f.write(
-                f"{pcd_path.name},{mean_z:.3f},{median_z:.3f},{std_z:.3f},{min_z:.3f},{max_z:.3f}\n"
+                f"{pcd_path.name},{pcd_date},{mean[0]:.3f},{median[0]:.3f},{std[0]:.3f},{mean[1]:.3f},{median[1]:.3f},{std[1]:.3f},{mean[2]:.3f},{median[2]:.3f},{std[2]:.3f}\n"
             )
-
-            cc.deleteEntity(pcd)
-            cc.deleteEntity(pcd_filtered)
             cc.deleteEntity(pcd_border)
 
 
 if __name__ == "__main__":
 
-    detect_glacier_border()
+    # detect_border_by_geometry()
+    extract_glacier_border()
 
     print("done.")
