@@ -70,10 +70,12 @@ def build_metashape_cfg(cfg: edict, epoch_dict: dict, epoch: int) -> edict:
     ms_cfg.calib_filenames = cfg.metashape.calib_filenames
     ms_cfg.dense_path = cfg.paths.results_dir / "point_clouds"
     ms_cfg.dense_name = f"dense_{epoch_dict[epoch]}.ply"
+    ms_cfg.mesh_name = f"mesh_{epoch_dict[epoch]}.ply"
 
     # Processing parameters
     ms_cfg.optimize_cameras = cfg.metashape.optimize_cameras
     ms_cfg.build_dense = cfg.metashape.build_dense
+    ms_cfg.build_mesh = cfg.metashape.build_mesh
 
     # Camera location
     ms_cfg.camera_location = cfg.metashape.camera_location
@@ -86,7 +88,7 @@ def build_metashape_cfg(cfg: edict, epoch_dict: dict, epoch: int) -> edict:
     # Interior orientation parameters
     ms_cfg.prm_to_fix = cfg.metashape.camera_prm_to_fix
 
-    # Dense matching
+    # Dense matching and mesh
     ms_cfg.dense_downscale_image = cfg.metashape.dense_downscale_factor
     ms_cfg.depth_filter = cfg.metashape.depth_filter
 
@@ -239,6 +241,24 @@ class MetashapeProject:
                 source_data=Metashape.DataSource.DenseCloudData,
             )
 
+    def build_mesh(
+        self,
+        save_mesh: bool = True,
+    ) -> None:
+        self.doc.chunk.buildModel(
+            surface_type=Metashape.SurfaceType.Arbitrary,
+            interpolation=Metashape.Interpolation.EnabledInterpolation,
+            face_count=Metashape.FaceCount.HighFaceCount,
+            source_data=Metashape.DataSource.DepthMapsData,
+            vertex_colors=True,
+            vertex_confidence=True,
+        )
+        if save_mesh:
+            self.doc.chunk.exportModel(
+                path=str(self.cfg.dense_path / self.cfg.mesh_name),
+                save_confidence=True,
+            )
+
     def save_project(self) -> None:
         save_project(self.doc, self.project_path)
         self.doc.read_only = False
@@ -331,7 +351,7 @@ class MetashapeProject:
         self.doc.chunk.region.size = resize_fct * self.doc.chunk.region.size
         # new_reg_size = Metashape.Vector([reg_size[0] * mul_fct[0],  reg_size[1] * mul_fct[1], reg_size[2] * mul_fct[2]])
 
-    def process_full_workflow(self) -> bool:
+    def run_full_workflow(self) -> bool:
         self.create_project()
         self.add_images()
         self.add_gcps()
@@ -348,6 +368,10 @@ class MetashapeProject:
                 self.build_dense_cloud()
             if self.timer:
                 self.timer.update("dense")
+        if self.cfg.build_mesh:
+            self.build_mesh()
+            if self.timer:
+                self.timer.update("mesh")
         self.export_camera_extrinsics()
         self.export_sensor_parameters()
         self.save_project()

@@ -1,9 +1,31 @@
 [build-system]
-requires = [
-    "setuptools>=65",
-    "wheel"
-]
+requires      = ["setuptools>=65", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "icepy"
+version = "0.1"
+description = "4D Image-based Continuos monitoring of glaciers Evolution with low-cost stereo-cameras and Deep Learning photogrammetry."
+readme = "README.md"
+authors = [{ name = "Francesco Ioli", email = "francesco.ioli@polimi.it" }]
+license = { file = "LICENSE.txt" }
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+keywords = ["sfm", "4d-reconstruction", "glaciers", "deep-learning"]
+dynamic = ["dependencies"]
+requires-python = ">=3.8"
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[project.optional-dependencies]
+dev = ["flake8", "black", "bumpver", "isort", "pip-tools", "pytest", "mkdocs", "mkdocs-material", "mkdocstrings[python]"]
+
+[project.urls]
+Homepage = "https://github.com/franioli/icepy4d"
 
 [tool.pytest.ini_options]
 addopts = [

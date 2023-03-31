@@ -348,7 +348,7 @@ for epoch in cfg.proc.epoch_to_process:
 
         ms_cfg = MS.build_metashape_cfg(cfg, epoch_dict, epoch)
         ms = MS.MetashapeProject(ms_cfg, timer)
-        ms.process_full_workflow()
+        ms.run_full_workflow()
 
         ms_reader = MS.MetashapeReader(
             metashape_dir=epochdir / "metashape",
