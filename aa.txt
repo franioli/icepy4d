@@ -1,0 +1,6 @@
+[submodule "src/icepy/thirdparty/CameraSensorSizeDatabase"]
+	path = src/icepy/thirdparty/CameraSensorSizeDatabase
+	url = https://github.com/openMVG/CameraSensorSizeDatabase.git
+[submodule "src/icepy/thirdparty/SuperGluePretrainedNetwork"]
+	path = src/icepy/thirdparty/SuperGluePretrainedNetwork
+	url = git@github.com:magicleap/SuperGluePretrainedNetwork.git
