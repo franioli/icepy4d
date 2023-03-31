@@ -11,9 +11,9 @@ tqdm
 laspy
 pyyaml
 easydict
+lmfit
 pytest
 flake8
-lmfit
 black
 isort
 mkdocs
