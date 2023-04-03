@@ -279,8 +279,10 @@ for epoch in cfg.proc.epoch_to_process:
 
 import open3d as o3d
 
-from icepy.belvedere_rototranslation import belv_loc2utm
 from icepy.tracking_features_utils import *
+from icepy.utils.rototranslation import Rotrotranslation, belvedere_loc2utm
+
+belv_rotra = Rotrotranslation(belvedere_loc2utm())
 
 min_dt = 1
 
@@ -300,11 +302,15 @@ fts_df = tracked_dict_to_df(
 )
 logging.info("Time series of tracked points and converted to pandas df")
 
-pts_utm = belv_loc2utm(fts_df[["X_ini", "Y_ini", "Z_ini"]].to_numpy().T).T
+pts_utm = belv_rotra.apply_transformation(
+    fts_df[["X_ini", "Y_ini", "Z_ini"]].to_numpy().T
+).T
 fts_df["East_ini"] = pts_utm[:, 0]
 fts_df["North_ini"] = pts_utm[:, 1]
 fts_df["h_ini"] = pts_utm[:, 2]
-pts_utm = belv_loc2utm(fts_df[["X_fin", "Y_fin", "Z_fin"]].to_numpy().T).T
+pts_utm = belv_rotra.apply_transformation(
+    fts_df[["X_fin", "Y_fin", "Z_fin"]].to_numpy().T
+).T
 fts_df["East_fin"] = pts_utm[:, 0]
 fts_df["North_fin"] = pts_utm[:, 1]
 fts_df["h_fin"] = pts_utm[:, 2]
