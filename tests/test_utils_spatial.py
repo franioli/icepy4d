@@ -1,6 +1,6 @@
 import numpy as np
 
-from icepy.utils.spatial_funs import *
+from icepy4d.utils.spatial_funs import *
 
 
 def test_point_in_volume():

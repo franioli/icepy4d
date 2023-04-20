@@ -10,8 +10,8 @@
 ##### Create Anaconda environment
 
 ```bash
-conda create -n icepy python=3.8
-conda activate icepy
+conda create -n icepy4d python=3.8
+conda activate icepy4d
 ```
 
 ##### Install gdal for raster manipulation
@@ -61,8 +61,8 @@ pip install -e .
 and try to import it
 
 ```bash
-conda activate icepy
-python -c "import icepy"
+conda activate icepy4d
+python -c "import icepy4d"
 ```
 
-If no error is given, ICEpy4D is successfully installed and it can be imported with `import icepy`
+If no error is given, ICEpy4D is successfully installed and it can be imported with `import icepy4d`
