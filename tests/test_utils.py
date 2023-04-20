@@ -3,11 +3,11 @@ import os
 
 from pathlib import Path
 
-from icepy.utils import setup_logger
+from icepy4d.utils import setup_logger
 
 
 def test_logger(log_dir):
-    log_name = "icepy"
+    log_name = "icepy4d"
     log_file_level = "info"
     log_console_level = "info"
     try:

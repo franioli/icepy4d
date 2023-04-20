@@ -1,5 +1,5 @@
 #- Define paths and base settings
-# All pahts MUST be relative to the root folder of icepy and
+# All pahts MUST be relative to the root folder of icepy4d and
 # they will be converted to pathlib.Path when parsing this yaml file)
 paths:
   image_dir: "data/img"
@@ -14,10 +14,10 @@ proc:
   # It can be either 'all' for processing all the epochs,
   # A list of two integers for processing a range of epoches
   # or a list with the epoche numbers to be processed
-  epoch_to_process: [325, 338] #[180, 338] # [180, 338] # "all" #
+  epoch_to_process: [180, 183] # [180, 338] # [180, 338] # "all" #
 
   #- Switches to find and track matches
-  do_matching: false
+  do_matching: true
   do_tracking: true
 
   #- Do space resection of first camera
@@ -113,10 +113,10 @@ tracking:
 metashape:
   # Processing parameters:
   optimize_cameras: true
-  build_dense: true
-  build_mesh: true
+  build_dense: false
+  build_mesh: false
 
-  # List containing camera location. Note, that the order may differ from that of icepy, because Metashape imports the cameras based on alphabetic order of the images that they belong to (e.g., IMG_1289.jpg that belongs to p2 comes before IMG_2814.jpg that belongs to p1!)
+  # List containing camera location. Note, that the order may differ from that of icepy4d, because Metashape imports the cameras based on alphabetic order of the images that they belong to (e.g., IMG_1289.jpg that belongs to p2 comes before IMG_2814.jpg that belongs to p1!)
   #TODO: fix camera ordering issue in Metashape.
   camera_location: [
       [312.889, 300.513, 135.113], # p2
