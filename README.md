@@ -15,7 +15,7 @@
 Create a new Anaconda environment
 
 ```bash
-conda create -n icepy4d python=3.8
+conda create -n icepy4d python=3.9
 conda activate icepy4d
 ```
 
