@@ -13,6 +13,8 @@ sandbox/
 volumes/
 logs/
 test_out/
+test/
+assets/Metashape-*
 
 # VScode
 # .vscode/

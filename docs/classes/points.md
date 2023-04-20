@@ -1,18 +1,18 @@
 # Point and Points classes
 
-You can easily import Icepy classes by
+You can easily import icepy4d classes by
 
 ```python
-import icepy.classes as icepy_classes
+import icepy4d.classes as icepy4d_classes
 ```
 
 and directly access to the Image and ImageDS classes by
 
 ```python
-icepy_classes.Point
+icepy4d_classes.Point
 ```
 
-::: icepy.classes.points.Point
+::: icepy4d.classes.points.Point
     handler: python
     options:
       members:
@@ -27,7 +27,7 @@ icepy_classes.Point
       show_root_heading: true
       show_source: true
 
-::: icepy.classes.points.Points
+::: icepy4d.classes.points.Points
     handler: python
     options:
       members:
