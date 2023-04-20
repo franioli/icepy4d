@@ -9,20 +9,20 @@ from pathlib import Path
 from .match_pairs import match_pair
 from .track_matches import track_matches
 
-import icepy4d.classes as icepy_classes
+import icepy4d.classes as icepy4d_classes
 from icepy4d.classes.features import Features
 from icepy4d.utils.timer import AverageTimer
 
 
 def tracking_base(
-    images: icepy_classes.ImagesDict,
-    prev_features: icepy_classes.FeaturesDictEpoch,
+    images: icepy4d_classes.ImagesDict,
+    prev_features: icepy4d_classes.FeaturesDictEpoch,
     camera_names: List[str],
-    epoch_dict: icepy_classes.EpochDict,
+    epoch_dict: icepy4d_classes.EpochDict,
     epoch: int,
     cfg: edict,
     epoch_dir: Union[Path, str],
-) -> icepy_classes.FeaturesDictEpoch:
+) -> icepy4d_classes.FeaturesDictEpoch:
 
     if not isinstance(cfg, dict):
         raise TypeError("opt must be a dictionary")
@@ -84,7 +84,7 @@ def tracking_base(
     timer.update("tracking")
 
     # Store all matches in features structure
-    features = {cam: icepy_classes.Features() for cam in cams}
+    features = {cam: icepy4d_classes.Features() for cam in cams}
     features[cams[0]].append_features_from_numpy(
         tracked_cam0["kpts"][:, 0:1],
         tracked_cam0["kpts"][:, 1:2],

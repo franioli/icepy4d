@@ -10,7 +10,7 @@ from collections import defaultdict
 import torch
 from copy import deepcopy
 
-import icepy4d.classes as icepy_classes
+import icepy4d.classes as icepy4d_classes
 from icepy4d.thirdparty.transformations import quaternion_from_matrix
 
 
@@ -25,7 +25,7 @@ MIN_MATCHES = 20
 
 
 def features_to_h5(
-    features: icepy_classes.FeaturesDictEpoch, output_dir: Union[str, Path]
+    features: icepy4d_classes.FeaturesDictEpoch, output_dir: Union[str, Path]
 ) -> bool:
     key1, key2 = images[cams[0]][epoch], images[cams[1]][epoch]
 
@@ -91,9 +91,9 @@ def features_to_h5(
 def export_solution_to_colmap(
     export_dir: Union[str, Path],
     im_dict: dict,
-    cameras: icepy_classes.CamerasDictEpoch,
-    features: icepy_classes.FeaturesDictEpoch,
-    points: icepy_classes.Points,
+    cameras: icepy4d_classes.CamerasDictEpoch,
+    features: icepy4d_classes.FeaturesDictEpoch,
+    points: icepy4d_classes.Points,
     camera_model: CameraModels = CameraModels.OPENCV,
 ) -> bool:
 

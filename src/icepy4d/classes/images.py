@@ -32,8 +32,8 @@ import cv2
 import exifread
 import numpy as np
 
-from .camera import Camera
-from ..utils.sensor_width_database import SensorWidthDatabase
+from icepy4d.classes.camera import Camera
+from icepy4d.utils.sensor_width_database import SensorWidthDatabase
 from ..sfm.geometry import undistort_image
 
 # @TODO: remove variable number of outputs

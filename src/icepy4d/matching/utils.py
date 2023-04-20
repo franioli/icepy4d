@@ -9,11 +9,11 @@ from typing import List, Union
 from pathlib import Path
 
 from icepy4d.classes.features import Features
-import icepy4d.classes as icepy_classes
+import icepy4d.classes as icepy4d_classes
 
 
 def geometric_verification(
-    features: icepy_classes.FeaturesDict,
+    features: icepy4d_classes.FeaturesDict,
     threshold: float = 1,
     confidence: float = 0.9999,
     max_iters: int = 10000,
@@ -26,7 +26,7 @@ def geometric_verification(
     Performs geometric verification of matches on full images using either Pydegensac or MAGSAC++.
 
     Args:
-        features (icepy_classes.FeaturesDict): A dictionary containing extracted features for each camera view.
+        features (icepy4d_classes.FeaturesDict): A dictionary containing extracted features for each camera view.
             threshold (float): Pixel error threshold for considering a correspondence an inlier.
             confidence (float): The required confidence level in the results.
             max_iters (int): The maximum number of iterations for estimating the fundamental matrix.

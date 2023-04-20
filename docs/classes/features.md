@@ -3,13 +3,13 @@
 You can easily import icepy4d classes by
 
 ```python
-import icepy4d.classes as icepy_classes
+import icepy4d.classes as icepy4d_classes
 ```
 
 and directly access to the Image and ImageDS classes by
 
 ```python
-icepy_classes.Feature
+icepy4d_classes.Feature
 ```
 
 ::: icepy4d.classes.features.Feature

@@ -1,16 +1,3 @@
-numpy
-pandas
-matplotlib
-opencv-python
-open3d
-pydegensac
-scipy
-exifread
-tqdm
-laspy
-pyyaml
-easydict
-lmfit
 pytest
 flake8
 black
@@ -19,8 +6,5 @@ mkdocs
 mkdocs-material
 mkdocstrings[python]
 bumpver
-# pycolmap
-# h5py
-# gdown
-# plotly
-# rasterio
+pre-commit
+nbstripout

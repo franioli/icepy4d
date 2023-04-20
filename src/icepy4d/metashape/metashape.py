@@ -494,7 +494,7 @@ class MetashapeReader:
             extrinsics = np.loadtxt(file)
             self.extrinsics[file.stem] = extrinsics
 
-    def read_icepy_outputs(self) -> None:
+    def read_icepy4d_outputs(self) -> None:
         self.read_calibration_from_file()
         self.read_cameras_extrinsics()
 
