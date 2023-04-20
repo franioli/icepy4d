@@ -8,3 +8,5 @@ mkdocstrings[python]
 bumpver
 pre-commit
 nbstripout
+build 
+twine
