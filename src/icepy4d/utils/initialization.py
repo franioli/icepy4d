@@ -34,13 +34,13 @@ from typing import List, Union, Tuple, TypedDict
 from datetime import datetime
 from pprint import pprint
 
-from ..classes.camera import Camera
-from ..classes.features import Features
-from ..classes.points import Points
-from ..classes.point_cloud import PointCloud
-from ..classes.images import Image, ImageDS
-from ..classes.targets import Targets
-from ..classes.typed_dict_classes import *
+from icepy4d.classes.camera import Camera
+from icepy4d.classes.features import Features
+from icepy4d.classes.points import Points
+from icepy4d.classes.point_cloud import PointCloud
+from icepy4d.classes.images import Image, ImageDS
+from icepy4d.classes.targets import Targets
+from icepy4d.classes.typed_dict_classes import *
 
 
 """ 
@@ -223,7 +223,7 @@ def print_cfg(cfg: edict):
     pprint(dict(cfg), indent=2)
 
 
-class Inizialization:
+class Inizializer:
     def __init__(
         self,
         cfg: edict,
@@ -234,6 +234,8 @@ class Inizialization:
         Args:
             cfg (edict): dictionary (as EasyDict object) containing all the configuration parameters.
         """
+
+        print_welcome_msg()
 
         self.cfg = cfg
         assert (
@@ -344,7 +346,7 @@ class Inizialization:
         for cam in self.cams:
             self.focals_dict[cam] = {}
 
-    def inizialize_icepy(self) -> dict:
+    def inizialize_icepy4d(self) -> dict:
         self.init_image_ds()
         self.init_epoch_dict()
         self.init_cameras()
@@ -361,7 +363,7 @@ if __name__ == "__main__":
 
     print(cfg)
 
-    init = Inizialization(cfg)
+    init = Inizializer(cfg)
     init.init_image_ds()
     init.init_epoch_dict()
     init.init_cameras()

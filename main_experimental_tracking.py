@@ -36,7 +36,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 # ICEpy4D
-import icepy4d.classes as icepy_classes
+import icepy4d.classes as icepy4d_classes
 import icepy4d.utils as icepy_utils
 import icepy4d.utils.initialization as initialization
 import icepy4d.visualization as icepy_viz
@@ -108,7 +108,7 @@ for epoch in cfg.proc.epoch_to_process:
 
         # MIN_MATCHES = 20
 
-        # def features_to_h5(features: icepy_classes.FeaturesDictEpoch) -> bool:
+        # def features_to_h5(features: icepy4d_classes.FeaturesDictEpoch) -> bool:
         #     key1, key2 = images[cams[0]][epoch], images[cams[1]][epoch]
 
         #     mkpts0 = features[epoch][cams[0]].kpts_to_numpy()
@@ -584,8 +584,8 @@ print("Done.")
 #         )
 
 # # plot all the features plot
-# # f_tracked: icepy_classes.FeaturesDict = {
-# #     cam: icepy_classes.Features() for cam in cams
+# # f_tracked: icepy4d_classes.FeaturesDict = {
+# #     cam: icepy4d_classes.Features() for cam in cams
 # # }
 # # for fid in fts.keys():
 # #     for ep in fts[fid]:

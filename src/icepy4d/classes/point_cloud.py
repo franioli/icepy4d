@@ -26,7 +26,6 @@ import open3d as o3d
 import numpy as np
 import logging
 import laspy
-import pytest
 
 from pathlib import Path
 from typing import Union

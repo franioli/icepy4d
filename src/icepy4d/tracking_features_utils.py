@@ -5,14 +5,14 @@ from typing import TypedDict, List, Union
 from pathlib import Path
 from itertools import groupby, product
 
-import icepy4d.classes as icepy_classes
+import icepy4d.classes as icepy4d_classes
 
 from icepy4d.utils.spatial_funs import *
 from icepy4d.utils.timer import timeit
 
 
 class FeaturesDictByCam(TypedDict):
-    epoch: icepy_classes.Features
+    epoch: icepy4d_classes.Features
 
 
 class FeaturesDictById(TypedDict):
@@ -24,12 +24,12 @@ class Features_tracked_inexes(TypedDict):
 
 
 def sort_features_by_cam(
-    features: icepy_classes.FeaturesDict, cam: str
+    features: icepy4d_classes.FeaturesDict, cam: str
 ) -> FeaturesDictByCam:
     """Sort features by camera.
 
     Args:
-        features (icepy_classes.FeaturesDict): A dictionary of features, where the keys are epochs and the values are dictionaries of features for each camera.
+        features (icepy4d_classes.FeaturesDict): A dictionary of features, where the keys are epochs and the values are dictionaries of features for each camera.
         cam (str): The camera identifier to sort the features by.
 
     Returns:
@@ -122,7 +122,7 @@ def tracked_features_time_series(
 
 @timeit
 def tracked_points_time_series(
-    points: icepy_classes.PointsDict,
+    points: icepy4d_classes.PointsDict,
     min_tracked_epoches: int = 1,
     volume: np.ndarray = None,
 ) -> dict:
@@ -171,7 +171,7 @@ def tracked_points_time_series(
 
 # deprecated function (~10 times slower that new one)
 def tracked_points_time_series_old(
-    points: icepy_classes.PointsDict,
+    points: icepy4d_classes.PointsDict,
     min_tracked_epoches: int = 1,
     volume: np.ndarray = None,
 ) -> dict:
@@ -218,9 +218,9 @@ def tracked_points_time_series_old(
 
 @timeit
 def tracked_dict_to_df(
-    features: icepy_classes.FeaturesDict,
-    points: icepy_classes.PointsDict,
-    epoch_dict: icepy_classes.EpochDict,
+    features: icepy4d_classes.FeaturesDict,
+    points: icepy4d_classes.PointsDict,
+    epoch_dict: icepy4d_classes.EpochDict,
     fts: Features_tracked_inexes,
     min_dt: int = None,
     vx_lims: List = None,
@@ -231,9 +231,9 @@ def tracked_dict_to_df(
     """Convert dictionaries to a pandas DataFrame.
 
     Args:
-        features (icepy_classes.FeaturesDict): A dictionary containing feature information.
-        points (icepy_classes.PointsDict): A dictionary containing point information.
-        epoch_dict (icepy_classes.EpochDict):
+        features (icepy4d_classes.FeaturesDict): A dictionary containing feature information.
+        points (icepy4d_classes.PointsDict): A dictionary containing point information.
+        epoch_dict (icepy4d_classes.EpochDict):
         fts (Features_tracked_inexes): A dictionary containing information about features that were tracked.
         min_dt (int, optional): The minimum number of days between `date_ini` and `date_fin`. Defaults to none.
         save_path (Union[str, Path], optional): The file path where the DataFrame should be saved. Defaults to None.
@@ -302,9 +302,9 @@ def tracked_dict_to_df(
 
 # @timeit
 # def tracked_dict_to_df_old(
-#     features: icepy_classes.FeaturesDict,
-#     points: icepy_classes.PointsDict,
-#     epoch_dict: icepy_classes.EpochDict,
+#     features: icepy4d_classes.FeaturesDict,
+#     points: icepy4d_classes.PointsDict,
+#     epoch_dict: icepy4d_classes.EpochDict,
 #     fts: Features_tracked_inexes,
 #     min_dt: int = None,
 #     vx_lims: List = None,
@@ -315,9 +315,9 @@ def tracked_dict_to_df(
 #     """Convert dictionaries to a pandas DataFrame.
 
 #     Args:
-#         features (icepy_classes.FeaturesDict): A dictionary containing feature information.
-#         points (icepy_classes.PointsDict): A dictionary containing point information.
-#         epoch_dict (icepy_classes.EpochDict):
+#         features (icepy4d_classes.FeaturesDict): A dictionary containing feature information.
+#         points (icepy4d_classes.PointsDict): A dictionary containing point information.
+#         epoch_dict (icepy4d_classes.EpochDict):
 #         fts (Features_tracked_inexes): A dictionary containing information about features that were tracked.
 #         min_dt (int, optional): The minimum number of days between `date_ini` and `date_fin`. Defaults to none.
 #         save_path (Union[str, Path], optional): The file path where the DataFrame should be saved. Defaults to None.
