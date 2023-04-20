@@ -3,13 +3,13 @@
 You can easily import icepy4d classes by
 
 ```python
-import icepy4d.classes as icepy_classes
+import icepy4d.classes as icepy4d_classes
 ```
 
 and directly access to the Camera class by
 
 ```python
-icepy_classes.Camera
+icepy4d_classes.Camera
 ```
 
 ::: icepy4d.classes.camera.Camera
