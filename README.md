@@ -4,14 +4,15 @@
 
 `ICEpy4D` is a under active development.
 
-## Installation guide
 
-### Requirements
+## Requirements
 
 - 64-bit Python `>= 3.8` but `< 3.10`
 - a NVIDIA graphic card with CUDA capability is strongly reccomended.
 
-### Create Anaconda environment
+## Installation guide
+
+Create a new Anaconda environment
 
 ```bash
 conda create -n icepy4d python=3.8
