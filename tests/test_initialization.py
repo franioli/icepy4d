@@ -5,8 +5,8 @@ from datetime import datetime
 from pathlib import Path
 from easydict import EasyDict as edict
 
-from icepy.classes import ImageDS
-from icepy.utils.initialization import (
+from icepy4d.classes import ImageDS
+from icepy4d.utils.initialization import (
     parse_command_line,
     parse_yaml_cfg,
     Inizialization,

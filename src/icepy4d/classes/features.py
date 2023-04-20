@@ -635,7 +635,7 @@ class Features:
             **kwargs: additional keyword arguments for plotting characteristics (e.g. `s`, `c`, `marker`, etc.). Refer to matplotlib.pyplot.scatter documentation for more information https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.scatter.html.
 
         Note:
-            This methods is a simplified version of icepy.visualization.visualization.plot_points() function. It cannot be called directly inside this method due to a circular import problem.
+            This methods is a simplified version of icepy4d.visualization.visualization.plot_points() function. It cannot be called directly inside this method due to a circular import problem.
 
         Returns:
             None
@@ -675,7 +675,7 @@ class Features:
 if __name__ == "__main__":
     """Test classes"""
 
-    from icepy.utils import setup_logger
+    from icepy4d.utils import setup_logger
 
     setup_logger()
 

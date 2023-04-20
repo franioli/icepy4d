@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 import pytest
 
-from icepy.sfm.geometry import *
+from icepy4d.sfm.geometry import *
 
 
 def test_estimate_pose_minimum_kpts():

@@ -67,7 +67,7 @@ def parse_command_line() -> Tuple[str, dict]:
         Tuple[str, dict]: Tuple containing the path of the configuration file and a dictionary containing parameters to setup the logger
     """
     parser = argparse.ArgumentParser(
-        description="""icepy
+        description="""icepy4d
             Low-cost stereo photogrammetry for 4D glacier monitoring \
             Check -h or --help for options.
         Usage: ./main.py -c config_base.yaml"""

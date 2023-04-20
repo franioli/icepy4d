@@ -50,7 +50,7 @@ def build_metashape_cfg(cfg: edict, epoch_dict: dict, epoch: int) -> edict:
     # build_metashape_cfg Build metashape configuration dictionary, starting from global configuration dictionary.
 
     Args:
-        cfg (edict): configuration dictionary for ICEpy
+        cfg (edict): configuration dictionary for icepy4d
         epoch_dict (dict): dictionary containing the correspondings between epoch progressive numbers and dates
         epoch (int): current epoch.
 
@@ -501,7 +501,7 @@ class MetashapeReader:
 
 if __name__ == "__main__":
 
-    from src.icepy.visualization.visualization import make_focal_length_variation_plot
+    from src.icepy4d.visualization.visualization import make_focal_length_variation_plot
 
     root_path = Path().absolute()
 

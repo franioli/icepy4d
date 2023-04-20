@@ -4,9 +4,9 @@ import logging
 from pathlib import Path
 from tqdm import tqdm
 
-import src.icepy.classes as icepy_classes
-import src.icepy.sfm as sfm
-import src.icepy.utils.initialization as initialization
+import src.icepy4d.classes as icepy_classes
+import src.icepy4d.sfm as sfm
+import src.icepy4d.utils.initialization as initialization
 from multiprocessing import Pool, current_process
 
 MP = True

@@ -30,20 +30,20 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-# ICEpy4D
-import icepy.classes as icepy_classes
-import icepy.metashape.metashape as MS
-import icepy.sfm as sfm
-import icepy.utils as icepy_utils
-import icepy.utils.initialization as initialization
-import icepy.visualization as icepy_viz
-from icepy.classes.solution import Solution
-from icepy.io.export2bundler import write_bundler_out
-from icepy.matching.match_by_preselection import match_by_preselection
-from icepy.matching.matching_base import MatchingAndTracking
-from icepy.matching.tracking_base import tracking_base
-from icepy.matching.utils import load_matches_from_disk
-from icepy.utils.utils import homography_warping
+# icepy4d4D
+import icepy4d.classes as icepy4d_classes
+import icepy4d.metashape.metashape as MS
+import icepy4d.sfm as sfm
+import icepy4d.utils as icepy4d_utils
+import icepy4d.utils.initialization as initialization
+import icepy4d.visualization as icepy4d_viz
+from icepy4d.classes.solution import Solution
+from icepy4d.io.export2bundler import write_bundler_out
+from icepy4d.matching.match_by_preselection import match_by_preselection
+from icepy4d.matching.matching_base import MatchingAndTracking
+from icepy4d.matching.tracking_base import tracking_base
+from icepy4d.matching.utils import load_matches_from_disk
+from icepy4d.utils.utils import homography_warping
 
 # Temporary parameters TODO: put them in config file
 LOAD_EXISTING_SOLUTION = False  # False #
@@ -66,7 +66,7 @@ cfg_file, log_cfg = initialization.parse_command_line()
 
 """ Inizialize Variables """
 # Setup logger
-icepy_utils.setup_logger(
+icepy4d_utils.setup_logger(
     log_cfg["log_folder"],
     log_cfg["log_name"],
     log_cfg["log_file_level"],
@@ -77,10 +77,10 @@ icepy_utils.setup_logger(
 logging.info(f"Configuration file: {cfg_file.stem}")
 cfg = initialization.parse_yaml_cfg(cfg_file)
 
-timer_global = icepy_utils.AverageTimer()
+timer_global = icepy4d_utils.AverageTimer()
 
 init = initialization.Inizialization(cfg)
-init.inizialize_icepy()
+init.inizialize_icepy4d()
 cams = init.cams
 images = init.images
 epoch_dict = init.epoch_dict
@@ -94,7 +94,7 @@ focals = init.focals_dict
 
 logging.info("------------------------------------------------------")
 logging.info("Processing started:")
-timer = icepy_utils.AverageTimer()
+timer = icepy4d_utils.AverageTimer()
 iter = 0  # necessary only for printing the number of processed iteration
 for epoch in cfg.proc.epoch_to_process:
 
@@ -158,8 +158,8 @@ for epoch in cfg.proc.epoch_to_process:
         # Run additional matching on selected patches:
         if DO_ADDITIONAL_MATCHING:
 
-            from icepy.matching.match_by_preselection import find_matches_on_patches
-            from icepy.matching.utils import geometric_verification
+            from icepy4d.matching.match_by_preselection import find_matches_on_patches
+            from icepy4d.matching.utils import geometric_verification
 
             logging.info("Performing additional matching on user-specified patches")
             im_stems = [images[cam].get_image_stem(epoch) for cam in cams]
@@ -312,8 +312,8 @@ for epoch in cfg.proc.epoch_to_process:
             continue
 
     # Create point cloud and save .ply to disk
-    # pcd_epc = icepy_classes.PointCloud(points3d=points3d, points_col=triang.colors)
-    pts = icepy_classes.Points()
+    # pcd_epc = icepy4d_classes.PointCloud(points3d=points3d, points_col=triang.colors)
+    pts = icepy4d_classes.Points()
     pts.append_points_from_numpy(
         points3d,
         track_ids=features[epoch][cams[0]].get_track_ids(),
@@ -354,7 +354,7 @@ for epoch in cfg.proc.epoch_to_process:
             metashape_dir=epochdir / "metashape",
             num_cams=len(cams),
         )
-        ms_reader.read_icepy_outputs()
+        ms_reader.read_icepy4d_outputs()
         for i, cam in enumerate(cams):
             focals[cam][epoch] = ms_reader.get_focal_lengths()[i]
 
@@ -384,7 +384,7 @@ for epoch in cfg.proc.epoch_to_process:
             cam_id=1,
         )
 
-        # pcd_epc = icepy_classes.PointCloud(
+        # pcd_epc = icepy4d_classes.PointCloud(
         #     points3d=points3d, points_col=triang.colors
         # )
 

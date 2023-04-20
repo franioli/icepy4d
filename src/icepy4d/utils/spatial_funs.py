@@ -2,8 +2,8 @@ import numpy as np
 
 from scipy.spatial import Delaunay
 
-from icepy.classes.features import Features, Feature
-from icepy.classes.points import Point
+from icepy4d.classes.features import Features, Feature
+from icepy4d.classes.points import Point
 
 
 def ccw_sort_points(p: np.ndarray) -> np.ndarray:

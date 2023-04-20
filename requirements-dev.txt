@@ -2,7 +2,6 @@ numpy
 pandas
 matplotlib
 opencv-python
-
 open3d
 pydegensac
 scipy
@@ -19,6 +18,7 @@ isort
 mkdocs
 mkdocs-material
 mkdocstrings[python]
+bumpver
 # pycolmap
 # h5py
 # gdown

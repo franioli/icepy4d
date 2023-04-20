@@ -8,16 +8,16 @@ from typing import Tuple, List, Union
 from pathlib import Path
 from easydict import EasyDict as edict
 
-import icepy.classes as icepy_classes
-import icepy.visualization as icepy_viz
-from icepy.classes.images import read_image
-from icepy.matching.superglue_matcher import SuperGlueMatcher
-from icepy.matching.utils import geometric_verification
+import icepy4d.classes as icepy_classes
+import icepy4d.visualization as icepy_viz
+from icepy4d.classes.images import read_image
+from icepy4d.matching.superglue_matcher import SuperGlueMatcher
+from icepy4d.matching.utils import geometric_verification
 
 from scipy.spatial import KDTree
 from scipy.cluster.vq import kmeans, vq, whiten
 from scipy.spatial.distance import pdist
-from icepy.utils.timer import AverageTimer
+from icepy4d.utils.timer import AverageTimer
 
 DEFAULT_PATCH_SIZE = 1000
 

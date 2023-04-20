@@ -24,14 +24,14 @@ from ..utils.initialization import parse_yaml_cfg
 from ..tiles import generateTiles
 
 
-from icepy.matching.utils import read_image, frame2tensor
-from icepy.utils import AverageTimer
+from icepy4d.matching.utils import read_image, frame2tensor
+from icepy4d.utils import AverageTimer
 
 
-from icepy.thirdparty.SuperGluePretrainedNetwork.models.superpoint import SuperPoint
-from icepy.thirdparty.SuperGluePretrainedNetwork.models.superglue import SuperGlue
-from icepy.thirdparty.SuperGluePretrainedNetwork.models.matching import Matching
-from icepy.thirdparty.SuperGluePretrainedNetwork.models.utils import (
+from icepy4d.thirdparty.SuperGluePretrainedNetwork.models.superpoint import SuperPoint
+from icepy4d.thirdparty.SuperGluePretrainedNetwork.models.superglue import SuperGlue
+from icepy4d.thirdparty.SuperGluePretrainedNetwork.models.matching import Matching
+from icepy4d.thirdparty.SuperGluePretrainedNetwork.models.utils import (
     make_matching_plot,
 )
 

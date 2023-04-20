@@ -1,4 +1,4 @@
-import icepy
+import icepy4d
 import importlib
 
 # Try importing ICEpy4D module.
@@ -6,7 +6,7 @@ import importlib
 
 def main():
     try:
-        importlib.import_module("icepy")
+        importlib.import_module("icepy4d")
     except:
         raise ImportError("Unable to import ICEpy4D module")
 

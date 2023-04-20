@@ -12,7 +12,7 @@
 
     main.py       # Main code for running ICEpy4D
     src/
-        icepy     # Source code for ICEpy4D
+        icepy4d     # Source code for ICEpy4D
     data/ 
         img/      # Image folder (one subfolder per cam)
             cam1

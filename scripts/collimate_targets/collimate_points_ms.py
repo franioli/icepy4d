@@ -43,6 +43,6 @@ def write_markers_one_cam_per_file() -> None:
     print("All targets exported successfully")
 
 
-label = "Scripts/Export targets icepy"
+label = "Scripts/Export targets icepy4d"
 Metashape.app.addMenuItem(label, write_markers_one_cam_per_file)
 print(f"To execute this script press {label}")

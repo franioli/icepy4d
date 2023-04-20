@@ -11,10 +11,10 @@ from typing import List, Union, Dict
 from pathlib import Path
 from copy import deepcopy
 
-from icepy.classes.camera import Camera
-from icepy.classes.features import Features, Feature
-from icepy.classes.point_cloud import PointCloud
-from icepy.sfm.geometry import project_points
+from icepy4d.classes.camera import Camera
+from icepy4d.classes.features import Features, Feature
+from icepy4d.classes.point_cloud import PointCloud
+from icepy4d.sfm.geometry import project_points
 
 
 """ Visualization of images"""

@@ -5,7 +5,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Python: icepy",
+      "name": "Python: icepy4d",
       "cwd": "${workspaceFolder}",
       "type": "python",
       "request": "launch",
@@ -16,7 +16,7 @@
         "--config",
         "config/config_2022.yaml",
         "--log_name",
-        "icepy",
+        "icepy4d",
         "--log_file_level",
         "info",
         "--log_console_level",
@@ -38,7 +38,7 @@
         "--config",
         "config/config_2022.yaml",
         "--log_name",
-        "icepy",
+        "icepy4d",
         "--log_file_level",
         "info",
         "--log_console_level",
