@@ -5,8 +5,8 @@ import torch
 import cv2
 import logging
 
-from ..thirdparty.SuperGluePretrainedNetwork.models.matching import Matching
-from ..thirdparty.SuperGluePretrainedNetwork.models.utils import (
+from ..thirdparty.SuperGlue.models.matching import Matching
+from ..thirdparty.SuperGlue.models.utils import (
     make_matching_plot,
     AverageTimer,
     process_resize,

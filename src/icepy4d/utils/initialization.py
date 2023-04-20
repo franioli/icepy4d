@@ -223,6 +223,12 @@ def print_cfg(cfg: edict):
     pprint(dict(cfg), indent=2)
 
 
+def download_model():
+    """
+    Download the model from the internet.
+    """
+
+
 class Inizializer:
     def __init__(
         self,
