@@ -3,7 +3,7 @@ import pytest
 
 from pathlib import Path
 
-from icepy.classes.point_cloud import PointCloud
+from icepy4d.classes.point_cloud import PointCloud
 
 
 @pytest.fixture

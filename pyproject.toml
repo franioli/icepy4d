@@ -1,9 +1,45 @@
 [build-system]
-requires = [
-    "setuptools>=65",
-    "wheel"
-]
+requires      = ["setuptools>=65", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "icepy4d"
+version = "1.4.0"
+description = "4D Image-based Continuos monitoring of glaciers Evolution with low-cost stereo-cameras and Deep Learning photogrammetry."
+readme = "README.md"
+authors = [{ name = "Francesco Ioli", email = "francesco.ioli@polimi.it" }]
+license = { file = "LICENSE.txt" }
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+keywords = ["sfm", "4d-reconstruction", "glaciers", "deep-learning"]
+dependencies = [
+    "numpy",
+    "pandas",
+    "matplotlib",
+    "opencv-python",
+    "torch",
+    "open3d",
+    "pydegensac",
+    "scipy",
+    "exifread",
+    "tqdm",
+    "laspy",
+    "pyyaml",
+    "easydict",
+    "kornia",
+    "lmfit",
+]
+requires-python = ">=3.8"
+
+
+[project.optional-dependencies]
+dev = ["flake8", "black", "bumpver", "isort", "pip-tools", "pytest", "bumpver", "mkdocs", "mkdocs-material", "mkdocstrings[python]", "pre-commit", "nbstripout", "build", "twine"]
+
+[project.urls]
+Homepage = "https://github.com/franioli/icepy4d"
 
 [tool.pytest.ini_options]
 addopts = [
@@ -12,3 +48,19 @@ addopts = [
 
 [tool.isort]
 profile = "black"
+[tool.bumpver]
+current_version = "1.4.0"
+version_pattern = "MAJOR.MINOR.PATCH"
+commit_message = "bump version {old_version} -> {new_version}"
+commit = true
+tag = true
+push = true
+
+[tool.bumpver.file_patterns]
+"pyproject.toml" = [
+    'current_version = "{version}"', 
+    'version = "{version}"'
+]
+"src/icepy4d/__init__.py" = [
+    "{version}"
+]

@@ -1,6 +1,6 @@
 # Visualization functions
 
-::: icepy.visualization.visualization
+::: icepy4d.visualization.visualization
     options:
       members:
         - imshow_cv2
