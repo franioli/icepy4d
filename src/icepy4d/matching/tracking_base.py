@@ -9,9 +9,9 @@ from pathlib import Path
 from .match_pairs import match_pair
 from .track_matches import track_matches
 
-import icepy.classes as icepy_classes
-from icepy.classes.features import Features
-from icepy.utils.timer import AverageTimer
+import icepy4d.classes as icepy_classes
+from icepy4d.classes.features import Features
+from icepy4d.utils.timer import AverageTimer
 
 
 def tracking_base(

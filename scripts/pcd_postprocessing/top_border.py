@@ -8,7 +8,7 @@ from tqdm import tqdm
 import cloudComPy as cc
 
 
-from icepy.point_cloud_proc.open3d_fun import (
+from icepy4d.point_cloud_proc.open3d_fun import (
     filter_pcd_by_polyline,
     read_and_merge_point_clouds,
 )
@@ -150,15 +150,15 @@ def extract_glacier_border():
         f.write(
             f"pcd_name,date,x_mean,x_median,x_std,y_mean,y_median,y_std,z_mean,z_median,z_std\n"
         )
-        for pcd_path in pcd_list:
-            logging.info(f"Processing pcd {pcd_path.name}")
+        for pcd_path in tqdm(pcd_list):
+            # logging.info(f"Processing pcd {pcd_path.name}")
             try:
                 pcd_date = pcd_path.stem.replace(base_name + "_", "")
                 pcd_border = cc.loadPointCloud(str(pcd_path))
                 if pcd_border is None:
                     raise IOError(f"Unable to read point cloud {pcd_path}")
 
-                ylims = (222.0, 228.0)
+                ylims = (224.0, 228.0)
                 try:
                     sf_num = pcd_border.getScalarFieldDic()["Coord. Y"]
                 except:
@@ -191,6 +191,11 @@ def extract_glacier_border():
                     f"{pcd_path.name},{pcd_date},NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN,NaN\n"
                 )
                 logging.info("Moving to next pcd.")
+
+            path = str(output_dir / ("center_border_" + pcd_date + ".ply"))
+            if not cc.SavePointCloud(pcd_border, path):
+                raise IOError(f"Unable to save cropped point cloud to {path}.")
+
             cc.deleteEntity(pcd_border)
 
 

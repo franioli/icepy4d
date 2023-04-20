@@ -9,8 +9,8 @@ import open3d as o3d
 from easydict import EasyDict as edict
 from matplotlib import path as mpath
 
-from icepy.utils.spatial_funs import ccw_sort_points, point_in_hull
-from icepy.utils.timer import AverageTimer
+from icepy4d.utils.spatial_funs import ccw_sort_points, point_in_hull
+from icepy4d.utils.timer import AverageTimer
 
 # def filter_mesh_by_convex_hull(mesh, pcd):
 #     convex_hull = pcd.compute_convex_hull()

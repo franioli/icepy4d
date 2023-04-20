@@ -5,10 +5,10 @@ from typing import TypedDict, List, Union
 from pathlib import Path
 from itertools import groupby, product
 
-import icepy.classes as icepy_classes
+import icepy4d.classes as icepy_classes
 
-from icepy.utils.spatial_funs import *
-from icepy.utils.timer import timeit
+from icepy4d.utils.spatial_funs import *
+from icepy4d.utils.timer import timeit
 
 
 class FeaturesDictByCam(TypedDict):

@@ -127,7 +127,7 @@ def configure_logging(
 
 def setup_logger(
     log_folder: str = "logs",
-    log_base_name: str = "icepy",
+    log_base_name: str = "icepy4d",
     console_log_level: str = "info",
     logfile_level: str = "info",
 ):
@@ -168,7 +168,7 @@ if __name__ == "__main__":
     CONSOLE_LOG_LEVEL = "info"
     LOGFILE_LEVEL = "debug"
     LOG_FOLDER = "logs"
-    LOG_BASE_NAME = "icepy"
+    LOG_BASE_NAME = "icepy4d"
 
     # Setup logger
     setup_logger(LOG_FOLDER, LOG_BASE_NAME, CONSOLE_LOG_LEVEL, LOGFILE_LEVEL)
