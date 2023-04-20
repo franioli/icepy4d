@@ -3,7 +3,7 @@ requires      = ["setuptools>=65", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "icepy"
+name = "icepy4d"
 version = "1.3.0"
 description = "4D Image-based Continuos monitoring of glaciers Evolution with low-cost stereo-cameras and Deep Learning photogrammetry."
 readme = "README.md"
@@ -36,7 +36,7 @@ requires-python = ">=3.8"
 
 
 [project.optional-dependencies]
-dev = ["flake8", "black", "bumpver", "isort", "pip-tools", "pytest", "mkdocs", "mkdocs-material", "mkdocstrings[python]"]
+dev = ["flake8", "black", "bumpver", "isort", "pip-tools", "pytest", "bumpver", "mkdocs", "mkdocs-material", "mkdocstrings[python]"]
 
 [project.urls]
 Homepage = "https://github.com/franioli/icepy4d"
@@ -61,6 +61,6 @@ push = true
     'current_version = "{version}"', 
     'version = "{version}"'
 ]
-"src/icepy/__init__.py" = [
+"src/icepy4d/__init__.py" = [
     "{version}"
 ]

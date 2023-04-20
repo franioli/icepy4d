@@ -4,7 +4,7 @@ from typing import Union
 from pathlib import Path
 import logging
 
-import icepy.classes as classes
+import icepy4d.classes as classes
 
 
 class Solution:

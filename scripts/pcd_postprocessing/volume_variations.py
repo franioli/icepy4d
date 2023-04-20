@@ -18,8 +18,8 @@ from typing import Tuple
 from matplotlib import pyplot as plt
 from matplotlib.dates import DayLocator
 
-from icepy.point_cloud_proc.cloudcompare_fun import DemOfDifference
-from icepy.point_cloud_proc.utils import make_pairs
+from icepy4d.point_cloud_proc.cloudcompare_fun import DemOfDifference
+from icepy4d.point_cloud_proc.utils import make_pairs
 
 
 PCD_DIR = "res/point_clouds_meshed"
@@ -167,9 +167,10 @@ if __name__ == "__main__":
     df["volume_daily_cumul"] = df["volume_daily"].cumsum()
     df["volume_daily_norm_cumul"] = df["volume_daily_normalized"].cumsum()
 
-    # Export results to excel file
-    df.to_excel(out_dir / f"{fout_name}.xlsx", index=False)
-    logger.info("Results exported in .xlsx format")
+    # Export results to csv and excel file
+    df.to_csv(out_dir / f"{fout_name}_proc.csv", index=False)
+    df.to_excel(out_dir / f"{fout_name}_proc.xlsx", index=False)
+    logger.info("Results exported in .csv and .xlsx format")
 
     # Make plot for Daily volumes
     fig, ax = plt.subplots()
@@ -188,7 +189,7 @@ if __name__ == "__main__":
     ax.xaxis.set_minor_locator(
         DayLocator(bymonthday=[1, 7, 14, 21, 28], interval=1, tz=None)
     )
-    fig.set_size_inches(18.5, 10.5)
+    # fig.set_size_inches(18.5, 10.5)
     fig.savefig(out_dir / f"{fout_name}_daily_diff_norm.png", dpi=300)
 
     # Make plot for Cumulated volumes

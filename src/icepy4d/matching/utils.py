@@ -8,8 +8,8 @@ import logging
 from typing import List, Union
 from pathlib import Path
 
-from icepy.classes.features import Features
-import icepy.classes as icepy_classes
+from icepy4d.classes.features import Features
+import icepy4d.classes as icepy_classes
 
 
 def geometric_verification(

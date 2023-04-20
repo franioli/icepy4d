@@ -326,7 +326,7 @@ if __name__ == "__main__":
     from copy import deepcopy
     from tqdm import tqdm
 
-    from icepy.utils.initialization import parse_yaml_cfg, Inizialization
+    from icepy4d.utils.initialization import parse_yaml_cfg, Inizialization
 
     cfg_file = "config/config_base.yaml"
     cfg = parse_yaml_cfg(cfg_file)

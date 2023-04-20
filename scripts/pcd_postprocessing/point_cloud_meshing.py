@@ -4,10 +4,10 @@ import multiprocessing
 from pathlib import Path
 from multiprocessing import Pool
 
-from icepy.point_cloud_proc.open3d_fun import MeshingPoisson
+from icepy4d.point_cloud_proc.open3d_fun import MeshingPoisson
 
 PCD_DIR = "res/point_clouds"
-PCD_PATTERN = "dense_2022*.ply"
+PCD_PATTERN = "dense_2022*.ply"  # "dense_2022_05_02.ply"  #
 OUT_DIR = "res/point_clouds_meshed"
 
 CFG = {
@@ -17,7 +17,7 @@ CFG = {
     "save_mesh": False,
     "sample_mesh": True,
     "num_sampled_points": 4 * 10**6,
-    "crop_polyline_path": "data/crop_polyline.poly",
+    "crop_polyline_path": "data/crop_polyline_02.poly",  # "data/crop_polyline.poly",
 }
 
 

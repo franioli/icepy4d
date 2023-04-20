@@ -1,5 +1,5 @@
 #- Define paths and base settings
-# All pahts MUST be relative to the root folder of icepy and
+# All pahts MUST be relative to the root folder of icepy4d and
 # they will be converted to pathlib.Path when parsing this yaml file)
 paths:
   image_dir: "data/img2022" # "data/img2021" #

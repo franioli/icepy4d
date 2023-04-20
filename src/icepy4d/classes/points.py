@@ -33,8 +33,8 @@ from pathlib import Path
 from typing import List, Union
 
 if __name__ == "__main__":
-    from src.icepy.classes.camera import Camera
-    from src.icepy.classes.point_cloud import PointCloud
+    from src.icepy4d.classes.camera import Camera
+    from src.icepy4d.classes.point_cloud import PointCloud
 else:
     from .camera import Camera
     from .point_cloud import PointCloud
@@ -492,7 +492,7 @@ class Points:
 if __name__ == "__main__":
     """Test classes"""
 
-    from src.icepy.utils import setup_logger
+    from src.icepy4d.utils import setup_logger
 
     setup_logger()
 

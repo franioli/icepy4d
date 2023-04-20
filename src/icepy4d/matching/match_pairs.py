@@ -6,7 +6,7 @@ import logging
 
 from pathlib import Path
 
-from icepy.utils import AverageTimer
+from icepy4d.utils import AverageTimer
 
 from ..thirdparty.SuperGluePretrainedNetwork.models.matching import Matching
 from ..thirdparty.SuperGluePretrainedNetwork.models.utils import (
@@ -36,7 +36,7 @@ CACHE = False
 # @TODO: This function is a duplicate of the one in track_matches!!!
 # It is a replacement of the SuperGlue one because of the different input parametets.
 # This must be fixed! Only ONE read_image function must exist!
-# (There is also read_image function implemented from scratch in icepy)
+# (There is also read_image function implemented from scratch in icepy4d)
 def read_image(path, device, resize=-1, rotation=0, resize_float=True, crop=[]):
     image = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
     if image is None:

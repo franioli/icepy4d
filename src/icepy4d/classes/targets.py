@@ -302,7 +302,7 @@ class Targets:
 if __name__ == "__main__":
     """Test classes"""
 
-    from icepy.utils.initialization import parse_yaml_cfg, Inizialization
+    from icepy4d.utils.initialization import parse_yaml_cfg, Inizialization
 
     CFG_FILE = "config/config_2021_1.yaml"
     cfg = parse_yaml_cfg(CFG_FILE)

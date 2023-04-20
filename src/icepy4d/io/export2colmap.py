@@ -10,8 +10,8 @@ from collections import defaultdict
 import torch
 from copy import deepcopy
 
-import icepy.classes as icepy_classes
-from icepy.thirdparty.transformations import quaternion_from_matrix
+import icepy4d.classes as icepy_classes
+from icepy4d.thirdparty.transformations import quaternion_from_matrix
 
 
 class CameraModels(Enum):

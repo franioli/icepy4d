@@ -368,7 +368,7 @@ class Image:
 
     def undistort_image(self, camera: Camera, out_path: str = None) -> np.ndarray:
         """
-        undistort_image Wrapper around undistort_image function icepy.sfm.geometry module
+        undistort_image Wrapper around undistort_image function icepy4d.sfm.geometry module
 
         Args:
             camera (Camera): Camera object containing K and dist arrays.
