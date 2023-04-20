@@ -1,26 +1,12 @@
-numpy
-pandas
-matplotlib
-opencv-python
-kornia
-open3d
-pydegensac
-scipy
-exifread
-tqdm
-laspy
-pyyaml
-easydict
 pytest
 flake8
-lmfit
 black
 isort
 mkdocs
 mkdocs-material
 mkdocstrings[python]
-# pycolmap
-# h5py
-# gdown
-# plotly
-# rasterio
+bumpver
+pre-commit
+nbstripout
+build 
+twine

@@ -1,5 +1,5 @@
 #- Define paths and base settings
-# All pahts MUST be relative to the root folder of icepy and
+# All pahts MUST be relative to the root folder of icepy4d and
 # they will be converted to pathlib.Path when parsing this yaml file)
 paths:
   image_dir: "data/img" # "data/img2021" #
@@ -120,7 +120,7 @@ metashape:
   optimize_cameras: true
   build_dense: true
 
-  # List containing camera location. Note, that the order may differ from that of icepy, because Metashape imports the cameras based on alphabetic order of the images that they belong to (e.g., IMG_1289.jpg that belongs to p2 comes before IMG_2814.jpg that belongs to p1!)
+  # List containing camera location. Note, that the order may differ from that of icepy4d, because Metashape imports the cameras based on alphabetic order of the images that they belong to (e.g., IMG_1289.jpg that belongs to p2 comes before IMG_2814.jpg that belongs to p1!)
   #TODO: fix camera ordering issue in Metashape.
   camera_location: [
       [657556.5, 5209658.9, 2686.3], # IMG_1289
