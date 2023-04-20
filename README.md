@@ -44,7 +44,7 @@ python -c "import icepy4d"
 
 If no error is given, ICEpy4D is successfully installed and it can be imported within your script with `import icepy4d`
 
-#### For contributing
+### For contributing
 
 Install additional requirements for development:
 
