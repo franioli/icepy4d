@@ -74,3 +74,10 @@ python -c "import icepy4d"
 ```
 
 If no error is given, ICEpy4D is successfully installed and it can be imported with `import icepy4d`
+
+
+#### For contributing
+`bash
+pip install -r requirements-dev.txt
+pre-commit install
+`
