@@ -27,7 +27,7 @@ import logging
 
 from pathlib import Path
 
-from icepy.classes.images import ImageDS, Image
+from icepy4d.classes.images import ImageDS, Image
 
 
 def parse_command_line():

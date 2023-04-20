@@ -5,11 +5,11 @@ from datetime import datetime
 from pathlib import Path
 from easydict import EasyDict as edict
 
-from icepy.classes import ImageDS
-from icepy.utils.initialization import (
+from icepy4d.classes import ImageDS
+from icepy4d.utils.initialization import (
     parse_command_line,
     parse_yaml_cfg,
-    Inizialization,
+    Inizializer,
 )
 
 
@@ -54,7 +54,6 @@ def test_parse_command_line():
 
 
 def test_parse_yaml_cfg(data_dir, cfg_file):
-
     with pytest.raises(
         SystemExit, match="Configuration file does not exist! Aborting."
     ):
@@ -79,7 +78,7 @@ def test_parse_yaml_cfg(data_dir, cfg_file):
 
 def test_inizialization_epoch_dict(cfg_file):
     cfg = parse_yaml_cfg(cfg_file)
-    init = Inizialization(cfg)
+    init = Inizializer(cfg)
     init.init_image_ds()
     epoch_dict = init.init_epoch_dict()
     assert isinstance(epoch_dict, dict), "Unable to build epoch_dict dictionary"

@@ -4,9 +4,9 @@ import logging
 from pathlib import Path
 from tqdm import tqdm
 
-import src.icepy.classes as icepy_classes
-import src.icepy.sfm as sfm
-import src.icepy.utils.initialization as initialization
+import src.icepy4d.classes as icepy4d_classes
+import src.icepy4d.sfm as sfm
+import src.icepy4d.utils.initialization as initialization
 from multiprocessing import Pool, current_process
 
 MP = True
@@ -28,7 +28,7 @@ init.init_image_ds()
 cameras = init.init_cameras()
 epoch_dict = init.init_epoch_dict()
 
-images = {k: icepy_classes.ImageDS(Path("data/img") / k) for k in cams}
+images = {k: icepy4d_classes.ImageDS(Path("data/img") / k) for k in cams}
 out_folder = Path(out_folder)
 out_folder.mkdir(parents=True, exist_ok=True)
 
@@ -45,7 +45,7 @@ if MP:
 
     def undistort_image_task(image_path, camera) -> True:
         logger = logging.getLogger(current_process().name)
-        img = icepy_classes.Image(image_path)
+        img = icepy4d_classes.Image(image_path)
         logger.info(f"{image_path} loaded.")
         out_file = str(out_folder / f"{img.stem}_und{img.extension}")
         und = img.undistort_image(camera, out_file)

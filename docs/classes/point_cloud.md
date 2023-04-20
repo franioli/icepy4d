@@ -1,18 +1,18 @@
 # PointCloud Class
 
-You can easily import Icepy classes by
+You can easily import icepy4d classes by
 
 ```python
-import icepy.classes as icepy_classes
+import icepy4d.classes as icepy4d_classes
 ```
 
 and directly access to the Image and ImageDS classes by
 
 ```python
-icepy_classes.PointCloud
+icepy4d_classes.PointCloud
 ```
 
-::: icepy.classes.point_cloud.PointCloud
+::: icepy4d.classes.point_cloud.PointCloud
     handler: python
     options:
       members:
