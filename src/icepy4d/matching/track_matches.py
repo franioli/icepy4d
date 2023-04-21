@@ -5,17 +5,15 @@ import torch
 import cv2
 import logging
 
-from ..thirdparty.SuperGluePretrainedNetwork.models.matching import Matching
-from ..thirdparty.SuperGluePretrainedNetwork.models.utils import (
+from icepy4d.thirdparty.SuperGlue.models.matching import Matching
+from icepy4d.thirdparty.SuperGlue.models.utils import (
     make_matching_plot,
     AverageTimer,
     process_resize,
     frame2tensor,
 )
-from ..tiles import generateTiles
-from ..utils.spatial_funs import point_in_rect
-
-from icepy4d import visualization
+from icepy4d.utils.tiles import generateTiles
+from icepy4d.utils.spatial_funs import point_in_rect
 
 torch.set_grad_enabled(False)
 

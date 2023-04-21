@@ -15,6 +15,7 @@ logs/
 test_out/
 test/
 assets/Metashape-*
+scripts/dynamic_visualization/sections/
 
 # VScode
 # .vscode/

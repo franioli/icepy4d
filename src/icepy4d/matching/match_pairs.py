@@ -1,22 +1,19 @@
-import numpy as np
-import matplotlib.cm as cm
-import torch
-import cv2
 import logging
-
 from pathlib import Path
 
-from icepy4d.utils import AverageTimer
+import cv2
+import matplotlib.cm as cm
+import numpy as np
+import torch
 
-from ..thirdparty.SuperGluePretrainedNetwork.models.matching import Matching
-from ..thirdparty.SuperGluePretrainedNetwork.models.utils import (
-    make_matching_plot,
+from icepy4d.thirdparty.SuperGlue.models.matching import Matching
+from icepy4d.thirdparty.SuperGlue.models.utils import (
     frame2tensor,
+    make_matching_plot,
     process_resize,
 )
-
-from ..tiles import generateTiles
-
+from icepy4d.utils import AverageTimer
+from icepy4d.utils.tiles import generateTiles
 
 torch.set_grad_enabled(False)
 
@@ -32,6 +29,7 @@ VIZ_EXTENSION = "png"
 OPENCV_DISPLAY = False
 SHOW_KEYPOINTS = False
 CACHE = False
+
 
 # @TODO: This function is a duplicate of the one in track_matches!!!
 # It is a replacement of the SuperGlue one because of the different input parametets.
@@ -62,7 +60,6 @@ def read_image(path, device, resize=-1, rotation=0, resize_float=True, crop=[]):
 
 
 def vizTileRes(viz_path, pred, image0, image1, matching, timer, opt):
-
     kpts0, kpts1 = pred["keypoints0"], pred["keypoints1"]
     matches0 = pred["matches0"]
     conf = pred["matching_scores0"]
@@ -111,7 +108,6 @@ def vizTileRes(viz_path, pred, image0, image1, matching, timer, opt):
 
 
 def match_pair(pair, maskBB, opt):
-
     opt.resize_float = RESIZE_FLOAT
     opt.viz_extension = VIZ_EXTENSION
     opt.opencv_display = OPENCV_DISPLAY
@@ -185,7 +181,6 @@ def match_pair(pair, maskBB, opt):
     timer.update("load_image")
 
     if opt.useTile:
-
         # Subdivide image in tiles and run a loop
         tiles0, limits0 = generateTiles(
             image0,
