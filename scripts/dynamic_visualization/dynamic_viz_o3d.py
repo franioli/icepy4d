@@ -7,8 +7,8 @@ from easydict import EasyDict as edict
 from tqdm import tqdm
 from random import randint
 
-from ..classes.images import Image, ImageDS
-from ..utils.initialization import parse_yaml_cfg
+from icepy4d.classes.images import Image, ImageDS
+from icepy4d.utils.initialization import parse_yaml_cfg
 
 
 def read_asci_pc(path):
@@ -42,10 +42,9 @@ def viz_point_cloud(
 
 def set_view_options(
     vis,
-    view_dict: dict = None,
-    render_opt_json: str = None,
+    view_dict: dict,
+    render_opt_json: str,
 ) -> None:
-
     ctr = vis.get_view_control()
     ctr.set_front(view_dict.front)
     ctr.set_lookat(view_dict.lookat)
@@ -56,7 +55,6 @@ def set_view_options(
 
 
 def viz_loop(epoch_dict, view, o3d_render_opt_fname, out_dir):
-
     vis = o3d.visualization.Visualizer()
     vis.create_window()  # width=640, height=480)
     pcd = o3d.io.read_point_cloud("res/point_clouds/dense_ep_0_2022_07_28.ply")
@@ -84,7 +82,6 @@ def viz_loop(epoch_dict, view, o3d_render_opt_fname, out_dir):
 
 
 def viz_loop_folder(dir, ext, out_dir):
-
     from glob import glob
 
     base_pcd = o3d.io.read_point_cloud("/home/francesco/Desktop/pcd_base_loc.ply")
@@ -120,7 +117,6 @@ def viz_loop_folder(dir, ext, out_dir):
 
 
 if __name__ == "__main__":
-
     # Parse options from yaml file
     cfg_file = "config/config_base.yaml"
     cfg = parse_yaml_cfg(cfg_file)
@@ -204,9 +200,9 @@ if __name__ == "__main__":
     out_dir = "/home/francesco/Desktop/test_out"
     viz_loop_folder(dir, ext, out_dir)
 
-    # for view_id, view in enumerate(views):
-    #     out_dir = Path(f"res/vid/view_{view_id}")
-    #     out_dir.mkdir(parents=True, exist_ok=True)
-    #     viz_loop(epoch_dict, view, o3d_render_opt_fname)
+    for view_id, view in enumerate(views):
+        out_dir = Path(f"res/vid/view_{view_id}")
+        out_dir.mkdir(parents=True, exist_ok=True)
+        viz_loop(epoch_dict, view, o3d_render_opt_fname)
 
     print("Done.")

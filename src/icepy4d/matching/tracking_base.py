@@ -23,7 +23,6 @@ def tracking_base(
     cfg: edict,
     epoch_dir: Union[Path, str],
 ) -> icepy4d_classes.FeaturesDictEpoch:
-
     if not isinstance(cfg, dict):
         raise TypeError("opt must be a dictionary")
     required_keys = [
@@ -66,7 +65,6 @@ def tracking_base(
         with open(fname[0], "rb") as f:
             prev_features = pickle.load(f)
             logging.info("Previous features loaded.")
-
     except:
         raise FileNotFoundError(
             f"Invalid pickle file in {prev_path}. Skipping tracking from epoch {epoch_dict[epoch-1]} to {epoch_dict[epoch]}"
