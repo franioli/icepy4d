@@ -45,7 +45,6 @@ from icepy4d.matching.match_by_preselection import (
 from icepy4d.matching.matching_base import MatchingAndTracking
 from icepy4d.matching.tracking_base import tracking_base
 from icepy4d.matching.utils import geometric_verification, load_matches_from_disk
-from icepy4d.utils.utils import homography_warping
 
 # Temporary parameters TODO: put them in config file
 LOAD_EXISTING_SOLUTION = False  # False #
@@ -56,8 +55,6 @@ PATCHES = [
     {"p1": [1000, 1500, 4500, 2500], "p2": [1500, 1500, 5000, 2500]},
     {"p1": [2000, 2000, 3000, 3000], "p2": [2100, 2100, 3100, 3100]},
     {"p1": [2300, 1700, 3300, 2700], "p2": [3000, 1900, 4000, 2900]},
-    # {"p1": [3200, 1600, 4200, 2600], "p2": [5000, 1800, 6000, 2800]},
-    # {"p1": [1200, 1600, 2200, 2600], "p2": [3200, 1300, 4200, 2300]},
 ]
 
 
@@ -411,7 +408,7 @@ for epoch in cfg.proc.epoch_to_process:
             cam = cfg.proc.camera_to_warp
             image = images[cams[1]].read_image(epoch).value
             out_path = f"res/warped/{images[cam][epoch]}"
-            homography_warping(
+            icepy4d_utils.homography_warping(
                 cameras[ep_ini][cam], cameras[epoch][cam], image, out_path, timer
             )
 

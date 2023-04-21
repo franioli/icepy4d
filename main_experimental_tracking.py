@@ -280,12 +280,12 @@ for epoch in cfg.proc.epoch_to_process:
 """ Tracking all features for one week around 26 July 2022"""
 import open3d as o3d
 
-from icepy4d.tracking_features_utils import (
+from icepy4d.utils.tracking_features_utils import (
     tracked_points_time_series,
     tracked_dict_to_df,
 )
-from icepy4d.utils.rototranslation import Rotrotranslation, belvedere_loc2utm
-from icepy4d.binned_stats import compute_binned_stats2D, compute_binned_stats3D
+from icepy4d.utils.transformations import Rotrotranslation, belvedere_loc2utm
+from icepy4d.utils.binned_stats import compute_binned_stats2D, compute_binned_stats3D
 
 belv_rotra = Rotrotranslation(belvedere_loc2utm())
 
