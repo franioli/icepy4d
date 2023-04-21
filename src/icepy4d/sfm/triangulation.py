@@ -30,7 +30,7 @@ from typing import List
 from .geometry import undistort_points
 from .interpolate_colors import interpolate_point_colors
 from ..classes.camera import Camera
-from ..utils.utils import (
+from ..utils.math import (
     convert_from_homogeneous,
     convert_to_homogeneous,
 )
