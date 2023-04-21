@@ -12,8 +12,16 @@ from ..classes.points import Points
 from ..classes.targets import Targets
 from ..classes.typed_dict_classes import FeaturesDictEpoch, CamerasDictEpoch
 
-from ..utils.utils import create_directory
 from ..thirdparty.transformations import euler_from_matrix, euler_matrix
+
+
+def create_directory(path):
+    """
+    Creates a directory, if it does not exist.
+    """
+    path = Path(path)
+    path.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 def write_bundler_out(

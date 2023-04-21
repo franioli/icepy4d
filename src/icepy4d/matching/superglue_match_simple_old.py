@@ -4,8 +4,8 @@ import matplotlib.cm as cm
 import torch
 import json
 
-from ..thirdparty.SuperGluePretrainedNetwork.models.matching import Matching
-from ..thirdparty.SuperGluePretrainedNetwork.models.utils import (
+from ..thirdparty.SuperGlue.models.matching import Matching
+from ..thirdparty.SuperGlue.models.utils import (
     make_matching_plot,
     AverageTimer,
     read_image,
