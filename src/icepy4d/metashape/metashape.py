@@ -32,15 +32,15 @@ from easydict import EasyDict as edict
 from xml.etree import ElementTree as ET
 from typing import List, Union
 
-from .ms_utils import (
+from .metashape_core import (
     create_new_project,
     save_project,
     cameras_from_bundler,
     add_markers,
     read_gcp_file,
 )
-from ..utils.timer import AverageTimer
-from ..io.importing import read_opencv_calibration
+from icepy4d.utils.timer import AverageTimer
+from icepy4d.io.importing import read_opencv_calibration
 
 REGION_RESIZE_FCT = 10.0
 
