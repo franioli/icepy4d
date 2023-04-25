@@ -4,8 +4,8 @@ import matplotlib.cm as cm
 import torch
 import json
 
-from ..thirdparty.SuperGlue.models.matching import Matching
-from ..thirdparty.SuperGlue.models.utils import (
+from icepy4d.thirdparty.SuperGlue.models.matching import Matching
+from icepy4d.thirdparty.SuperGlue.models.utils import (
     make_matching_plot,
     AverageTimer,
     read_image,
@@ -17,7 +17,6 @@ torch.set_grad_enabled(False)
 
 
 def match_pair(pair, image0, image1, maskBB, opt):
-
     # @TODO: implement all checks...
 
     # Parameters

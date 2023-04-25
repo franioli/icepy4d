@@ -21,15 +21,17 @@ def viz_sections_loop(
     hide_window: bool = False,
 ):
     base_pcd = o3d.io.read_point_cloud(str(base_pcd_fname))
-    T = belvedere_utm2loc()
-
     pcd = o3d.io.read_point_cloud(str(pcd_list)[0])
     pcd = o3d_fun.filter_pcd_by_polyline(pcd, polyline_fname)
     pcd.paint_uniform_color(pcd_color)
 
     vis = o3d.visualization.Visualizer()
     vis.create_window(
-        width=window_size[0], height=window_size[1], visible=not hide_window
+        width=window_size[0],
+        height=window_size[1],
+        left=200,
+        top=50,
+        visible=not hide_window,
     )
     vis.add_geometry(base_pcd)
     vis.add_geometry(pcd)
@@ -85,7 +87,7 @@ if __name__ == "__main__":
         polyline_fname=polyline_fname,
         o3d_render_opt_fname=o3d_render_opt_fname,
         window_size=[2 * 1920, 2 * 1080],
-        hide_window=True,
+        hide_window=False,
     )
 
     print("Done.")
