@@ -6,35 +6,26 @@ References:
 - https://github.com/magicleap/SuperGluePretrainedNetwork
 """
 
-import numpy as np
-import matplotlib.cm as cm
-import torch
-import logging
-import cv2
 import importlib
-
-from easydict import EasyDict as edict
+import logging
 from pathlib import Path
-from typing import Tuple, Union
 
+import cv2
+import matplotlib.cm as cm
+import numpy as np
+import torch
+from easydict import EasyDict as edict
 
-from ..classes.features import Features
-from ..classes.images import ImageDS
-from ..utils.initialization import parse_yaml_cfg
-from ..tiles import generateTiles
-
-
-from icepy4d.matching.utils import read_image, frame2tensor
-from icepy4d.utils import AverageTimer
-
-
-from icepy4d.thirdparty.SuperGlue.models.superpoint import SuperPoint
-from icepy4d.thirdparty.SuperGlue.models.superglue import SuperGlue
+from icepy4d.classes.features import Features
+from icepy4d.classes.images import ImageDS
+from icepy4d.matching.utils import frame2tensor, read_image
 from icepy4d.thirdparty.SuperGlue.models.matching import Matching
-from icepy4d.thirdparty.SuperGlue.models.utils import (
-    make_matching_plot,
-)
-
+from icepy4d.thirdparty.SuperGlue.models.superglue import SuperGlue
+from icepy4d.thirdparty.SuperGlue.models.superpoint import SuperPoint
+from icepy4d.thirdparty.SuperGlue.models.utils import make_matching_plot
+from icepy4d.utils import AverageTimer
+from icepy4d.utils.initialization import parse_yaml_cfg
+from icepy4d.utils.tiles import generateTiles
 
 # SuperPoint Parameters
 NMS_RADIUS = 3
@@ -341,7 +332,6 @@ class SuperPoint_features:
 
 
 if __name__ == "__main__":
-
     cfg_file = "config/config_base.yaml"
     cfg = parse_yaml_cfg(cfg_file)
 

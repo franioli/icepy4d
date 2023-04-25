@@ -45,14 +45,14 @@ from ..io.importing import read_opencv_calibration
 REGION_RESIZE_FCT = 10.0
 
 
-def build_metashape_cfg(cfg: edict, epoch_dict: dict, epoch: int) -> edict:
+def build_metashape_cfg(cfg: edict, epoch_dict: dict, cur_epoch: int) -> edict:
     """
     # build_metashape_cfg Build metashape configuration dictionary, starting from global configuration dictionary.
 
     Args:
         cfg (edict): configuration dictionary for icepy4d
         epoch_dict (dict): dictionary containing the correspondings between epoch progressive numbers and dates
-        epoch (int): current epoch.
+        cur_epoch (int): current cur_epoch.
 
     Returns:
         edict: Metashape configuration dictionary
@@ -60,17 +60,17 @@ def build_metashape_cfg(cfg: edict, epoch_dict: dict, epoch: int) -> edict:
     ms_cfg = edict()
 
     # Paths
-    ms_cfg.dir = cfg.paths.results_dir / f"{epoch_dict[epoch]}/metashape"
-    ms_cfg.project_path = ms_cfg.dir / f"{epoch_dict[epoch]}.psx"
+    ms_cfg.dir = cfg.paths.results_dir / f"{epoch_dict[cur_epoch]}/metashape"
+    ms_cfg.project_path = ms_cfg.dir / f"{epoch_dict[cur_epoch]}.psx"
     ms_cfg.im_path = ms_cfg.dir / "data/images"
     ms_cfg.im_ext = cfg.paths.image_extension
-    ms_cfg.bundler_file_path = ms_cfg.dir / f"data/{epoch_dict[epoch]}.out"
+    ms_cfg.bundler_file_path = ms_cfg.dir / f"data/{epoch_dict[cur_epoch]}.out"
     ms_cfg.bundler_im_list = ms_cfg.dir / "data/im_list.txt"
     ms_cfg.gcp_filename = ms_cfg.dir / "data/gcps.txt"
     ms_cfg.calib_filenames = cfg.metashape.calib_filenames
     ms_cfg.dense_path = cfg.paths.results_dir / "point_clouds"
-    ms_cfg.dense_name = f"dense_{epoch_dict[epoch]}.ply"
-    ms_cfg.mesh_name = f"mesh_{epoch_dict[epoch]}.ply"
+    ms_cfg.dense_name = f"dense_{epoch_dict[cur_epoch]}.ply"
+    ms_cfg.mesh_name = f"mesh_{epoch_dict[cur_epoch]}.ply"
 
     # Processing parameters
     ms_cfg.optimize_cameras = cfg.metashape.optimize_cameras
@@ -105,7 +105,6 @@ class MetashapeProject:
         cfg: edict,
         timer: AverageTimer = None,
     ) -> None:
-
         self.cfg = cfg
         self.timer = timer
 
@@ -500,7 +499,6 @@ class MetashapeReader:
 
 
 if __name__ == "__main__":
-
     from src.icepy4d.visualization.visualization import make_focal_length_variation_plot
 
     root_path = Path().absolute()
