@@ -170,7 +170,6 @@ class Rotrotranslation:
 
 
 if __name__ == "__main__":
-
     belv_rotra = Rotrotranslation(belvedere_loc2utm())
     # a = Rotrotranslation.read_T_from_file("scripts/rototranslation/BELV_LOC2UTM.txt")
 
