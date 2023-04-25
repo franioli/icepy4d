@@ -73,7 +73,6 @@ def create_new_project(
     chunk_name: str = None,
     read_only: bool = False,
 ) -> Metashape.app.document:
-
     doc = Metashape.Document()
     doc.read_only = read_only
     create_new_chunk(doc, chunk_name)
@@ -329,7 +328,6 @@ def add_markers(
     enabled: bool = True,
     accuracy: Union[float, np.ndarray] = None,
 ) -> None:
-
     # Create Markers given its 3D object coordinates
     X = Metashape.Vector(X)
     X_ = chunk.transform.matrix.inv().mulp(X)
@@ -542,7 +540,6 @@ def copy_camera_estimated_to_reference(
     copy_rotations: bool = False,
     accuracy: List[float] = None,
 ) -> None:
-
     # Get Chunk transformation matrix
     T = chunk.transform.matrix
 
@@ -582,7 +579,6 @@ def get_sensor_id_by_label(
 def make_homogeneous(
     v: Metashape.Vector,
 ) -> Metashape.Vector:
-
     vh = Metashape.Vector([1.0 for x in range(v.size + 1)])
     for i, x in enumerate(v):
         vh[i] = x
