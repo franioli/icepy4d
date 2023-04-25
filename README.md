@@ -24,6 +24,16 @@ Install Icepy4D from PyPi repository
 pip install icepy4d
 ```
 
+or install it from source by cloning the repository and installing it with `pip`
+
+```bash
+git clone https://github.com/franioli/icepy4d.git
+cd icepy4d
+pip install -e .
+```
+
+In case of any error when installing `ICEpy4D` from PyPi, try to install it from source.
+
 Install Metashape Python API for Bundle Adjustment and Dense reconstruction.
 Metashape Python API can be downloaded from [https://www.agisoft.com/downloads/installer/](https://www.agisoft.com/downloads/installer/) or use `wget` (under Linux).
 
