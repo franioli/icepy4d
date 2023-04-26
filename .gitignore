@@ -16,6 +16,7 @@ test_out/
 test/
 assets/Metashape-*
 scripts/dynamic_visualization/sections/
+src/icepy4d/thirdparty/SuperGluePretrainedNetwork.old/
 
 # VScode
 # .vscode/
