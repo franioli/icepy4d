@@ -185,6 +185,32 @@ def arrange_gcp(data: dict) -> List[dict]:
 """Output"""
 
 
+def export_tie_points(
+    chunk: Metashape.Chunk,
+    file_name: str,
+    expot_covariance: bool = False,
+) -> None:
+    with open(file_name, "w") as f:
+        if expot_covariance:
+            f.write("track_id,x,y,z,c11,c12,c13,c21,c22\n")
+        else:
+            f.write("track_id,x,y,z\n")
+        for point in chunk.point_cloud.points:
+            track_id = point.track_id
+            valid = point.valid
+            if not valid:
+                continue
+            coord = point.coord
+            if expot_covariance:
+                cov = point.cov
+            f.write(f"{track_id},{coord[0]},{coord[1]},{coord[2]},")
+            if expot_covariance:
+                f.write(f"{cov[0][0]},{cov[0][1]},{cov[0][2]},")
+                f.write(f"{cov[1][0]},{cov[1][1]},{cov[1][2]},")
+                f.write(f"{cov[2][0]},{cov[2][1]},{cov[2][2]},")
+            f.write("\n")
+
+
 def write_markers_by_camera(
     chunk: Metashape.Chunk,
     file_name: str,
