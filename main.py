@@ -47,7 +47,7 @@ from icepy4d.matching.tracking_base import tracking_base
 from icepy4d.matching.utils import geometric_verification, load_matches_from_disk
 
 # Temporary parameters TODO: put them in config file
-LOAD_EXISTING_SOLUTION = False  # False #
+LOAD_EXISTING_SOLUTION = True  # False #
 DO_PRESELECTION = False
 DO_ADDITIONAL_MATCHING = True
 PATCHES = [
@@ -89,6 +89,25 @@ targets = inizializer.targets
 points = inizializer.points
 focals = inizializer.focals_dict
 
+
+def write_focal_length(fname, solution, date):
+    if solution is None:
+        return
+    with open(fname, "a+") as f:
+        foc = []
+        cams = list(solution.cameras.keys())
+        for cam in cams:
+            foc.append(solution.cameras[cam].K[1, 1])
+        f.write(f"{date},{foc[0]:.2f},{foc[1]:.2f}\n")
+
+    # save camera attitude angles to disk
+    # with open(cfg.paths.results_dir / "attitude_angles.txt", "a+") as f:
+
+
+focals_fname = cfg.paths.results_dir / "focal_length.txt"
+# if focals_fname.exists():
+# focals_fname.unlink()
+
 """ Big Loop over epoches """
 
 logging.info("------------------------------------------------------")
@@ -111,6 +130,7 @@ for epoch in cfg.proc.epoch_to_process:
         solution = Solution.read_solution(path, ignore_errors=True)
         if solution is not None:
             cameras[epoch], _, features[epoch], points[epoch] = solution
+            write_focal_length(focals_fname, solution, epoch_dict[epoch])
             del solution
             logging.info("Solution loaded.")
             continue
@@ -415,6 +435,10 @@ for epoch in cfg.proc.epoch_to_process:
         # Save solution as a pickle object
         solution = Solution(cameras[epoch], images, features[epoch], points[epoch])
         solution.save_solutions(f"{epochdir}/{epoch_dict[epoch]}.pickle")
+
+        # Save focal length to file
+        write_focal_length(focals_fname, solution, epoch_dict[epoch])
+
         del solution
 
     timer.print(f"Epoch {epoch} completed")
