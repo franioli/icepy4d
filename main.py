@@ -47,7 +47,7 @@ from icepy4d.matching.tracking_base import tracking_base
 from icepy4d.matching.utils import geometric_verification, load_matches_from_disk
 
 # Temporary parameters TODO: put them in config file
-LOAD_EXISTING_SOLUTION = False  # False #
+LOAD_EXISTING_SOLUTION = True  # False #
 DO_PRESELECTION = False
 DO_ADDITIONAL_MATCHING = True
 PATCHES = [
@@ -360,6 +360,10 @@ for epoch in cfg.proc.epoch_to_process:
         cameras[epoch][cams[1]].update_extrinsics(
             ms_reader.extrinsics[images[cams[1]].get_image_stem(epoch)]
         )
+
+        # save focal lengths to file
+        with open(cfg.paths.results_dir / "focals.txt", "a+") as f:
+            f.write(f"{epoch_dict[epoch]} {focals[cam][epoch]}\n")
 
         # Triangulate again points and update Point Cloud dict
         triang = sfm.Triangulate(

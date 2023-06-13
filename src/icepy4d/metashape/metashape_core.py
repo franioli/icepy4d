@@ -190,6 +190,18 @@ def export_tie_points_world(
     file_name: str,
     expot_covariance_mat: bool = False,
 ) -> None:
+    """Export tie points in world coordinates to a file.
+
+    Args:
+        chunk: A Metashape Chunk object containing the tie points.
+        file_name: A string specifying the name of the output file.
+        export_covariance_mat: A boolean indicating whether to export covariance matrix. If false, export only standard deviation of 3D coordinates of each point. Default is False.
+
+    Returns:
+        None
+
+
+    """
     with open(file_name, "w") as f:
         if expot_covariance_mat:
             f.write("track_id,x,y,z,c11,c12,c13,c21,c22,c23,c31,c32,c33\n")
@@ -210,6 +222,7 @@ def export_tie_points_world(
             else:
                 f.write(f"{np.sqrt(cov[0,0])},{np.sqrt(cov[1,1])},{np.sqrt(cov[2,2])},")
             f.write("\n")
+    print(f"Tie points exported to {file_name}.")
 
 
 def write_markers_by_camera(
