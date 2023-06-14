@@ -1,5 +1,5 @@
 {
-  "python.formatting.provider": "black",
+  "python.formatting.provider": "none",
   "python.analysis.extraPaths": [
     "${workspaceFolder}",
     "${workspaceFolder}/src"
@@ -10,5 +10,8 @@
   "python.testing.pytestEnabled": true,
   "[markdown]": {
     "editor.formatOnSave": false
+  },
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter"
   }
 }
