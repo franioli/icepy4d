@@ -47,7 +47,7 @@ from icepy4d.matching.tracking_base import tracking_base
 from icepy4d.matching.utils import geometric_verification, load_matches_from_disk
 
 # Temporary parameters TODO: put them in config file
-LOAD_EXISTING_SOLUTION = True  # False #
+LOAD_EXISTING_SOLUTION = False  # False #
 DO_PRESELECTION = False
 DO_ADDITIONAL_MATCHING = True
 PATCHES = [
@@ -90,23 +90,26 @@ points = inizializer.points
 focals = inizializer.focals_dict
 
 
-def write_focal_length(fname, solution, date):
+def write_cameras_to_disk(fname, solution, date):
+    from icepy4d.thirdparty.transformations import euler_from_matrix
+
     if solution is None:
         return
-    with open(fname, "a+") as f:
-        foc = []
-        cams = list(solution.cameras.keys())
-        for cam in cams:
-            foc.append(solution.cameras[cam].K[1, 1])
-        f.write(f"{date},{foc[0]:.2f},{foc[1]:.2f}\n")
-
-    # save camera attitude angles to disk
-    # with open(cfg.paths.results_dir / "attitude_angles.txt", "a+") as f:
+    with open(fname, "a") as file:
+        file.write(f"{date}")
+        for cam in solution.cameras.keys():
+            f = solution.cameras[cam].K[1, 1]
+            R = solution.cameras[cam].R
+            o, p, k = euler_from_matrix(R)
+            o, p, k = np.rad2deg(o), np.rad2deg(p), np.rad2deg(k)
+            file.write(f",{f:.2f},{o:.4f},{p:.4f},{k:.4f}")
+        file.write("\n")
 
 
 focals_fname = cfg.paths.results_dir / "focal_length.txt"
-# if focals_fname.exists():
-# focals_fname.unlink()
+with open(focals_fname, "w") as file:
+    file.write(f"date,f1,omega1,phi1,kappa1,f2,omega2,phi2,kappa2\n")
+
 
 """ Big Loop over epoches """
 
@@ -130,7 +133,6 @@ for epoch in cfg.proc.epoch_to_process:
         solution = Solution.read_solution(path, ignore_errors=True)
         if solution is not None:
             cameras[epoch], _, features[epoch], points[epoch] = solution
-            write_focal_length(focals_fname, solution, epoch_dict[epoch])
             del solution
             logging.info("Solution loaded.")
             continue
@@ -437,7 +439,7 @@ for epoch in cfg.proc.epoch_to_process:
         solution.save_solutions(f"{epochdir}/{epoch_dict[epoch]}.pickle")
 
         # Save focal length to file
-        write_focal_length(focals_fname, solution, epoch_dict[epoch])
+        write_cameras_to_disk(focals_fname, solution, epoch_dict[epoch])
 
         del solution
 
