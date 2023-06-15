@@ -4,24 +4,107 @@ import pandas as pd
 from pathlib import Path
 from typing import Union, List
 
-" Transformation for Belvedere North-West terminus, from Local RS to WGS84-UTM32N "
+"Transformation for Belvedere North-West terminus, from Local RS to WGS84-UTM32N"
+BELV_LOC2UTM = np.array(
+    [
+        [0.706579327583, -0.70687371492, -0.00012600114, 416614.833],
+        [0.706873714924, 0.706579267979, 0.000202054813, 5090932.706],
+        [-0.00005382637, -0.00023195939, 0.999462246895, 1767.547],
+        [0.0, 0.0, 0.0, 1.0],
+    ]
+)
 
 
-def belvedere_loc2utm() -> np.ndarray:
-    BELV_LOC2UTM = np.array(
-        [
-            [0.706579327583, -0.70687371492, -0.00012600114, 416614.833],
-            [0.706873714924, 0.706579267979, 0.000202054813, 5090932.706],
-            [-0.00005382637, -0.00023195939, 0.999462246895, 1767.547],
-            [0.0, 0.0, 0.0, 1.0],
-        ]
-    )
-    return BELV_LOC2UTM
+class Rotrotranslation:
+    def __init__(self, t_mat: np.ndarray) -> None:
+        # TODO: add checks on input T mat
+        assert isinstance(
+            t_mat, np.ndarray
+        ), "Invalid input for the transformation matrix t_mat. It must be a 4x4 numpy array"
+        assert t_mat.shape == (4, 4), "Error: T mat must be a 4x4 numpy array"
 
+        self._t = t_mat
 
-def belvedere_utm2loc() -> np.ndarray:
-    BELV_UTM2LOC = np.linalg.inv(belvedere_loc2utm())
-    return BELV_UTM2LOC
+    @classmethod
+    def read_T_from_file(cls, file: Union[str, Path]):
+        # TODO: implement this function
+        T = np.loadtxt(file)
+        return cls(T)
+
+    @property
+    def T(self):
+        return self._t
+
+    @property
+    def T_inv(self):
+        return np.linalg.inv(self._t)
+
+    @staticmethod
+    def belvedere_loc2utm() -> np.ndarray:
+        return BELV_LOC2UTM
+
+    @staticmethod
+    def belvedere_utm2loc() -> np.ndarray:
+        BELV_UTM2LOC = np.linalg.inv(BELV_LOC2UTM)
+        return BELV_UTM2LOC
+
+    def apply_transformation(self, x: np.ndarray) -> np.ndarray:
+        """
+        Applies a 4x4 transformation matrix in homogeneous coordinates
+        to a 4xn numpy array in homogeneous coordinates. If input points are not in homogeneous coordinates, it converts them using convert_to_homogeneous function.
+
+        Args:
+            x: A 4xn numpy array representing n points in homogeneous coordinates or a 3xn numpy array representing n points in euclidean coordinates .
+
+        Returns:
+            A 3xn numpy array in euclidean coordinates, which is the result of applying the transformation matrix to the input array.
+
+        TODO: accept as input nx4 array and transpose them.
+        TODO: return array as nx3, not 3xn!
+        """
+        # Check if x is in homogeneous coordinates, and convert it if not
+        if x.shape[0] == 3 and not np.allclose(x[-1, :], np.ones(x.shape[1])):
+            x = convert_to_homogeneous(x)
+
+        if x.shape[0] != 4:
+            raise ValueError(
+                "Error: x must be a 4xn numpy array in homogeneous coordinates or a 3xn numpy array in euclidean coordinates."
+            )
+
+        out = self.T @ x
+        return convert_from_homogeneous(out)
+
+    def apply_inverse_transformation(self, x: np.ndarray) -> np.ndarray:
+        """
+        Applies a 4x4 transformation matrix in homogeneous coordinates
+        to a 4xn numpy array in homogeneous coordinates. If input points are not in homogeneous coordinates, it converts them using convert_to_homogeneous function.
+
+        Args:
+            x: A 4xn numpy array representing n points in homogeneous coordinates or a 3xn numpy array representing n points in euclidean coordinates .
+
+        Returns:
+            A 3xn numpy array in euclidean coordinates, which is the result of applying the transformation matrix to the input array.
+
+        TODO: accept as input nx4 array and transpose them.
+        TODO: return array as nx3, not 3xn!
+        """
+        # Check if x is in homogeneous coordinates, and convert it if not
+        if x.shape[0] == 3 and not np.allclose(x[-1, :], np.ones(x.shape[1])):
+            x = convert_to_homogeneous(x)
+
+        if x.shape[0] != 4:
+            raise ValueError(
+                "Error: x must be a 4xn numpy array in homogeneous coordinates or a 3xn numpy array in euclidean coordinates."
+            )
+
+        out = self.T_inv @ x
+        return convert_from_homogeneous(out)
+
+    def write_T_mat_to_csv(self, fname: str, sep: str = " "):
+        with open(fname, "w") as f:
+            for row in self.T:
+                string = f"{sep}".join([f"{x}" for x in row])
+                f.write(f"{string}\n")
 
 
 def convert_to_homogeneous(x: np.ndarray) -> np.ndarray:
@@ -86,91 +169,8 @@ def get_coordinates_from_df(
     return xyz
 
 
-class Rotrotranslation:
-    def __init__(self, t_mat: np.ndarray) -> None:
-        # TODO: add checks on input T mat
-        assert isinstance(
-            t_mat, np.ndarray
-        ), "Invalid input for the transformation matrix t_mat. It must be a 4x4 numpy array"
-        assert t_mat.shape == (4, 4), "Error: T mat must be a 4x4 numpy array"
-
-        self._t = t_mat
-
-    @classmethod
-    def read_T_from_file(cls, file: Union[str, Path]):
-        # TODO: implement this function
-        T = np.loadtxt(file)
-        return cls(T)
-
-    @property
-    def T(self):
-        return self._t
-
-    @property
-    def T_inv(self):
-        return np.linalg.inv(self._t)
-
-    def apply_transformation(self, x: np.ndarray) -> np.ndarray:
-        """
-        Applies a 4x4 transformation matrix in homogeneous coordinates
-        to a 4xn numpy array in homogeneous coordinates. If input points are not in homogeneous coordinates, it converts them using convert_to_homogeneous function.
-
-        Args:
-            x: A 4xn numpy array representing n points in homogeneous coordinates or a 3xn numpy array representing n points in euclidean coordinates .
-
-        Returns:
-            A 3xn numpy array in euclidean coordinates, which is the result of applying the transformation matrix to the input array.
-
-        TODO: accept as input nx4 array and transpose them.
-        TODO: return array as nx3, not 3xn!
-        """
-        # Check if x is in homogeneous coordinates, and convert it if not
-        if x.shape[0] == 3 and not np.allclose(x[-1, :], np.ones(x.shape[1])):
-            x = convert_to_homogeneous(x)
-
-        if x.shape[0] != 4:
-            raise ValueError(
-                "Error: x must be a 4xn numpy array in homogeneous coordinates or a 3xn numpy array in euclidean coordinates."
-            )
-
-        out = self.T @ x
-        return convert_from_homogeneous(out)
-
-    def apply_inverse_transformation(self, x: np.ndarray) -> np.ndarray:
-        """
-        Applies a 4x4 transformation matrix in homogeneous coordinates
-        to a 4xn numpy array in homogeneous coordinates. If input points are not in homogeneous coordinates, it converts them using convert_to_homogeneous function.
-
-        Args:
-            x: A 4xn numpy array representing n points in homogeneous coordinates or a 3xn numpy array representing n points in euclidean coordinates .
-
-        Returns:
-            A 3xn numpy array in euclidean coordinates, which is the result of applying the transformation matrix to the input array.
-
-        TODO: accept as input nx4 array and transpose them.
-        TODO: return array as nx3, not 3xn!
-        """
-        # Check if x is in homogeneous coordinates, and convert it if not
-        if x.shape[0] == 3 and not np.allclose(x[-1, :], np.ones(x.shape[1])):
-            x = convert_to_homogeneous(x)
-
-        if x.shape[0] != 4:
-            raise ValueError(
-                "Error: x must be a 4xn numpy array in homogeneous coordinates or a 3xn numpy array in euclidean coordinates."
-            )
-
-        out = self.T_inv @ x
-        return convert_from_homogeneous(out)
-
-    def write_T_mat_to_csv(self, fname: str, sep: str = " "):
-        with open(fname, "w") as f:
-            for row in self.T:
-                string = f"{sep}".join([f"{x}" for x in row])
-                f.write(f"{string}\n")
-
-
 if __name__ == "__main__":
-    belv_rotra = Rotrotranslation(belvedere_loc2utm())
+    belv_rotra = Rotrotranslation(Rotrotranslation.belvedere_loc2utm())
     # a = Rotrotranslation.read_T_from_file("scripts/rototranslation/BELV_LOC2UTM.txt")
 
     print("done")
