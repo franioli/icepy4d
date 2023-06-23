@@ -35,7 +35,8 @@ import icepy4d.metashape.metashape as MS
 import icepy4d.sfm as sfm
 import icepy4d.utils as icepy4d_utils
 import icepy4d.utils.initialization as inizialization
-import icepy4d.visualization as icepy4d_viz
+
+# import icepy4d.visualization as icepy4d_viz
 from icepy4d.classes.solution import Solution
 from icepy4d.io.export2bundler import write_bundler_out
 from icepy4d.matching.match_by_preselection import (
@@ -44,7 +45,10 @@ from icepy4d.matching.match_by_preselection import (
 )
 from icepy4d.matching.matching_base import MatchingAndTracking
 from icepy4d.matching.tracking_base import tracking_base
-from icepy4d.matching.utils import geometric_verification, load_matches_from_disk
+from icepy4d.matching.utils import (
+    geometric_verification,
+    load_matches_from_disk,
+)
 
 # Temporary parameters TODO: put them in config file
 LOAD_EXISTING_SOLUTION = True  # False #

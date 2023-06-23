@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import open3d as o3d
 
 from pathlib import Path
 from typing import Union, List
@@ -20,8 +21,11 @@ class Rotrotranslation:
         # TODO: add checks on input T mat
         assert isinstance(
             t_mat, np.ndarray
-        ), "Invalid input for the transformation matrix t_mat. It must be a 4x4 numpy array"
-        assert t_mat.shape == (4, 4), "Error: T mat must be a 4x4 numpy array"
+        ), "Invalid input for the transformation matrix t_mat. It must be a 4x4 numpy array."
+        assert t_mat.shape == (
+            4,
+            4,
+        ), "Error: T mat must be a 4x4 numpy array in homogeneous coordinates."
 
         self._t = t_mat
 
@@ -100,6 +104,40 @@ class Rotrotranslation:
         out = self.T_inv @ x
         return convert_from_homogeneous(out)
 
+    def read_pcd(self, fname: Union[str, Path]) -> np.ndarray:
+        """
+        Reads a pcd file by using Open3D
+        """
+        pcd = o3d.io.read_point_cloud(str(fname))
+        return np.asarray(pcd.points)
+
+    def write_pcd(self, fname: Union[str, Path], x: np.ndarray) -> None:
+        """
+        Writes a pcd file by using Open3D
+        """
+        assert isinstance(x, np.ndarray), "x must be a numpy array."
+        assert x.shape[1] == 3, "x must be a nx3 numpy array."
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(x)
+        o3d.io.write_point_cloud(str(fname), pcd)
+
+    def transform_pcd(
+        self,
+        fname: Union[str, Path],
+        save_transformed: bool = True,
+        out_fname: str = None,
+    ):
+        fname = Path(fname)
+        x = self.read_pcd(fname)
+        x_transf = self.apply_transformation(x.T).T
+        if save_transformed:
+            if out_fname is None:
+                out_fname = fname.parent / f"{fname.stem}_transformed.pcd"
+            self.write_pcd(fname, x_transf)
+        else:
+
+            return x_transf
+
     def write_T_mat_to_csv(self, fname: str, sep: str = " "):
         with open(fname, "w") as f:
             for row in self.T:
@@ -172,5 +210,8 @@ def get_coordinates_from_df(
 if __name__ == "__main__":
     belv_rotra = Rotrotranslation(Rotrotranslation.belvedere_loc2utm())
     # a = Rotrotranslation.read_T_from_file("scripts/rototranslation/BELV_LOC2UTM.txt")
+
+    pcd_name = "res/monthly_pcd/belvedere2021_densaMedium_lingua_50cm_utm.ply"
+    belv_rotra.transform_pcd(pcd_name)
 
     print("done")
