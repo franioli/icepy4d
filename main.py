@@ -75,9 +75,8 @@ def write_cameras_to_disk(fname, solution, date):
         file.write("\n")
 
 
-focals_fname = cfg.paths.results_dir / "focal_length.txt"
-with open(focals_fname, "w") as file:
-    file.write(f"date,f1,omega1,phi1,kappa1,f2,omega2,phi2,kappa2\n")
+def write_matches_info():
+    pass
 
 
 """ Inizialize Variables """
@@ -113,6 +112,14 @@ targets = inizializer.targets
 points = inizializer.points
 focals = inizializer.focals_dict
 
+
+# TEMPORARY: initialize file for storing camera angles and focal lengths
+camea_estimated_fname = cfg.paths.results_dir / "camera_info_est.txt"
+with open(camea_estimated_fname, "w") as file:
+    file.write(f"date,f1,omega1,phi1,kappa1,f2,omega2,phi2,kappa2\n")
+
+solutions = {}
+
 """ Big Loop over epoches """
 
 logging.info("------------------------------------------------------")
@@ -134,6 +141,7 @@ for epoch in cfg.proc.epoch_to_process:
         logging.info(f"Loading solution from {path}")
         solution = Solution.read_solution(path, ignore_errors=True)
         if solution is not None:
+            solutions[epoch] = solution
             cameras[epoch], _, features[epoch], points[epoch] = solution
             del solution
             logging.info("Solution loaded.")
@@ -437,13 +445,15 @@ for epoch in cfg.proc.epoch_to_process:
             )
 
         # Save solution as a pickle object
-        solution = Solution(cameras[epoch], images, features[epoch], points[epoch])
-        solution.save_solutions(f"{epochdir}/{epoch_dict[epoch]}.pickle")
+        solutions[epoch] = Solution(
+            cameras[epoch], images, features[epoch], points[epoch]
+        )
+        solutions[epoch].save_solutions(f"{epochdir}/{epoch_dict[epoch]}.pickle")
 
         # Save focal length to file
-        write_cameras_to_disk(focals_fname, solution, epoch_dict[epoch])
-
-        del solution
+        write_cameras_to_disk(
+            camea_estimated_fname, solutions[epoch], epoch_dict[epoch]
+        )
 
     timer.print(f"Epoch {epoch} completed")
 
