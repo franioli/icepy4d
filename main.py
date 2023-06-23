@@ -23,6 +23,7 @@ SOFTWARE.
 """
 
 import gc
+import sys
 import logging
 import shutil
 from pathlib import Path
@@ -58,38 +59,6 @@ PATCHES = [
 ]
 
 
-# initialization.print_welcome_msg()
-
-cfg_file, log_cfg = inizialization.parse_command_line()
-# cfg_file = Path("config/config_2022_exp.yaml")
-
-""" Inizialize Variables """
-# Setup logger
-icepy4d_utils.setup_logger(
-    log_cfg["log_folder"],
-    log_cfg["log_name"],
-    log_cfg["log_file_level"],
-    log_cfg["log_console_level"],
-)
-
-# Parse configuration file
-logging.info(f"Configuration file: {cfg_file.stem}")
-cfg = inizialization.parse_yaml_cfg(cfg_file)
-
-timer_global = icepy4d_utils.AverageTimer()
-
-inizializer = inizialization.Inizializer(cfg)
-inizializer.inizialize_icepy4d()
-cams = inizializer.cams
-images = inizializer.images
-epoch_dict = inizializer.epoch_dict
-cameras = inizializer.cameras
-features = inizializer.features
-targets = inizializer.targets
-points = inizializer.points
-focals = inizializer.focals_dict
-
-
 def write_cameras_to_disk(fname, solution, date):
     from icepy4d.thirdparty.transformations import euler_from_matrix
 
@@ -110,6 +79,39 @@ focals_fname = cfg.paths.results_dir / "focal_length.txt"
 with open(focals_fname, "w") as file:
     file.write(f"date,f1,omega1,phi1,kappa1,f2,omega2,phi2,kappa2\n")
 
+
+""" Inizialize Variables """
+if len(sys.argv) > 1:
+    # If given, parse inputs from command line
+    cfg_file, log_cfg = inizialization.parse_command_line()
+
+    # Setup logger
+    icepy4d_utils.setup_logger(
+        log_cfg["log_folder"],
+        log_cfg["log_name"],
+        log_cfg["log_file_level"],
+        log_cfg["log_console_level"],
+    )
+else:
+    cfg_file = Path("config/config_2022_exp.yaml")
+    icepy4d_utils.setup_logger()
+
+# Parse configuration file
+logging.info(f"Configuration file: {cfg_file.stem}")
+cfg = inizialization.parse_yaml_cfg(cfg_file)
+
+timer_global = icepy4d_utils.AverageTimer()
+
+inizializer = inizialization.Inizializer(cfg)
+inizializer.inizialize_icepy4d()
+cams = inizializer.cams
+images = inizializer.images
+epoch_dict = inizializer.epoch_dict
+cameras = inizializer.cameras
+features = inizializer.features
+targets = inizializer.targets
+points = inizializer.points
+focals = inizializer.focals_dict
 
 """ Big Loop over epoches """
 
