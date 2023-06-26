@@ -12,7 +12,10 @@ from .track_matches import track_matches
 
 from ..classes.features import Features
 
-DEBUG = True
+DEBUG = False
+
+WRITE_RES_STATS = True
+RESULT_FNAME = "res/matching_tracking_results.txt"
 
 
 def MatchingAndTracking(
@@ -22,7 +25,6 @@ def MatchingAndTracking(
     features: dict,
     epoch_dict: dict,
 ) -> dict:
-
     epochdir = Path(cfg.paths.results_dir) / f"{epoch_dict[epoch]}/matching"
     cams = cfg.paths.camera_names
 
@@ -95,6 +97,17 @@ def MatchingAndTracking(
                 epoch=epoch - 1,
             )
 
+            # Write tracking stats to file
+            if WRITE_RES_STATS:
+                with open(RESULT_FNAME, "a") as f:
+                    line = [
+                        epoch,
+                        epoch_dict[epoch],
+                        epoch_dict[epoch - 1],
+                        len(tracked_kpts_idx),
+                    ]
+                    f.write(",".join([str(x) for x in line]) + ",")
+
             # For debugging
             if DEBUG:
                 # from ..visualization.visualization import make_matching_plot
@@ -128,6 +141,15 @@ def MatchingAndTracking(
             logging.warning(
                 f"Skipping tracking from epoch {epoch_dict[epoch-1]} to {epoch_dict[epoch]}"
             )
+            if WRITE_RES_STATS:
+                with open(RESULT_FNAME, "a") as f:
+                    line = [
+                        epoch,
+                        epoch_dict[epoch],
+                        epoch_dict[epoch - 1],
+                        "",
+                    ]
+                    f.write(",".join([str(x) for x in line]) + ",")
 
     # -- Find Matches at current epoch --#
     logging.info(f"Run Superglue to find matches at epoch {epoch}")
@@ -164,6 +186,11 @@ def MatchingAndTracking(
         for epoch in range(cfg.proc.epoch_to_process[0], epoch + 1)
     }
 
+    if WRITE_RES_STATS:
+        with open(RESULT_FNAME, "a") as f:
+            line = [epoch, len(x)]
+            f.write(f"{len(x)}" + ",")
+
     # Run Pydegensac to estimate F matrix and reject outliers
     logging.info(
         f"Geometric verification of the matches - Pydegensac parameters:  threshold {cfg.matching.pydegensac_threshold} [px], confidence: {cfg.matching.pydegensac_confidence}"
@@ -185,6 +212,11 @@ def MatchingAndTracking(
 
     features[epoch][cams[0]].filter_feature_by_mask(inlMask)
     features[epoch][cams[1]].filter_feature_by_mask(inlMask)
+
+    if WRITE_RES_STATS:
+        with open(RESULT_FNAME, "a") as f:
+            line = [epoch, len(x)]
+            f.write(f"{len(features[epoch][cams[0]])}" + "\n")
 
     # Write matched points to disk
     im_stems = (

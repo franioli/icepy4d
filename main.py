@@ -68,15 +68,44 @@ def write_cameras_to_disk(fname, solution, date):
         file.write(f"{date}")
         for cam in solution.cameras.keys():
             f = solution.cameras[cam].K[1, 1]
-            R = solution.cameras[cam].R
+            # R = solution.cameras[cam].R
+            R = solution.cameras[cam].pose[:3, :3]
             o, p, k = euler_from_matrix(R)
             o, p, k = np.rad2deg(o), np.rad2deg(p), np.rad2deg(k)
             file.write(f",{f:.2f},{o:.4f},{p:.4f},{k:.4f}")
         file.write("\n")
 
 
-def write_matches_info():
-    pass
+def compute_reprojection_error(fname, solution):
+    print("Computing reprojection error")
+
+    import pandas as pd
+
+    residuals = pd.DataFrame()
+    for cam_key, camera in solution.cameras.items():
+        feat = solution.features[cam_key]
+        projections = camera.project_point(solution.points.to_numpy())
+        res = projections - feat.kpts_to_numpy()
+        res_norm = np.linalg.norm(res, axis=1)
+        residuals["track_id"] = feat.get_track_ids()
+        residuals[f"x_{cam_key}"] = res[:, 0]
+        residuals[f"y_{cam_key}"] = res[:, 1]
+        residuals[f"norm_{cam_key}"] = res_norm
+
+    # Compute global norm as mean of all cameras
+    residuals[f"global_norm"] = np.mean(
+        residuals[[f"norm_{x}" for x in cams]].to_numpy(), axis=1
+    )
+    res_stas = residuals.describe()
+    res_stas_s = res_stas.stack()
+
+    with open(fname, "a") as f:
+        line = (
+            epoch_dict[epoch]
+            + sep
+            + f"{sep}".join([str(x) for x in res_stas_s.to_list()])
+        )
+        f.write(line + "\n")
 
 
 """ Inizialize Variables """
@@ -92,7 +121,7 @@ if len(sys.argv) > 1:
         log_cfg["log_console_level"],
     )
 else:
-    cfg_file = Path("config/config_2022_exp.yaml")
+    cfg_file = Path("config/config_2022.yaml")
     icepy4d_utils.setup_logger()
 
 # Parse configuration file
@@ -114,9 +143,27 @@ focals = inizializer.focals_dict
 
 
 # TEMPORARY: initialize file for storing camera angles and focal lengths
+sep = ","
 camea_estimated_fname = cfg.paths.results_dir / "camera_info_est.txt"
 with open(camea_estimated_fname, "w") as file:
-    file.write(f"date,f1,omega1,phi1,kappa1,f2,omega2,phi2,kappa2\n")
+    items = ["date", "f1", "omega1", "phi1", "kappa1", "f2", "omega2", "phi2", "kappa2"]
+    file.write(f"{f'{sep}'.join(items)}\n")
+
+
+residuals_fname = f"{cfg.paths.results_dir}/residuals_image.txt"
+with open(residuals_fname, "w") as f:
+    # header_line = (
+    #     "epoch"
+    #     + sep
+    #     + f"{sep}".join([f"{x[0]}-{x[1]}" for x in res_stas_s.index.to_list()])
+    # )
+    header_line = "epoch,count-track_id,count-x_p1,count-y_p1,count-norm_p1,count-x_p2,count-y_p2,count-norm_p2,count-global_norm,mean-track_id,mean-x_p1,mean-y_p1,mean-norm_p1,mean-x_p2,mean-y_p2,mean-norm_p2,mean-global_norm,std-track_id,std-x_p1,std-y_p1,std-norm_p1,std-x_p2,std-y_p2,std-norm_p2,std-global_norm,min-track_id,min-x_p1,min-y_p1,min-norm_p1,min-x_p2,min-y_p2,min-norm_p2,min-global_norm,25%-track_id,25%-x_p1,25%-y_p1,25%-norm_p1,25%-x_p2,25%-y_p2,25%-norm_p2,25%-global_norm,50%-track_id,50%-x_p1,50%-y_p1,50%-norm_p1,50%-x_p2,50%-y_p2,50%-norm_p2,50%-global_norm,75%-track_id,75%-x_p1,75%-y_p1,75%-norm_p1,75%-x_p2,75%-y_p2,75%-norm_p2,75%-global_norm,max-track_id,max-x_p1,max-y_p1,max-norm_p1,max-x_p2,max-y_p2,max-norm_p2,max-global_norm"
+    f.write(header_line + "\n")
+
+RESULT_FNAME = "res/matching_tracking_results.txt"
+with open(RESULT_FNAME, "w") as f:
+    items = ["epoch", "day_cur", "day_before", "n_tracked", "n_new_matches", "n_valid"]
+    f.write(f"{f'{sep}'.join(items)}\n")
 
 solutions = {}
 
@@ -449,6 +496,9 @@ for epoch in cfg.proc.epoch_to_process:
             cameras[epoch], images, features[epoch], points[epoch]
         )
         solutions[epoch].save_solutions(f"{epochdir}/{epoch_dict[epoch]}.pickle")
+
+        # Compute reprojection error
+        compute_reprojection_error(residuals_fname, solutions[epoch])
 
         # Save focal length to file
         write_cameras_to_disk(
