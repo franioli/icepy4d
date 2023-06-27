@@ -1,12 +1,11 @@
 import logging
-import numpy as np
-import open3d as o3d
-
 from pathlib import Path
-from tqdm import tqdm
+from typing import List
 
 import cloudComPy as cc
-
+import numpy as np
+import open3d as o3d
+from tqdm import tqdm
 
 from icepy4d.point_cloud_proc.open3d_fun import (
     filter_pcd_by_polyline,
@@ -27,7 +26,6 @@ logging.basicConfig(
 
 
 def merge_sparse_dense():
-
     PCD_DIR = "res/point_clouds"
     PCD_PATTERN = "dense_2022*.ply"
 
@@ -139,7 +137,6 @@ def detect_border_by_geometry():
 
 
 def extract_glacier_border():
-
     pcd_list = sorted(Path(PCD_DIR).glob(PCD_PATTERN))
     output_dir = Path(OUT_DIR)
     output_dir.mkdir(exist_ok=True)
@@ -199,9 +196,26 @@ def extract_glacier_border():
             cc.deleteEntity(pcd_border)
 
 
-if __name__ == "__main__":
+def extract_sections(
+    pcd_list: List[Path],
+):
+    PCD_DIR = "res/point_clouds"
+    PCD_PATTERN = "dense_2022*.ply"
 
+    pcd_list = sorted(Path(PCD_DIR).glob(PCD_PATTERN))
+    output_dir = Path(OUT_DIR)
+    output_dir.mkdir(exist_ok=True)
+
+
+if __name__ == "__main__":
+    # Detect top border by geometric features
     # detect_border_by_geometry()
-    extract_glacier_border()
+
+    # Extract and save glacier top border from point clouds from which geometric feature were extracted
+    # extract_glacier_border()
+
+    # Extract series of sections from point clouds
+
+    # pcd_path = "res/point_clouds/dense_20220101_000000.ply"
 
     print("done.")
