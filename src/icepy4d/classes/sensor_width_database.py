@@ -9,8 +9,9 @@ import pandas as pd
 
 from pathlib import Path
 
+
 DEFAULT_SENSOR_DB_PATH = (
-    Path("thirdparty/CameraSensorSizeDatabase") / "sensor_database.csv"
+    Path.cwd() / "src/icepy4d/thirdparty/CameraSensorSizeDatabase/sensor_database.csv"
 )
 
 
@@ -20,6 +21,7 @@ class SensorWidthDatabase:
     def __init__(self, csv_path: str = DEFAULT_SENSOR_DB_PATH):
         """Initializes the database from a csv file"""
 
+        assert Path(csv_path).exists(), f"csv_path='{csv_path}' does not exist"
         self.df = pd.read_csv(csv_path)
 
         # convert string to lower-case

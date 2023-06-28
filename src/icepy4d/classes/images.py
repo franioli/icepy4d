@@ -33,7 +33,7 @@ import exifread
 import numpy as np
 
 from .camera import Camera
-from icepy4d.utils.sensor_width_database import SensorWidthDatabase
+from .sensor_width_database import SensorWidthDatabase
 
 
 # @TODO: remove variable number of outputs
