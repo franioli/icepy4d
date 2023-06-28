@@ -20,6 +20,7 @@ class Solution:
 
     def __init__(
         self,
+        datetime: str,
         cameras: classes.Camera,
         images: classes.ImagesDict,
         features: classes.Features,
