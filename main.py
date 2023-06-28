@@ -48,7 +48,7 @@ from icepy4d.matching.tracking_base import tracking_base
 from icepy4d.matching.utils import geometric_verification, load_matches_from_disk
 
 # Temporary parameters TODO: put them in config file
-LOAD_EXISTING_SOLUTION = False  # False #
+LOAD_EXISTING_SOLUTION = True  # False #
 DO_PRESELECTION = False
 DO_ADDITIONAL_MATCHING = True
 PATCHES = [
@@ -59,11 +59,27 @@ PATCHES = [
 ]
 
 
-def write_cameras_to_disk(fname, solution, date):
+def write_cameras_to_disk(fname, solution, date, sep=","):
     from icepy4d.thirdparty.transformations import euler_from_matrix
 
     if solution is None:
         return
+
+    if not Path(fname).exists():
+        items = [
+            "date",
+            "f1",
+            "omega1",
+            "phi1",
+            "kappa1",
+            "f2",
+            "omega2",
+            "phi2",
+            "kappa2",
+        ]
+        with open(camea_estimated_fname, "w") as file:
+            file.write(f"{f'{sep}'.join(items)}\n")
+
     with open(fname, "a") as file:
         file.write(f"{date}")
         for cam in solution.cameras.keys():
@@ -72,11 +88,11 @@ def write_cameras_to_disk(fname, solution, date):
             R = solution.cameras[cam].pose[:3, :3]
             o, p, k = euler_from_matrix(R)
             o, p, k = np.rad2deg(o), np.rad2deg(p), np.rad2deg(k)
-            file.write(f",{f:.2f},{o:.4f},{p:.4f},{k:.4f}")
+            file.write(f"{sep}{f:.2f}{sep}{o:.4f}{sep}{p:.4f}{sep}{k:.4f}")
         file.write("\n")
 
 
-def compute_reprojection_error(fname, solution):
+def compute_reprojection_error(fname, solution, sep=","):
     print("Computing reprojection error")
 
     import pandas as pd
@@ -99,6 +115,15 @@ def compute_reprojection_error(fname, solution):
     res_stas = residuals.describe()
     res_stas_s = res_stas.stack()
 
+    if not Path(fname).exists():
+        with open(residuals_fname, "w") as f:
+            header_line = (
+                "epoch"
+                + sep
+                + f"{sep}".join([f"{x[0]}-{x[1]}" for x in res_stas_s.index.to_list()])
+            )
+            # header_line = "epoch,count-track_id,count-x_p1,count-y_p1,count-norm_p1,count-x_p2,count-y_p2,count-norm_p2,count-global_norm,mean-track_id,mean-x_p1,mean-y_p1,mean-norm_p1,mean-x_p2,mean-y_p2,mean-norm_p2,mean-global_norm,std-track_id,std-x_p1,std-y_p1,std-norm_p1,std-x_p2,std-y_p2,std-norm_p2,std-global_norm,min-track_id,min-x_p1,min-y_p1,min-norm_p1,min-x_p2,min-y_p2,min-norm_p2,min-global_norm,25%-track_id,25%-x_p1,25%-y_p1,25%-norm_p1,25%-x_p2,25%-y_p2,25%-norm_p2,25%-global_norm,50%-track_id,50%-x_p1,50%-y_p1,50%-norm_p1,50%-x_p2,50%-y_p2,50%-norm_p2,50%-global_norm,75%-track_id,75%-x_p1,75%-y_p1,75%-norm_p1,75%-x_p2,75%-y_p2,75%-norm_p2,75%-global_norm,max-track_id,max-x_p1,max-y_p1,max-norm_p1,max-x_p2,max-y_p2,max-norm_p2,max-global_norm"
+            f.write(header_line + "\n")
     with open(fname, "a") as f:
         line = (
             epoch_dict[epoch]
@@ -106,6 +131,31 @@ def compute_reprojection_error(fname, solution):
             + f"{sep}".join([str(x) for x in res_stas_s.to_list()])
         )
         f.write(line + "\n")
+
+
+def make_matching_plot(solution):
+    from icepy4d.visualization import plot_features
+    from matplotlib import pyplot as plt
+    import matplotlib
+
+    matplotlib.use("tkagg")
+
+    fig, axes = plt.subplots(1, 2)
+    titles = ["C1", "C2"]
+    for cam, ax, title in zip(cams, axes, titles):
+        f0 = features[epoch][cam]
+        plot_features(
+            images[cam].read_image(epoch).value, f0, ax=ax, s=2, linewidths=0.3
+        )
+        ax.set_title(f"{title}")
+        ax.set_xticks([])
+        ax.set_yticks([])
+    fig.tight_layout()
+    # plt.show()
+    fig.savefig(
+        f"res/fig_for_paper/matches_fig/matches_{epoch_dict[epoch]}.png",
+        dpi=300,
+    )
 
 
 """ Inizialize Variables """
@@ -142,28 +192,20 @@ points = inizializer.points
 focals = inizializer.focals_dict
 
 
-# TEMPORARY: initialize file for storing camera angles and focal lengths
-sep = ","
+# TEMPORARY: initialize file for saving output for paper
+# These outputs must be formalized for the final version
 camea_estimated_fname = cfg.paths.results_dir / "camera_info_est.txt"
-with open(camea_estimated_fname, "w") as file:
-    items = ["date", "f1", "omega1", "phi1", "kappa1", "f2", "omega2", "phi2", "kappa2"]
-    file.write(f"{f'{sep}'.join(items)}\n")
+residuals_fname = cfg.paths.results_dir / "residuals_image.txt"
+matching_stats_fname = cfg.paths.results_dir / "matching_tracking_results.txt"
 
+# remove files if they already exist
+if camea_estimated_fname.exists():
+    camea_estimated_fname.unlink()
+if residuals_fname.exists():
+    residuals_fname.unlink()
+if matching_stats_fname.exists():
+    matching_stats_fname.unlink()
 
-residuals_fname = f"{cfg.paths.results_dir}/residuals_image.txt"
-with open(residuals_fname, "w") as f:
-    # header_line = (
-    #     "epoch"
-    #     + sep
-    #     + f"{sep}".join([f"{x[0]}-{x[1]}" for x in res_stas_s.index.to_list()])
-    # )
-    header_line = "epoch,count-track_id,count-x_p1,count-y_p1,count-norm_p1,count-x_p2,count-y_p2,count-norm_p2,count-global_norm,mean-track_id,mean-x_p1,mean-y_p1,mean-norm_p1,mean-x_p2,mean-y_p2,mean-norm_p2,mean-global_norm,std-track_id,std-x_p1,std-y_p1,std-norm_p1,std-x_p2,std-y_p2,std-norm_p2,std-global_norm,min-track_id,min-x_p1,min-y_p1,min-norm_p1,min-x_p2,min-y_p2,min-norm_p2,min-global_norm,25%-track_id,25%-x_p1,25%-y_p1,25%-norm_p1,25%-x_p2,25%-y_p2,25%-norm_p2,25%-global_norm,50%-track_id,50%-x_p1,50%-y_p1,50%-norm_p1,50%-x_p2,50%-y_p2,50%-norm_p2,50%-global_norm,75%-track_id,75%-x_p1,75%-y_p1,75%-norm_p1,75%-x_p2,75%-y_p2,75%-norm_p2,75%-global_norm,max-track_id,max-x_p1,max-y_p1,max-norm_p1,max-x_p2,max-y_p2,max-norm_p2,max-global_norm"
-    f.write(header_line + "\n")
-
-RESULT_FNAME = "res/matching_tracking_results.txt"
-with open(RESULT_FNAME, "w") as f:
-    items = ["epoch", "day_cur", "day_before", "n_tracked", "n_new_matches", "n_valid"]
-    f.write(f"{f'{sep}'.join(items)}\n")
 
 solutions = {}
 
@@ -190,8 +232,11 @@ for epoch in cfg.proc.epoch_to_process:
         if solution is not None:
             solutions[epoch] = solution
             cameras[epoch], _, features[epoch], points[epoch] = solution
-            del solution
             logging.info("Solution loaded.")
+
+            make_matching_plot(solution)
+
+            del solution
             continue
         else:
             logging.error("Unable to import solution.")
@@ -470,10 +515,23 @@ for epoch in cfg.proc.epoch_to_process:
             )
 
         # - For debugging purposes
+        # from icepy4d.visualization import plot_features
+        # from matplotlib import pyplot as plt
+        # import matplotlib
+        # matplotlib.use("tkagg")
+
         # M = targets[epoch].get_object_coor_by_label(cfg.georef.targets_to_use)[0]
         # m = cameras[epoch][cams[1]].project_point(M)
         # plot_features(images[cams[1]].read_image(epoch).value, m)
-        # plot_features(images[cams[0]].read_image(epoch).value, features[epoch][cams[0]].kpts_to_numpy())
+        # plot_features(
+        #     images[cams[0]].read_image(epoch).value,
+        #     features[epoch][cams[0]].kpts_to_numpy(),
+        # )
+
+        # cam = cams[0]
+        # f0 = features[epoch][cam]
+        # plot_features(images[cam].read_image(epoch).value, f0)
+        # plt.show()
 
         # Clean variables
         del relative_ori, triang, abs_ori, points3d

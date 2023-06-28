@@ -6,16 +6,26 @@ from easydict import EasyDict as edict
 from typing import List, Union
 from pathlib import Path
 
-# from .utils import load_matches_from_disk
 from .match_pairs import match_pair
 from .track_matches import track_matches
-
-from ..classes.features import Features
 
 DEBUG = False
 
 WRITE_RES_STATS = True
 RESULT_FNAME = "res/matching_tracking_results.txt"
+
+if WRITE_RES_STATS and not Path(RESULT_FNAME).exists():
+    sep = ","
+    items = [
+        "epoch",
+        "day_cur",
+        "day_before",
+        "n_tracked",
+        "n_new_matches",
+        "n_valid",
+    ]
+    with open(RESULT_FNAME, "w") as f:
+        f.write(f"{f'{sep}'.join(items)}\n")
 
 
 def MatchingAndTracking(
