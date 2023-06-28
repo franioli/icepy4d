@@ -23,9 +23,10 @@ SOFTWARE.
 """
 
 import gc
-import sys
 import logging
 import shutil
+import sys
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -133,29 +134,43 @@ def compute_reprojection_error(fname, solution, sep=","):
         f.write(line + "\n")
 
 
-def make_matching_plot(solution):
-    from icepy4d.visualization import plot_features
-    from matplotlib import pyplot as plt
+def make_matching_plot(solution, epoch, out_dir, show_fig=False):
     import matplotlib
+    from matplotlib import pyplot as plt
+
+    from icepy4d.visualization import plot_features
 
     matplotlib.use("tkagg")
+    cams = list(solution.cameras.keys())
+    features = solution.features
+    images = solution.images
 
     fig, axes = plt.subplots(1, 2)
     titles = ["C1", "C2"]
     for cam, ax, title in zip(cams, axes, titles):
-        f0 = features[epoch][cam]
         plot_features(
-            images[cam].read_image(epoch).value, f0, ax=ax, s=2, linewidths=0.3
+            images[cam].read_image(epoch).value,
+            features[cam],
+            ax=ax,
+            s=2,
+            linewidths=0.3,
         )
         ax.set_title(f"{title}")
         ax.set_xticks([])
         ax.set_yticks([])
     fig.tight_layout()
-    # plt.show()
+
+    out_dir = Path(out_dir)
+    out_dir.mkdir(exist_ok=True, parents=True)
     fig.savefig(
-        f"res/fig_for_paper/matches_fig/matches_{epoch_dict[epoch]}.png",
+        out_dir / f"matches_{epoch_dict[epoch]}.png",
         dpi=300,
     )
+
+    if show_fig:
+        plt.show()
+    else:
+        plt.close()
 
 
 """ Inizialize Variables """
@@ -234,7 +249,8 @@ for epoch in cfg.proc.epoch_to_process:
             cameras[epoch], _, features[epoch], points[epoch] = solution
             logging.info("Solution loaded.")
 
-            make_matching_plot(solution)
+            # matches_fig_dir = "res/fig_for_paper/matches_fig"
+            # make_matching_plot(solution, epoch, matches_fig_dir, show_fig=False)
 
             del solution
             continue
@@ -551,9 +567,18 @@ for epoch in cfg.proc.epoch_to_process:
 
         # Save solution as a pickle object
         solutions[epoch] = Solution(
-            cameras[epoch], images, features[epoch], points[epoch]
+            datetime=datetime.strptime(epoch_dict[epoch], "%Y_%m_%d"),
+            epoch_id=epoch,
+            cameras=cameras[epoch],
+            images=images,
+            features=features[epoch],
+            points=points[epoch],
         )
-        solutions[epoch].save_solutions(f"{epochdir}/{epoch_dict[epoch]}.pickle")
+        solutions[epoch].save_solution(f"{epochdir}/{epoch_dict[epoch]}.pickle")
+
+        # Save matches plot
+        matches_fig_dir = "res/fig_for_paper/matches_fig"
+        make_matching_plot(solutions[epoch], epoch, matches_fig_dir, show_fig=False)
 
         # Compute reprojection error
         compute_reprojection_error(residuals_fname, solutions[epoch])
