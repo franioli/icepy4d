@@ -21,10 +21,11 @@ class Solution:
     def __init__(
         self,
         datetime: str,
-        cameras: classes.Camera,
-        images: classes.ImagesDict,
-        features: classes.Features,
-        points: classes.Points,
+        epoch_id: int = None,
+        cameras: classes.Camera = None,
+        images: classes.ImagesDict = None,
+        features: classes.Features = None,
+        points: classes.Points = None,
     ) -> None:
         """
         Initializes a Solution object with the provided data
@@ -36,6 +37,8 @@ class Solution:
             points (classes.Points): The dictionary of 3D points
         """
 
+        self.datetime = datetime
+        self.epoch_id = epoch_id
         self.cameras = cameras
         self.images = images
         self.features = features
@@ -65,7 +68,7 @@ class Solution:
         """
         return hash((self.cameras, self.images, self.features, self.points))
 
-    def save_solutions(self, path: Union[str, Path]) -> bool:
+    def save_solution(self, path: Union[str, Path]) -> bool:
         """
         Saves the Solution object to a binary file
 

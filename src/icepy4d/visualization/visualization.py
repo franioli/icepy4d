@@ -287,9 +287,11 @@ def plot_points(
         yc = points[:, 1].mean()
         ax.set_xlim([xc - w, xc + w])
         ax.set_ylim([yc - w, yc + w])
+
     if save_path is not None:
         fig.set_size_inches(size_inches[0], size_inches[1])
         fig.savefig(save_path, dpi=dpi)
+
     if hide_fig is True:
         plt.close(fig)
         return None
