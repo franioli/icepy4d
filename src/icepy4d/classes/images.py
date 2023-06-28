@@ -36,6 +36,7 @@ from icepy4d.classes.camera import Camera
 from icepy4d.utils.sensor_width_database import SensorWidthDatabase
 from ..sfm.geometry import undistort_image
 
+
 # @TODO: remove variable number of outputs
 def read_image(
     path: Union[str, Path],
@@ -244,14 +245,16 @@ class Image:
         col: bool = True,
         resize: List[int] = [-1],
         crop: List[int] = None,
-    ) -> None:
+    ) -> np.ndarray:
         """Wrapper around the function read_image to be a class method."""
         # path = Path(path)
         if self.path.exists():
             self._value_array = read_image(self.path, col, resize, crop)
             self.read_exif()
+            return self._value_array
         else:
             logging.error(f"Input paht {self.path} not valid.")
+            return None
 
     def reset_image(self) -> None:
         self._value_array = None
