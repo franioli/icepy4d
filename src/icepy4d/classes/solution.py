@@ -1,8 +1,9 @@
-import pickle
-
-from typing import Union
-from pathlib import Path
 import logging
+import pickle
+from pathlib import Path
+from typing import Union
+
+import h5py
 
 import icepy4d.classes as classes
 
@@ -68,7 +69,7 @@ class Solution:
         """
         return hash((self.cameras, self.images, self.features, self.points))
 
-    def save_solution(self, path: Union[str, Path]) -> bool:
+    def save_pickle(self, path: Union[str, Path]) -> bool:
         """
         Saves the Solution object to a binary file
 
@@ -88,8 +89,36 @@ class Solution:
             logging.error("Unable to save the Solution as Pickle object")
             return False
 
+    def save_hdf5(self, path: Union[str, Path]) -> bool:
+        """
+        Saves the Solution object to an HDF5 file
+
+        Args:
+            path (Union[str, Path]): The path to the HDF5 file
+
+        Returns:
+            bool: True if the object was successfully saved to file, False otherwise
+
+        Note:
+            hd5f do not work with datetime objects
+        """
+        path = Path(path)
+        try:
+            with h5py.File(path.parent / (path.stem + ".hdf5"), "w") as f:
+                f.create_dataset("epoch_id", data=self.epoch_id)
+
+                # Save cameras, images, features, points as separate datasets
+                # You'll need to adjust the code based on the structure of these objects
+                # For example, if they are dictionaries, you can use f.create_group()
+                # and then save each key-value pair as a separate dataset/group
+
+            return True
+        except:
+            logging.error("Unable to save the Solution to HDF5 file")
+            return False
+
     @staticmethod
-    def read_solution(path: Union[str, Path], ignore_errors: bool = False):
+    def read_pickle(path: Union[str, Path], ignore_errors: bool = False):
         """
         Loads a Solution object from a binary file
 

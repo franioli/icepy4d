@@ -243,7 +243,7 @@ for epoch in cfg.proc.epoch_to_process:
     if LOAD_EXISTING_SOLUTION:
         path = f"{epochdir}/{epoch_dict[epoch]}.pickle"
         logging.info(f"Loading solution from {path}")
-        solution = Solution.read_solution(path, ignore_errors=True)
+        solution = Solution.read_pickle(path, ignore_errors=True)
         if solution is not None:
             solutions[epoch] = solution
             cameras[epoch], _, features[epoch], points[epoch] = solution
@@ -574,7 +574,7 @@ for epoch in cfg.proc.epoch_to_process:
             features=features[epoch],
             points=points[epoch],
         )
-        solutions[epoch].save_solution(f"{epochdir}/{epoch_dict[epoch]}.pickle")
+        solutions[epoch].save_pickle(f"{epochdir}/{epoch_dict[epoch]}.pickle")
 
         # Save matches plot
         matches_fig_dir = "res/fig_for_paper/matches_fig"
