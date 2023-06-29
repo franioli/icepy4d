@@ -31,7 +31,7 @@ import pandas as pd
 import cv2
 import matplotlib
 
-#%%
+# %%
 import numpy as np
 from matplotlib import pyplot as plt
 
@@ -80,7 +80,6 @@ logging.info("Processing started:")
 timer = icepy_utils.AverageTimer()
 iter = 0  # necessary only for printing the number of processed iteration
 for epoch in cfg.proc.epoch_to_process:
-
     logging.info("------------------------------------------------------")
     logging.info(
         f"Processing epoch {epoch} [{iter}/{cfg.proc.epoch_to_process[-1]-cfg.proc.epoch_to_process[0]}] - {epoch_dict[epoch]}..."
@@ -94,7 +93,7 @@ for epoch in cfg.proc.epoch_to_process:
 
     path = epochdir / f"{epoch_dict[epoch]}.pickle"
     logging.info(f"Loading solution from {path}")
-    solution = Solution.read_solution(path, ignore_errors=True)
+    solution = Solution.read_pickle(path, ignore_errors=True)
     if solution is not None:
         cameras[epoch], _, features[epoch], points[epoch] = solution
         # logging.info("Solution imported.")
@@ -177,7 +176,7 @@ for epoch in cfg.proc.epoch_to_process:
     else:
         logging.error("Unable to import solution.")
 
-#%%
+# %%
 
 """Tests"""
 
@@ -331,7 +330,7 @@ fts_df["V"] = np.linalg.norm(fts_df[["vX", "vY", "vZ"]].to_numpy(), axis=1).resh
 )
 fts_df.to_csv(folder_out / "tracked_points_utm_nonFiltered.csv")
 
-#%% Compute Binned stats
+# %% Compute Binned stats
 
 # Get points and compute displacements
 pts0 = fts_df[["East_fin", "North_fin", "h_ini"]].to_numpy()
