@@ -32,12 +32,8 @@ from pathlib import Path
 
 from typing import List, Union
 
-if __name__ == "__main__":
-    from src.icepy4d.classes.camera import Camera
-    from src.icepy4d.classes.point_cloud import PointCloud
-else:
-    from .camera import Camera
-    from .point_cloud import PointCloud
+from .camera import Camera
+from .point_cloud import PointCloud
 
 
 def float32_type_check(
@@ -362,7 +358,7 @@ class Points:
         else:
             colors = [None for _ in range(len(coordinates))]
 
-        for (id, coor, col) in zip(ids, coordinates, colors):
+        for id, coor, col in zip(ids, coordinates, colors):
             self._values[id] = Point(coor, id, color=col)
             self._last_id = id
 
