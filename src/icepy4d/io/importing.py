@@ -44,3 +44,13 @@ def read_opencv_calibration(path: Union[str, Path], verbose: bool = False):
             )
 
     return w, h, K, dist
+
+
+class CalibrationReader:
+    """"""
+
+    def __init__(self, path: Union[str, Path]) -> None:
+        pass
+
+    def _read_opencv(self):
+        pass
