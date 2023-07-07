@@ -5,7 +5,7 @@
     "${workspaceFolder}/src"
   ],
   "python.analysis.typeCheckingMode": "off",
-  "python.testing.pytestArgs": ["src"],
+  "python.testing.pytestArgs": ["tests"],
   "python.testing.unittestEnabled": false,
   "python.testing.pytestEnabled": true,
   "[markdown]": {
