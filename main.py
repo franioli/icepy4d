@@ -123,7 +123,6 @@ def compute_reprojection_error(fname, solution, sep=","):
                 + sep
                 + f"{sep}".join([f"{x[0]}-{x[1]}" for x in res_stas_s.index.to_list()])
             )
-            # header_line = "epoch,count-track_id,count-x_p1,count-y_p1,count-norm_p1,count-x_p2,count-y_p2,count-norm_p2,count-global_norm,mean-track_id,mean-x_p1,mean-y_p1,mean-norm_p1,mean-x_p2,mean-y_p2,mean-norm_p2,mean-global_norm,std-track_id,std-x_p1,std-y_p1,std-norm_p1,std-x_p2,std-y_p2,std-norm_p2,std-global_norm,min-track_id,min-x_p1,min-y_p1,min-norm_p1,min-x_p2,min-y_p2,min-norm_p2,min-global_norm,25%-track_id,25%-x_p1,25%-y_p1,25%-norm_p1,25%-x_p2,25%-y_p2,25%-norm_p2,25%-global_norm,50%-track_id,50%-x_p1,50%-y_p1,50%-norm_p1,50%-x_p2,50%-y_p2,50%-norm_p2,50%-global_norm,75%-track_id,75%-x_p1,75%-y_p1,75%-norm_p1,75%-x_p2,75%-y_p2,75%-norm_p2,75%-global_norm,max-track_id,max-x_p1,max-y_p1,max-norm_p1,max-x_p2,max-y_p2,max-norm_p2,max-global_norm"
             f.write(header_line + "\n")
     with open(fname, "a") as f:
         line = (
