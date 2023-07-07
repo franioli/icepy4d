@@ -33,7 +33,7 @@ import exifread
 import numpy as np
 
 from icepy4d.classes.camera import Camera
-from icepy4d.utils.sensor_width_database import SensorWidthDatabase
+from .sensor_width_database import SensorWidthDatabase
 from ..sfm.geometry import undistort_image
 
 
