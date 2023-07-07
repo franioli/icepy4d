@@ -585,9 +585,10 @@ timer_global.update("ICEpy4D processing")
 
 # Homograpghy warping
 if cfg.proc.do_homography_warping:
-    from icepy4d.utils.homography import homography_warping
-    from icepy4d.thirdparty.transformations import euler_from_matrix, euler_matrix
     from copy import deepcopy
+
+    from icepy4d.thirdparty.transformations import euler_from_matrix, euler_matrix
+    from icepy4d.utils.homography import homography_warping
 
     logging.info("Performing homograpy warping for DIC")
 
