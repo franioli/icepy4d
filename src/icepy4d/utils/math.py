@@ -22,12 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-import cv2
 import numpy as np
-
-from copy import deepcopy
-from pathlib import Path
-
 
 # --- MAT ---#
 
