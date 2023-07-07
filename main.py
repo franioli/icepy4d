@@ -603,13 +603,13 @@ if cfg.proc.do_homography_warping:
         # Camera pose smoothing
         if do_smoothing:
             match str(epoch):
-                case "180":
+                case "0":
                     epoch_range = range(epoch + 0, epoch + 5)
-                case "181":
+                case "1":
                     epoch_range = range(epoch - 1, epoch + 4)
-                case "336":
+                case "158":
                     epoch_range = range(epoch - 3, epoch + 2)
-                case "337":
+                case "159":
                     epoch_range = range(epoch - 4, epoch + 1)
                 case other:
                     epoch_range = range(epoch - 2, epoch + 3)

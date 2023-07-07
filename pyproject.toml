@@ -31,6 +31,7 @@ dependencies = [
     "easydict",
     "kornia",
     "lmfit",
+    "h5py",
 ]
 requires-python = ">=3.8"
 
