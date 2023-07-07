@@ -555,16 +555,6 @@ for epoch in cfg.proc.epoch_to_process:
         del ms_cfg, ms, ms_reader
         gc.collect()
 
-        # Homograpghy warping
-        if cfg.proc.do_homography_warping:
-            ep_ini = cfg.proc.epoch_to_process[0]
-            cam = cfg.proc.camera_to_warp
-            image = images[cams[1]].read_image(epoch).value
-            out_path = f"res/warped/{images[cam][epoch]}"
-            icepy4d_utils.homography_warping(
-                cameras[ep_ini][cam], cameras[epoch][cam], image, out_path, timer
-            )
-
         # Save solution as a pickle object
         solutions[epoch] = Solution(
             datetime=datetime.strptime(epoch_dict[epoch], "%Y_%m_%d"),
@@ -590,6 +580,63 @@ for epoch in cfg.proc.epoch_to_process:
 
     timer.print(f"Epoch {epoch} completed")
 
-timer_global.update("SfM")
+timer_global.update("ICEpy4D processing")
+
+
+# Homograpghy warping
+if cfg.proc.do_homography_warping:
+    from icepy4d.utils.homography import homography_warping
+    from icepy4d.thirdparty.transformations import euler_from_matrix, euler_matrix
+    from copy import deepcopy
+
+    logging.info("Performing homograpy warping for DIC")
+
+    reference_day = "2022_07_28"
+    do_smoothing = True
+    use_median = True
+
+    reference_epoch = list(epoch_dict.values()).index(reference_day)
+    cam = cfg.proc.camera_to_warp
+    cam_ref = cameras[reference_epoch][cam]
+
+    for epoch in cfg.proc.epoch_to_process:
+        # Camera pose smoothing
+        if do_smoothing:
+            match str(epoch):
+                case "180":
+                    epoch_range = range(epoch + 0, epoch + 5)
+                case "181":
+                    epoch_range = range(epoch - 1, epoch + 4)
+                case "336":
+                    epoch_range = range(epoch - 3, epoch + 2)
+                case "337":
+                    epoch_range = range(epoch - 4, epoch + 1)
+                case other:
+                    epoch_range = range(epoch - 2, epoch + 3)
+            cam_to_warp = deepcopy(cameras[epoch][cam])
+            angles = np.stack(
+                [euler_from_matrix(cameras[e][cam].R) for e in epoch_range], axis=1
+            )
+            if use_median:
+                ang = np.median(angles, axis=1)
+            else:
+                ang = np.mean(angles, axis=1)
+            extrinsics_med = deepcopy(cam_to_warp.extrinsics)
+            extrinsics_med[:3, :3] = euler_matrix(*ang)[:3, :3]
+            cam_to_warp.update_extrinsics(extrinsics_med)
+        else:
+            cam_to_warp = cameras[epoch][cam]
+
+        _ = homography_warping(
+            cam_0=cam_ref,
+            cam_1=cam_to_warp,
+            image=images[cam].read_image(epoch).value,
+            undistort=True,
+            out_path=f"res/warped/{images[cam][epoch]}",
+        )
+
+    timer_global.update("Homograpy warping")
+
+timer_global.print("Total time elapsed")
 
 logging.info("Processing completed.")
