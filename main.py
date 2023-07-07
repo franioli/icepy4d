@@ -49,6 +49,7 @@ from icepy4d.matching.tracking_base import tracking_base
 from icepy4d.matching.utils import geometric_verification, load_matches_from_disk
 
 # Temporary parameters TODO: put them in config file
+CFG_FILE = "config/config_2022.yaml"
 LOAD_EXISTING_SOLUTION = True  # False #
 DO_PRESELECTION = False
 DO_ADDITIONAL_MATCHING = True
@@ -185,7 +186,7 @@ if len(sys.argv) > 1:
         log_cfg["log_console_level"],
     )
 else:
-    cfg_file = Path("config/config_2022.yaml")
+    cfg_file = Path(CFG_FILE)
     icepy4d_utils.setup_logger()
 
 # Parse configuration file
