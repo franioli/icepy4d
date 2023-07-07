@@ -33,6 +33,15 @@ from typing import List
 
 from icepy4d.classes.images import Image, ImageDS
 
+# TODO: use KORNIA for image tiling
+
+
+import logging
+from typing import List, Dict
+import numpy as np
+import matplotlib.pyplot as plt
+from PIL import Image
+
 
 class Tiler:
     """
@@ -46,17 +55,18 @@ class Tiler:
         overlap: int = 0,
         origin: List[int] = [0, 0],
     ) -> None:
-        """Initialize class
-        Parameters
-        __________
-        - image (Image):
-        - grid (List[int], default=[1, 1]): List containing the number of rows and number of colums in which to divide the image ([nrows, ncols])
-        - overlap (int, default=0): Number of pixel of overlap between adiacent tiles
-        - origin (List[int], default=[0, 0]): List of coordinates [x,y] of the pixel from which the tiling starts (top-left corner of the first tile)
-        __________
-        Return: None
         """
+        Initialize class.
 
+        Parameters:
+        - image (Image): The input image.
+        - grid (List[int], default=[1, 1]): List containing the number of rows and number of columns in which to divide the image ([nrows, ncols]).
+        - overlap (int, default=0): Number of pixels of overlap between adjacent tiles.
+        - origin (List[int], default=[0, 0]): List of coordinates [x, y] of the pixel from which the tiling starts (top-left corner of the first tile).
+
+        Returns:
+        None
+        """
         self._image = image
         self._im_path = image.path
         self._w = int(self._image.width)
@@ -65,31 +75,40 @@ class Tiler:
         self._overlap = overlap
         self._nrow = grid[0]
         self._ncol = grid[1]
-        self.limits = {}
-        self.tiles = {}
+        self._limits = {}
+        self._tiles = {}
 
     @property
-    def grid(self) -> List:
+    def grid(self) -> List[int]:
+        """
+        Get the grid size.
+
+        Returns:
+        List[int]: The number of rows and number of columns in the grid.
+        """
         return [self._nrow, self._ncol]
 
     @property
-    def tiles_limits(self) -> dict:
-        if not dict:
-            return self.limits
-        else:
-            logging.warning(
+    def limits(self) -> Dict[int, tuple]:
+        """
+        Get the tile limits.
+
+        Returns:
+        dict: A dictionary containing the index of each tile and its bounding box coordinates.
+        """
+        if not self._limits:
+            raise ValueError(
                 "Limits not available, compute them first with compute_limits_by_grid."
             )
+        return self._limits
 
     def compute_limits_by_grid(self) -> None:
-        """Method to compute the limits of each tile (i.e. xmin,ymin,xmax,xmax), given the number or row and columns of the tile grid.
-
-        Returns a dictionary containing the index of the tile (in row-major order, C-style) and a list of the bounding box coordinates as:
-        {0,[xmin, xmax, ymin, ymax]}
-        {1,[xmin, xmax, ymin, ymax]}
-        ....
         """
+        Compute the limits of each tile (i.e., xmin, ymin, xmax, ymax) given the number of rows and columns in the tile grid.
 
+        Returns:
+        None
+        """
         DX = round((self._w - self._origin[0]) / self._ncol / 10) * 10
         DY = round((self._h - self._origin[1]) / self._nrow / 10) * 10
 
@@ -102,28 +121,56 @@ class Tiler:
                 ymin = max(self._origin[1], row * DY - self._overlap)
                 xmax = xmin + DX + self._overlap - 1
                 ymax = ymin + DY + self._overlap - 1
-                self.limits[tile_idx] = (xmin, ymin, xmax, ymax)
+                self._limits[tile_idx] = (xmin, ymin, xmax, ymax)
 
     def read_all_tiles(self) -> None:
-        """Read all tiles and store them in class instance"""
+        """
+        Read all tiles and store them in the class instance.
+
+        Returns:
+        None
+        """
         assert self._im_path is not None, "Invalid image path"
-        for idx, limit in self.limits.items():
-            self.tiles[idx] = self._image.extract_patch(limit)
+        for idx, limit in self._limits.items():
+            self._tiles[idx] = self._image.extract_patch(limit)
 
     def read_tile(self, idx) -> np.ndarray:
-        """Extract tile given its idx (int) and return it"""
-        assert self._im_path is not None, "Invalid image path"
-        return self._image.extract_patch(self.limits[idx])
+        """
+        Extract and return a tile given its index.
 
-    def remove_tiles(self, tile_idx) -> None:
+        Parameters:
+        - idx (int): The index of the tile.
+
+        Returns:
+        np.ndarray: The extracted tile.
+        """
+        assert self._im_path is not None, "Invalid image path"
+        return self._image.extract_patch(self._limits[idx])
+
+    def remove_tiles(self, tile_idx=None) -> None:
+        """
+        Remove tiles from the class instance.
+
+        Parameters:
+        - tile_idx: The index of the tile to be removed. If None, remove all tiles.
+
+        Returns:
+        None
+        """
         if tile_idx is None:
-            self.tiles = {}
+            self._tiles = {}
         else:
-            self.tiles[tile_idx] = []
+            self._tiles[tile_idx] = []
 
     def display_tiles(self) -> None:
-        for idx, tile in self.tiles.items():
-            plt.subplot(tile_grid[0], tile_grid[1], idx + 1)
+        """
+        Display all the stored tiles.
+
+        Returns:
+        None
+        """
+        for idx, tile in self._tiles.items():
+            plt.subplot(self.grid[0], self.grid[1], idx + 1)
             plt.imshow(tile)
         plt.show()
 
@@ -223,7 +270,14 @@ if __name__ == "__main__":
 
     tiles.compute_limits_by_grid()
 
-    # t = tiles.read_tile(1)
+    t = tiles.read_tile(1)
 
     tiles.read_all_tiles()
     tiles.display_tiles()
+
+    grid = tiles.grid
+    limits = tiles.limits
+
+    print(grid)
+
+    print("Done")
