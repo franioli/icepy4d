@@ -30,7 +30,7 @@ from typing import List
 from typing import Union
 from pathlib import Path
 
-from ..io.importing import read_opencv_calibration
+from icepy4d.classes.calibration import read_opencv_calibration
 
 """ License """
 

@@ -1,5 +1,6 @@
 import numpy as np
 import logging
+import importlib
 
 from typing import List, Union, Tuple
 from pathlib import Path
@@ -106,9 +107,9 @@ class Calibration:
         self._w, self._h, self._K, self._dist = read_opencv_calibration(self.path)
 
     def to_camera(self):
-        from icepy4d.classes import Camera
-
-        return Camera(self._K, self._dist, self._w, self._h)
+        assert self._K is not None, "Calibration file not read."
+        cam = importlib.import_module("icepy4d.classes.camera")
+        return cam.Camera(self._K, self._dist, self._w, self._h)
 
 
 if __name__ == "__main__":
