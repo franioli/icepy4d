@@ -72,11 +72,10 @@ def read_opencv_calibration(
 def read_xml_calibration(
     path: Union[str, Path],
     format: str = "metashape",
-) -> Tuple[float, float, np.ndarray, np.ndarray]:
+) -> Tuple[float, float, np.ndarray, np.ndarray, datetime]:
     """
-    NOT WORKING YET
+    NOT COMPLETED YET
     """
-    print("NOT WORKING YET")
 
     path = Path(path)
     assert path.exists(), "Calibration file does not exist."
@@ -106,20 +105,41 @@ def read_xml_calibration(
             )
 
     elif format == "opencv":
-        pass
+        try:
+            w = int(root.find("image_Width").text)
+            h = int(root.find("image_Height").text)
 
-    return w, h, K, dist
+            camera_matrix_data = root.find("Camera_Matrix").find("data").text
+            camera_matrix_values = camera_matrix_data.split()
+            K = np.array(camera_matrix_values, dtype=float).reshape(3, 3)
+
+            distortion_data = root.find("Distortion_Coefficients").find("data").text
+            distortion_values = distortion_data.split()
+            dist = np.array(distortion_values, dtype=float).reshape(-1, 1)
+
+            calibration_time_str = root.find("calibration_Time").text
+            date = datetime.strptime(
+                calibration_time_str.strip('"'), "%a %b %d %H:%M:%S %Y"
+            )
+
+        except Exception as e:
+            raise ValueError(
+                "Unable to read xml calibration file as a OpenCV format. Check the file format."
+            )
+
+    return w, h, K, dist, date
 
 
 class Calibration:
     """"""
 
-    def __init__(self, path: Union[str, Path]) -> None:
+    def __init__(self, path: Union[str, Path], **kwargs) -> None:
         self.path = Path(path)
         self._K = None
         self._dist = None
         self._w = None
         self._h = None
+        self._date = None
 
         assert self.path.exists(), "Calibration file does not exist."
 
@@ -127,7 +147,8 @@ class Calibration:
             case ".txt":
                 self._read_opencv()
             case ".xml":
-                self._read_xml()
+                fmt = kwargs.get("format", "metashape")
+                self._read_xml(format=fmt)
             # case ".json":
             #     self._read_json()
 
@@ -150,14 +171,14 @@ class Calibration:
     def _read_opencv(self):
         self._w, self._h, self._K, self._dist = read_opencv_calibration(self.path)
 
-    def _read_xml(self):
-        self._w, self._h, self._K, self._dist = read_xml_calibration(self.path)
+    def _read_xml(self, format: str):
+        self._w, self._h, self._K, self._dist, self._date = read_xml_calibration(
+            self.path, format=format
+        )
 
     def to_camera(self):
-        # assert self._K is not None, "Calibration file not read."
-        # cam = importlib.import_module("icepy4d.classes.camera")
-        from icepy4d.classes import camera as cam
-
+        assert self._K is not None, "Calibration file not read."
+        cam = importlib.import_module("icepy4d.classes.camera")
         return cam.Camera(
             width=self._w,
             height=self._h,
@@ -167,12 +188,15 @@ class Calibration:
 
 
 if __name__ == "__main__":
-    calib_from_txt = Calibration("data/calib/p1.txt")
+    calib_from_txt = Calibration("data/calib/p2.txt")
     cam0 = calib_from_txt.to_camera()
 
-    calib_from_xml = Calibration("data/calib/24mm_280722_selfcal_all_metashape.xml")
+    calib_from_xml = Calibration("data/calib/35mm_280722_selfcal_all_metashape.xml")
     cam1 = calib_from_xml.to_camera()
 
-    calib_from_xml = Calibration("data/calib/35mm_280722_selfcal_all_opencv.xml")
+    calib_from_xml = Calibration(
+        "data/calib/35mm_280722_selfcal_all_opencv.xml", format="opencv"
+    )
+    cam2 = calib_from_xml.to_camera()
 
     print("Done.")
