@@ -32,9 +32,8 @@ import cv2
 import exifread
 import numpy as np
 
-from icepy4d.classes.camera import Camera
+from .camera import Camera
 from .sensor_width_database import SensorWidthDatabase
-from ..sfm.geometry import undistort_image
 
 
 # @TODO: remove variable number of outputs
@@ -381,9 +380,17 @@ class Image:
             np.ndarray: undistored image
         """
         self.read_image()
-        und_imge = undistort_image(
-            cv2.cvtColor(self._value_array, cv2.COLOR_RGB2BGR), camera, out_path
+
+        und_imge = cv2.undistort(
+            cv2.cvtColor(self._value_array, cv2.COLOR_RGB2BGR),
+            camera.K,
+            camera.dist,
+            None,
+            camera.K,
         )
+        if out_path is not None:
+            cv2.imwrite(out_path, und_imge)
+
         return und_imge
 
 
