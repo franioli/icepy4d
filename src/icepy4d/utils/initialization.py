@@ -40,7 +40,7 @@ from icepy4d.classes.points import Points
 from icepy4d.classes.point_cloud import PointCloud
 from icepy4d.classes.images import Image, ImageDS
 from icepy4d.classes.targets import Targets
-from icepy4d.classes.typed_dict_classes import *
+from icepy4d.classes.epoch import *
 
 
 """ 
@@ -249,24 +249,23 @@ class Inizializer:
         ), "Camera names not available in cfg file."
         self.cams = self.cfg.paths.camera_names
 
-    def init_image_ds(self) -> ImagesDict:
+    def init_image_ds(self):  # -> ImagesDict:
         """
         init_image_ds _summary_
 
         Returns:
             ImagesDict: _description_
         """
-        self.images: ImagesDict = {
+        self.images = {
             cam: ImageDS(self.cfg.paths.image_dir / cam) for cam in self.cams
         }
         for cam in self.cams:
             self.images[cam].write_exif_to_csv(
                 self.cfg.paths.image_dir / f"image_list_{cam}.csv"
             )
-
         return self.images
 
-    def init_epoch_dict(self) -> EpochDict:
+    def init_epoch_dict(self):
         """
         init_epoch_dict Build dictonary containing pairs of epoch and dates, as follows:
         {0: "2021_01_01", 1: "2021_01_02" ...}
@@ -274,15 +273,14 @@ class Inizializer:
         Returns:
             EpochDict: epoc_dict
         """
-        self.epoch_dict: EpochDict = {}
+        self.epoch_dict = {}
         for epoch in range(len(self.images[self.cams[0]])):
             date_str = self.images[self.cams[0]].get_image_date(epoch)
             date = datetime.strptime(date_str, "%Y:%m:%d")
             self.epoch_dict[epoch] = f"{date.year}_{date.month:02}_{date.day:02}"
         return self.epoch_dict
 
-    def init_cameras(self) -> CamerasDict:
-
+    def init_cameras(self):
         assert hasattr(
             self, "images"
         ), "Images datastore not available yet. Inizialize images first"
@@ -290,9 +288,9 @@ class Inizializer:
         im_height, im_width = img.height, img.width
 
         # Inizialize Camera Intrinsics at every epoch setting them equal to the those of the reference cameras.
-        self.cameras: CamerasDict = {}
+        self.cameras = {}
         for epoch in self.cfg.proc.epoch_to_process:
-            self.cameras[epoch]: CamerasDictEpoch = {
+            self.cameras[epoch] = {
                 cam: Camera(
                     width=im_width,
                     height=im_height,
@@ -303,20 +301,17 @@ class Inizializer:
 
         return self.cameras
 
-    def init_features(self) -> FeaturesDict:
-        self.features: FeaturesDict = {}
+    def init_features(self):
+        self.features = {}
         for epoch in self.cfg.proc.epoch_to_process:
-            self.features[epoch]: FeaturesDictEpoch = {
-                cam: Features() for cam in self.cams
-            }
+            self.features[epoch] = {cam: Features() for cam in self.cams}
 
         return self.features
 
-    def init_targets(self) -> TargetDict:
+    def init_targets(self):
         # Read target image coordinates and object coordinates
-        self.targets: TargetDict = {}
+        self.targets = {}
         for epoch in self.cfg.proc.epoch_to_process:
-
             p1_path = self.cfg.georef.target_dir / (
                 self.images[self.cams[0]].get_image_stem(epoch)
                 + self.cfg.georef.target_file_ext
@@ -335,16 +330,12 @@ class Inizializer:
 
         return self.targets
 
-    def init_points(self) -> PointsDict:
-        self.points: PointsDict = {
-            ep: Points() for ep in self.cfg.proc.epoch_to_process
-        }
+    def init_points(self):
+        self.points = {ep: Points() for ep in self.cfg.proc.epoch_to_process}
         return self.points
 
-    def init_point_cloud(self) -> PointCloudDict:
-        self.point_clouds: PointCloudDict = {
-            ep: None for ep in self.cfg.proc.epoch_to_process
-        }
+    def init_point_cloud(self):
+        self.point_clouds = {ep: None for ep in self.cfg.proc.epoch_to_process}
         return self.point_clouds
 
     def init_focals_dict(self) -> dict:
@@ -363,7 +354,6 @@ class Inizializer:
 
 
 if __name__ == "__main__":
-
     cfg_file = "./config/config_base.yaml"
     cfg = parse_yaml_cfg(cfg_file)
 

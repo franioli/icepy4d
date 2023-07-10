@@ -147,7 +147,7 @@ metashape:
   # 4 = 1/4 resolution ("Medium")
   # 8 = 1/8 resolution ("Low")
   # 16 = 1/16 resolution ("Lowest")
-  dense_downscale_factor: 2
+  dense_downscale_factor: 16
 
   # Depth maps filtering: choose between:
   # [NoFiltering, MildFiltering, ModerateFiltering, AggressiveFiltering]
