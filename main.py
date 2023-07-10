@@ -38,7 +38,7 @@ import icepy4d.sfm as sfm
 import icepy4d.utils as icepy4d_utils
 import icepy4d.utils.initialization as inizialization
 import icepy4d.visualization as icepy4d_viz
-from icepy4d.classes.epoch import Epoch
+from icepy4d.classes.epoch import Epoch, Epoches
 from icepy4d.io.export2bundler import write_bundler_out
 from icepy4d.matching.match_by_preselection import (
     find_matches_on_patches,
@@ -127,9 +127,7 @@ def compute_reprojection_error(fname, solution, sep=","):
             f.write(header_line + "\n")
     with open(fname, "a") as f:
         line = (
-            epoch_dict[ep]
-            + sep
-            + f"{sep}".join([str(x) for x in res_stas_s.to_list()])
+            epoch_dict[ep] + sep + f"{sep}".join([str(x) for x in res_stas_s.to_list()])
         )
         f.write(line + "\n")
 
@@ -206,7 +204,6 @@ targets = inizializer.targets
 points = inizializer.points
 focals = inizializer.focals_dict
 
-
 # TEMPORARY: initialize file for saving output for paper
 # These outputs must be formalized for the final version
 camea_estimated_fname = cfg.paths.results_dir / "camera_info_est.txt"
@@ -224,6 +221,12 @@ if matching_stats_fname.exists():
 
 solutions = {}
 
+
+epoches = Epoches()
+
+
+
+
 """ Big Loop over epoches """
 
 logging.info("------------------------------------------------------")
@@ -236,8 +239,11 @@ for ep in cfg.proc.epoch_to_process:
         f"Processing epoch {ep} [{iter}/{cfg.proc.epoch_to_process[-1]-cfg.proc.epoch_to_process[0]}] - {epoch_dict[ep]}..."
     )
     iter += 1
-
     epochdir = Path(cfg.paths.results_dir) / epoch_dict[ep]
+
+    # Create epoch
+    epoch = Epoch()
+
     match_dir = epochdir / "matching"
 
     if LOAD_EXISTING_SOLUTION:
@@ -286,7 +292,7 @@ for ep in cfg.proc.epoch_to_process:
         else:
             features = MatchingAndTracking(
                 cfg=cfg,
-                epoch=ep, 
+                epoch=ep,
                 images=images,
                 features=features,
                 epoch_dict=epoch_dict,
@@ -355,9 +361,7 @@ for ep in cfg.proc.epoch_to_process:
         """Initialize Single_camera_geometry class with a cameras object"""
         space_resection = abs_ori.Space_resection(cameras[ep][cams[0]])
         space_resection.estimate(
-            targets[ep].get_image_coor_by_label(cfg.georef.targets_to_use, cam_id=0)[
-                0
-            ],
+            targets[ep].get_image_coor_by_label(cfg.georef.targets_to_use, cam_id=0)[0],
             targets[ep].get_object_coor_by_label(cfg.georef.targets_to_use)[0],
         )
         # Store result in camera 0 object
@@ -574,9 +578,7 @@ for ep in cfg.proc.epoch_to_process:
         compute_reprojection_error(residuals_fname, solutions[ep])
 
         # Save focal length to file
-        write_cameras_to_disk(
-            camea_estimated_fname, solutions[ep], epoch_dict[ep]
-        )
+        write_cameras_to_disk(camea_estimated_fname, solutions[ep], epoch_dict[ep])
 
     timer.print(f"ep {ep} completed")
 

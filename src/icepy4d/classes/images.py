@@ -402,7 +402,7 @@ class ImageDS:
 
     def __init__(
         self,
-        folder: Union[str, Path],
+        path: Union[str, Path, List[Path]],
         ext: str = None,
         recursive: bool = False,
     ) -> None:
@@ -410,7 +410,7 @@ class ImageDS:
         __init__ _summary_
 
         Args:
-            folder (Union[str, Path]): Path to the image folder
+            folder (Union[str, Path]): Path to the image folder or list of paths of the images.
             ext (str, optional): Image extension for filtering files. If None is provided, all files in 'folder' are read. Defaults to None.
             recursive (bool, optional): Read files recurevely. Defaults to False.
 
@@ -419,16 +419,21 @@ class ImageDS:
         """
         self.reset_imageds()
 
-        self.folder = Path(folder)
-        if not self.folder.exists():
-            msg = f"Error: invalid input path {self.folder}"
-            logging.error(msg)
-            raise IsADirectoryError(msg)
-        if ext is not None:
-            self.ext = ext
-        self.recursive = recursive
-
-        self.read_image_list(self.folder)
+        if isinstance(path, list):
+            assert all(
+                [isinstance(x, Path) for x in path]
+            ), "If a list is provided, all elements must be of type Path"
+            self.files = path
+        else:
+            self._folder = Path(path)
+            if not self._folder.exists():
+                msg = f"Error: invalid input path {self._folder}"
+                logging.error(msg)
+                raise IsADirectoryError(msg)
+            if ext is not None:
+                self._ext = ext
+            self._recursive = recursive
+            self._read_image_list(self._folder)
 
     def __len__(self) -> int:
         """Get number of images in the datastore"""
@@ -459,29 +464,29 @@ class ImageDS:
     def reset_imageds(self) -> None:
         """Initialize image datastore"""
         self.files = None
-        self.folder = None
-        self.ext = None
+        self._folder = None
+        self._ext = None
         self._elem = 0
 
-    def read_image_list(self, recursive: bool = None) -> None:
-        assert self.folder.is_dir(), "Error: invalid image directory."
+    def _read_image_list(self, recursive: bool = None) -> None:
+        assert self._folder.is_dir(), "Error: invalid image directory."
 
         if recursive is not None:
-            self.recursive = recursive
-        if self.recursive:
+            self._recursive = recursive
+        if self._recursive:
             rec_patt = "**/"
         else:
             rec_patt = ""
-        if self.ext is not None:
-            ext_patt = f".{self.ext}"
+        if self._ext is not None:
+            ext_patt = f".{self._ext}"
         else:
             ext_patt = ""
         pattern = f"{rec_patt}*{ext_patt}"
 
-        self.files = sorted(self.folder.glob(pattern))
+        self.files = sorted(self._folder.glob(pattern))
 
         if len(self.files) == 0:
-            logging.error(f"No images found in folder {self.folder}")
+            logging.error(f"No images found in folder {self._folder}")
             return
         try:
             self.read_dates()
@@ -529,7 +534,7 @@ class ImageDS:
     def write_exif_to_csv(
         self, filename: str, sep: str = ",", header: bool = True
     ) -> None:
-        assert self.folder.is_dir(), "Empty Image Datastore."
+        assert self._folder.is_dir(), "Empty Image Datastore."
         file = open(filename, "w")
         if header:
             file.write("epoch,name,date,time\n")

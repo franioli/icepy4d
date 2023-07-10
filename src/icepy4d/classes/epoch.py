@@ -23,11 +23,9 @@ SOFTWARE.
 """
 import logging
 import pickle
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Union
 from datetime import datetime as dt
-import h5py
 
 import icepy4d.classes as classes
 
@@ -64,9 +62,11 @@ class Epoch:
         self,
         datetime: Union[str, dt],
         cameras: classes.Camera = None,
-        images: classes.ImagesDict = None,
+        images: classes.ImageDS = None,
         features: classes.Features = None,
         points: classes.Points = None,
+        point_cloud: classes.PointCloud = None,
+        epoch_dir: Union[str, Path] = None,
         datetime_format: str = "%Y-%m-%d %H:%M:%S",
     ) -> None:
         """
@@ -83,10 +83,16 @@ class Epoch:
         self.images = images
         self.features = features
         self.points = points
+        self.point_cloud = point_cloud
+        self._epoch_dir = Path(epoch_dir) if epoch_dir else None
 
     @property
     def datetime(self):
         return self._datetime
+
+    @property
+    def epoch_dir(self):
+        return self._epoch_dir
 
     def __repr__(self):
         """
@@ -141,34 +147,6 @@ class Epoch:
             logging.error("Unable to save the Solution as Pickle object")
             return False
 
-    def save_hdf5(self, path: Union[str, Path]) -> bool:
-        """
-        Saves the Solution object to an HDF5 file
-
-        Args:
-            path (Union[str, Path]): The path to the HDF5 file
-
-        Returns:
-            bool: True if the object was successfully saved to file, False otherwise
-
-        Note:
-            hd5f do not work with datetime objects
-        """
-        path = Path(path)
-        try:
-            with h5py.File(path.parent / (path.stem + ".hdf5"), "w") as f:
-                f.create_dataset("epoch_id", data=self.epoch_id)
-
-                # Save cameras, images, features, points as separate datasets
-                # You'll need to adjust the code based on the structure of these objects
-                # For example, if they are dictionaries, you can use f.create_group()
-                # and then save each key-value pair as a separate dataset/group
-
-            return True
-        except:
-            logging.error("Unable to save the Solution to HDF5 file")
-            return False
-
     @staticmethod
     def read_pickle(path: Union[str, Path], ignore_errors: bool = False):
         """
@@ -199,7 +177,7 @@ class Epoches:
     def __init__(self) -> None:
         self._last_epoch: int = -1
         self._epochs: Dict[int, Epoch] = {}
-        self._epoch_dates: Dict[int, dt] = {}
+        self._epoches_map: Dict[int, dt] = {}
 
     def __repr__(self):
         """
@@ -230,6 +208,18 @@ class Epoches:
         """
         return hash((self._epochs))
 
+    def __getitem__(self, epoch_id):
+        """
+        Returns the epoch object with the provided epoch_id
+
+        Args:
+            epoch_id (int): The numeric key of the epoch
+
+        Returns:
+            Epoch: The epoch object
+        """
+        return self._epochs[epoch_id]
+
     def add_epoch(self, epoch: Epoch):
         """
         Adds an epoch to the Epoches object
@@ -239,9 +229,16 @@ class Epoches:
             epoch_date (str): The corresponding date of the epoch
             epoch (Epoch): The epoch object to be added
         """
+        assert isinstance(epoch, Epoch), "Input epoch must be of type Epoch"
+        assert hasattr(epoch, "datetime"), "Epoch must have a datetime attribute"
+        assert isinstance(epoch.datetime, dt), "Epoch datetime must be of type datetime"
+        assert (
+            epoch.datetime not in self._epoches_map.values()
+        ), "Epoch with the same date already exists"
+
         epoch_id = self._last_epoch + 1
+        self._epoches_map[epoch_id] = epoch.datetime
         self._epochs[epoch_id] = epoch
-        self._epoch_dates[epoch_id] = epoch.datetime
         self._last_epoch = epoch_id
 
     def get_epoch_date(self, epoch_id: int) -> str:
@@ -301,5 +298,12 @@ if __name__ == "__main__":
 
     print(epoches.get_epoch_date(0))
     print(epoches.get_epoch_id(date))
+
+    ep2 = Epoch(datetime="2021-01-02 00:00:00")
+    epoches.add_epoch(ep2)
+    print(epoches)
+
+    print(epoches.get_epoch_date(1))
+    print(epoches[1])
 
     print("Done")
