@@ -35,7 +35,7 @@ def sort_features_by_cam(
     Returns:
         FeaturesDictByCam: A dictionary of features sorted by camera, where the keys are epochs and the values are the features for the specified camera.
     """
-    f_by_cam: FeaturesDictByCam = {ep: features[ep][cam] for ep in features.keys()}
+    f_by_cam: FeaturesDictByCam = {ep: epoch.features[cam] for ep in features.keys()}
     return f_by_cam
 
 
@@ -194,14 +194,14 @@ def tracked_points_time_series_old(
         track_ids = points[epoch].get_track_ids()
         for track_id in track_ids:
             if volume is None:
-                out = [ep for ep in epoches[i:] if track_id in points[ep]]
+                out = [ep for ep in epoches[i:] if track_id in epoch.points]
             else:
                 out = [
                     ep
                     for ep in epoches[i:]
                     if (
-                        track_id in points[ep]
-                        and point_in_volume(points[ep][track_id].coordinates, volume)
+                        track_id in epoch.points
+                        and point_in_volume(epoch.points[track_id].coordinates, volume)
                     )
                 ]
             if not out:
