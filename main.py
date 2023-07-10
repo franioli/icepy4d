@@ -38,7 +38,7 @@ import icepy4d.sfm as sfm
 import icepy4d.utils as icepy4d_utils
 import icepy4d.utils.initialization as inizialization
 import icepy4d.visualization as icepy4d_viz
-from icepy4d.classes.solution import Solution
+from icepy4d.classes.epoch import Epoch, Epoches
 from icepy4d.io.export2bundler import write_bundler_out
 from icepy4d.matching.match_by_preselection import (
     find_matches_on_patches,
@@ -50,7 +50,7 @@ from icepy4d.matching.utils import geometric_verification, load_matches_from_dis
 
 # Temporary parameters TODO: put them in config file
 CFG_FILE = "config/config_2022.yaml"
-LOAD_EXISTING_SOLUTION = False  # False #
+LOAD_EXISTING_SOLUTION = True  # False #
 DO_PRESELECTION = False
 DO_ADDITIONAL_MATCHING = True
 PATCHES = [
@@ -61,10 +61,10 @@ PATCHES = [
 ]
 
 
-def write_cameras_to_disk(fname, solution, date, sep=","):
+def write_cameras_to_disk(fname, epoch, date, sep=","):
     from icepy4d.thirdparty.transformations import euler_from_matrix
 
-    if solution is None:
+    if epoch is None:
         return
 
     if not Path(fname).exists():
@@ -84,25 +84,25 @@ def write_cameras_to_disk(fname, solution, date, sep=","):
 
     with open(fname, "a") as file:
         file.write(f"{date}")
-        for cam in solution.cameras.keys():
-            f = solution.cameras[cam].K[1, 1]
-            # R = solution.cameras[cam].R
-            R = solution.cameras[cam].pose[:3, :3]
+        for cam in epoch.cameras.keys():
+            f = epoch.cameras[cam].K[1, 1]
+            # R = epoch.cameras[cam].R
+            R = epoch.cameras[cam].pose[:3, :3]
             o, p, k = euler_from_matrix(R)
             o, p, k = np.rad2deg(o), np.rad2deg(p), np.rad2deg(k)
             file.write(f"{sep}{f:.2f}{sep}{o:.4f}{sep}{p:.4f}{sep}{k:.4f}")
         file.write("\n")
 
 
-def compute_reprojection_error(fname, solution, sep=","):
+def compute_reprojection_error(fname, epoch, sep=","):
     print("Computing reprojection error")
 
     import pandas as pd
 
     residuals = pd.DataFrame()
-    for cam_key, camera in solution.cameras.items():
-        feat = solution.features[cam_key]
-        projections = camera.project_point(solution.points.to_numpy())
+    for cam_key, camera in epoch.cameras.items():
+        feat = epoch.features[cam_key]
+        projections = camera.project_point(epoch.points.to_numpy())
         res = projections - feat.kpts_to_numpy()
         res_norm = np.linalg.norm(res, axis=1)
         residuals["track_id"] = feat.get_track_ids()
@@ -120,36 +120,34 @@ def compute_reprojection_error(fname, solution, sep=","):
     if not Path(fname).exists():
         with open(residuals_fname, "w") as f:
             header_line = (
-                "epoch"
+                "ep"
                 + sep
                 + f"{sep}".join([f"{x[0]}-{x[1]}" for x in res_stas_s.index.to_list()])
             )
             f.write(header_line + "\n")
     with open(fname, "a") as f:
         line = (
-            epoch_dict[epoch]
-            + sep
-            + f"{sep}".join([str(x) for x in res_stas_s.to_list()])
+            epoch_dict[ep] + sep + f"{sep}".join([str(x) for x in res_stas_s.to_list()])
         )
         f.write(line + "\n")
 
 
-def make_matching_plot(solution, epoch, out_dir, show_fig=False):
+def make_matching_plot(epoch, ep, out_dir, show_fig=False):
     import matplotlib
     from matplotlib import pyplot as plt
 
     from icepy4d.visualization import plot_features
 
     matplotlib.use("tkagg")
-    cams = list(solution.cameras.keys())
-    features = solution.features
-    images = solution.images
+    cams = list(epoch.cameras.keys())
+    features = epoch.features
+    images = epoch.images
 
     fig, axes = plt.subplots(1, 2)
     titles = ["C1", "C2"]
     for cam, ax, title in zip(cams, axes, titles):
         plot_features(
-            images[cam].read_image(epoch).value,
+            images[cam].read_image(ep).value,
             features[cam],
             ax=ax,
             s=2,
@@ -163,7 +161,7 @@ def make_matching_plot(solution, epoch, out_dir, show_fig=False):
     out_dir = Path(out_dir)
     out_dir.mkdir(exist_ok=True, parents=True)
     fig.savefig(
-        out_dir / f"matches_{epoch_dict[epoch]}.png",
+        out_dir / f"matches_{epoch_dict[ep]}.png",
         dpi=300,
     )
 
@@ -206,7 +204,6 @@ targets = inizializer.targets
 points = inizializer.points
 focals = inizializer.focals_dict
 
-
 # TEMPORARY: initialize file for saving output for paper
 # These outputs must be formalized for the final version
 camea_estimated_fname = cfg.paths.results_dir / "camera_info_est.txt"
@@ -221,8 +218,7 @@ if residuals_fname.exists():
 if matching_stats_fname.exists():
     matching_stats_fname.unlink()
 
-
-solutions = {}
+epoches = Epoches()
 
 """ Big Loop over epoches """
 
@@ -230,52 +226,59 @@ logging.info("------------------------------------------------------")
 logging.info("Processing started:")
 timer = icepy4d_utils.AverageTimer()
 iter = 0  # necessary only for printing the number of processed iteration
-for epoch in cfg.proc.epoch_to_process:
+for ep in cfg.proc.epoch_to_process:
     logging.info("------------------------------------------------------")
     logging.info(
-        f"Processing epoch {epoch} [{iter}/{cfg.proc.epoch_to_process[-1]-cfg.proc.epoch_to_process[0]}] - {epoch_dict[epoch]}..."
+        f"Processing epoch {ep} [{iter}/{cfg.proc.epoch_to_process[-1]-cfg.proc.epoch_to_process[0]}] - {epoch_dict[ep]}..."
     )
     iter += 1
-
-    epochdir = Path(cfg.paths.results_dir) / epoch_dict[epoch]
+    epochdir = Path(cfg.paths.results_dir) / epoch_dict[ep]
     match_dir = epochdir / "matching"
 
     if LOAD_EXISTING_SOLUTION:
-        path = f"{epochdir}/{epoch_dict[epoch]}.pickle"
-        logging.info(f"Loading solution from {path}")
-        solution = Solution.read_pickle(path, ignore_errors=True)
-        if solution is not None:
-            solutions[epoch] = solution
-            cameras[epoch], _, features[epoch], points[epoch] = solution
-            logging.info("Solution loaded.")
+        # Load existing epcoh
+        path = f"{epochdir}/{epoch_dict[ep]}.pickle"
+        logging.info(f"Loading epoch from {path}")
+        epoch = Epoch.read_pickle(path, ignore_errors=True)
+        if epoch is not None:
+            epoches.add_epoch(epoch)
+            cameras[ep], _, features[ep], points[ep] = epoch
+            logging.info("Epoch loaded.")
 
             # matches_fig_dir = "res/fig_for_paper/matches_fig"
-            # make_matching_plot(solution, epoch, matches_fig_dir, show_fig=False)
+            # make_matching_plot(epoch, epoch, matches_fig_dir, show_fig=False)
 
-            del solution
+            del epoch
             continue
         else:
-            logging.error("Unable to import solution.")
+            logging.error("Unable to import epoch.")
+    else:
+        # Create new epoch
+        im_list = icepy4d_classes.ImageDS(
+            [images[cam].get_image_path(ep) for cam in cams]
+        )
+        epoch = Epoch(im_list.datetimes[0], images=im_list, epoch_dir=epochdir)
+        epoches.add_epoch(epoch)
 
     # Perform matching and tracking
     if cfg.proc.do_matching:
         if DO_PRESELECTION:
-            if cfg.proc.do_tracking and epoch > cfg.proc.epoch_to_process[0]:
-                features[epoch] = tracking_base(
+            if cfg.proc.do_tracking and ep > cfg.proc.epoch_to_process[0]:
+                features[ep] = tracking_base(
                     images,
-                    features[epoch - 1],
+                    features[ep - 1],
                     cams,
                     epoch_dict,
-                    epoch,
+                    ep,
                     cfg.tracking,
                     epochdir,
                 )
 
-            features[epoch] = match_by_preselection(
+            features[ep] = match_by_preselection(
                 images,
-                features[epoch],
+                features[ep],
                 cams,
-                epoch,
+                ep,
                 cfg.matching,
                 match_dir,
                 n_tiles=4,
@@ -286,7 +289,7 @@ for epoch in cfg.proc.epoch_to_process:
         else:
             features = MatchingAndTracking(
                 cfg=cfg,
-                epoch=epoch,
+                epoch=ep,
                 images=images,
                 features=features,
                 epoch_dict=epoch_dict,
@@ -295,7 +298,7 @@ for epoch in cfg.proc.epoch_to_process:
         # Run additional matching on selected patches:
         if DO_ADDITIONAL_MATCHING:
             logging.info("Performing additional matching on user-specified patches")
-            im_stems = [images[cam].get_image_stem(epoch) for cam in cams]
+            im_stems = [images[cam].get_image_stem(ep) for cam in cams]
             sg_opt = {
                 "weights": cfg.matching.weights,
                 "keypoint_threshold": 0.0001,
@@ -307,8 +310,8 @@ for epoch in cfg.proc.epoch_to_process:
                 find_matches_on_patches(
                     images=images,
                     patches_lim=patches_lim,
-                    epoch=epoch,
-                    features=features[epoch],
+                    epoch=ep,
+                    features=features[ep],
                     cfg=sg_opt,
                     do_geometric_verification=True,
                     geometric_verification_threshold=10,
@@ -320,7 +323,7 @@ for epoch in cfg.proc.epoch_to_process:
 
             # Run again geometric verification
             geometric_verification(
-                features[epoch],
+                features[ep],
                 threshold=cfg.matching.pydegensac_threshold,
                 confidence=cfg.matching.pydegensac_confidence,
             )
@@ -328,16 +331,16 @@ for epoch in cfg.proc.epoch_to_process:
 
             # For debugging
             # for cam in cams:
-            #     features[epoch][cam].plot_features(images[cam].read_image(epoch).value)
+            #     features[ep][cam].plot_features(images[cam].read_image(ep).value)
     else:
         try:
-            features[epoch] = load_matches_from_disk(match_dir)
+            features[ep] = load_matches_from_disk(match_dir)
         except FileNotFoundError as err:
             logging.exception(err)
             logging.warning("Performing new matching and tracking...")
             features = MatchingAndTracking(
                 cfg=cfg,
-                epoch=epoch,
+                epoch=ep,
                 images=images,
                 features=features,
                 epoch_dict=epoch_dict,
@@ -347,30 +350,28 @@ for epoch in cfg.proc.epoch_to_process:
 
     """ SfM """
 
-    logging.info(f"Reconstructing epoch {epoch}...")
+    logging.info(f"Reconstructing epoch {ep}...")
 
     # --- Space resection of Master camera ---#
-    # At the first epoch, perform Space resection of the first camera by using GCPs. At all other epoches, set camera 1 EO equal to first one.
-    if cfg.proc.do_space_resection and epoch == 0:
+    # At the first ep, perform Space resection of the first camera by using GCPs. At all other epoches, set camera 1 EO equal to first one.
+    if cfg.proc.do_space_resection and ep == 0:
         """Initialize Single_camera_geometry class with a cameras object"""
-        space_resection = abs_ori.Space_resection(cameras[epoch][cams[0]])
+        space_resection = abs_ori.Space_resection(cameras[ep][cams[0]])
         space_resection.estimate(
-            targets[epoch].get_image_coor_by_label(cfg.georef.targets_to_use, cam_id=0)[
-                0
-            ],
-            targets[epoch].get_object_coor_by_label(cfg.georef.targets_to_use)[0],
+            targets[ep].get_image_coor_by_label(cfg.georef.targets_to_use, cam_id=0)[0],
+            targets[ep].get_object_coor_by_label(cfg.georef.targets_to_use)[0],
         )
         # Store result in camera 0 object
-        cameras[epoch][cams[0]] = space_resection.camera
+        cameras[ep][cams[0]] = space_resection.camera
 
     # --- Perform Relative orientation of the two cameras ---#
     # Initialize RelativeOrientation class with a list containing the two cameras and a list contaning the matched features location on each camera.
     # @TODO: decide wheter to do a deep copy of the arguments or directly modify them in the function (and state it in docs).
     relative_ori = sfm.RelativeOrientation(
-        [cameras[epoch][cams[0]], cameras[epoch][cams[1]]],
+        [cameras[ep][cams[0]], cameras[ep][cams[1]]],
         [
-            features[epoch][cams[0]].kpts_to_numpy(),
-            features[epoch][cams[1]].kpts_to_numpy(),
+            features[ep][cams[0]].kpts_to_numpy(),
+            features[ep][cams[1]].kpts_to_numpy(),
         ],
     )
     relative_ori.estimate_pose(
@@ -381,19 +382,19 @@ for epoch in cfg.proc.epoch_to_process:
         ),
     )
     # Store result in camera 1 object
-    cameras[epoch][cams[1]] = relative_ori.cameras[1]
+    cameras[ep][cams[1]] = relative_ori.cameras[1]
 
     # --- Triangulate Points ---#
     # Initialize a Triangulate class instance with a list containing the two cameras and a list contaning the matched features location on each camera. Triangulated points are saved as points3d proprierty of the Triangulate object (eg., triangulation.points3d)
     triang = sfm.Triangulate(
-        [cameras[epoch][cams[0]], cameras[epoch][cams[1]]],
+        [cameras[ep][cams[0]], cameras[ep][cams[1]]],
         [
-            features[epoch][cams[0]].kpts_to_numpy(),
-            features[epoch][cams[1]].kpts_to_numpy(),
+            features[ep][cams[0]].kpts_to_numpy(),
+            features[ep][cams[1]].kpts_to_numpy(),
         ],
     )
     points3d = triang.triangulate_two_views(
-        compute_colors=True, image=images[cams[1]].read_image(epoch).value, cam_id=1
+        compute_colors=True, image=images[cams[1]].read_image(ep).value, cam_id=1
     )
     logging.info("Tie points triangulated.")
 
@@ -401,32 +402,32 @@ for epoch in cfg.proc.epoch_to_process:
     if cfg.proc.do_coregistration:
         # Get targets available in all cameras
         # Labels of valid targets are returned as second element by get_image_coor_by_label() method
-        valid_targets = targets[epoch].get_image_coor_by_label(
+        valid_targets = targets[ep].get_image_coor_by_label(
             cfg.georef.targets_to_use, cam_id=0
         )[1]
         for id in range(1, len(cams)):
             assert (
                 valid_targets
-                == targets[epoch].get_image_coor_by_label(
+                == targets[ep].get_image_coor_by_label(
                     cfg.georef.targets_to_use, cam_id=id
                 )[1]
-            ), f"Epoch {epoch} - {epoch_dict[epoch]}: Different targets found in image {id} - {images[cams[id]][epoch]}"
+            ), f"epoch {ep} - {epoch_dict[ep]}: Different targets found in image {id} - {images[cams[id]][ep]}"
         if len(valid_targets) < 1:
             logging.error(
-                f"Not enough targets found. Skipping epoch {epoch} and moving to next epoch"
+                f"Not enough targets found. Skipping epoch {ep} and moving to next epoch"
             )
             continue
         if valid_targets != cfg.georef.targets_to_use:
             logging.warning(f"Not all targets found. Using onlys {valid_targets}")
 
         image_coords = [
-            targets[epoch].get_image_coor_by_label(valid_targets, cam_id=id)[0]
+            targets[ep].get_image_coor_by_label(valid_targets, cam_id=id)[0]
             for id, cam in enumerate(cams)
         ]
-        obj_coords = targets[epoch].get_object_coor_by_label(valid_targets)[0]
+        obj_coords = targets[ep].get_object_coor_by_label(valid_targets)[0]
         try:
             abs_ori = sfm.Absolute_orientation(
-                (cameras[epoch][cams[0]], cameras[epoch][cams[1]]),
+                (cameras[ep][cams[0]], cameras[ep][cams[1]]),
                 points3d_final=obj_coords,
                 image_points=image_coords,
                 camera_centers_world=cfg.georef.camera_centers_world,
@@ -434,12 +435,12 @@ for epoch in cfg.proc.epoch_to_process:
             T = abs_ori.estimate_transformation_linear(estimate_scale=True)
             points3d = abs_ori.apply_transformation(points3d=points3d)
             for i, cam in enumerate(cams):
-                cameras[epoch][cam] = abs_ori.cameras[i]
+                cameras[ep][cam] = abs_ori.cameras[i]
             logging.info("Absolute orientation completed.")
         except ValueError as err:
             logging.error(err)
             logging.error(
-                f"Absolute orientation not succeded. Not enough targets available. Skipping epoch {epoch} and moving to next epoch"
+                f"Absolute orientation not succeded. Not enough targets available. Skipping epoch {ep} and moving to next epoch"
             )
             continue
 
@@ -448,7 +449,7 @@ for epoch in cfg.proc.epoch_to_process:
     pts = icepy4d_classes.Points()
     pts.append_points_from_numpy(
         points3d,
-        track_ids=features[epoch][cams[0]].get_track_ids(),
+        track_ids=features[ep][cams[0]].get_track_ids(),
         colors=triang.colors,
     )
 
@@ -465,19 +466,19 @@ for epoch in cfg.proc.epoch_to_process:
             shutil.rmtree(metashape_path, ignore_errors=True)
 
         # Export results in Bundler format
-        im_dict = {cam: images[cam].get_image_path(epoch) for cam in cams}
+        im_dict = {cam: images[cam].get_image_path(ep) for cam in cams}
         write_bundler_out(
             export_dir=epochdir,
             im_dict=im_dict,
-            cameras=cameras[epoch],
-            features=features[epoch],
+            cameras=cameras[ep],
+            features=features[ep],
             points=pts,
-            targets=targets[epoch],
+            targets=targets[ep],
             targets_to_use=valid_targets,
             targets_enabled=[True for el in valid_targets],
         )
 
-        ms_cfg = MS.build_metashape_cfg(cfg, epoch_dict, epoch)
+        ms_cfg = MS.build_metashape_cfg(cfg, epoch_dict, ep)
         ms = MS.MetashapeProject(ms_cfg, timer)
         ms.run_full_workflow()
 
@@ -487,31 +488,31 @@ for epoch in cfg.proc.epoch_to_process:
         )
         ms_reader.read_icepy4d_outputs()
         for i, cam in enumerate(cams):
-            focals[cam][epoch] = ms_reader.get_focal_lengths()[i]
+            focals[cam][ep] = ms_reader.get_focal_lengths()[i]
 
         # Assign camera extrinsics and intrinsics estimated in Metashape to Camera Object (assignation is done manaully @TODO automatic K and extrinsics matrixes to assign correct camera by camera label)
         new_K = ms_reader.get_K()
-        cameras[epoch][cams[0]].update_K(new_K[1])
-        cameras[epoch][cams[1]].update_K(new_K[0])
+        cameras[ep][cams[0]].update_K(new_K[1])
+        cameras[ep][cams[1]].update_K(new_K[0])
 
-        cameras[epoch][cams[0]].update_extrinsics(
-            ms_reader.extrinsics[images[cams[0]].get_image_stem(epoch)]
+        cameras[ep][cams[0]].update_extrinsics(
+            ms_reader.extrinsics[images[cams[0]].get_image_stem(ep)]
         )
-        cameras[epoch][cams[1]].update_extrinsics(
-            ms_reader.extrinsics[images[cams[1]].get_image_stem(epoch)]
+        cameras[ep][cams[1]].update_extrinsics(
+            ms_reader.extrinsics[images[cams[1]].get_image_stem(ep)]
         )
 
         # Triangulate again points and update Point Cloud dict
         triang = sfm.Triangulate(
-            [cameras[epoch][cams[0]], cameras[epoch][cams[1]]],
+            [cameras[ep][cams[0]], cameras[ep][cams[1]]],
             [
-                features[epoch][cams[0]].kpts_to_numpy(),
-                features[epoch][cams[1]].kpts_to_numpy(),
+                features[ep][cams[0]].kpts_to_numpy(),
+                features[ep][cams[1]].kpts_to_numpy(),
             ],
         )
         points3d = triang.triangulate_two_views(
             compute_colors=True,
-            image=images[cams[1]].read_image(epoch).value,
+            image=images[cams[1]].read_image(ep).value,
             cam_id=1,
         )
 
@@ -519,15 +520,15 @@ for epoch in cfg.proc.epoch_to_process:
         #     points3d=points3d, points_col=triang.colors
         # )
 
-        points[epoch].append_points_from_numpy(
+        points[ep].append_points_from_numpy(
             points3d,
-            track_ids=features[epoch][cams[0]].get_track_ids(),
+            track_ids=features[ep][cams[0]].get_track_ids(),
             colors=triang.colors,
         )
 
         if cfg.proc.save_sparse_cloud:
-            points[epoch].to_point_cloud().write_ply(
-                cfg.paths.results_dir / f"point_clouds/sparse_{epoch_dict[epoch]}.ply"
+            points[ep].to_point_cloud().write_ply(
+                cfg.paths.results_dir / f"point_clouds/sparse_{epoch_dict[ep]}.ply"
             )
 
         # - For debugging purposes
@@ -536,17 +537,17 @@ for epoch in cfg.proc.epoch_to_process:
         # import matplotlib
         # matplotlib.use("tkagg")
 
-        # M = targets[epoch].get_object_coor_by_label(cfg.georef.targets_to_use)[0]
-        # m = cameras[epoch][cams[1]].project_point(M)
-        # plot_features(images[cams[1]].read_image(epoch).value, m)
+        # M = targets[ep].get_object_coor_by_label(cfg.georef.targets_to_use)[0]
+        # m = cameras[ep][cams[1]].project_point(M)
+        # plot_features(images[cams[1]].read_image(ep).value, m)
         # plot_features(
-        #     images[cams[0]].read_image(epoch).value,
-        #     features[epoch][cams[0]].kpts_to_numpy(),
+        #     images[cams[0]].read_image(ep).value,
+        #     features[ep][cams[0]].kpts_to_numpy(),
         # )
 
         # cam = cams[0]
-        # f0 = features[epoch][cam]
-        # plot_features(images[cam].read_image(epoch).value, f0)
+        # f0 = features[ep][cam]
+        # plot_features(images[cam].read_image(ep).value, f0)
         # plt.show()
 
         # Clean variables
@@ -555,30 +556,28 @@ for epoch in cfg.proc.epoch_to_process:
         del ms_cfg, ms, ms_reader
         gc.collect()
 
-        # Save solution as a pickle object
-        solutions[epoch] = Solution(
-            datetime=datetime.strptime(epoch_dict[epoch], "%Y_%m_%d"),
-            epoch_id=epoch,
-            cameras=cameras[epoch],
+        # Save epoch as a pickle object
+        epoches[ep] = Epoch(
+            datetime=datetime.strptime(epoch_dict[ep], "%Y_%m_%d"),
+            epoch_id=ep,
+            cameras=cameras[ep],
             images=images,
-            features=features[epoch],
-            points=points[epoch],
+            features=features[ep],
+            points=points[ep],
         )
-        solutions[epoch].save_pickle(f"{epochdir}/{epoch_dict[epoch]}.pickle")
+        epoches[ep].save_pickle(f"{epochdir}/{epoch_dict[ep]}.pickle")
 
         # Save matches plot
         matches_fig_dir = "res/fig_for_paper/matches_fig"
-        make_matching_plot(solutions[epoch], epoch, matches_fig_dir, show_fig=False)
+        make_matching_plot(epoches[ep], ep, matches_fig_dir, show_fig=False)
 
         # Compute reprojection error
-        compute_reprojection_error(residuals_fname, solutions[epoch])
+        compute_reprojection_error(residuals_fname, epoches[ep])
 
         # Save focal length to file
-        write_cameras_to_disk(
-            camea_estimated_fname, solutions[epoch], epoch_dict[epoch]
-        )
+        write_cameras_to_disk(camea_estimated_fname, epoches[ep], epoch_dict[ep])
 
-    timer.print(f"Epoch {epoch} completed")
+    timer.print(f"ep {ep} completed")
 
 timer_global.update("ICEpy4D processing")
 
@@ -600,21 +599,21 @@ if cfg.proc.do_homography_warping:
     cam = cfg.proc.camera_to_warp
     cam_ref = cameras[reference_epoch][cam]
 
-    for epoch in cfg.proc.epoch_to_process:
+    for ep in cfg.proc.epoch_to_process:
         # Camera pose smoothing
         if do_smoothing:
-            match str(epoch):
+            match str(ep):
                 case "0":
-                    epoch_range = range(epoch + 0, epoch + 5)
+                    epoch_range = range(ep + 0, ep + 5)
                 case "1":
-                    epoch_range = range(epoch - 1, epoch + 4)
+                    epoch_range = range(ep - 1, ep + 4)
                 case "158":
-                    epoch_range = range(epoch - 3, epoch + 2)
+                    epoch_range = range(ep - 3, ep + 2)
                 case "159":
-                    epoch_range = range(epoch - 4, epoch + 1)
+                    epoch_range = range(ep - 4, ep + 1)
                 case other:
-                    epoch_range = range(epoch - 2, epoch + 3)
-            cam_to_warp = deepcopy(cameras[epoch][cam])
+                    epoch_range = range(ep - 2, ep + 3)
+            cam_to_warp = deepcopy(cameras[ep][cam])
             angles = np.stack(
                 [euler_from_matrix(cameras[e][cam].R) for e in epoch_range], axis=1
             )
@@ -626,14 +625,14 @@ if cfg.proc.do_homography_warping:
             extrinsics_med[:3, :3] = euler_matrix(*ang)[:3, :3]
             cam_to_warp.update_extrinsics(extrinsics_med)
         else:
-            cam_to_warp = cameras[epoch][cam]
+            cam_to_warp = cameras[ep][cam]
 
         _ = homography_warping(
             cam_0=cam_ref,
             cam_1=cam_to_warp,
-            image=images[cam].read_image(epoch).value,
+            image=images[cam].read_image(ep).value,
             undistort=True,
-            out_path=f"res/warped/{images[cam][epoch]}",
+            out_path=f"res/warped/{images[cam][ep]}",
         )
 
     timer_global.update("Homograpy warping")
