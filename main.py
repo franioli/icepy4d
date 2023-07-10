@@ -224,7 +224,9 @@ solutions = {}
 
 epoches = Epoches()
 
-
+im_list = icepy4d_classes.ImageDS([images[cam].get_image_path(0) for cam in cams])
+epoch = Epoch(im_list.datetimes[0])
+epoches.add_epoch(epoch)
 
 
 """ Big Loop over epoches """
