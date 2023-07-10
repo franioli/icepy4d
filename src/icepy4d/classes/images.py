@@ -215,6 +215,21 @@ class Image:
             return None
 
     @property
+    def datetime(self) -> datetime:
+        """
+        Returns the date and time of the image in a string format.
+        If the information is not available in the EXIF metadata, it returns None.
+
+        Returns:
+            datetime: The date and time of the image as datetime object
+        """
+        if self._date_time is not None:
+            return self._date_time
+        else:
+            logging.error("No exif data available.")
+            return
+
+    @property
     def value(self) -> np.ndarray:
         """
         Returns the image (pixel values) as numpy array
@@ -417,13 +432,17 @@ class ImageDS:
         Raises:
             IsADirectoryError: _description_
         """
-        self.reset_imageds()
+        self._files = None
+        self._datetimes = {}
+        self._folder = None
+        self._ext = None
+        self._elem = 0
 
         if isinstance(path, list):
             assert all(
                 [isinstance(x, Path) for x in path]
             ), "If a list is provided, all elements must be of type Path"
-            self.files = path
+            self._files = path
         else:
             self._folder = Path(path)
             if not self._folder.exists():
@@ -434,19 +453,23 @@ class ImageDS:
                 self._ext = ext
             self._recursive = recursive
             self._read_image_list(self._folder)
+        try:
+            self._read_dates()
+        except RuntimeError as err:
+            logging.exception(err)
 
     def __len__(self) -> int:
         """Get number of images in the datastore"""
-        return len(self.files)
+        return len(self._files)
 
     def __contains__(self, name: str) -> bool:
         """Check if an image is in the datastore, given the image name"""
-        files = [x.name for x in self.files]
+        files = [x.name for x in self._files]
         return name in files
 
     def __getitem__(self, idx: int) -> str:
         """Return image name (including extension) at position idx in datastore"""
-        return self.files[idx].name
+        return self._files[idx].name
 
     def __iter__(self):
         self._elem = 0
@@ -454,7 +477,7 @@ class ImageDS:
 
     def __next__(self):
         while self._elem < len(self):
-            file = self.files[self._elem]
+            file = self._files[self._elem]
             self._elem += 1
             return file
         else:
@@ -462,11 +485,26 @@ class ImageDS:
             raise StopIteration
 
     def reset_imageds(self) -> None:
-        """Initialize image datastore"""
-        self.files = None
+        """Re-initialize image datastore"""
+        self._files = None
         self._folder = None
         self._ext = None
         self._elem = 0
+
+    @property
+    def files(self) -> List[Path]:
+        """Get list of files in datastore"""
+        return self._files
+
+    @property
+    def folder(self) -> Path:
+        """Get folder path of datastore"""
+        return self._folder
+
+    @property
+    def datetimes(self) -> List[datetime]:
+        """Get list of datetimes of images in datastore"""
+        return list(self._datetimes.values())
 
     def _read_image_list(self, recursive: bool = None) -> None:
         assert self._folder.is_dir(), "Error: invalid image directory."
@@ -483,31 +521,24 @@ class ImageDS:
             ext_patt = ""
         pattern = f"{rec_patt}*{ext_patt}"
 
-        self.files = sorted(self._folder.glob(pattern))
+        self._files = sorted(self._folder.glob(pattern))
 
-        if len(self.files) == 0:
+        if len(self._files) == 0:
             logging.error(f"No images found in folder {self._folder}")
             return
-        try:
-            self.read_dates()
-        except OSError as err:
-            logging.exception(err)
 
-    def read_image(self, idx: int) -> Image:
-        """Return image at position idx as Image instance, containing both exif and value data (accessible by value proprierty, e.g., image.value)"""
-        image = Image(self.files[idx])
-        image.read_image()
-        return image
-
-    def read_dates(self) -> None:
+    def _read_dates(self) -> None:
         """
         read_dates Read date and time for all the images in ImageDS from exif.
         """
-        assert self.files, "No image in ImageDS. Please read image list first"
+        assert self._files, "No image in ImageDS. Please read image list first"
         self._dates, self._times = {}, {}
         try:
-            for id, im in enumerate(self.files):
+            for id, im in enumerate(self._files):
                 image = Image(im)
+                self._datetimes[id] = image.datetime
+
+                # These ar kept only for backward compatibility
                 self._dates[id] = image.date
                 self._times[id] = image.time
         except:
@@ -515,13 +546,19 @@ class ImageDS:
             self._dates, self._times = {}, {}
             return
 
+    def read_image(self, idx: int) -> Image:
+        """Return image at position idx as Image instance, containing both exif and value data (accessible by value proprierty, e.g., image.value)"""
+        image = Image(self._files[idx])
+        image.read_image()
+        return image
+
     def get_image_path(self, idx: int) -> Path:
         """Return path of the image at position idx in datastore as Pathlib"""
-        return self.files[idx]
+        return self._files[idx]
 
     def get_image_stem(self, idx: int) -> str:
         """Return name without extension(stem) of the image at position idx in datastore"""
-        return self.files[idx].stem
+        return self._files[idx].stem
 
     def get_image_date(self, idx: int) -> str:
         """Return name without extension(stem) of the image at position idx in datastore"""
@@ -538,7 +575,7 @@ class ImageDS:
         file = open(filename, "w")
         if header:
             file.write("epoch,name,date,time\n")
-        for i, img_path in enumerate(self.files):
+        for i, img_path in enumerate(self._files):
             img = Image(img_path)
             name = img_path.name
             date = img.date
