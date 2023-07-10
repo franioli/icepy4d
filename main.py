@@ -50,7 +50,7 @@ from icepy4d.matching.utils import geometric_verification, load_matches_from_dis
 
 # Temporary parameters TODO: put them in config file
 CFG_FILE = "config/config_2022.yaml"
-LOAD_EXISTING_SOLUTION = False  # False #
+LOAD_EXISTING_SOLUTION = True  # False #
 DO_PRESELECTION = False
 DO_ADDITIONAL_MATCHING = True
 PATCHES = [
@@ -61,10 +61,10 @@ PATCHES = [
 ]
 
 
-def write_cameras_to_disk(fname, solution, date, sep=","):
+def write_cameras_to_disk(fname, epoch, date, sep=","):
     from icepy4d.thirdparty.transformations import euler_from_matrix
 
-    if solution is None:
+    if epoch is None:
         return
 
     if not Path(fname).exists():
@@ -84,25 +84,25 @@ def write_cameras_to_disk(fname, solution, date, sep=","):
 
     with open(fname, "a") as file:
         file.write(f"{date}")
-        for cam in solution.cameras.keys():
-            f = solution.cameras[cam].K[1, 1]
-            # R = solution.cameras[cam].R
-            R = solution.cameras[cam].pose[:3, :3]
+        for cam in epoch.cameras.keys():
+            f = epoch.cameras[cam].K[1, 1]
+            # R = epoch.cameras[cam].R
+            R = epoch.cameras[cam].pose[:3, :3]
             o, p, k = euler_from_matrix(R)
             o, p, k = np.rad2deg(o), np.rad2deg(p), np.rad2deg(k)
             file.write(f"{sep}{f:.2f}{sep}{o:.4f}{sep}{p:.4f}{sep}{k:.4f}")
         file.write("\n")
 
 
-def compute_reprojection_error(fname, solution, sep=","):
+def compute_reprojection_error(fname, epoch, sep=","):
     print("Computing reprojection error")
 
     import pandas as pd
 
     residuals = pd.DataFrame()
-    for cam_key, camera in solution.cameras.items():
-        feat = solution.features[cam_key]
-        projections = camera.project_point(solution.points.to_numpy())
+    for cam_key, camera in epoch.cameras.items():
+        feat = epoch.features[cam_key]
+        projections = camera.project_point(epoch.points.to_numpy())
         res = projections - feat.kpts_to_numpy()
         res_norm = np.linalg.norm(res, axis=1)
         residuals["track_id"] = feat.get_track_ids()
@@ -132,16 +132,16 @@ def compute_reprojection_error(fname, solution, sep=","):
         f.write(line + "\n")
 
 
-def make_matching_plot(solution, ep, out_dir, show_fig=False):
+def make_matching_plot(epoch, ep, out_dir, show_fig=False):
     import matplotlib
     from matplotlib import pyplot as plt
 
     from icepy4d.visualization import plot_features
 
     matplotlib.use("tkagg")
-    cams = list(solution.cameras.keys())
-    features = solution.features
-    images = solution.images
+    cams = list(epoch.cameras.keys())
+    features = epoch.features
+    images = epoch.images
 
     fig, axes = plt.subplots(1, 2)
     titles = ["C1", "C2"]
@@ -218,16 +218,7 @@ if residuals_fname.exists():
 if matching_stats_fname.exists():
     matching_stats_fname.unlink()
 
-
-solutions = {}
-
-
 epoches = Epoches()
-
-im_list = icepy4d_classes.ImageDS([images[cam].get_image_path(0) for cam in cams])
-epoch = Epoch(im_list.datetimes[0])
-epoches.add_epoch(epoch)
-
 
 """ Big Loop over epoches """
 
@@ -242,28 +233,32 @@ for ep in cfg.proc.epoch_to_process:
     )
     iter += 1
     epochdir = Path(cfg.paths.results_dir) / epoch_dict[ep]
-
-    # Create epoch
-    epoch = Epoch()
-
     match_dir = epochdir / "matching"
 
     if LOAD_EXISTING_SOLUTION:
+        # Load existing epcoh
         path = f"{epochdir}/{epoch_dict[ep]}.pickle"
-        logging.info(f"Loading solution from {path}")
-        solution = Epoch.read_pickle(path, ignore_errors=True)
-        if solution is not None:
-            solutions[ep] = solution
-            cameras[ep], _, features[ep], points[ep] = solution
+        logging.info(f"Loading epoch from {path}")
+        epoch = Epoch.read_pickle(path, ignore_errors=True)
+        if epoch is not None:
+            epoches.add_epoch(epoch)
+            cameras[ep], _, features[ep], points[ep] = epoch
             logging.info("Epoch loaded.")
 
             # matches_fig_dir = "res/fig_for_paper/matches_fig"
-            # make_matching_plot(solution, epoch, matches_fig_dir, show_fig=False)
+            # make_matching_plot(epoch, epoch, matches_fig_dir, show_fig=False)
 
-            del solution
+            del epoch
             continue
         else:
-            logging.error("Unable to import solution.")
+            logging.error("Unable to import epoch.")
+    else:
+        # Create new epoch
+        im_list = icepy4d_classes.ImageDS(
+            [images[cam].get_image_path(ep) for cam in cams]
+        )
+        epoch = Epoch(im_list.datetimes[0], images=im_list, epoch_dir=epochdir)
+        epoches.add_epoch(epoch)
 
     # Perform matching and tracking
     if cfg.proc.do_matching:
@@ -561,8 +556,8 @@ for ep in cfg.proc.epoch_to_process:
         del ms_cfg, ms, ms_reader
         gc.collect()
 
-        # Save solution as a pickle object
-        solutions[ep] = Epoch(
+        # Save epoch as a pickle object
+        epoches[ep] = Epoch(
             datetime=datetime.strptime(epoch_dict[ep], "%Y_%m_%d"),
             epoch_id=ep,
             cameras=cameras[ep],
@@ -570,17 +565,17 @@ for ep in cfg.proc.epoch_to_process:
             features=features[ep],
             points=points[ep],
         )
-        solutions[ep].save_pickle(f"{epochdir}/{epoch_dict[ep]}.pickle")
+        epoches[ep].save_pickle(f"{epochdir}/{epoch_dict[ep]}.pickle")
 
         # Save matches plot
         matches_fig_dir = "res/fig_for_paper/matches_fig"
-        make_matching_plot(solutions[ep], ep, matches_fig_dir, show_fig=False)
+        make_matching_plot(epoches[ep], ep, matches_fig_dir, show_fig=False)
 
         # Compute reprojection error
-        compute_reprojection_error(residuals_fname, solutions[ep])
+        compute_reprojection_error(residuals_fname, epoches[ep])
 
         # Save focal length to file
-        write_cameras_to_disk(camea_estimated_fname, solutions[ep], epoch_dict[ep])
+        write_cameras_to_disk(camea_estimated_fname, epoches[ep], epoch_dict[ep])
 
     timer.print(f"ep {ep} completed")
 

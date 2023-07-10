@@ -156,7 +156,7 @@ class Epoch:
             path (Union[str, Path]): The path to the binary file
 
         Returns:
-            Solution: A Solution object
+            Epoch: An Epoh object
         """
         path = Path(path)
         if not ignore_errors:
