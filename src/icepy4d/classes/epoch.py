@@ -178,6 +178,7 @@ class Epoches:
         self._last_epoch: int = -1
         self._epochs: Dict[int, Epoch] = {}
         self._epoches_map: Dict[int, dt] = {}
+        self._elem = 0
 
     def __repr__(self):
         """
@@ -190,23 +191,21 @@ class Epoches:
         return f"Epoches with {len(self._epochs)} epochs"
 
     def __iter__(self):
-        """
-        Returns an iterator over the four dictionaries of Solution object
+        self._elem = 0
+        return self
 
-        Yields:
-            dict: The dictionary of camera parameters
-            dict: The dictionary of images and their metadata
-        """
-        yield self.epochs
+    def __len__(self) -> int:
+        """Get number of epoches in the Epoches object"""
+        return len(self._epochs)
 
-    def __hash__(self):
-        """
-        Computes the hash value of the Epoches object
-
-        Returns:
-            int: The hash value of the Epoches object
-        """
-        return hash((self._epochs))
+    def __next__(self):
+        while self._elem < len(self):
+            file = self._epochs[self._elem]
+            self._elem += 1
+            return file
+        else:
+            self._elem
+            raise StopIteration
 
     def __getitem__(self, epoch_id):
         """
@@ -219,6 +218,14 @@ class Epoches:
             Epoch: The epoch object
         """
         return self._epochs[epoch_id]
+
+    def __contains__(
+        self, epoch_date: Union[str, dt], datetime_format: str = "%Y-%m-%d %H:%M:%S"
+    ) -> bool:
+        """Check if an epoch is in the Epoch objet"""
+        datetime = parse_str_to_datetime(epoch_date, datetime_format)
+        datetimes = [x for x in self._epoches_map.values()]
+        return datetime in datetimes
 
     def add_epoch(self, epoch: Epoch):
         """
@@ -305,5 +312,11 @@ if __name__ == "__main__":
 
     print(epoches.get_epoch_date(1))
     print(epoches[1])
+
+    for ep in epoches:
+        print(ep)
+
+    # Check if epoch is in epoches
+    print("2021-01-01 00:00:00" in epoches)
 
     print("Done")
