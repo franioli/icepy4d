@@ -23,11 +23,16 @@ SOFTWARE.
 """
 import logging
 import pickle
-from pathlib import Path
-from typing import Dict, Union
 from datetime import datetime as dt
+from pathlib import Path
+from typing import Dict, Union, TypedDict
 
-import icepy4d.classes as classes
+from .camera import Camera
+from .features import Features
+from .point_cloud import PointCloud
+from .images import Image, ImageDS
+from .targets import Targets
+from .points import Points
 
 
 def parse_str_to_datetime(
@@ -61,11 +66,12 @@ class Epoch:
     def __init__(
         self,
         datetime: Union[str, dt],
-        cameras: classes.Camera = None,
-        images: classes.ImageDS = None,
-        features: classes.Features = None,
-        points: classes.Points = None,
-        point_cloud: classes.PointCloud = None,
+        images: ImageDS = None,
+        cameras: Dict[str, Camera] = None,
+        features: Dict[str, Features] = None,
+        points: Points = None,
+        targets: Targets = None,
+        point_cloud: PointCloud = None,
         epoch_dir: Union[str, Path] = None,
         datetime_format: str = "%Y-%m-%d %H:%M:%S",
     ) -> None:
@@ -79,12 +85,13 @@ class Epoch:
             points (classes.Points): The dictionary of 3D points
         """
         self._datetime = parse_str_to_datetime(datetime, datetime_format)
-        self.cameras = cameras
+        self._epoch_dir = Path(epoch_dir) if epoch_dir else None
         self.images = images
+        self.cameras = cameras
         self.features = features
         self.points = points
+        self.targets = targets
         self.point_cloud = point_cloud
-        self._epoch_dir = Path(epoch_dir) if epoch_dir else None
 
     @property
     def datetime(self):
@@ -174,7 +181,8 @@ class Epoch:
 class Epoches:
     """Class for storing all the epochs in ICEpy4D processing"""
 
-    def __init__(self) -> None:
+    def __init__(self, starting_epoch: int = 0) -> None:
+        self._starting_epoch = starting_epoch
         self._last_epoch: int = -1
         self._epochs: Dict[int, Epoch] = {}
         self._epoches_map: Dict[int, dt] = {}
@@ -242,8 +250,10 @@ class Epoches:
         assert (
             epoch.datetime not in self._epoches_map.values()
         ), "Epoch with the same date already exists"
-
-        epoch_id = self._last_epoch + 1
+        if self._last_epoch == -1:
+            epoch_id = self._starting_epoch
+        else:
+            epoch_id = self._last_epoch + 1
         self._epoches_map[epoch_id] = epoch.datetime
         self._epochs[epoch_id] = epoch
         self._last_epoch = epoch_id
