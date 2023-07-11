@@ -27,6 +27,7 @@ nav:
   - Getting started: getting_started.md
   - Modules:
       - Classes:
+          - Epoch: classes/epoch.md
           - Camera: classes/camera.md
           - Images: classes/images.md
           - Features: classes/features.md

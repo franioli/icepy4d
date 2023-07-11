@@ -1,6 +1,6 @@
 # Point and Points classes
 
-You can easily import icepy4d classes by
+You can import icepy4d classes by
 
 ```python
 import icepy4d.classes as icepy4d_classes
