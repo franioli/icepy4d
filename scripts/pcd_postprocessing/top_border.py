@@ -27,7 +27,6 @@ logging.basicConfig(
 
 
 def merge_sparse_dense():
-
     PCD_DIR = "res/point_clouds"
     PCD_PATTERN = "dense_2022*.ply"
 
@@ -139,7 +138,6 @@ def detect_border_by_geometry():
 
 
 def extract_glacier_border():
-
     pcd_list = sorted(Path(PCD_DIR).glob(PCD_PATTERN))
     output_dir = Path(OUT_DIR)
     output_dir.mkdir(exist_ok=True)
@@ -200,8 +198,10 @@ def extract_glacier_border():
 
 
 if __name__ == "__main__":
-
+    # Detect top border by geometric features
     # detect_border_by_geometry()
+
+    # Extract and save glacier top border from point clouds from which geometric feature were extracted
     extract_glacier_border()
 
     print("done.")

@@ -17,7 +17,7 @@ CFG = {
     "save_mesh": False,
     "sample_mesh": True,
     "num_sampled_points": 4 * 10**6,
-    "crop_polyline_path": "data/crop_polyline_02.poly",  # "data/crop_polyline.poly",
+    "crop_polyline_path": "data/crop_polyline.poly",
 }
 
 

@@ -1,11 +1,11 @@
-import numpy as np
-import cv2
 import logging
-
-from pathlib import Path
-from matplotlib import pyplot as plt
 from datetime import datetime
+from pathlib import Path
 from typing import List, Tuple
+
+import cv2
+import numpy as np
+from matplotlib import pyplot as plt
 from scipy.stats import binned_statistic_2d, binned_statistic_dd
 
 

@@ -63,10 +63,10 @@ def find_centroids_kmeans(
 
 
 def find_matches_on_patches(
-    images: icepy4d_classes.ImagesDict,
+    images,
     patches_lim: dict,
     epoch: int,
-    features: icepy4d_classes.FeaturesDict,
+    features,  #: icepy4d_classes.FeaturesDict,
     cfg: dict,
     do_geometric_verification: bool = True,
     geometric_verification_threshold: float = 5,
@@ -78,7 +78,7 @@ def find_matches_on_patches(
     Find and verify matches between patches of two images.
 
     Args:
-        images (icepy4d_classes.ImagesDict): A dictionary of `ImagesDict` instances, where each instance represents an image captured by a specific camera.
+        images (icepy4d_classes.ImagesDS): A dictionary of `ImagesDS` instances, where each instance represents an image captured by a specific camera.
         patches_lim (dict): A dictionary containing the patch limits (x1, y1, x2, y2) for each camera, where x1 and y1 are the coordinates of the top-left corner of the patch, and x2 and y2 are the coordinates of the bottom-right corner of the patch.
         epoch (int): An integer indicating the epoch number.
         features (icepy4d_classes.FeaturesDict): A dictionary of `FeaturesDict` instances, where each instance represents the detected features in an image captured by a specific camera.
@@ -135,7 +135,7 @@ def find_matches_on_patches(
 
 def match_by_preselection(
     images: icepy4d_classes.ImagesDict,
-    features: icepy4d_classes.FeaturesDictEpoch,
+    features: icepy4d_classes.FeaturesDict,
     camera_names: List[str],
     epoch: int,
     cfg: edict,
@@ -144,13 +144,13 @@ def match_by_preselection(
     n_dist: int = 2,
     viz_results: bool = True,
     fast_viz: bool = True,
-) -> icepy4d_classes.FeaturesDictEpoch:
+):  # -> icepy4d_classes.FeaturesDict:
     """
     Matches features between two images by preselecting keypoints on downscaled images, and then refining the matches on full-resolution patches of the images.
 
     Args:
         images (icepy4d_classes.ImagesDict): A dictionary of image paths for each camera.
-        features (icepy4d_classes.FeaturesDictEpoch): A dictionary of features for each camera.
+        features (icepy4d_classes.FeaturesDict): A dictionary of features for each camera.
         epoch (int): The index of the epoch to process.
         cfg (edict): A dictionary with configuration parameters.
         n_tiles (int, optional): The number of tiles to divide the images into. Defaults to 8.
@@ -158,7 +158,7 @@ def match_by_preselection(
         viz_results (bool, optional): Whether to visualize the results. Defaults to True.
         fast_viz (bool, optional): Make plot faster with opencv (it uses matplotlib otherwise). Defaults to True.
     Returns:
-        icepy4d_classes.FeaturesDictEpoch: A dictionary of refined features for each camera.
+        icepy4d_classes.FeaturesDict: A dictionary of refined features for each camera.
     """
 
     if not isinstance(cfg, dict):
