@@ -4,7 +4,7 @@ import numpy as np
 from pathlib import Path
 from multiprocessing import Pool
 import open3d as o3d
-from icepy4d.point_cloud_proc.open3d_fun import MeshingPoisson
+from icepy4d.post_processing.open3d_fun import MeshingPoisson
 from icepy4d.utils.dsm_orthophoto import build_dsm
 from icepy4d.utils.transformations import Rotrotranslation, belvedere_loc2utm
 
