@@ -13,7 +13,7 @@ from icepy4d.thirdparty.SuperGlue.models.utils import (
     frame2tensor,
 )
 from icepy4d.utils.tiles import generateTiles
-from icepy4d.utils.spatial_funs import point_in_rect
+from icepy4d.utils.geospatial import point_in_rect
 
 torch.set_grad_enabled(False)
 

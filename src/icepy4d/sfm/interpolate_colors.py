@@ -11,22 +11,21 @@ from ..classes.camera import Camera
 # --- Color interpolation ---#
 
 
-def interpolate_point_colors(points3d, image, camera: Camera, convert_BRG2RGB=True):
-    """Interpolate color of a 3D sparse point cloud, given an oriented image
-    Parameters
-    ----------
-    points3d : float32 array
-        nx3 array with 3d world points coordinates
-    image : numpy array
-        image on which to interpolate colors. It can be either a color image
-        (3 channels, either RGB or BRG) or a grayscale image (1 channel)
-    camera : Camera Object
-        Camera object containing intrisics and extrinsics parameters
-    covert_BRG2RGB : bool
-        Flag for converting BRG channels to RGB. Set it to True, when using images in OpenCV format.
-    Returns: float32 array
-        Nx(num_channels) colour matrix, as float numbers (normalized in [0,1])
-    -------
+def interpolate_point_colors(
+    points3d: np.ndarray, image: np.ndarray, camera: Camera, convert_BRG2RGB=True
+) -> np.ndarray:
+    """
+    Interpolate the color of a 3D sparse point cloud given an oriented image.
+
+    Args:
+        points3d (np.ndarray): Nx3 array with 3D world point coordinates.
+        image (np.ndarray): The image on which to interpolate colors. Can be a color image
+            (3 channels, either RGB or BGR) or a grayscale image (1 channel).
+        camera (Camera): A Camera object containing intrinsic and extrinsic parameters.
+        convert_BRG2RGB (bool): If True, converts BGR channels to RGB. Defaults to True.
+
+    Returns:
+        np.ndarray: Nx(num_channels) color matrix, as float numbers (normalized in [0, 1]).
     """
 
     assert image.ndim == 3, "invalid input image. Image has not 3 channel"
@@ -52,20 +51,15 @@ def interpolate_point_colors(points3d, image, camera: Camera, convert_BRG2RGB=Tr
     return col
 
 
-def bilinear_interpolate(im, x, y):
-    """Perform bilinear interpolation given a 2D array (single channel image)
-    and x, y arrays of unstructured query points
-    Parameters
-    ----------
-    im : float32
-        Single channel image.
-    x : float32
-        nx1 array of x coordinates of query points.
-    y : float32
-        nx1 array of y coordinates of query points.
+def bilinear_interpolate(im: np.ndarray, x: np.ndarray, y: np.ndarray) -> np.ndarray:
+    """Performs bilinear interpolation on a 2D array (single channel image given x, y arrays of unstructured query points.
+    Args:
+        im (np.ndarray): Single channel image.
+        x (np.ndarray): nx1 array of x coordinates of query points.
+        y (np.ndarray): nx1 array of y coordinates of query points.
 
-    Returns: nx1 array of the interpolated color
-    -------
+    Returns:
+        np.ndarray: nx1 array of the interpolated color.
     """
     x = np.asarray(x)
     y = np.asarray(y)

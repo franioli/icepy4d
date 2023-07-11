@@ -5,17 +5,19 @@ data/img/
 data/img*/
 data/targets/
 data/targets*/
-res/
-tmp/
+data/image_list.xlsx
+data/image_list.ods
+data/crs/
 scripts/track_targets/data/
 scripts/collimate_targets/data/
+scripts/dynamic_visualization/sections/
+res/
 sandbox/
+tmp/
+test/
 volumes/
 logs/
-test_out/
-test/
 assets/Metashape-*
-scripts/dynamic_visualization/sections/
 src/icepy4d/thirdparty/SuperGluePretrainedNetwork.old/
 
 # VScode

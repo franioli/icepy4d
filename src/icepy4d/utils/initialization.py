@@ -22,26 +22,32 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-import numpy as np
-import yaml
+import argparse
 import logging
 import sys
-import argparse
-
-from easydict import EasyDict as edict
-from pathlib import Path
-from typing import List, Union, Tuple, TypedDict
 from datetime import datetime
+from pathlib import Path
 from pprint import pprint
+from typing import List, Tuple, TypedDict, Union
 
-from icepy4d.classes.camera import Camera
-from icepy4d.classes.features import Features
-from icepy4d.classes.points import Points
-from icepy4d.classes.point_cloud import PointCloud
-from icepy4d.classes.images import Image, ImageDS
-from icepy4d.classes.targets import Targets
-from icepy4d.classes.typed_dict_classes import *
+import numpy as np
+import yaml
+from easydict import EasyDict as edict
 
+from icepy4d.classes import (
+    Calibration,
+    Camera,
+    CamerasDict,
+    Epoch,
+    Features,
+    FeaturesDict,
+    Image,
+    ImageDS,
+    ImagesDict,
+    PointCloud,
+    Points,
+    Targets,
+)
 
 """ 
 This file defines the dictionary cfg which includes the default parameters of the pipeline.
@@ -142,11 +148,14 @@ def parse_yaml_cfg(cfg_file: Union[str, Path]) -> edict:
     if not cfg_file.exists():
         sys.exit("Configuration file does not exist! Aborting.")
 
-    with open(cfg_file) as file:
-        cfg = edict(yaml.safe_load(file))
-    assert isinstance(
-        cfg, edict
-    ), "Unable to create valid cfg dictionary from yaml file"
+    try:
+        with open(cfg_file) as file:
+            cfg = edict(yaml.safe_load(file))
+    except:
+        raise RuntimeError("Unable to create valid cfg dictionary from yaml file")
+
+    # Camera names
+    cfg.cams = cfg.paths.camera_names
 
     # - Data paths
     root_path = Path().absolute()
@@ -154,6 +163,19 @@ def parse_yaml_cfg(cfg_file: Union[str, Path]) -> edict:
     cfg.paths.image_dir = root_path / Path(cfg.paths.image_dir)
     cfg.paths.calibration_dir = root_path / Path(cfg.paths.calibration_dir)
     cfg.paths.results_dir = root_path / Path(cfg.paths.results_dir)
+
+    # - Result paths
+    cfg.camea_estimated_fname = cfg.paths.results_dir / "camera_info_est.txt"
+    cfg.residuals_fname = cfg.paths.results_dir / "residuals_image.txt"
+    cfg.matching_stats_fname = cfg.paths.results_dir / "matching_tracking_results.txt"
+
+    # remove files if they already exist
+    if cfg.camea_estimated_fname.exists():
+        cfg.camea_estimated_fname.unlink()
+    if cfg.residuals_fname.exists():
+        cfg.residuals_fname.unlink()
+    if cfg.matching_stats_fname.exists():
+        cfg.matching_stats_fname.unlink()
 
     # - Processing options
     if cfg.proc.do_matching == False and cfg.proc.do_tracking == True:
@@ -169,14 +191,13 @@ def parse_yaml_cfg(cfg_file: Union[str, Path]) -> edict:
     cfg.georef.camera_centers_world = np.array(cfg.georef.camera_centers_world)
     cfg.georef.target_dir = Path(cfg.georef.target_dir)
 
-    # Check and expand epoches to be processed
+    # - Check and expand epoches to be processed
     if cfg.proc.epoch_to_process == "all":
         logging.info(
             "Epoch_to_process set to 'all'. Expanding it based on the images found in image folder."
         )
-        cams = cfg.paths.camera_names
-        img_ds = dict.fromkeys(cams)
-        img_ds = ImageDS(cfg.paths.image_dir / cams[0])
+        img_ds = dict.fromkeys(cfg.cams)
+        img_ds = ImageDS(cfg.paths.image_dir / cfg.cams[0])
         n_images = len(img_ds)
         cfg.proc.epoch_to_process = [x for x in range(n_images)]
     elif len(cfg.proc.epoch_to_process) == 2:
@@ -227,6 +248,7 @@ def download_model():
     """
     Download the model from the internet.
     """
+    pass
 
 
 class Inizializer:
@@ -249,24 +271,23 @@ class Inizializer:
         ), "Camera names not available in cfg file."
         self.cams = self.cfg.paths.camera_names
 
-    def init_image_ds(self) -> ImagesDict:
+    def init_image_ds(self):
         """
         init_image_ds _summary_
 
         Returns:
             ImagesDict: _description_
         """
-        self.images: ImagesDict = {
+        self.images = {
             cam: ImageDS(self.cfg.paths.image_dir / cam) for cam in self.cams
         }
         for cam in self.cams:
             self.images[cam].write_exif_to_csv(
                 self.cfg.paths.image_dir / f"image_list_{cam}.csv"
             )
-
         return self.images
 
-    def init_epoch_dict(self) -> EpochDict:
+    def init_epoch_dict(self):
         """
         init_epoch_dict Build dictonary containing pairs of epoch and dates, as follows:
         {0: "2021_01_01", 1: "2021_01_02" ...}
@@ -274,15 +295,133 @@ class Inizializer:
         Returns:
             EpochDict: epoc_dict
         """
-        self.epoch_dict: EpochDict = {}
+        self.epoch_dict = {}
         for epoch in range(len(self.images[self.cams[0]])):
             date_str = self.images[self.cams[0]].get_image_date(epoch)
             date = datetime.strptime(date_str, "%Y:%m:%d")
             self.epoch_dict[epoch] = f"{date.year}_{date.month:02}_{date.day:02}"
         return self.epoch_dict
 
-    def init_cameras(self) -> CamerasDict:
+    def init_features(self):
+        """
+        init_features _summary_
 
+        Returns:
+            _type_: _description_
+
+        NOTE: This function is deprecated. It is kept for backward compatibility with the function MatchingAndTracking that require the full dictionary of features as input. It will be removed in future versions.
+        """
+        logging.warning(
+            "This function is deprecated. It is kept for backward compatibility with the function MatchingAndTracking that require the full dictionary of features as input. It will be removed in future versions."
+        )
+        self.features = {}
+        for epoch in self.cfg.proc.epoch_to_process:
+            self.features[epoch] = {cam: Features() for cam in self.cams}
+
+        return self.features
+
+    def init_epoch(self, epoch_id: int, epoch_dir: Union[Path, str] = None):
+        """
+        init_epoch _summary_
+
+        Returns:
+            Epoch: _description_
+        """
+
+        # Build dictionary of Images for the current epoch
+        im_epoch: ImagesDict = {
+            cam: Image(self.images[cam].get_image_path(epoch_id)) for cam in self.cams
+        }
+
+        # Load cameras
+        cams_ep: CamerasDict = {}
+        for cam in self.cams:
+            calib = Calibration(self.cfg.paths.calibration_dir / f"{cam}.txt")
+            cams_ep[cam] = calib.to_camera()
+
+        # Load targets
+        target_paths = [
+            self.cfg.georef.target_dir
+            / (im_epoch[cam].stem + self.cfg.georef.target_file_ext)
+            for cam in self.cams
+        ]
+        targ_ep = Targets(
+            im_file_path=target_paths,
+            obj_file_path=self.cfg.georef.target_dir
+            / self.cfg.georef.target_world_file,
+        )
+
+        # init empty features and points
+        feat_ep = {cam: Features() for cam in self.cams}
+        pts_ep = Points()
+
+        epoch = Epoch(
+            im_epoch[self.cams[0]].datetime,
+            images=im_epoch,
+            cameras=cams_ep,
+            features=feat_ep,
+            points=pts_ep,
+            targets=targ_ep,
+            point_cloud=None,
+            epoch_dir=epoch_dir,
+        )
+        return epoch
+
+
+class Inizializer_old:
+    def __init__(
+        self,
+        cfg: edict,
+    ) -> None:
+        """
+        __init__ initialization class
+
+        Args:
+            cfg (edict): dictionary (as EasyDict object) containing all the configuration parameters.
+
+        NOTE: This old class do not use Epoch as main container for all the variables. Use Inizializer instead
+        """
+
+        print_welcome_msg()
+
+        self.cfg = cfg
+        assert (
+            "camera_names" in self.cfg.paths
+        ), "Camera names not available in cfg file."
+        self.cams = self.cfg.paths.camera_names
+
+    def init_image_ds(self):  # -> ImagesDict:
+        """
+        init_image_ds _summary_
+
+        Returns:
+            ImagesDict: _description_
+        """
+        self.images = {
+            cam: ImageDS(self.cfg.paths.image_dir / cam) for cam in self.cams
+        }
+        for cam in self.cams:
+            self.images[cam].write_exif_to_csv(
+                self.cfg.paths.image_dir / f"image_list_{cam}.csv"
+            )
+        return self.images
+
+    def init_epoch_dict(self):
+        """
+        init_epoch_dict Build dictonary containing pairs of epoch and dates, as follows:
+        {0: "2021_01_01", 1: "2021_01_02" ...}
+
+        Returns:
+            EpochDict: epoc_dict
+        """
+        self.epoch_dict = {}
+        for epoch in range(len(self.images[self.cams[0]])):
+            date_str = self.images[self.cams[0]].get_image_date(epoch)
+            date = datetime.strptime(date_str, "%Y:%m:%d")
+            self.epoch_dict[epoch] = f"{date.year}_{date.month:02}_{date.day:02}"
+        return self.epoch_dict
+
+    def init_cameras(self):
         assert hasattr(
             self, "images"
         ), "Images datastore not available yet. Inizialize images first"
@@ -290,9 +429,9 @@ class Inizializer:
         im_height, im_width = img.height, img.width
 
         # Inizialize Camera Intrinsics at every epoch setting them equal to the those of the reference cameras.
-        self.cameras: CamerasDict = {}
+        self.cameras = {}
         for epoch in self.cfg.proc.epoch_to_process:
-            self.cameras[epoch]: CamerasDictEpoch = {
+            self.cameras[epoch] = {
                 cam: Camera(
                     width=im_width,
                     height=im_height,
@@ -303,20 +442,17 @@ class Inizializer:
 
         return self.cameras
 
-    def init_features(self) -> FeaturesDict:
-        self.features: FeaturesDict = {}
+    def init_features(self):
+        self.features = {}
         for epoch in self.cfg.proc.epoch_to_process:
-            self.features[epoch]: FeaturesDictEpoch = {
-                cam: Features() for cam in self.cams
-            }
+            self.features[epoch] = {cam: Features() for cam in self.cams}
 
         return self.features
 
-    def init_targets(self) -> TargetDict:
+    def init_targets(self):
         # Read target image coordinates and object coordinates
-        self.targets: TargetDict = {}
+        self.targets = {}
         for epoch in self.cfg.proc.epoch_to_process:
-
             p1_path = self.cfg.georef.target_dir / (
                 self.images[self.cams[0]].get_image_stem(epoch)
                 + self.cfg.georef.target_file_ext
@@ -335,16 +471,12 @@ class Inizializer:
 
         return self.targets
 
-    def init_points(self) -> PointsDict:
-        self.points: PointsDict = {
-            ep: Points() for ep in self.cfg.proc.epoch_to_process
-        }
+    def init_points(self):
+        self.points = {ep: Points() for ep in self.cfg.proc.epoch_to_process}
         return self.points
 
-    def init_point_cloud(self) -> PointCloudDict:
-        self.point_clouds: PointCloudDict = {
-            ep: None for ep in self.cfg.proc.epoch_to_process
-        }
+    def init_point_cloud(self):
+        self.point_clouds = {ep: None for ep in self.cfg.proc.epoch_to_process}
         return self.point_clouds
 
     def init_focals_dict(self) -> dict:
@@ -352,18 +484,8 @@ class Inizializer:
         for cam in self.cams:
             self.focals_dict[cam] = {}
 
-    def inizialize_icepy4d(self) -> dict:
-        self.init_image_ds()
-        self.init_epoch_dict()
-        self.init_cameras()
-        self.init_features()
-        self.init_targets()
-        self.init_points()
-        self.init_focals_dict()
-
 
 if __name__ == "__main__":
-
     cfg_file = "./config/config_base.yaml"
     cfg = parse_yaml_cfg(cfg_file)
 

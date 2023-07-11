@@ -129,7 +129,7 @@ def build_dsm(
     # Save dsm as GeoTIff
     if save_path is not None:
         save_path = Path(save_path)
-        save_path.mkdir(parents=True, exist_ok=True)
+        save_path.parent.mkdir(parents=True, exist_ok=True)
         rater_origin = [xlim[0] - dsm_step / 2, ylim[0] - dsm_step / 2]
         transform = Affine.translation(rater_origin[0], rater_origin[1]) * Affine.scale(
             dsm_step, -dsm_step

@@ -31,7 +31,7 @@ import pandas as pd
 import cv2
 import matplotlib
 
-#%%
+# %%
 import numpy as np
 from matplotlib import pyplot as plt
 
@@ -80,7 +80,6 @@ logging.info("Processing started:")
 timer = icepy_utils.AverageTimer()
 iter = 0  # necessary only for printing the number of processed iteration
 for epoch in cfg.proc.epoch_to_process:
-
     logging.info("------------------------------------------------------")
     logging.info(
         f"Processing epoch {epoch} [{iter}/{cfg.proc.epoch_to_process[-1]-cfg.proc.epoch_to_process[0]}] - {epoch_dict[epoch]}..."
@@ -94,7 +93,7 @@ for epoch in cfg.proc.epoch_to_process:
 
     path = epochdir / f"{epoch_dict[epoch]}.pickle"
     logging.info(f"Loading solution from {path}")
-    solution = Solution.read_solution(path, ignore_errors=True)
+    solution = Solution.read_pickle(path, ignore_errors=True)
     if solution is not None:
         cameras[epoch], _, features[epoch], points[epoch] = solution
         # logging.info("Solution imported.")
@@ -108,7 +107,7 @@ for epoch in cfg.proc.epoch_to_process:
 
         # MIN_MATCHES = 20
 
-        # def features_to_h5(features: icepy4d_classes.FeaturesDictEpoch) -> bool:
+        # def features_to_h5(features: icepy4d_classes.FeaturesDict) -> bool:
         #     key1, key2 = images[cams[0]][epoch], images[cams[1]][epoch]
 
         #     mkpts0 = features[epoch][cams[0]].kpts_to_numpy()
@@ -177,7 +176,7 @@ for epoch in cfg.proc.epoch_to_process:
     else:
         logging.error("Unable to import solution.")
 
-#%%
+# %%
 
 """Tests"""
 
@@ -331,7 +330,7 @@ fts_df["V"] = np.linalg.norm(fts_df[["vX", "vY", "vZ"]].to_numpy(), axis=1).resh
 )
 fts_df.to_csv(folder_out / "tracked_points_utm_nonFiltered.csv")
 
-#%% Compute Binned stats
+# %% Compute Binned stats
 
 # Get points and compute displacements
 pts0 = fts_df[["East_fin", "North_fin", "h_ini"]].to_numpy()
@@ -573,7 +572,7 @@ print("Done.")
 #     for ax, ep in zip(axes, eps):
 #         icepy_viz.plot_feature(
 #             images[cam].read_image(ep).value,
-#             features[ep][cam][fid],
+#             epoch.features[cam][fid],
 #             ax=ax,
 #             zoom_to_feature=True,
 #             s=10,
@@ -589,7 +588,7 @@ print("Done.")
 # # }
 # # for fid in fts.keys():
 # #     for ep in fts[fid]:
-# #         f_tracked[cam].append_feature(features[ep][cam][fid])
+# #         f_tracked[cam].append_feature(epoch.features[cam][fid])
 
 # # fig, axes = plt.subplots(1, 2)
 # # for ax, cam in zip(axes, cams):
@@ -609,7 +608,7 @@ print("Done.")
 # # dense = o3d.io.read_point_cloud("test_out/dense.ply")
 # # xyz = np.asarray(dense.voxel_down_sample(stp).points)
 # ep = 182
-# xyz = points[ep].to_numpy()
+# xyz = epoch.points.to_numpy()
 
 # if viz:
 #     fig, ax = plt.subplots()
@@ -672,7 +671,7 @@ print("Done.")
 # # dense = o3d.io.read_point_cloud("test_out/dense.ply")
 # # pcd = o3d.geometry.PointCloud()
 # # pcd.points = o3d.utility.Vector3dVector(pts)
-# # o3d.visualization.draw_geometries([points[ep].to_point_cloud().pcd, pcd])
+# # o3d.visualization.draw_geometries([epoch.points.to_point_cloud().pcd, pcd])
 
 # pts = fts_df[(fts_df["ep_ini"] >= ep_st) & (fts_df["ep_ini"] < ep_fin)][
 #     ["X_ini", "Y_ini", "Z_ini"]
