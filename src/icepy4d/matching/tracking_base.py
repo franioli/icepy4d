@@ -16,13 +16,13 @@ from icepy4d.utils.timer import AverageTimer
 
 def tracking_base(
     images: icepy4d_classes.ImagesDict,
-    prev_features: icepy4d_classes.FeaturesDictEpoch,
+    prev_features: icepy4d_classes.FeaturesDict,
     camera_names: List[str],
     epoch_dict: icepy4d_classes.EpochDict,
     epoch: int,
     cfg: edict,
     epoch_dir: Union[Path, str],
-) -> icepy4d_classes.FeaturesDictEpoch:
+) -> icepy4d_classes.FeaturesDict:
     if not isinstance(cfg, dict):
         raise TypeError("opt must be a dictionary")
     required_keys = [

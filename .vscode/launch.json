@@ -12,16 +12,7 @@
       "program": "${file}",
       "console": "integratedTerminal",
       "justMyCode": true,
-      "args": [
-        "--config",
-        "config/config_2022.yaml",
-        "--log_name",
-        "icepy4d",
-        "--log_file_level",
-        "info",
-        "--log_console_level",
-        "info"
-      ]
+      "args": ["--config", "config/config_2022.yaml"]
     },
     {
       "name": "Python: debug module",
@@ -34,16 +25,7 @@
       "env": {
         "PYTHONPATH": "${workspaceFolder}"
       },
-      "args": [
-        "--config",
-        "config/config_2022.yaml",
-        "--log_name",
-        "icepy4d",
-        "--log_file_level",
-        "info",
-        "--log_console_level",
-        "info"
-      ]
+      "args": ["--config", "config/config_2022.yaml"]
     },
     {
       "name": "Python: cloudcompy",

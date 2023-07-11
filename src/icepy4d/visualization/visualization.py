@@ -11,9 +11,7 @@ from typing import List, Union, Dict
 from pathlib import Path
 from copy import deepcopy
 
-from icepy4d.classes.camera import Camera
-from icepy4d.classes.features import Features, Feature
-from icepy4d.classes.point_cloud import PointCloud
+from icepy4d.classes import Camera, Feature, Features, PointCloud
 from icepy4d.sfm.geometry import project_points
 
 
@@ -289,9 +287,11 @@ def plot_points(
         yc = points[:, 1].mean()
         ax.set_xlim([xc - w, xc + w])
         ax.set_ylim([yc - w, yc + w])
+
     if save_path is not None:
         fig.set_size_inches(size_inches[0], size_inches[1])
         fig.savefig(save_path, dpi=dpi)
+
     if hide_fig is True:
         plt.close(fig)
         return None
@@ -358,7 +358,7 @@ def plot_features(
     save_path: Union[str, Path] = None,
     hide_fig: bool = False,
     **kwargs,
-) -> None:
+):
     """Wrapper around plot_points to work if the input is a Features object"""
     xy = features.to_numpy()["kpts"]
     fig = plot_points(
@@ -770,7 +770,6 @@ def make_camera_angles_plot(
     baseline_epoch: int = None,
     current_epoch: int = None,
 ):
-
     cameras_plt = deepcopy(cameras)
 
     if baseline_epoch is not None:
@@ -905,7 +904,6 @@ def make_camera_angles_plot(
 
 
 if __name__ == "__main__":
-
     camera_extrinsics = np.eye(4)
     K = np.array([[4000, 0, 2000], [0, 4000, 3000], [0, 0, 1]])
     cam = Camera(6000, 4000, K, extrinsics=camera_extrinsics)
