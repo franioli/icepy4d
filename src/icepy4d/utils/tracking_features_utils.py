@@ -7,7 +7,7 @@ from itertools import groupby, product
 
 import icepy4d.classes as icepy4d_classes
 
-from icepy4d.utils.spatial_funs import *
+from icepy4d.utils.geospatial import *
 from icepy4d.utils.timer import timeit
 
 
