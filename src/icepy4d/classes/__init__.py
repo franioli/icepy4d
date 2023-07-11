@@ -1,5 +1,6 @@
 from typing import Dict, Union, TypedDict
 
+from .epoch import Epoch, Epoches
 from .camera import Camera
 from .images import Image, ImageDS
 from .features import Feature, Features
@@ -8,13 +9,17 @@ from .targets import Targets
 from .points import Point, Points
 from .calibration import Calibration, read_opencv_calibration
 
-
-class FeaturesDict(TypedDict):
-    camera: Features
+from dataclasses import dataclass
 
 
-class CamerasDict(TypedDict):
-    camera: Camera
+# @dataclass
+# class FeaturesDict:
+#     camera: Features
+
+
+# @dataclass
+# class CamerasDict:
+#     camera: Camera
 
 
 class ImagesDict(TypedDict):
@@ -24,3 +29,11 @@ class ImagesDict(TypedDict):
 # For backward compatibility. It must beintegrated in Epoches class
 class EpochDict(TypedDict):
     epoch: str
+
+
+class FeaturesDict(TypedDict):
+    camera: Features
+
+
+class CamerasDict(TypedDict):
+    camera: Camera

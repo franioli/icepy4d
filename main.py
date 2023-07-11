@@ -59,6 +59,7 @@ PATCHES = [
     {"p1": [2000, 2000, 3000, 3000], "p2": [2100, 2100, 3100, 3100]},
     {"p1": [2300, 1700, 3300, 2700], "p2": [3000, 1900, 4000, 2900]},
 ]
+# TODO: parse_yaml_cfg set deafults paths to results file, check this.
 
 
 def write_cameras_to_disk(fname, epoch, date, sep=","):
@@ -79,7 +80,7 @@ def write_cameras_to_disk(fname, epoch, date, sep=","):
             "phi2",
             "kappa2",
         ]
-        with open(camea_estimated_fname, "w") as file:
+        with open(cfg.camea_estimated_fname, "w") as file:
             file.write(f"{f'{sep}'.join(items)}\n")
 
     with open(fname, "a") as file:
@@ -118,7 +119,7 @@ def compute_reprojection_error(fname, epoch, sep=","):
     res_stas_s = res_stas.stack()
 
     if not Path(fname).exists():
-        with open(residuals_fname, "w") as f:
+        with open(cfg.residuals_fname, "w") as f:
             header_line = (
                 "ep"
                 + sep
@@ -190,34 +191,15 @@ else:
 # Parse configuration file
 logging.info(f"Configuration file: {cfg_file.stem}")
 cfg = inizialization.parse_yaml_cfg(cfg_file)
-
 timer_global = icepy4d_utils.AverageTimer()
+cams = cfg.cams
 
+# Inizialize variables
 inizializer = inizialization.Inizializer(cfg)
-cams = inizializer.cams
 images = inizializer.init_image_ds()
 epoch_dict = inizializer.init_epoch_dict()
 features_old = inizializer.init_features()
-# targets_old = inizializer.init_targets()
-# cameras_old = inizializer.init_cameras()
-# points_old = inizializer.init_points()
-# focals = inizializer.focals_dict
-
-# TEMPORARY: initialize file for saving output for paper
-# These outputs must be formalized for the final version
-camea_estimated_fname = cfg.paths.results_dir / "camera_info_est.txt"
-residuals_fname = cfg.paths.results_dir / "residuals_image.txt"
-matching_stats_fname = cfg.paths.results_dir / "matching_tracking_results.txt"
-
-# remove files if they already exist
-if camea_estimated_fname.exists():
-    camea_estimated_fname.unlink()
-if residuals_fname.exists():
-    residuals_fname.unlink()
-if matching_stats_fname.exists():
-    matching_stats_fname.unlink()
-
-epoches = Epoches()
+epoches = Epoches(starting_epoch=cfg.proc.epoch_to_process[0])
 
 """ Big Loop over epoches """
 
@@ -234,17 +216,13 @@ for ep in cfg.proc.epoch_to_process:
     epochdir = Path(cfg.paths.results_dir) / epoch_dict[ep]
     match_dir = epochdir / "matching"
 
+    # Load existing epcoh
     if LOAD_EXISTING_SOLUTION:
-        # Load existing epcoh
         path = f"{epochdir}/{epoch_dict[ep]}.pickle"
         logging.info(f"Loading epoch from {path}")
         epoch = Epoch.read_pickle(path, ignore_errors=True)
         if epoch is not None:
-            # epoch.targets = epoch.targets
-            # epoch.save_pickle(path)
-
             epoches.add_epoch(epoch)
-            # epoch.cameras, _, epoch.features, epoch.points = epoch
             logging.info("Epoch loaded.")
 
             # matches_fig_dir = "res/fig_for_paper/matches_fig"
@@ -256,46 +234,56 @@ for ep in cfg.proc.epoch_to_process:
             logging.error("Unable to import epoch.")
     else:
         # Create new epoch
-        im_epoch: icepy4d_classes.ImagesDict = {
-            cam: icepy4d_classes.Image(images[cam].get_image_path(ep)) for cam in cams
-        }
-
-        # Temporary stuff ---? must replace Iitializer class
-        # Load targets
-        target_paths = [
-            cfg.georef.target_dir / (im_epoch[cam].stem + cfg.georef.target_file_ext)
-            for cam in cams
-        ]
-        targ_ep = icepy4d_classes.Targets(
-            im_file_path=target_paths,
-            obj_file_path=cfg.georef.target_dir / cfg.georef.target_world_file,
-        )
-
-        # Load cameras
-        cams_ep: icepy4d_classes.CamerasDict = {}
-        for cam in cams:
-            calib = icepy4d_classes.Calibration(
-                cfg.paths.calibration_dir / f"{cam}.txt"
-            )
-            cams_ep[cam] = calib.to_camera()
-
-        # init empty features and points
-        feat_ep = {cam: icepy4d_classes.Features() for cam in cams}
-        pts_ep = icepy4d_classes.Points()
-
-        epoch = Epoch(
-            im_epoch[cams[0]].datetime,
-            images=im_epoch,
-            cameras=cams_ep,
-            features=feat_ep,
-            points=pts_ep,
-            targets=targ_ep,
-            point_cloud=None,
-            epoch_dir=epochdir,
-        )
+        epoch = inizializer.init_epoch(epoch_id=ep, epoch_dir=epochdir)
         epoches.add_epoch(epoch)
 
-        del im_epoch, cams_ep, feat_ep, pts_ep, targ_ep, target_paths
+        # NOTE: Move this part of code to a notebook for an example of how to create a new epoch
+        # im_epoch: icepy4d_classes.ImagesDict = {
+        #     cam: icepy4d_classes.Image(images[cam].get_image_path(ep)) for cam in cams
+        # }
+
+        # # Load targets
+        # target_paths = [
+        #     cfg.georef.target_dir / (im_epoch[cam].stem + cfg.georef.target_file_ext)
+        #     for cam in cams
+        # ]
+        # targ_ep = icepy4d_classes.Targets(
+        #     im_file_path=target_paths,
+        #     obj_file_path=cfg.georef.target_dir / cfg.georef.target_world_file,
+        # )
+
+        # # Load cameras
+        # cams_ep: icepy4d_classes.CamerasDict = {}
+        # for cam in cams:
+        #     calib = icepy4d_classes.Calibration(
+        #         cfg.paths.calibration_dir / f"{cam}.txt"
+        #     )
+        #     cams_ep[cam] = calib.to_camera()
+
+        # cams_ep = {
+        #     cam: icepy4d_classes.Calibration(
+        #         cfg.paths.calibration_dir / f"{cam}.txt"
+        #     ).to_camera()
+        #     for cam in cams
+        # }
+
+        # # init empty features and points
+        # feat_ep = {cam: icepy4d_classes.Features() for cam in cams}
+        # pts_ep = icepy4d_classes.Points()
+
+        # epoch = Epoch(
+        #     im_epoch[cams[0]].datetime,
+        #     images=im_epoch,
+        #     cameras=cams_ep,
+        #     features=feat_ep,
+        #     points=pts_ep,
+        #     targets=targ_ep,
+        #     point_cloud=None,
+        #     epoch_dir=epochdir,
+        # )
+        # epoches.add_epoch(epoch)
+
+        # del im_epoch, cams_ep, feat_ep, pts_ep, targ_ep, target_paths
 
     # Perform matching and tracking
     if cfg.proc.do_matching:
@@ -605,10 +593,10 @@ for ep in cfg.proc.epoch_to_process:
         make_matching_plot(epoches[ep], ep, matches_fig_dir, show_fig=False)
 
         # Compute reprojection error
-        compute_reprojection_error(residuals_fname, epoches[ep])
+        compute_reprojection_error(cfg.residuals_fname, epoches[ep])
 
         # Save focal length to file
-        write_cameras_to_disk(camea_estimated_fname, epoches[ep], epoch_dict[ep])
+        write_cameras_to_disk(cfg.camea_estimated_fname, epoches[ep], epoch_dict[ep])
 
     timer.print(f"Epoch {ep} completed")
 
