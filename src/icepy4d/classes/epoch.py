@@ -101,18 +101,39 @@ class Epoch:
     def epoch_dir(self):
         return self._epoch_dir
 
-    def __repr__(self):
+    @property
+    def date_str(self) -> str:
         """
-        Returns a string representation of the Solution object
+        Returns the date and time of the epoch in a string.
 
         Returns:
-            str: The string representation of the Solution object
+            str: The date and time of the epoch in the format "YYYY:MM:DD HH:MM:SS".
+        """
+        return self._datetime.strftime("%Y:%m:%d")
+
+    @property
+    def time_str(self) -> str:
+        """
+        Returns the time of the epoch as a string.
+
+        Returns:
+            str: The time of the epoch in the format "HH:MM:SS".
+
+        """
+        return self._datetime.strftime("%H:%M:%S")
+
+    def __repr__(self):
+        """
+        Returns a string representation of the Epoch object
+
+        Returns:
+            str: The string representation of the Epoch object
         """
         return f"Epoch {self.datetime}"
 
     def __iter__(self):
         """
-        Returns an iterator over the four dictionaries of Solution object
+        Returns an iterator over the four dictionaries of Epoch object
 
         Yields:
             dict: The dictionary of camera parameters
@@ -127,16 +148,16 @@ class Epoch:
 
     def __hash__(self):
         """
-        Computes the hash value of the Solution object
+        Computes the hash value of the Epoch object
 
         Returns:
-            int: The hash value of the Solution object
+            int: The hash value of the Epoch object
         """
         return hash((self.cameras, self.images, self.features, self.points))
 
     def save_pickle(self, path: Union[str, Path]) -> bool:
         """
-        Saves the Solution object to a binary file
+        Saves the Epoch object to a binary file
 
         Args:
             path (Union[str, Path]): The path to the binary file
@@ -157,7 +178,7 @@ class Epoch:
     @staticmethod
     def read_pickle(path: Union[str, Path], ignore_errors: bool = False):
         """
-        Loads a Solution object from a binary file
+        Load a Epoch object from a binary file
 
         Args:
             path (Union[str, Path]): The path to the binary file
@@ -174,7 +195,7 @@ class Epoch:
                 solution = pickle.load(inp)
             return solution
         except:
-            logging.error("Unable to read Solution from pickle file")
+            logging.error("Unable to read Epoch from pickle file")
             return None
 
 
@@ -198,16 +219,16 @@ class Epoches:
 
         return f"Epoches with {len(self._epochs)} epochs"
 
-    def __iter__(self):
-        self._elem = 0
-        return self
-
     def __len__(self) -> int:
         """Get number of epoches in the Epoches object"""
         return len(self._epochs)
 
+    def __iter__(self):
+        self._elem = self._starting_epoch
+        return self
+
     def __next__(self):
-        while self._elem < len(self):
+        while self._elem <= self._last_epoch:
             file = self._epochs[self._elem]
             self._elem += 1
             return file
