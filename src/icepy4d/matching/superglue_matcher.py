@@ -5,16 +5,19 @@ References:
 - http://openaccess.thecvf.com/content_CVPR_2020/papers/Sarlin_SuperGlue_Learning_Feature_Matching_With_Graph_Neural_Networks_CVPR_2020_paper.pdf
 - https://github.com/magicleap/SuperGluePretrainedNetwork
 """
-
 import importlib
 import logging
 import os
 from abc import ABC, abstractmethod
+from copy import deepcopy
+from dataclasses import dataclass
+from enum import Enum
 from itertools import product
 from pathlib import Path
-from typing import Dict, List, Union
+from typing import Dict, List, Tuple, Union
 
 import cv2
+import matplotlib
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
@@ -23,7 +26,10 @@ from easydict import EasyDict as edict
 
 from icepy4d.thirdparty.SuperGlue.models.matching import Matching
 from icepy4d.thirdparty.SuperGlue.models.utils import make_matching_plot
-from icepy4d.utils import AverageTimer
+from icepy4d.utils import AverageTimer, timeit
+
+matplotlib.use("TkAgg")
+
 
 # TODO: use KORNIA for image tiling
 
@@ -32,13 +38,36 @@ NMS_RADIUS = 3
 SUPERGLUE_DESC_DIM = 256
 SINKHORN_ITERATIONS = 10
 
-
 # Set logging level
 LOG_LEVEL = logging.INFO
 logging.basicConfig(
     format="%(asctime)s | %(name)s | %(levelname)s: %(message)s",
     level=LOG_LEVEL,
 )
+
+
+class TileSelection(Enum):
+    """Enumeration for tile selection methods."""
+
+    NONE = 0
+    EXHAUSTIVE = 1
+    GRID = 2
+    PRESELECTION = 3
+
+
+class GeometricVerification(Enum):
+    """Enumeration for geometric verification methods."""
+
+    NONE = 1
+    PYDEGENSAC = 2
+    MAGSAC = 2
+
+
+@dataclass
+class feature:
+    keypoints: np.ndarray
+    descriptors: np.ndarray
+    scores: np.ndarray
 
 
 class Tiler:
@@ -246,7 +275,7 @@ def build_superglue_config(opt: dict) -> dict:
 def geometric_verification(
     mkpts0: np.ndarray = None,
     mkpts1: np.ndarray = None,
-    method: str = "pydegensac",
+    method: GeometricVerification = GeometricVerification.PYDEGENSAC,
     threshold: float = 1,
     confidence: float = 0.9999,
     max_iters: int = 10000,
@@ -271,18 +300,15 @@ def geometric_verification(
     Returns:
         np.ndarray: A Boolean array that masks the correspondences that were identified as inliers.
 
-    TODO: allow input parameters for both pydegensac and opencv.
+    TODO: allow input parameters for both pydegensac and MAGSAC.
 
     """
 
-    available_methods = ["pydegensac", "opencv"]
-    if method not in available_methods:
-        logging.error(
-            f"Input method '{method}' not availble. Method must be one of {available_methods}. Using opencv instead."
-        )
-        method = "opencv"
+    assert isinstance(
+        method, GeometricVerification
+    ), "Invalid method. It must be a GeometricVerification enum in GeometricVerification.PYDEGENSAC or GeometricVerification.MAGSAC."
 
-    if method == "pydegensac":
+    if method == GeometricVerification.PYDEGENSAC:
         try:
             pydegensac = importlib.import_module("pydegensac")
             fallback = False
@@ -292,7 +318,7 @@ def geometric_verification(
             )
             fallback = True
 
-    if method == "pydegensac" and not fallback:
+    if method == GeometricVerification.PYDEGENSAC and not fallback:
         try:
             F, inlMask = pydegensac.findFundamentalMatrix(
                 mkpts0,
@@ -315,7 +341,7 @@ def geometric_verification(
             )
             fallback = True
 
-    if method == "opencv" or fallback:
+    if method == GeometricVerification.MAGSAC or fallback:
         try:
             F, inliers = cv2.findFundamentalMat(
                 mkpts0, mkpts1, cv2.USAC_MAGSAC, 0.5, 0.999, 100000
@@ -331,20 +357,6 @@ def geometric_verification(
             inlMask = np.ones(len(mkpts0), dtype=bool)
 
     return F, inlMask
-
-    # self.mkpts0 = self.mkpts0[self._inlMask, :]
-    # self.mkpts1 = self.mkpts1[self._inlMask, :]
-    # if self.matches0 is not None:
-    #     self.match_conf = self.match_conf[self._inlMask]
-    # if self.descriptors0 is not None:
-    #     self.descriptors0 = self.descriptors0[:, self._inlMask]
-    # if self.descriptors1 is not None:
-    #     self.descriptors1 = self.descriptors1[:, self._inlMask]
-    # if self.scores0 is not None:
-    #     self.scores0 = self.scores0[self._inlMask]
-    # if self.scores1 is not None:
-    #     self.scores1 = self.scores1[self._inlMask]
-    # return {0: mkpts0, 1: mkpts1}
 
 
 def check_dict_keys(dict: dict, keys: List[str]):
@@ -368,24 +380,12 @@ class ImageMatcherABC(ABC):
         pass
 
     @abstractmethod
-    def _match_full_images(self):
+    def _match_images(self):
         pass
 
     @abstractmethod
     def _match_tiles(self):
         pass
-
-    @abstractmethod
-    def geometric_verification(self):
-        pass
-
-    # @abstractmethod
-    # def _generate_tiles(self):
-    #     pass
-
-    # @abstractmethod
-    # def _combine_tiles(self):
-    #     pass
 
 
 class ImageMatcherBase(ImageMatcherABC):
@@ -394,12 +394,6 @@ class ImageMatcherBase(ImageMatcherABC):
         if not isinstance(opt, dict):
             raise TypeError("opt must be a dictionary")
         self._opt = edict(opt)
-
-        # self.features0 and self.features1 are dictionaries containing keypoints, descriptors and scores for each image and it is set by the method self.match()
-        self._features0 = {}  # Keypoints, descriptors and scores for image 0
-        self._features1 = {}  # Keypoints, descriptors and scores for image 1
-        self._matches0 = None  # Index of the matches from image 0 to image 1
-
         self._device = (
             "cuda" if torch.cuda.is_available() and not opt.get("force_cpu") else "cpu"
         )
@@ -409,73 +403,19 @@ class ImageMatcherBase(ImageMatcherABC):
     def device(self):
         return self._device
 
-    @property
-    def features0(self):
-        return self._features0
-
-    @features0.setter
-    def features0(self, value):
-        """
-        features0 _summary_
-
-        Args:
-            value (_type_): _description_
-
-        TODO: add checks on input dictionary. At least keypoints must be present
-        """
-        assert isinstance(value, dict), "features0 must be a dictionary"
-        assert (
-            "keypoints" in value.keys()
-        ), "At least 'keypoints' must be present in features0"
-        self._features0 = value
-
-    @property
-    def features1(self):
-        return self._features1
-
-    @features1.setter
-    def features1(self, value):
-        assert isinstance(value, dict), "features1 must be a dictionary"
-        assert (
-            "keypoints" in value.keys()
-        ), "At least 'keypoints' must be present in features1"
-        self._features1 = value
-
-    @property
-    def matches0(self):
-        return self._matches0
-
-    @matches0.setter
-    def matches0(self, value):
-        """Store the matching array from image 0 to image 1. It contains the index of the match on image 1 for each keypoint on image 0
-        TODO: add other checks on input array
-        """
-
-        if not isinstance(value, np.ndarray):
-            raise TypeError("matches0 must be a NumPy array")
-        self._matches0 = value
-
     def match(self):
         """
         Matches keypoints between two images. This method must be implemented by the child class.
         """
         raise NotImplementedError("Subclasses must implement match() method.")
 
-    def _match_full_images(self):
+    def _match_images(self):
         raise NotImplementedError(
             "Subclasses must implement _match_full_images() method."
         )
 
     def _match_tiles(self):
         raise NotImplementedError("Subclasses must implement _match_tiles() method.")
-
-    def geometric_verification(self):
-        raise NotImplementedError(
-            "Subclasses must implement geometric_verification() method."
-        )
-
-    def _mask_features(self, features: dict, mask: np.ndarray) -> dict:
-        raise NotImplementedError("Subclasses must implement _mask_features() method.")
 
 
 class SuperGlueMatcher(ImageMatcherBase):
@@ -511,65 +451,151 @@ class SuperGlueMatcher(ImageMatcherBase):
         self._scores1 = None  # scores of mkpts on image 1
         self._mconf = None  # match confidence (i.e., scores0 of the valid matches)
 
+    def reset(self):
+        """Reset the matcher by clearing the features and matches"""
+        self._mkpts0 = None  # matched keypoints on image 0
+        self._mkpts1 = None  # matched keypoints on image 1
+        self._descriptors0 = None  # descriptors of mkpts on image 0
+        self._descriptors1 = None  # descriptors of mkpts on image 1
+        self._scores0 = None  # scores of mkpts on image 0
+        self._scores1 = None  # scores of mkpts on image 1
+        self._mconf = None  # match confidence (i.e., scores0 of the valid matches)
+
+    @timeit
     def match(
         self,
         image0: np.ndarray,
         image1: np.ndarray,
-        match_by_tile: bool = False,
+        tile_selection: TileSelection = TileSelection.PRESELECTION,
         **kwargs,
     ):
         self.timer = AverageTimer()
+
+        # Get kwargs
+        do_viz_matches = kwargs.get("do_viz_matches", False)
+        save_dir = kwargs.get("save_dir", ".")
+        gv_method = kwargs.get(
+            "geometric_verification", GeometricVerification.PYDEGENSAC
+        )
+        threshold = kwargs.get("threshold", 1)
+        confidence = kwargs.get("confidence", 0.9999)
 
         # Inizialize the Matching object with given configuration
         self.matcher = Matching(self._opt).eval().to(self._device)
 
         # Perform matching (on tiles or full images)
-        if match_by_tile is True:
-            logging.info("Matching by tiles...")
-            self._match_tiles(image0, image1, **kwargs)
-        else:
+        if tile_selection == TileSelection.NONE:
             logging.info("Matching full images...")
-            self._match_full_images(image0, image1)
-            self.viz_matches(image0, image1, f"test_full.png")
+            features0, features1, matches0 = self._match_images(image0, image1)
 
+        else:
+            logging.info("Matching by tiles...")
+            features0, features1, matches0 = self._match_tiles(
+                image0, image1, tile_selection, **kwargs
+            )
+
+        # Store features as class members
+        self._store_features(features0, features1, matches0)
         self.timer.update("matching")
         logging.info("Matching done!")
 
         # Perform geometric verification
         logging.info("Performing geometric verification...")
-        method = kwargs.get("method", "pydegensac")
-        threshold = kwargs.get("threshold", 1)
-        confidence = kwargs.get("confidence", 0.9999)
-        if self._mkpts0 is None or self._mkpts1 is None:
-            logging.warning(
-                "mkpts0 and mkpts1 are not save as member of the class. Trying to get them from the matched features..."
+        if gv_method is not GeometricVerification.NONE:
+            F, inlMask = geometric_verification(
+                self._mkpts0,
+                self._mkpts1,
+                method=gv_method,
+                confidence=confidence,
+                threshold=threshold,
             )
-            try:
-                self._exapand_and_store_matches()
-            except AttributeError as e:
-                logging.error(
-                    "Matched keypoints and descriptors are not available. Peraphs matching was failed."
-                )
-                raise e
+            self._F = F
+            self._filter_matches_by_mask(inlMask)
+            logging.info("Geometric verification done.")
+            self.timer.update("geometric_verification")
 
-        F, inlMask = geometric_verification(
-            self._mkpts0,
-            self._mkpts1,
-            method=method,
-            confidence=confidence,
-            threshold=threshold,
-        )
-        self._F = F
-        self._filter_matches_by_mask(inlMask)
-        self.timer.update("geometric_verification")
-        logging.info("Geometric verification done.")
+        save_dir = Path(save_dir)
+        save_dir.mkdir(parents=True, exist_ok=True)
+        if do_viz_matches is True:
+            self.viz_matches(image0, image1, save_dir / f"matches.png")
 
         self.timer.print("Matching")
 
-    def _match_tiles(self, image0, image1, **kwargs):
+    def _tile_selection(
+        self,
+        image0: np.ndarray,
+        image1: np.ndarray,
+        t0_lims: dict,
+        t1_lims: dict,
+        method: TileSelection = TileSelection.PRESELECTION,
+    ):
+        def points_in_rect(points: np.ndarray, rect: np.ndarray) -> np.ndarray:
+            logic = np.all(points > rect[:2], axis=1) & np.all(
+                points < rect[2:], axis=1
+            )
+            return logic
+
+        # default parameters
+        min_matches_per_tile = 10
+
+        # Select tile pairs to match
+        if method == TileSelection.EXHAUSTIVE:
+            logging.info("Matching tiles exaustively")
+            tile_pairs = sorted(product(t0_lims.keys(), t1_lims.keys()))
+        elif method == TileSelection.GRID:
+            logging.info("Matching tiles by regular grid")
+            tile_pairs = sorted(zip(t0_lims.keys(), t1_lims.keys()))
+        elif method == TileSelection.PRESELECTION:
+            logging.info("Matching tiles by preselection tile selection")
+            if image0.shape[0] > 4000:
+                n_down = 3
+            elif image0.shape[0] > 2000:
+                n_down = 2
+            else:
+                n_down = 1
+
+            i0 = deepcopy(image0)
+            i1 = deepcopy(image1)
+            for _ in range(n_down):
+                i0 = cv2.pyrDown(i0)
+                i1 = cv2.pyrDown(i1)
+            f0, f1, mtc = self._match_images(i0, i1)
+            vld = mtc > -1
+            kp0 = f0.keypoints[vld]
+            kp1 = f1.keypoints[mtc[vld]]
+            for _ in range(n_down):
+                kp0 *= 2
+                kp1 *= 2
+
+            tile_pairs = []
+            all_pairs = sorted(product(t0_lims.keys(), t1_lims.keys()))
+            for tidx0, tidx1 in all_pairs:
+                lim0 = t0_lims[tidx0]
+                lim1 = t1_lims[tidx1]
+                ret0 = points_in_rect(kp0, lim0)
+                ret1 = points_in_rect(kp1, lim1)
+                ret = ret0 & ret1
+                if sum(ret) > min_matches_per_tile:
+                    tile_pairs.append((tidx0, tidx1))
+            self.timer.update("preselection")
+
+        return tile_pairs
+
+    def _match_tiles(
+        self,
+        image0: np.ndarray,
+        image1: np.ndarray,
+        tile_selection: TileSelection = TileSelection.PRESELECTION,
+        **kwargs,
+    ):
+        assert isinstance(image0, np.ndarray), "image0 must be a NumPy array"
+        assert isinstance(image1, np.ndarray), "image1 must be a NumPy array"
+
+        # Get kwargs
         grid = kwargs.get("grid", [1, 1])
         overlap = kwargs.get("overlap", 0)
         origin = kwargs.get("origin", [0, 0])
+        do_viz_tiles = kwargs.get("do_viz_tiles", False)
 
         # Convert images to grayscale if needed
         if len(image0.shape) > 2:
@@ -583,13 +609,9 @@ class SuperGlueMatcher(ImageMatcherBase):
         t1_lims, t1_origin = self._tiler.compute_limits_by_grid(image1)
 
         # Select tile pairs to match
-        exaustive = kwargs.get("exaustive", False)
-        if exaustive is True:
-            logging.info("Matching tiles exaustively")
-            tile_pairs = sorted(product(t0_lims.keys(), t1_lims.keys()))
-        else:
-            logging.info("Matching tiles by regular grid")
-            tile_pairs = sorted(zip(t0_lims.keys(), t1_lims.keys()))
+        tile_pairs = self._tile_selection(
+            image0, image1, t0_lims, t1_lims, tile_selection
+        )
 
         # Initialize empty array for storing matched keypoints, descriptors and scores
         mkpts0_full = np.array([], dtype=np.float32).reshape(0, 2)
@@ -613,8 +635,8 @@ class SuperGlueMatcher(ImageMatcherBase):
             tensor0 = frame2tensor(tile0, self._device)
             tensor1 = frame2tensor(tile1, self._device)
             with torch.inference_mode():
-                self._pred_tensor = self.matcher({"image0": tensor0, "image1": tensor1})
-            pred = {k: v[0].cpu().numpy() for k, v in self._pred_tensor.items()}
+                pred_tensor = self.matcher({"image0": tensor0, "image1": tensor1})
+            pred = {k: v[0].cpu().numpy() for k, v in pred_tensor.items()}
 
             # Get matches
             kpts0, kpts1 = pred["keypoints0"], pred["keypoints1"]
@@ -650,42 +672,52 @@ class SuperGlueMatcher(ImageMatcherBase):
             scores1_full = np.concatenate((scores1_full, scores1))
             conf_full = np.concatenate((conf_full, conf))
 
-            do_viz_tile = kwargs.get("do_viz_tile", False)
-            if do_viz_tile is True:
-                self.viz_matches(tile0, tile1, f"test_{tidx0-tidx1}.png")
+            save_dir = kwargs.get("save_dir", ".")
+            save_dir = Path(save_dir)
+            save_dir.mkdir(parents=True, exist_ok=True)
+            if do_viz_tiles is True:
+                self._viz_matches_mpl(
+                    tile0,
+                    tile1,
+                    mkpts0,
+                    mkpts1,
+                    save_dir / f"matches_tile_{tidx0}-{tidx1}.png",
+                )
 
         logging.info("Restoring full image coordinates of matches...")
-        # Restore original image coordinates (not cropped) and run PyDegensac
+
+        # Restore original image coordinates (not cropped)
         mkpts0_full = mkpts0_full + np.array(t0_origin).astype("float32")
         mkpts1_full = mkpts1_full + np.array(t1_origin).astype("float32")
 
-        # Store features dictionary
-        self._features0 = {
-            "keypoints": mkpts0_full,
-            "descriptors": descriptors0_full,
-            "scores": scores0_full,
-        }
-        self._features1 = {
-            "keypoints": mkpts1_full,
-            "descriptors": descriptors1_full,
-            "scores": scores1_full,
-        }
+        # Select uniue features on image 0
+        mkpts0_full, unique_idx = np.unique(mkpts0_full, axis=0, return_index=True)
+        descriptors0_full = descriptors0_full[:, unique_idx]
+        scores0_full = scores0_full[unique_idx]
+        mkpts1_full = mkpts1_full[unique_idx]
+        descriptors1_full = descriptors1_full[:, unique_idx]
+        scores1_full = scores1_full[unique_idx]
+
+        # Create features
+        features0 = feature(
+            keypoints=mkpts0_full, descriptors=descriptors0_full, scores=scores0_full
+        )
+        features1 = feature(
+            keypoints=mkpts1_full, descriptors=descriptors1_full, scores=scores1_full
+        )
 
         # Create a 1-to-1 matching array
-        self._matches0 = np.arange(mkpts0_full.shape[0])
-
-        # Expand and store matches
-        self._exapand_and_store_matches(
-            self._features0, self._features1, self._matches0, force_overwrite=True
-        )
+        matches0 = np.arange(mkpts0_full.shape[0])
 
         logging.info("Matching by tile completed.")
 
-    def _match_full_images(
+        return features0, features1, matches0
+
+    def _match_images(
         self,
         image0: np.ndarray,
         image1: np.ndarray,
-    ) -> dict:
+    ) -> Tuple[feature, feature, np.ndarray]:
         """Matches keypoints and descriptors in two given images (no matter if they are tiles or full-res images) using the SuperGlue algorithm.
 
         This method takes in two images as Numpy arrays, and returns the matches between keypoints
@@ -696,7 +728,7 @@ class SuperGlueMatcher(ImageMatcherBase):
             image1 (np.ndarray): the second image to match, as Numpy array
 
         Returns:
-            dict
+            Tuple[feature, feature, np.ndarray]: a tuple containing the features of the first image, the features of the second image, and the matches between them
         """
 
         if len(image0.shape) > 2:
@@ -708,48 +740,36 @@ class SuperGlueMatcher(ImageMatcherBase):
         tensor1 = frame2tensor(image1, self._device)
 
         with torch.inference_mode():
-            self._pred_tensor = self.matcher({"image0": tensor0, "image1": tensor1})
-        pred = {k: v[0].cpu().numpy() for k, v in self._pred_tensor.items()}
+            pred_tensor = self.matcher({"image0": tensor0, "image1": tensor1})
+        pred = {k: v[0].cpu().numpy() for k, v in pred_tensor.items()}
 
-        self._features0 = {
-            "keypoints": pred["keypoints0"],
-            "descriptors": pred["descriptors0"],
-            "scores": pred["scores0"],
-        }
-        self._features1 = {
-            "keypoints": pred["keypoints1"],
-            "descriptors": pred["descriptors1"],
-            "scores": pred["scores1"],
-        }
-        self._matches0 = pred["matches0"]
-
-        # valid_idx_0 = self._matches0 > -1
-        # valid_idx_1 = self._matches0[valid_idx_0]
-        # mkpts0 = self._features0.get("keypoints")[valid_idx_0]
-        # mkpts1 = self._features1.get("keypoints")[valid_idx_1]
-        # descriptors0 = self._features0.get("descriptors")[:, valid_idx_0]
-        # descriptors1 = self._features1.get("descriptors")[:, valid_idx_1]
-        # scores0 = self._features0.get("scores")[valid_idx_0]
-        # scores1 = self._features1.get("scores")[valid_idx_1]
-        # match_conf = pred["matching_scores0"][valid_idx_0]
-
-        self._exapand_and_store_matches(
-            self._features0, self._features1, self._matches0, force_overwrite=False
+        features0 = feature(
+            keypoints=pred["keypoints0"],
+            descriptors=pred["descriptors0"],
+            scores=pred["scores0"],
         )
+        features1 = feature(
+            keypoints=pred["keypoints1"],
+            descriptors=pred["descriptors1"],
+            scores=pred["scores1"],
+        )
+        matches0 = pred["matches0"]
 
-        return {0: self._mkpts0, 1: self._mkpts1}
+        return features0, features1, matches0
 
-    def _exapand_and_store_matches(
+    def _store_features(
         self,
-        features0: dict,
-        features1: dict,
-        matches0: dict,
-        force_overwrite: bool = False,
-    ):
+        features0: feature,
+        features1: feature,
+        matches0: np.ndarray,
+        force_overwrite: bool = True,
+    ) -> None:
         """Stores keypoints, descriptors and scores of the matches in the object's members."""
 
-        assert "keypoints" in features0.keys(), "No keypoints found in features0"
-        assert "keypoints" in features1.keys(), "No keypoints found in features1"
+        assert isinstance(features0, feature), "features0 must be a feature object"
+        assert isinstance(features1, feature), "features1 must be a feature object"
+        assert hasattr(features0, "keypoints"), "No keypoints found in features0"
+        assert hasattr(features1, "keypoints"), "No keypoints found in features1"
 
         if self._mkpts0 is not None and self._mkpts1 is not None:
             if force_overwrite is False:
@@ -763,19 +783,17 @@ class SuperGlueMatcher(ImageMatcherBase):
         valid = matches0 > -1
         self._valid = valid
         idx1 = matches0[valid]
-        self._mkpts0 = features0.get("keypoints")[valid]
-        self._mkpts1 = features1.get("keypoints")[idx1]
-        self._descriptors0 = features0.get("descriptors")[:, valid]
-        self._descriptors1 = features1.get("descriptors")[:, idx1]
-        self._scores0 = features0.get("scores")[valid]
-        self._scores1 = features1.get("scores")[idx1]
-        self._mconf = features0.get("scores")[valid]
+        self._mkpts0 = features0.keypoints[valid]
+        self._mkpts1 = features1.keypoints[idx1]
+        self._descriptors0 = features0.descriptors[:, valid]
+        self._descriptors1 = features1.descriptors[:, idx1]
+        self._scores0 = features0.scores[valid]
+        self._scores1 = features1.scores[idx1]
+        self._mconf = features0.scores[valid]
 
-    def _filter_matches_by_mask(self, inlMask: np.ndarray):
+    def _filter_matches_by_mask(self, inlMask: np.ndarray) -> None:
         self._mkpts0 = self._mkpts0[inlMask, :]
         self._mkpts1 = self._mkpts1[inlMask, :]
-        if self._matches0 is not None:
-            self._match_conf = self._mconf[inlMask]
         if self._descriptors0 is not None:
             self._descriptors0 = self._descriptors0[:, inlMask]
         if self._descriptors1 is not None:
@@ -784,6 +802,34 @@ class SuperGlueMatcher(ImageMatcherBase):
             self._scores0 = self._scores0[inlMask]
         if self._scores1 is not None:
             self._scores1 = self._scores1[inlMask]
+        if self._mconf is not None:
+            self._mconf = self._mconf[inlMask]
+
+    def _viz_matches_mpl(
+        self,
+        image0: np.ndarray,
+        image1: np.ndarray,
+        kpts0: np.ndarray,
+        kpts1: np.ndarray,
+        save_path: str = None,
+        hide_fig: bool = True,
+        **kwargs,
+    ) -> None:
+        colors = kwargs.get("c", kwargs.get("color", ["r", "r"]))
+        if isinstance(colors, str):
+            colors = [colors, colors]
+        s = kwargs.get("s", 5)
+        fig, ax = plt.subplots(1, 2)
+        ax[0].imshow(cv2.cvtColor(image0, cv2.COLOR_BAYER_BG2BGR))
+        ax[0].scatter(kpts0[:, 0], kpts0[:, 1], s=s, c=colors[0])
+        ax[1].imshow(cv2.cvtColor(image1, cv2.COLOR_BAYER_BG2BGR))
+        ax[1].scatter(kpts1[:, 0], kpts1[:, 1], s=s, c=colors[1])
+        if save_path is not None:
+            fig.savefig(save_path)
+        if hide_fig is False:
+            plt.show()
+        else:
+            plt.close(fig)
 
     def viz_matches(
         self,
@@ -799,7 +845,7 @@ class SuperGlueMatcher(ImageMatcherBase):
 
         Args:
         - path (str): The output path to save the visualization.
-        - fast_viz (bool): Whether to use fast visualization method.
+        - fast_viz (bool): Whether to use preselection visualization method.
         - show_keypoints (bool): Whether to show the detected keypoints.
         - opencv_display (bool): Whether to use OpenCV for displaying the image.
 
@@ -808,6 +854,7 @@ class SuperGlueMatcher(ImageMatcherBase):
 
         TODO: replace make_matching_plot with native a function implemented in icepy4D
         """
+
         assert self._mkpts0 is not None, "Matches not available."
         # image0 = np.uint8(tensor0.cpu().numpy() * 255),
 
@@ -852,41 +899,93 @@ if __name__ == "__main__":
 
     assset_path = Path("assets")
 
-    im_path0 = assset_path / "img/cam1/IMG_2637.jpg"
-    im_path1 = assset_path / "img/cam2/IMG_1112.jpg"
+    # im_path0 = assset_path / "img/cam1/IMG_2637.jpg"
+    # im_path1 = assset_path / "img/cam2/IMG_1112.jpg"
+
+    im_path0 = "IMG_2650.jpg"
+    im_path1 = "IMG_1125.jpg"
     img0 = cv2.imread(str(im_path0))
     img1 = cv2.imread(str(im_path1))
+    outdir = "mmm"
+    outdir = Path(outdir)
+    if outdir.exists():
+        os.system(f"rm -rf {outdir}")
+
+    # img0 = cv2.pyrUp(img0)
+    # img1 = cv2.pyrUp(img1)
 
     suerglue_cfg = {
         "weights": "outdoor",
         "keypoint_threshold": 0.001,
         "max_keypoints": 4096,
-        "match_threshold": 0.3,
+        "match_threshold": 0.1,
         "force_cpu": False,
     }
     matcher = SuperGlueMatcher(suerglue_cfg)
-    # mkpts = matcher.match(img0, img1, match_by_tile=True)
-    mkpts = matcher.match(
+    # mkpts = matcher.match(img0, img1)
+
+    grid = [4, 3]
+    overlap = 200
+    origin = [0, 0]
+
+    # tile_selection = TileSelection.NONE
+    # matcher.match(
+    #     img0,
+    #     img1,
+    #     tile_selection=tile_selection,
+    # )
+
+    tile_selection = TileSelection.PRESELECTION
+    matcher.match(
         img0,
         img1,
-        match_by_tile=True,
-        grid=[2, 2],
-        overlap=50,
-        origin=[0, 0],
+        tile_selection=tile_selection,
+        grid=grid,
+        overlap=overlap,
+        origin=origin,
+        do_viz_matches=True,
         do_viz_tiles=True,
+        save_dir=outdir / str(tile_selection).split(".")[1],
+        geometric_verification=GeometricVerification.PYDEGENSAC,
+        threshold=1,
+        confidence=0.9999,
     )
 
-    # mkpts = matcher.geometric_verification(
-    #     method="ransac",
-    #     threshold=1,
-    #     confidence=0.99,
-    #     symmetric_error_check=False,
-    # )
-    matcher.viz_matches(img0, img1, assset_path / "test.png")
+    tile_selection = TileSelection.GRID
+    matcher.match(
+        img0,
+        img1,
+        tile_selection=tile_selection,
+        grid=grid,
+        overlap=overlap,
+        origin=origin,
+        do_viz_matches=True,
+        do_viz_tiles=True,
+        save_dir=outdir / str(tile_selection).split(".")[1],
+        geometric_verification=GeometricVerification.PYDEGENSAC,
+        threshold=1,
+        confidence=0.9999,
+    )
 
-    # os.remove(assset_path / "test.png")
+    tile_selection = TileSelection.EXHAUSTIVE
+    matcher.match(
+        img0,
+        img1,
+        tile_selection=tile_selection,
+        grid=grid,
+        overlap=overlap,
+        origin=origin,
+        do_viz_matches=True,
+        do_viz_tiles=True,
+        save_dir=outdir / str(tile_selection).split(".")[1],
+        geometric_verification=GeometricVerification.PYDEGENSAC,
+        threshold=1,
+        confidence=0.9999,
+    )
 
     print("Matching succeded.")
+
+    # -------------------- OLD --------------------
 
     # Test Superpoint class
     # device = torch.device("cuda")
@@ -907,96 +1006,6 @@ if __name__ == "__main__":
     # data = {**data, **{k + "1": v for k, v in features1.items()}}
 
     # pred = matching(data)
-
-
-# OLD CODE
-
-# old proprties of the class
-
-# @property
-# def keypoints0(self):
-#     return self._features0.get("keypoints")[self._valid_idx_0]
-
-# @property
-# def keypoints1(self):
-#     return self._features1.get("keypoints")[self._valid_idx_1]
-
-# @property
-# def descriptors0(self):
-#     return self._features0.get("descriptors")[:, self._valid_idx_0]
-
-# @property
-# def descriptors1(self):
-#     return self._features1.get("descriptors")[:, self._valid_idx_1]
-
-# @property
-# def scores0(self):
-#     return self._features0.get("scores")[self._valid_idx_0]
-
-# @property
-# def scores1(self):
-#     return self._features1.get("scores")[self._valid_idx_1]
-
-# @property
-# def mkpts0(self):
-#     "Same as self.keypoints0 Kept for backward compatibility"
-#     return self.keypoints0
-
-# @property
-# def mkpts1(self):
-#     "Same as self.keypoints1 Kept for backward compatibility"
-#     return self.keypoints1
-
-
-# Proprierties for each element of feautures dict
-
-# @property
-# def mkpts0(self):
-#     return self._mkpts0
-
-# @mkpts0.setter
-# def mkpts0(self, value):
-#     self._mkpts0 = value
-
-# @property
-# def mkpts1(self):
-#     return self._mkpts1
-
-# @mkpts1.setter
-# def mkpts1(self, value):
-#     self._mkpts1 = value
-
-# @property
-# def descriptors0(self):
-#     return self._descriptors0
-
-# @descriptors0.setter
-# def descriptors0(self, value):
-#     self._descriptors0 = value
-
-# @property
-# def descriptors1(self):
-#     return self._descriptors1
-
-# @descriptors1.setter
-# def descriptors1(self, value):
-#     self._descriptors1 = value
-
-# @property
-# def scores0(self):
-#     return self._scores0
-
-# @scores0.setter
-# def scores0(self, value):
-#     self._scores0 = value
-
-# @property
-# def scores1(self):
-#     return self._scores1
-
-# @scores1.setter
-# def scores1(self, value):
-#     self._scores1 = value
 
 
 # class SuperPoint_features:
