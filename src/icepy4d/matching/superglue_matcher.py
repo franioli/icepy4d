@@ -60,7 +60,16 @@ class GeometricVerification(Enum):
 
     NONE = 1
     PYDEGENSAC = 2
-    MAGSAC = 2
+    MAGSAC = 3
+
+
+class Quality(Enum):
+    """Enumeration for matching quality."""
+
+    LOW = 1
+    MEDIUM = 2
+    HIGH = 3
+    HIGHEST = 4
 
 
 @dataclass
@@ -80,6 +89,7 @@ class Tiler:
         grid: List[int] = [1, 1],
         overlap: int = 0,
         origin: List[int] = [0, 0],
+        max_length: int = 2000,
     ) -> None:
         """
         Initialize class.
@@ -139,6 +149,21 @@ class Tiler:
         dict: A dictionary containing the index of each tile and its bounding box coordinates.
         """
         return self._limits
+
+    def compute_grid_size(self, max_length: int) -> None:
+        """
+        Compute the best number of rows and columns for the grid based on the maximum length of each tile.
+
+        Parameters:
+        - max_length (int): The maximum length of each tile.
+
+        Returns:
+        None
+
+        NOTE: NOT WORKING. NEEDS TO BE TESTED.
+        """
+        self._nrow = int(np.ceil(self._h / (max_length - self._overlap)))
+        self._ncol = int(np.ceil(self._w / (max_length - self._overlap)))
 
     def compute_limits_by_grid(self, image: np.ndarray) -> List[int]:
         """
@@ -466,6 +491,7 @@ class SuperGlueMatcher(ImageMatcherBase):
         self,
         image0: np.ndarray,
         image1: np.ndarray,
+        quality: Quality = Quality.HIGH,
         tile_selection: TileSelection = TileSelection.PRESELECTION,
         **kwargs,
     ):
@@ -483,16 +509,22 @@ class SuperGlueMatcher(ImageMatcherBase):
         # Inizialize the Matching object with given configuration
         self.matcher = Matching(self._opt).eval().to(self._device)
 
+        # Resize images if needed
+        image0_, image1_ = self._resize_images(quality, image0, image1)
+
         # Perform matching (on tiles or full images)
         if tile_selection == TileSelection.NONE:
             logging.info("Matching full images...")
-            features0, features1, matches0 = self._match_images(image0, image1)
+            features0, features1, matches0 = self._match_images(image0_, image1_)
 
         else:
             logging.info("Matching by tiles...")
             features0, features1, matches0 = self._match_tiles(
-                image0, image1, tile_selection, **kwargs
+                image0_, image1_, tile_selection, **kwargs
             )
+
+        # Retrieve original image coordinates if matching was performed on up/down-sampled images
+        features0, features1 = self._resize_features(quality, features0, features1)
 
         # Store features as class members
         self._store_features(features0, features1, matches0)
@@ -521,6 +553,40 @@ class SuperGlueMatcher(ImageMatcherBase):
 
         self.timer.print("Matching")
 
+    def _resize_images(
+        self, quality: Quality, image0: np.ndarray, image1: np.ndarray
+    ) -> Tuple[np.ndarray]:
+        if quality == Quality.HIGHEST:
+            image0_ = cv2.pyrUp(image0)
+            image1_ = cv2.pyrUp(image1)
+        elif quality == Quality.HIGH:
+            image0_ = image0
+            image1_ = image1
+        elif quality == Quality.MEDIUM:
+            image0_ = cv2.pyrDown(image0)
+            image1_ = cv2.pyrDown(image1)
+        elif quality == Quality.LOW:
+            image0_ = cv2.pyrDown(cv2.pyrDown(image0))
+            image1_ = cv2.pyrDown(cv2.pyrDown(image1))
+        return image0_, image1_
+
+    def _resize_features(
+        self, quality: Quality, features0: feature, features1: feature
+    ) -> Tuple[feature]:
+        if quality == Quality.HIGHEST:
+            features0.keypoints /= 2
+            features1.keypoints /= 2
+        elif quality == Quality.HIGH:
+            pass
+        elif quality == Quality.MEDIUM:
+            features0.keypoints *= 2
+            features1.keypoints *= 2
+        elif quality == Quality.LOW:
+            features0.keypoints *= 4
+            features1.keypoints *= 4
+
+        return features0, features1
+
     def _tile_selection(
         self,
         image0: np.ndarray,
@@ -547,6 +613,8 @@ class SuperGlueMatcher(ImageMatcherBase):
             tile_pairs = sorted(zip(t0_lims.keys(), t1_lims.keys()))
         elif method == TileSelection.PRESELECTION:
             logging.info("Matching tiles by preselection tile selection")
+            if image0.shape[0] > 8000:
+                n_down = 4
             if image0.shape[0] > 4000:
                 n_down = 3
             elif image0.shape[0] > 2000:
@@ -902,17 +970,18 @@ if __name__ == "__main__":
     # im_path0 = assset_path / "img/cam1/IMG_2637.jpg"
     # im_path1 = assset_path / "img/cam2/IMG_1112.jpg"
 
-    im_path0 = "IMG_2650.jpg"
-    im_path1 = "IMG_1125.jpg"
+    folders = [Path("data/img/p1"), Path("data/img/p2")]
+    imlists = [sorted(f.glob("*.jpg")) for f in folders]
+
+    img_idx = 10
+    im_path0 = imlists[0][10]
+    im_path1 = imlists[1][10]
     img0 = cv2.imread(str(im_path0))
     img1 = cv2.imread(str(im_path1))
     outdir = "mmm"
     outdir = Path(outdir)
     if outdir.exists():
         os.system(f"rm -rf {outdir}")
-
-    # img0 = cv2.pyrUp(img0)
-    # img1 = cv2.pyrUp(img1)
 
     suerglue_cfg = {
         "weights": "outdoor",
@@ -928,19 +997,13 @@ if __name__ == "__main__":
     overlap = 200
     origin = [0, 0]
 
-    # tile_selection = TileSelection.NONE
-    # matcher.match(
-    #     img0,
-    #     img1,
-    #     tile_selection=tile_selection,
-    # )
-
     tile_selection = TileSelection.PRESELECTION
     matcher.match(
         img0,
         img1,
+        quality=Quality.HIGHEST,
         tile_selection=tile_selection,
-        grid=grid,
+        grid=[5, 4],
         overlap=overlap,
         origin=origin,
         do_viz_matches=True,
