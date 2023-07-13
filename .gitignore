@@ -19,6 +19,7 @@ volumes/
 logs/
 assets/Metashape-*
 src/icepy4d/thirdparty/SuperGluePretrainedNetwork.old/
+mmm/
 
 # VScode
 # .vscode/

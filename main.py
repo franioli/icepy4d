@@ -50,7 +50,7 @@ from icepy4d.matching.utils import geometric_verification, load_matches_from_dis
 
 # Temporary parameters TODO: put them in config file
 CFG_FILE = "config/config_2022.yaml"
-LOAD_EXISTING_SOLUTION = True  # False #
+LOAD_EXISTING_SOLUTION = False  # False #
 DO_PRESELECTION = False
 DO_ADDITIONAL_MATCHING = True
 PATCHES = [
