@@ -11,7 +11,7 @@ from easydict import EasyDict as edict
 import icepy4d.classes as icepy4d_classes
 import icepy4d.visualization as icepy_viz
 from icepy4d.classes.images import read_image
-from icepy4d.matching.superglue_matcher import SuperGlueMatcher
+from icepy4d.matching.matcher import SuperGlueMatcher
 from icepy4d.matching.utils import geometric_verification
 
 from scipy.spatial import KDTree
@@ -106,12 +106,7 @@ def find_matches_on_patches(
 
     matcher = SuperGlueMatcher(cfg)
     mkpts = matcher.match(patches[cams[0]], patches[cams[1]])
-    if do_geometric_verification:
-        mkpts = matcher.geometric_verification(
-            threshold=geometric_verification_threshold,
-            confidence=0.99,
-            symmetric_error_check=False,
-        )
+
     if viz_results:
         matcher.viz_matches(
             viz_path,

@@ -73,7 +73,7 @@ class Quality(Enum):
 
 
 @dataclass
-class feature:
+class FeaturesBase:
     keypoints: np.ndarray
     descriptors: np.ndarray
     scores: np.ndarray
@@ -262,41 +262,6 @@ class Tiler:
         plt.show()
 
 
-def build_superglue_config(opt: dict) -> dict:
-    def_opt = {
-        "weights": "outdoor",
-        "keypoint_threshold": 0.001,
-        "max_keypoints": -1,
-        "match_threshold": 0.3,
-        "force_cpu": False,
-        "nms_radius": NMS_RADIUS,
-        "sinkhorn_iterations": SINKHORN_ITERATIONS,
-    }
-    opt = {**def_opt, **opt}
-    required_keys = [
-        "weights",
-        "keypoint_threshold",
-        "max_keypoints",
-        "match_threshold",
-        "force_cpu",
-    ]
-    check_dict_keys(opt, required_keys)
-
-    return {
-        "superpoint": {
-            "nms_radius": opt["nms_radius"],
-            "keypoint_threshold": opt["keypoint_threshold"],
-            "max_keypoints": opt["max_keypoints"],
-        },
-        "superglue": {
-            "weights": opt["weights"],
-            "sinkhorn_iterations": opt["sinkhorn_iterations"],
-            "match_threshold": opt["match_threshold"],
-        },
-        "force_cpu": opt["force_cpu"],
-    }
-
-
 def geometric_verification(
     mkpts0: np.ndarray = None,
     mkpts1: np.ndarray = None,
@@ -415,7 +380,15 @@ class ImageMatcherABC(ABC):
 
 class ImageMatcherBase(ImageMatcherABC):
     def __init__(self, opt: dict = {}) -> None:
-        """Base class for matchers"""
+        """
+        Base class for matchers.
+
+        Args:
+            opt (dict): Options for the matcher.
+
+        Raises:
+            TypeError: If `opt` is not a dictionary.
+        """
         if not isinstance(opt, dict):
             raise TypeError("opt must be a dictionary")
         self._opt = edict(opt)
@@ -424,9 +397,104 @@ class ImageMatcherBase(ImageMatcherABC):
         )
         logging.info(f"Running inference on device {self._device}")
 
+        # Inizialize additional variable members for storing matched keypoints descriptors and scores
+        self._mkpts0 = None  # matched keypoints on image 0
+        self._mkpts1 = None  # matched keypoints on image 1
+        self._descriptors0 = None  # descriptors of mkpts on image 0
+        self._descriptors1 = None  # descriptors of mkpts on image 1
+        self._scores0 = None  # scores of mkpts on image 0
+        self._scores1 = None  # scores of mkpts on image 1
+        self._mconf = None  # match confidence (i.e., scores0 of the valid matches)
+
+    def reset(self):
+        """Reset the matcher by clearing the features and matches"""
+        self._mkpts0 = None  # matched keypoints on image 0
+        self._mkpts1 = None  # matched keypoints on image 1
+        self._descriptors0 = None  # descriptors of mkpts on image 0
+        self._descriptors1 = None  # descriptors of mkpts on image 1
+        self._scores0 = None  # scores of mkpts on image 0
+        self._scores1 = None  # scores of mkpts on image 1
+        self._mconf = None  # match confidence (i.e., scores0 of the valid matches)
+
     @property
     def device(self):
+        """
+        Get the device on which the matcher is running.
+
+        Returns:
+            str: The device name.
+        """
         return self._device
+
+    @property
+    def mkpts0(self):
+        """
+        Get the matched keypoints on image 0.
+
+        Returns:
+            np.ndarray: The matched keypoints on image 0.
+        """
+        return self._mkpts0
+
+    @property
+    def mkpts1(self):
+        """
+        Get the matched keypoints on image 1.
+
+        Returns:
+            np.ndarray: The matched keypoints on image 1.
+        """
+        return self._mkpts1
+
+    @property
+    def descriptors0(self):
+        """
+        Get the descriptors of the matched keypoints on image 0.
+
+        Returns:
+            np.ndarray: The descriptors of the matched keypoints on image 0.
+        """
+        return self._descriptors0
+
+    @property
+    def descriptors1(self):
+        """
+        Get the descriptors of the matched keypoints on image 1.
+
+        Returns:
+            np.ndarray: The descriptors of the matched keypoints on image 1.
+        """
+        return self._descriptors1
+
+    @property
+    def scores0(self):
+        """
+        Get the scores of the matched keypoints on image 0.
+
+        Returns:
+            np.ndarray: The scores of the matched keypoints on image 0.
+        """
+        return self._scores0
+
+    @property
+    def scores1(self):
+        """
+        Get the scores of the matched keypoints on image 1.
+
+        Returns:
+            np.ndarray: The scores of the matched keypoints on image 1.
+        """
+        return self._scores1
+
+    @property
+    def mconf(self):
+        """
+        Get the match confidence (i.e., scores0 of the valid matches).
+
+        Returns:
+            np.ndarray: The match confidence (i.e., scores0 of the valid matches).
+        """
+        return self._mconf
 
     def match(self):
         """
@@ -435,12 +503,224 @@ class ImageMatcherBase(ImageMatcherABC):
         raise NotImplementedError("Subclasses must implement match() method.")
 
     def _match_images(self):
+        """
+        Matches keypoints between two full-resolution images.
+
+        Raises:
+            NotImplementedError: Subclasses must implement _match_images() method.
+        """
         raise NotImplementedError(
             "Subclasses must implement _match_full_images() method."
         )
 
     def _match_tiles(self):
+        """
+        Matches keypoints between tiles of two images.
+
+        Raises:
+            NotImplementedError: Subclasses must implement _match_tiles() method.
+        """
         raise NotImplementedError("Subclasses must implement _match_tiles() method.")
+
+    def _resize_images(
+        self, quality: Quality, image0: np.ndarray, image1: np.ndarray
+    ) -> Tuple[np.ndarray]:
+        """
+        Resize images based on the specified quality.
+
+        Args:
+            quality (Quality): The quality level for resizing.
+            image0 (np.ndarray): The first image.
+            image1 (np.ndarray): The second image.
+
+        Returns:
+            Tuple[np.ndarray]: Resized images.
+
+        """
+        if quality == Quality.HIGHEST:
+            image0_ = cv2.pyrUp(image0)
+            image1_ = cv2.pyrUp(image1)
+        elif quality == Quality.HIGH:
+            image0_ = image0
+            image1_ = image1
+        elif quality == Quality.MEDIUM:
+            image0_ = cv2.pyrDown(image0)
+            image1_ = cv2.pyrDown(image1)
+        elif quality == Quality.LOW:
+            image0_ = cv2.pyrDown(cv2.pyrDown(image0))
+            image1_ = cv2.pyrDown(cv2.pyrDown(image1))
+        return image0_, image1_
+
+    def _resize_features(
+        self, quality: Quality, features0: FeaturesBase, features1: FeaturesBase
+    ) -> Tuple[FeaturesBase]:
+        """
+        Resize features based on the specified quality.
+
+        Args:
+            quality (Quality): The quality level for resizing.
+            features0 (FeaturesBase): The features of the first image.
+            features1 (FeaturesBase): The features of the second image.
+
+        Returns:
+            Tuple[FeaturesBase]: Resized features.
+
+        """
+        if quality == Quality.HIGHEST:
+            features0.keypoints /= 2
+            features1.keypoints /= 2
+        elif quality == Quality.HIGH:
+            pass
+        elif quality == Quality.MEDIUM:
+            features0.keypoints *= 2
+            features1.keypoints *= 2
+        elif quality == Quality.LOW:
+            features0.keypoints *= 4
+            features1.keypoints *= 4
+
+        return features0, features1
+
+    def _tile_selection(
+        self,
+        image0: np.ndarray,
+        image1: np.ndarray,
+        t0_lims: dict[int, np.ndarray],
+        t1_lims: dict[int, np.ndarray],
+        method: TileSelection = TileSelection.PRESELECTION,
+    ):
+        """
+        Selects tile pairs for matching based on the specified method.
+
+        Args:
+            image0 (np.ndarray): The first image.
+            image1 (np.ndarray): The second image.
+            t0_lims (dict[int, np.ndarray]): The limits of tiles in image0.
+            t1_lims (dict[int, np.ndarray]): The limits of tiles in image1.
+            method (TileSelection, optional): The tile selection method. Defaults to TileSelection.PRESELECTION.
+
+        Returns:
+            List[Tuple[int, int]]: The selected tile pairs.
+
+        """
+
+        def points_in_rect(points: np.ndarray, rect: np.ndarray) -> np.ndarray:
+            logic = np.all(points > rect[:2], axis=1) & np.all(
+                points < rect[2:], axis=1
+            )
+            return logic
+
+        # default parameters
+        min_matches_per_tile = 10
+
+        # Select tile pairs to match
+        if method == TileSelection.EXHAUSTIVE:
+            logging.info("Matching tiles exaustively")
+            tile_pairs = sorted(product(t0_lims.keys(), t1_lims.keys()))
+        elif method == TileSelection.GRID:
+            logging.info("Matching tiles by regular grid")
+            tile_pairs = sorted(zip(t0_lims.keys(), t1_lims.keys()))
+        elif method == TileSelection.PRESELECTION:
+            logging.info("Matching tiles by preselection tile selection")
+            if image0.shape[0] > 8000:
+                n_down = 4
+            if image0.shape[0] > 4000:
+                n_down = 3
+            elif image0.shape[0] > 2000:
+                n_down = 2
+            else:
+                n_down = 1
+
+            i0 = deepcopy(image0)
+            i1 = deepcopy(image1)
+            for _ in range(n_down):
+                i0 = cv2.pyrDown(i0)
+                i1 = cv2.pyrDown(i1)
+            f0, f1, mtc = self._match_images(i0, i1)
+            vld = mtc > -1
+            kp0 = f0.keypoints[vld]
+            kp1 = f1.keypoints[mtc[vld]]
+            for _ in range(n_down):
+                kp0 *= 2
+                kp1 *= 2
+
+            tile_pairs = []
+            all_pairs = sorted(product(t0_lims.keys(), t1_lims.keys()))
+            for tidx0, tidx1 in all_pairs:
+                lim0 = t0_lims[tidx0]
+                lim1 = t1_lims[tidx1]
+                ret0 = points_in_rect(kp0, lim0)
+                ret1 = points_in_rect(kp1, lim1)
+                ret = ret0 & ret1
+                if sum(ret) > min_matches_per_tile:
+                    tile_pairs.append((tidx0, tidx1))
+            self.timer.update("preselection")
+
+            # Debug...
+            # c = "r"
+            # s = 5
+            # fig, axes = plt.subplots(1, 2)
+            # for ax, img, kp in zip(axes, [image0, image1], [kp0, kp1]):
+            #     ax.imshow(cv2.cvtColor(img, cv2.COLOR_BAYER_BG2BGR))
+            #     ax.scatter(kp[:, 0], kp[:, 1], s=s, c=c)
+            #     ax.axis("off")
+            # for lim0, lim1 in zip(t0_lims.values(), t1_lims.values()):
+            #     axes[0].axvline(lim0[0])
+            #     axes[0].axhline(lim0[1])
+            #     axes[1].axvline(lim1[0])
+            #     axes[1].axhline(lim1[1])
+            # # axes[1].get_yaxis().set_visible(False)
+            # fig.tight_layout()
+            # plt.show()
+            # fig.savefig("preselection.png")
+            # plt.close()
+
+        return tile_pairs
+
+    def _filter_matches_by_mask(self, inlMask: np.ndarray) -> None:
+        """
+        Filter matches based on the specified mask.
+
+        Args:
+            inlMask (np.ndarray): The mask to filter matches.
+        """
+        self._mkpts0 = self._mkpts0[inlMask, :]
+        self._mkpts1 = self._mkpts1[inlMask, :]
+        if self._descriptors0 is not None:
+            self._descriptors0 = self._descriptors0[:, inlMask]
+        if self._descriptors1 is not None:
+            self._descriptors1 = self._descriptors1[:, inlMask]
+        if self._scores0 is not None:
+            self._scores0 = self._scores0[inlMask]
+        if self._scores1 is not None:
+            self._scores1 = self._scores1[inlMask]
+        if self._mconf is not None:
+            self._mconf = self._mconf[inlMask]
+
+    def _viz_matches_mpl(
+        self,
+        image0: np.ndarray,
+        image1: np.ndarray,
+        kpts0: np.ndarray,
+        kpts1: np.ndarray,
+        save_path: str = None,
+        hide_fig: bool = True,
+        **kwargs,
+    ) -> None:
+        colors = kwargs.get("c", kwargs.get("color", ["r", "r"]))
+        if isinstance(colors, str):
+            colors = [colors, colors]
+        s = kwargs.get("s", 5)
+        fig, ax = plt.subplots(1, 2)
+        ax[0].imshow(cv2.cvtColor(image0, cv2.COLOR_BAYER_BG2BGR))
+        ax[0].scatter(kpts0[:, 0], kpts0[:, 1], s=s, c=colors[0])
+        ax[1].imshow(cv2.cvtColor(image1, cv2.COLOR_BAYER_BG2BGR))
+        ax[1].scatter(kpts1[:, 0], kpts1[:, 1], s=s, c=colors[1])
+        if save_path is not None:
+            fig.savefig(save_path)
+        if hide_fig is False:
+            plt.show()
+        else:
+            plt.close(fig)
 
 
 class SuperGlueMatcher(ImageMatcherBase):
@@ -464,27 +744,42 @@ class SuperGlueMatcher(ImageMatcherBase):
 
         """
 
-        opt = build_superglue_config(opt)
+        opt = self._build_superglue_config(opt)
         super().__init__(opt)
 
-        # Inizialize additional variable members for storing matched keypoints descriptors and scores
-        self._mkpts0 = None  # matched keypoints on image 0
-        self._mkpts1 = None  # matched keypoints on image 1
-        self._descriptors0 = None  # descriptors of mkpts on image 0
-        self._descriptors1 = None  # descriptors of mkpts on image 1
-        self._scores0 = None  # scores of mkpts on image 0
-        self._scores1 = None  # scores of mkpts on image 1
-        self._mconf = None  # match confidence (i.e., scores0 of the valid matches)
+    def _build_superglue_config(self, opt: dict) -> dict:
+        def_opt = {
+            "weights": "outdoor",
+            "keypoint_threshold": 0.001,
+            "max_keypoints": -1,
+            "match_threshold": 0.3,
+            "force_cpu": False,
+            "nms_radius": NMS_RADIUS,
+            "sinkhorn_iterations": SINKHORN_ITERATIONS,
+        }
+        opt = {**def_opt, **opt}
+        required_keys = [
+            "weights",
+            "keypoint_threshold",
+            "max_keypoints",
+            "match_threshold",
+            "force_cpu",
+        ]
+        check_dict_keys(opt, required_keys)
 
-    def reset(self):
-        """Reset the matcher by clearing the features and matches"""
-        self._mkpts0 = None  # matched keypoints on image 0
-        self._mkpts1 = None  # matched keypoints on image 1
-        self._descriptors0 = None  # descriptors of mkpts on image 0
-        self._descriptors1 = None  # descriptors of mkpts on image 1
-        self._scores0 = None  # scores of mkpts on image 0
-        self._scores1 = None  # scores of mkpts on image 1
-        self._mconf = None  # match confidence (i.e., scores0 of the valid matches)
+        return {
+            "superpoint": {
+                "nms_radius": opt["nms_radius"],
+                "keypoint_threshold": opt["keypoint_threshold"],
+                "max_keypoints": opt["max_keypoints"],
+            },
+            "superglue": {
+                "weights": opt["weights"],
+                "sinkhorn_iterations": opt["sinkhorn_iterations"],
+                "match_threshold": opt["match_threshold"],
+            },
+            "force_cpu": opt["force_cpu"],
+        }
 
     @timeit
     def match(
@@ -552,102 +847,6 @@ class SuperGlueMatcher(ImageMatcherBase):
             self.viz_matches(image0, image1, save_dir / f"matches.png")
 
         self.timer.print("Matching")
-
-    def _resize_images(
-        self, quality: Quality, image0: np.ndarray, image1: np.ndarray
-    ) -> Tuple[np.ndarray]:
-        if quality == Quality.HIGHEST:
-            image0_ = cv2.pyrUp(image0)
-            image1_ = cv2.pyrUp(image1)
-        elif quality == Quality.HIGH:
-            image0_ = image0
-            image1_ = image1
-        elif quality == Quality.MEDIUM:
-            image0_ = cv2.pyrDown(image0)
-            image1_ = cv2.pyrDown(image1)
-        elif quality == Quality.LOW:
-            image0_ = cv2.pyrDown(cv2.pyrDown(image0))
-            image1_ = cv2.pyrDown(cv2.pyrDown(image1))
-        return image0_, image1_
-
-    def _resize_features(
-        self, quality: Quality, features0: feature, features1: feature
-    ) -> Tuple[feature]:
-        if quality == Quality.HIGHEST:
-            features0.keypoints /= 2
-            features1.keypoints /= 2
-        elif quality == Quality.HIGH:
-            pass
-        elif quality == Quality.MEDIUM:
-            features0.keypoints *= 2
-            features1.keypoints *= 2
-        elif quality == Quality.LOW:
-            features0.keypoints *= 4
-            features1.keypoints *= 4
-
-        return features0, features1
-
-    def _tile_selection(
-        self,
-        image0: np.ndarray,
-        image1: np.ndarray,
-        t0_lims: dict,
-        t1_lims: dict,
-        method: TileSelection = TileSelection.PRESELECTION,
-    ):
-        def points_in_rect(points: np.ndarray, rect: np.ndarray) -> np.ndarray:
-            logic = np.all(points > rect[:2], axis=1) & np.all(
-                points < rect[2:], axis=1
-            )
-            return logic
-
-        # default parameters
-        min_matches_per_tile = 10
-
-        # Select tile pairs to match
-        if method == TileSelection.EXHAUSTIVE:
-            logging.info("Matching tiles exaustively")
-            tile_pairs = sorted(product(t0_lims.keys(), t1_lims.keys()))
-        elif method == TileSelection.GRID:
-            logging.info("Matching tiles by regular grid")
-            tile_pairs = sorted(zip(t0_lims.keys(), t1_lims.keys()))
-        elif method == TileSelection.PRESELECTION:
-            logging.info("Matching tiles by preselection tile selection")
-            if image0.shape[0] > 8000:
-                n_down = 4
-            if image0.shape[0] > 4000:
-                n_down = 3
-            elif image0.shape[0] > 2000:
-                n_down = 2
-            else:
-                n_down = 1
-
-            i0 = deepcopy(image0)
-            i1 = deepcopy(image1)
-            for _ in range(n_down):
-                i0 = cv2.pyrDown(i0)
-                i1 = cv2.pyrDown(i1)
-            f0, f1, mtc = self._match_images(i0, i1)
-            vld = mtc > -1
-            kp0 = f0.keypoints[vld]
-            kp1 = f1.keypoints[mtc[vld]]
-            for _ in range(n_down):
-                kp0 *= 2
-                kp1 *= 2
-
-            tile_pairs = []
-            all_pairs = sorted(product(t0_lims.keys(), t1_lims.keys()))
-            for tidx0, tidx1 in all_pairs:
-                lim0 = t0_lims[tidx0]
-                lim1 = t1_lims[tidx1]
-                ret0 = points_in_rect(kp0, lim0)
-                ret1 = points_in_rect(kp1, lim1)
-                ret = ret0 & ret1
-                if sum(ret) > min_matches_per_tile:
-                    tile_pairs.append((tidx0, tidx1))
-            self.timer.update("preselection")
-
-        return tile_pairs
 
     def _match_tiles(
         self,
@@ -767,10 +966,10 @@ class SuperGlueMatcher(ImageMatcherBase):
         scores1_full = scores1_full[unique_idx]
 
         # Create features
-        features0 = feature(
+        features0 = FeaturesBase(
             keypoints=mkpts0_full, descriptors=descriptors0_full, scores=scores0_full
         )
-        features1 = feature(
+        features1 = FeaturesBase(
             keypoints=mkpts1_full, descriptors=descriptors1_full, scores=scores1_full
         )
 
@@ -785,7 +984,7 @@ class SuperGlueMatcher(ImageMatcherBase):
         self,
         image0: np.ndarray,
         image1: np.ndarray,
-    ) -> Tuple[feature, feature, np.ndarray]:
+    ) -> Tuple[FeaturesBase, FeaturesBase, np.ndarray]:
         """Matches keypoints and descriptors in two given images (no matter if they are tiles or full-res images) using the SuperGlue algorithm.
 
         This method takes in two images as Numpy arrays, and returns the matches between keypoints
@@ -796,7 +995,7 @@ class SuperGlueMatcher(ImageMatcherBase):
             image1 (np.ndarray): the second image to match, as Numpy array
 
         Returns:
-            Tuple[feature, feature, np.ndarray]: a tuple containing the features of the first image, the features of the second image, and the matches between them
+            Tuple[FeaturesBase, FeaturesBase, np.ndarray]: a tuple containing the features of the first image, the features of the second image, and the matches between them
         """
 
         if len(image0.shape) > 2:
@@ -811,12 +1010,12 @@ class SuperGlueMatcher(ImageMatcherBase):
             pred_tensor = self.matcher({"image0": tensor0, "image1": tensor1})
         pred = {k: v[0].cpu().numpy() for k, v in pred_tensor.items()}
 
-        features0 = feature(
+        features0 = FeaturesBase(
             keypoints=pred["keypoints0"],
             descriptors=pred["descriptors0"],
             scores=pred["scores0"],
         )
-        features1 = feature(
+        features1 = FeaturesBase(
             keypoints=pred["keypoints1"],
             descriptors=pred["descriptors1"],
             scores=pred["scores1"],
@@ -827,15 +1026,19 @@ class SuperGlueMatcher(ImageMatcherBase):
 
     def _store_features(
         self,
-        features0: feature,
-        features1: feature,
+        features0: FeaturesBase,
+        features1: FeaturesBase,
         matches0: np.ndarray,
         force_overwrite: bool = True,
     ) -> None:
         """Stores keypoints, descriptors and scores of the matches in the object's members."""
 
-        assert isinstance(features0, feature), "features0 must be a feature object"
-        assert isinstance(features1, feature), "features1 must be a feature object"
+        assert isinstance(
+            features0, FeaturesBase
+        ), "features0 must be a FeaturesBase object"
+        assert isinstance(
+            features1, FeaturesBase
+        ), "features1 must be a FeaturesBase object"
         assert hasattr(features0, "keypoints"), "No keypoints found in features0"
         assert hasattr(features1, "keypoints"), "No keypoints found in features1"
 
@@ -858,46 +1061,6 @@ class SuperGlueMatcher(ImageMatcherBase):
         self._scores0 = features0.scores[valid]
         self._scores1 = features1.scores[idx1]
         self._mconf = features0.scores[valid]
-
-    def _filter_matches_by_mask(self, inlMask: np.ndarray) -> None:
-        self._mkpts0 = self._mkpts0[inlMask, :]
-        self._mkpts1 = self._mkpts1[inlMask, :]
-        if self._descriptors0 is not None:
-            self._descriptors0 = self._descriptors0[:, inlMask]
-        if self._descriptors1 is not None:
-            self._descriptors1 = self._descriptors1[:, inlMask]
-        if self._scores0 is not None:
-            self._scores0 = self._scores0[inlMask]
-        if self._scores1 is not None:
-            self._scores1 = self._scores1[inlMask]
-        if self._mconf is not None:
-            self._mconf = self._mconf[inlMask]
-
-    def _viz_matches_mpl(
-        self,
-        image0: np.ndarray,
-        image1: np.ndarray,
-        kpts0: np.ndarray,
-        kpts1: np.ndarray,
-        save_path: str = None,
-        hide_fig: bool = True,
-        **kwargs,
-    ) -> None:
-        colors = kwargs.get("c", kwargs.get("color", ["r", "r"]))
-        if isinstance(colors, str):
-            colors = [colors, colors]
-        s = kwargs.get("s", 5)
-        fig, ax = plt.subplots(1, 2)
-        ax[0].imshow(cv2.cvtColor(image0, cv2.COLOR_BAYER_BG2BGR))
-        ax[0].scatter(kpts0[:, 0], kpts0[:, 1], s=s, c=colors[0])
-        ax[1].imshow(cv2.cvtColor(image1, cv2.COLOR_BAYER_BG2BGR))
-        ax[1].scatter(kpts1[:, 0], kpts1[:, 1], s=s, c=colors[1])
-        if save_path is not None:
-            fig.savefig(save_path)
-        if hide_fig is False:
-            plt.show()
-        else:
-            plt.close(fig)
 
     def viz_matches(
         self,
@@ -1001,9 +1164,9 @@ if __name__ == "__main__":
     matcher.match(
         img0,
         img1,
-        quality=Quality.HIGHEST,
+        quality=Quality.HIGH,
         tile_selection=tile_selection,
-        grid=[5, 4],
+        grid=grid,
         overlap=overlap,
         origin=origin,
         do_viz_matches=True,
