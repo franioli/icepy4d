@@ -616,9 +616,10 @@ if cfg.proc.do_homography_warping:
     do_smoothing = True
     use_median = True
 
-    reference_epoch = list(epoch_dict.values()).index(reference_day)
+    # reference_epoch = list(epoch_dict.values()).index(reference_day)
     cam = cfg.proc.camera_to_warp
-    cam_ref = cameras[reference_epoch][cam]
+    ref_epoch = epoches.get_epoch_by_date(reference_day)
+    cam_ref = ref_epoch.cameras[cam]
 
     for ep in cfg.proc.epoch_to_process:
         # Camera pose smoothing
@@ -636,8 +637,9 @@ if cfg.proc.do_homography_warping:
                     epoch_range = range(ep - 2, ep + 3)
             cam_to_warp = deepcopy(epoch.cameras[cam])
             angles = np.stack(
-                [euler_from_matrix(cameras[e][cam].R) for e in epoch_range], axis=1
+                [euler_from_matrix(epoches.get_epoch_id(e).cameras[cam].R) for e in epoch_range], axis=1
             )
+            
             if use_median:
                 ang = np.median(angles, axis=1)
             else:

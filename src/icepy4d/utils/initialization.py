@@ -312,7 +312,7 @@ class Inizializer:
         NOTE: This function is deprecated. It is kept for backward compatibility with the function MatchingAndTracking that require the full dictionary of features as input. It will be removed in future versions.
         """
         logging.warning(
-            "This function is deprecated. It is kept for backward compatibility with the function MatchingAndTracking that require the full dictionary of features as input. It will be removed in future versions."
+            f"This function {__name__} is deprecated. It is kept for backward compatibility with the function MatchingAndTracking that require the full dictionary of features as input. It will be removed in future versions."
         )
         self.features = {}
         for epoch in self.cfg.proc.epoch_to_process:

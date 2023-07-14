@@ -23,6 +23,8 @@ def geometric_verification(
     enable_degeneracy_check: bool = True,
 ):
     """
+    NOTE: this function is deprecated. Use geometric_verification from icepy4d.matching.geometric_verification instead.
+
     Performs geometric verification of matches on full images using either Pydegensac or MAGSAC++.
 
     Args:
@@ -45,6 +47,10 @@ def geometric_verification(
         The function modifies directly the input Features object by removing the outliers after geoemtric verification.
 
     """
+
+    logging.warning(
+        "This function is deprecated. Use geometric_verification from icepy4d.matching.geometric_verification instead."
+    )
 
     logging.info("Geometric verification of matches on full images...")
     cams = list(features.keys())
