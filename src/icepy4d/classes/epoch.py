@@ -23,11 +23,16 @@ SOFTWARE.
 """
 import logging
 import pickle
-from pathlib import Path
-from typing import Dict, Union
 from datetime import datetime as dt
+from pathlib import Path
+from typing import Dict, Union, TypedDict
 
-import icepy4d.classes as classes
+from .camera import Camera
+from .features import Features
+from .point_cloud import PointCloud
+from .images import Image, ImageDS
+from .targets import Targets
+from .points import Points
 
 
 def parse_str_to_datetime(
@@ -61,11 +66,12 @@ class Epoch:
     def __init__(
         self,
         datetime: Union[str, dt],
-        cameras: classes.Camera = None,
-        images: classes.ImageDS = None,
-        features: classes.Features = None,
-        points: classes.Points = None,
-        point_cloud: classes.PointCloud = None,
+        images: ImageDS = None,
+        cameras: Dict[str, Camera] = None,
+        features: Dict[str, Features] = None,
+        points: Points = None,
+        targets: Targets = None,
+        point_cloud: PointCloud = None,
         epoch_dir: Union[str, Path] = None,
         datetime_format: str = "%Y-%m-%d %H:%M:%S",
     ) -> None:
@@ -79,12 +85,13 @@ class Epoch:
             points (classes.Points): The dictionary of 3D points
         """
         self._datetime = parse_str_to_datetime(datetime, datetime_format)
-        self.cameras = cameras
+        self._epoch_dir = Path(epoch_dir) if epoch_dir else None
         self.images = images
+        self.cameras = cameras
         self.features = features
         self.points = points
+        self.targets = targets
         self.point_cloud = point_cloud
-        self._epoch_dir = Path(epoch_dir) if epoch_dir else None
 
     @property
     def datetime(self):
@@ -94,18 +101,39 @@ class Epoch:
     def epoch_dir(self):
         return self._epoch_dir
 
-    def __repr__(self):
+    @property
+    def date_str(self) -> str:
         """
-        Returns a string representation of the Solution object
+        Returns the date and time of the epoch in a string.
 
         Returns:
-            str: The string representation of the Solution object
+            str: The date and time of the epoch in the format "YYYY:MM:DD HH:MM:SS".
+        """
+        return self._datetime.strftime("%Y:%m:%d")
+
+    @property
+    def time_str(self) -> str:
+        """
+        Returns the time of the epoch as a string.
+
+        Returns:
+            str: The time of the epoch in the format "HH:MM:SS".
+
+        """
+        return self._datetime.strftime("%H:%M:%S")
+
+    def __repr__(self):
+        """
+        Returns a string representation of the Epoch object
+
+        Returns:
+            str: The string representation of the Epoch object
         """
         return f"Epoch {self.datetime}"
 
     def __iter__(self):
         """
-        Returns an iterator over the four dictionaries of Solution object
+        Returns an iterator over the four dictionaries of Epoch object
 
         Yields:
             dict: The dictionary of camera parameters
@@ -120,16 +148,16 @@ class Epoch:
 
     def __hash__(self):
         """
-        Computes the hash value of the Solution object
+        Computes the hash value of the Epoch object
 
         Returns:
-            int: The hash value of the Solution object
+            int: The hash value of the Epoch object
         """
         return hash((self.cameras, self.images, self.features, self.points))
 
     def save_pickle(self, path: Union[str, Path]) -> bool:
         """
-        Saves the Solution object to a binary file
+        Saves the Epoch object to a binary file
 
         Args:
             path (Union[str, Path]): The path to the binary file
@@ -150,7 +178,7 @@ class Epoch:
     @staticmethod
     def read_pickle(path: Union[str, Path], ignore_errors: bool = False):
         """
-        Loads a Solution object from a binary file
+        Load a Epoch object from a binary file
 
         Args:
             path (Union[str, Path]): The path to the binary file
@@ -167,14 +195,15 @@ class Epoch:
                 solution = pickle.load(inp)
             return solution
         except:
-            logging.error("Unable to read Solution from pickle file")
+            logging.error("Unable to read Epoch from pickle file")
             return None
 
 
 class Epoches:
     """Class for storing all the epochs in ICEpy4D processing"""
 
-    def __init__(self) -> None:
+    def __init__(self, starting_epoch: int = 0) -> None:
+        self._starting_epoch = starting_epoch
         self._last_epoch: int = -1
         self._epochs: Dict[int, Epoch] = {}
         self._epoches_map: Dict[int, dt] = {}
@@ -190,16 +219,16 @@ class Epoches:
 
         return f"Epoches with {len(self._epochs)} epochs"
 
-    def __iter__(self):
-        self._elem = 0
-        return self
-
     def __len__(self) -> int:
         """Get number of epoches in the Epoches object"""
         return len(self._epochs)
 
+    def __iter__(self):
+        self._elem = self._starting_epoch
+        return self
+
     def __next__(self):
-        while self._elem < len(self):
+        while self._elem <= self._last_epoch:
             file = self._epochs[self._elem]
             self._elem += 1
             return file
@@ -242,8 +271,10 @@ class Epoches:
         assert (
             epoch.datetime not in self._epoches_map.values()
         ), "Epoch with the same date already exists"
-
-        epoch_id = self._last_epoch + 1
+        if self._last_epoch == -1:
+            epoch_id = self._starting_epoch
+        else:
+            epoch_id = self._last_epoch + 1
         self._epoches_map[epoch_id] = epoch.datetime
         self._epochs[epoch_id] = epoch
         self._last_epoch = epoch_id

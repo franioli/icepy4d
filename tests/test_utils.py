@@ -1,7 +1,4 @@
 import pytest
-import os
-
-from pathlib import Path
 
 from icepy4d.utils import setup_logger
 
