@@ -5,13 +5,12 @@ References:
 - http://openaccess.thecvf.com/content_CVPR_2020/papers/Sarlin_SuperGlue_Learning_Feature_Matching_With_Graph_Neural_Networks_CVPR_2020_paper.pdf
 - https://github.com/magicleap/SuperGluePretrainedNetwork
 """
-import importlib
+
 import logging
 import os
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from dataclasses import dataclass
-from enum import Enum
 from itertools import product
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
@@ -30,6 +29,10 @@ from icepy4d.thirdparty.SuperGlue.models.matching import Matching
 from icepy4d.thirdparty.SuperGlue.models.utils import make_matching_plot
 from icepy4d.utils import AverageTimer, timeit
 
+from .tiler import Tiler
+from .enums import GeometricVerification, Quality, TileSelection
+from .geometric_verification import geometric_verification
+
 matplotlib.use("TkAgg")
 
 
@@ -40,315 +43,12 @@ NMS_RADIUS = 3
 SUPERGLUE_DESC_DIM = 256
 SINKHORN_ITERATIONS = 10
 
-# Set logging level
-LOG_LEVEL = logging.INFO
-logging.basicConfig(
-    format="%(asctime)s | %(name)s | %(levelname)s: %(message)s",
-    level=LOG_LEVEL,
-)
-
-
-class TileSelection(Enum):
-    """Enumeration for tile selection methods."""
-
-    NONE = 0
-    EXHAUSTIVE = 1
-    GRID = 2
-    PRESELECTION = 3
-
-
-class GeometricVerification(Enum):
-    """Enumeration for geometric verification methods."""
-
-    NONE = 1
-    PYDEGENSAC = 2
-    MAGSAC = 3
-
-
-class Quality(Enum):
-    """Enumeration for matching quality."""
-
-    LOW = 1
-    MEDIUM = 2
-    HIGH = 3
-    HIGHEST = 4
-
 
 @dataclass
 class FeaturesBase:
     keypoints: np.ndarray
     descriptors: np.ndarray = None
     scores: np.ndarray = None
-
-
-class Tiler:
-    """
-    Class for dividing an image into tiles.
-    """
-
-    def __init__(
-        self,
-        grid: List[int] = [1, 1],
-        overlap: int = 0,
-        origin: List[int] = [0, 0],
-        max_length: int = 2000,
-    ) -> None:
-        """
-        Initialize class.
-
-        Parameters:
-        - image (Image): The input image.
-        - grid (List[int], default=[1, 1]): List containing the number of rows and number of columns in which to divide the image ([nrows, ncols]).
-        - overlap (int, default=0): Number of pixels of overlap between adjacent tiles.
-        - origin (List[int], default=[0, 0]): List of coordinates [x, y] of the pixel from which the tiling starts (top-left corner of the first tile).
-
-        Returns:
-        None
-        """
-        self._origin = origin
-        self._overlap = overlap
-        self._nrow = grid[0]
-        self._ncol = grid[1]
-        self._limits = None
-        self._tiles = None
-
-    @property
-    def grid(self) -> List[int]:
-        """
-        Get the grid size.
-
-        Returns:
-        List[int]: The number of rows and number of columns in the grid.
-        """
-        return [self._nrow, self._ncol]
-
-    @property
-    def origin(self) -> List[int]:
-        """
-        Get the origin of the tiling.
-
-        Returns:
-        List[int]: The coordinates [x, y] of the pixel from which the tiling starts (top-left corner of the first tile).
-        """
-        return self._origin
-
-    @property
-    def overlap(self) -> int:
-        """
-        Get the overlap size.
-
-        Returns:
-        int: The number of pixels of overlap between adjacent tiles.
-        """
-        return self._overlap
-
-    @property
-    def limits(self) -> Dict[int, tuple]:
-        """
-        Get the tile limits.
-
-        Returns:
-        dict: A dictionary containing the index of each tile and its bounding box coordinates.
-        """
-        return self._limits
-
-    def compute_grid_size(self, max_length: int) -> None:
-        """
-        Compute the best number of rows and columns for the grid based on the maximum length of each tile.
-
-        Parameters:
-        - max_length (int): The maximum length of each tile.
-
-        Returns:
-        None
-
-        NOTE: NOT WORKING. NEEDS TO BE TESTED.
-        """
-        self._nrow = int(np.ceil(self._h / (max_length - self._overlap)))
-        self._ncol = int(np.ceil(self._w / (max_length - self._overlap)))
-
-    def compute_limits_by_grid(self, image: np.ndarray) -> List[int]:
-        """
-        Compute the limits of each tile (i.e., xmin, ymin, xmax, ymax) given the number of rows and columns in the tile grid.
-
-        Returns:
-        List[int]: A list containing the bounding box coordinates of each tile as: [xmin, ymin, xmax, ymax]
-        List[int]: The coordinates [x, y] of the pixel from which the tiling starts (top-left corner of the first tile).
-        """
-
-        self._image = image
-        self._w = image.shape[1]
-        self._h = image.shape[0]
-
-        DX = round((self._w - self._origin[0]) / self._ncol / 10) * 10
-        DY = round((self._h - self._origin[1]) / self._nrow / 10) * 10
-
-        self._limits = {}
-        for col in range(self._ncol):
-            for row in range(self._nrow):
-                tile_idx = np.ravel_multi_index(
-                    (row, col), (self._nrow, self._ncol), order="C"
-                )
-                xmin = max(self._origin[0], col * DX - self._overlap)
-                ymin = max(self._origin[1], row * DY - self._overlap)
-                xmax = xmin + DX + self._overlap - 1
-                ymax = ymin + DY + self._overlap - 1
-                self._limits[tile_idx] = (xmin, ymin, xmax, ymax)
-
-        return self._limits, self._origin
-
-    def extract_patch(self, image: np.ndarray, limits: List[int]) -> np.ndarray:
-        """Extract image patch
-        Parameters
-        __________
-        - limits (List[int]): List containing the bounding box coordinates as: [xmin, ymin, xmax, ymax]
-        __________
-        Return: patch (np.ndarray)
-        """
-        patch = image[
-            limits[1] : limits[3],
-            limits[0] : limits[2],
-        ]
-        return patch
-
-    def read_all_tiles(self) -> None:
-        """
-        Read all tiles and store them in the class instance.
-
-        Returns:
-        None
-        """
-        self._tiles = {}
-        for idx, limit in self._limits.items():
-            self._tiles[idx] = self.extract_patch(self._image, limit)
-
-    def read_tile(self, idx) -> np.ndarray:
-        """
-        Extract and return a tile given its index.
-
-        Parameters:
-        - idx (int): The index of the tile.
-
-        Returns:
-        np.ndarray: The extracted tile.
-        """
-        if self._tiles is None:
-            self._tiles = {}
-        return self.extract_patch(self._image, self._limits[idx])
-
-    def remove_tiles(self, tile_idx=None) -> None:
-        """
-        Remove tiles from the class instance.
-
-        Parameters:
-        - tile_idx: The index of the tile to be removed. If None, remove all tiles.
-
-        Returns:
-        None
-        """
-        if tile_idx is None:
-            self._tiles = {}
-        else:
-            self._tiles[tile_idx] = []
-
-    def display_tiles(self) -> None:
-        """
-        Display all the stored tiles.
-
-        Returns:
-        None
-        """
-        for idx, tile in self._tiles.items():
-            plt.subplot(self.grid[0], self.grid[1], idx + 1)
-            plt.imshow(tile)
-        plt.show()
-
-
-def geometric_verification(
-    mkpts0: np.ndarray = None,
-    mkpts1: np.ndarray = None,
-    method: GeometricVerification = GeometricVerification.PYDEGENSAC,
-    threshold: float = 1,
-    confidence: float = 0.9999,
-    max_iters: int = 10000,
-    laf_consistensy_coef: float = -1.0,
-    error_type: str = "sampson",
-    symmetric_error_check: bool = True,
-    enable_degeneracy_check: bool = True,
-) -> dict:
-    """
-    Computes the fundamental matrix and inliers between the two images using geometric verification.
-
-    Args:
-        method (str): The method used for geometric verification. Can be one of ['pydegensac', 'opencv'].
-        threshold (float): Pixel error threshold for considering a correspondence an inlier.
-        confidence (float): The required confidence level in the results.
-        max_iters (int): The maximum number of iterations for estimating the fundamental matrix.
-        laf_consistensy_coef (float): The weight given to Local Affine Frame (LAF) consistency term for pydegensac.
-        error_type (str): The error function used for computing the residuals in the RANSAC loop.
-        symmetric_error_check (bool): If True, performs an additional check on the residuals in the opposite direction.
-        enable_degeneracy_check (bool): If True, enables the check for degeneracy using SVD.
-
-    Returns:
-        np.ndarray: A Boolean array that masks the correspondences that were identified as inliers.
-
-    TODO: allow input parameters for both pydegensac and MAGSAC.
-
-    """
-
-    assert isinstance(
-        method, GeometricVerification
-    ), "Invalid method. It must be a GeometricVerification enum in GeometricVerification.PYDEGENSAC or GeometricVerification.MAGSAC."
-
-    if method == GeometricVerification.PYDEGENSAC:
-        try:
-            pydegensac = importlib.import_module("pydegensac")
-            fallback = False
-        except:
-            logging.error(
-                "Pydegensac not available. Using MAGSAC++ (OpenCV) for geometric verification."
-            )
-            fallback = True
-
-    if method == GeometricVerification.PYDEGENSAC and not fallback:
-        try:
-            F, inlMask = pydegensac.findFundamentalMatrix(
-                mkpts0,
-                mkpts1,
-                px_th=threshold,
-                conf=confidence,
-                max_iters=max_iters,
-                laf_consistensy_coef=laf_consistensy_coef,
-                error_type=error_type,
-                symmetric_error_check=symmetric_error_check,
-                enable_degeneracy_check=enable_degeneracy_check,
-            )
-            logging.info(
-                f"Pydegensac found {inlMask.sum()} inliers ({inlMask.sum()*100/len(mkpts0):.2f}%)"
-            )
-        except Exception as err:
-            # Fall back to MAGSAC++ if pydegensac fails
-            logging.error(
-                f"{err}. Unable to perform geometric verification with Pydegensac. Trying using MAGSAC++ (OpenCV) instead."
-            )
-            fallback = True
-
-    if method == GeometricVerification.MAGSAC or fallback:
-        try:
-            F, inliers = cv2.findFundamentalMat(
-                mkpts0, mkpts1, cv2.USAC_MAGSAC, 0.5, 0.999, 100000
-            )
-            inlMask = (inliers > 0).squeeze()
-            logging.info(
-                f"MAGSAC++ found {inlMask.sum()} inliers ({inlMask.sum()*100/len(mkpts0):.2f}%)"
-            )
-        except Exception as err:
-            logging.error(
-                f"{err}. Unable to perform geometric verification with MAGSAC++."
-            )
-            inlMask = np.ones(len(mkpts0), dtype=bool)
-
-    return F, inlMask
 
 
 def check_dict_keys(dict: dict, keys: List[str]):
