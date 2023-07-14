@@ -19,7 +19,7 @@
 # agreements explicitly covering such access.
 #
 # The copyright notice above does not evidence any actual or intended
-# publication or disclosure  of  this source code, which includes
+# publication or disclosureplot_image_pair  of  this source code, which includes
 # information that is confidential and/or proprietary, and is a trade
 # secret, of  COMPANY.   ANY REPRODUCTION, MODIFICATION, DISTRIBUTION,
 # PUBLIC  PERFORMANCE, OR PUBLIC DISPLAY OF OR THROUGH USE  OF THIS
