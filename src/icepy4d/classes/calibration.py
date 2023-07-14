@@ -4,6 +4,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 from pathlib import Path
 from typing import List, Tuple, Union
+import platform
 
 import numpy as np
 
@@ -143,14 +144,26 @@ class Calibration:
 
         assert self.path.exists(), "Calibration file does not exist."
 
-        match self.path.suffix:
-            case ".txt":
+        try:
+            match self.path.suffix:
+                case ".txt":
+                    self._read_opencv()
+                case ".xml":
+                    fmt = kwargs.get("format", "metashape")
+                    self._read_xml(format=fmt)
+                # case ".json":
+                #     self._read_json()
+        except:
+            # bakcwards compatibility with Python < 3.10
+            if self.path.suffix == ".txt":
                 self._read_opencv()
-            case ".xml":
+            elif self.path.suffix == ".xml":
                 fmt = kwargs.get("format", "metashape")
                 self._read_xml(format=fmt)
-            # case ".json":
+            # elif self.path.suffix == ".json":
             #     self._read_json()
+            else:
+                raise ValueError("Invalid calibration file format.")
 
     @property
     def K(self):

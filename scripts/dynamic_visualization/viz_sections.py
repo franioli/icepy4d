@@ -6,7 +6,7 @@ from pathlib import Path
 from easydict import EasyDict as edict
 from tqdm import tqdm
 
-import icepy4d.point_cloud_proc.open3d_fun as o3d_fun
+import icepy4d.post_processing.open3d_fun as o3d_fun
 from icepy4d.utils.transformations import belvedere_utm2loc
 
 

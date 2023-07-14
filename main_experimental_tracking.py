@@ -107,7 +107,7 @@ for epoch in cfg.proc.epoch_to_process:
 
         # MIN_MATCHES = 20
 
-        # def features_to_h5(features: icepy4d_classes.FeaturesDictEpoch) -> bool:
+        # def features_to_h5(features: icepy4d_classes.FeaturesDict) -> bool:
         #     key1, key2 = images[cams[0]][epoch], images[cams[1]][epoch]
 
         #     mkpts0 = features[epoch][cams[0]].kpts_to_numpy()
@@ -572,7 +572,7 @@ print("Done.")
 #     for ax, ep in zip(axes, eps):
 #         icepy_viz.plot_feature(
 #             images[cam].read_image(ep).value,
-#             features[ep][cam][fid],
+#             epoch.features[cam][fid],
 #             ax=ax,
 #             zoom_to_feature=True,
 #             s=10,
@@ -588,7 +588,7 @@ print("Done.")
 # # }
 # # for fid in fts.keys():
 # #     for ep in fts[fid]:
-# #         f_tracked[cam].append_feature(features[ep][cam][fid])
+# #         f_tracked[cam].append_feature(epoch.features[cam][fid])
 
 # # fig, axes = plt.subplots(1, 2)
 # # for ax, cam in zip(axes, cams):
@@ -608,7 +608,7 @@ print("Done.")
 # # dense = o3d.io.read_point_cloud("test_out/dense.ply")
 # # xyz = np.asarray(dense.voxel_down_sample(stp).points)
 # ep = 182
-# xyz = points[ep].to_numpy()
+# xyz = epoch.points.to_numpy()
 
 # if viz:
 #     fig, ax = plt.subplots()
@@ -671,7 +671,7 @@ print("Done.")
 # # dense = o3d.io.read_point_cloud("test_out/dense.ply")
 # # pcd = o3d.geometry.PointCloud()
 # # pcd.points = o3d.utility.Vector3dVector(pts)
-# # o3d.visualization.draw_geometries([points[ep].to_point_cloud().pcd, pcd])
+# # o3d.visualization.draw_geometries([epoch.points.to_point_cloud().pcd, pcd])
 
 # pts = fts_df[(fts_df["ep_ini"] >= ep_st) & (fts_df["ep_ini"] < ep_fin)][
 #     ["X_ini", "Y_ini", "Z_ini"]

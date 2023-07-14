@@ -22,11 +22,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-import os
 import logging
+import os
+from datetime import datetime
 from pathlib import Path
 from typing import List, Union
-from datetime import datetime
 
 import cv2
 import exifread
@@ -34,6 +34,7 @@ import numpy as np
 
 from .camera import Camera
 from .sensor_width_database import SensorWidthDatabase
+
 
 
 # @TODO: remove variable number of outputs

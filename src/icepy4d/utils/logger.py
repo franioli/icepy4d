@@ -13,16 +13,14 @@
 #
 # -------------------------------------------------------------------------------
 
-# Imports
-import sys
 import logging
-
+import sys
 from datetime import date, datetime
 from pathlib import Path
 
+
 # Logging formatter supporting colorized output
 class LogFormatter(logging.Formatter):
-
     COLOR_CODES = {
         logging.CRITICAL: "\033[1;35m",  # bright/bold magenta
         logging.ERROR: "\033[1;31m",  # bright/bold red
@@ -57,7 +55,6 @@ def configure_logging(
     logfile_log_color,
     log_line_template,
 ):
-
     # Create logger
     # For simplicity, we use the root logger, i.e. call 'logging.getLogger()'
     # without name argument. This way we can simply use module methods for
@@ -164,7 +161,6 @@ def setup_logger(
 
 # Call main function
 if __name__ == "__main__":
-
     CONSOLE_LOG_LEVEL = "info"
     LOGFILE_LEVEL = "debug"
     LOG_FOLDER = "logs"

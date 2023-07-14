@@ -1,14 +1,13 @@
 import os
-import numpy as np
-
-from typing import Union
-from pathlib import Path
+from collections import defaultdict
+from copy import deepcopy
 from enum import Enum
+from pathlib import Path
+from typing import Union
 
 import h5py
-from collections import defaultdict
+import numpy as np
 import torch
-from copy import deepcopy
 
 import icepy4d.classes as icepy4d_classes
 from icepy4d.thirdparty.transformations import quaternion_from_matrix
@@ -25,7 +24,7 @@ MIN_MATCHES = 20
 
 
 def features_to_h5(
-    features: icepy4d_classes.FeaturesDictEpoch, output_dir: Union[str, Path]
+    features: icepy4d_classes.FeaturesDict, output_dir: Union[str, Path]
 ) -> bool:
     key1, key2 = images[cams[0]][epoch], images[cams[1]][epoch]
 
@@ -91,12 +90,11 @@ def features_to_h5(
 def export_solution_to_colmap(
     export_dir: Union[str, Path],
     im_dict: dict,
-    cameras: icepy4d_classes.CamerasDictEpoch,
-    features: icepy4d_classes.FeaturesDictEpoch,
+    cameras: icepy4d_classes.CamerasDict,
+    features: icepy4d_classes.FeaturesDict,
     points: icepy4d_classes.Points,
     camera_model: CameraModels = CameraModels.OPENCV,
 ) -> bool:
-
     cams = list(cameras.keys())
     export_dir = Path(export_dir)
     export_dir.mkdir(parents=True, exist_ok=True)
