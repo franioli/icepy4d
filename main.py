@@ -186,7 +186,7 @@ if len(sys.argv) > 1:
     )
 else:
     cfg_file = Path(CFG_FILE)
-    icepy4d_utils.setup_logger()
+    icepy4d_utils.setup_logger(console_log_level="info", logfile_level="info")
 
 # Parse configuration file
 logging.info(f"Configuration file: {cfg_file.stem}")
