@@ -1,17 +1,16 @@
-import numpy as np
-import os
 import logging
-
-from pathlib import Path
+import os
 from copy import deepcopy
+from pathlib import Path
 from shutil import copy as scopy
-from typing import Union, List
+from typing import List, Union
 
+import numpy as np
+
+from ..classes import CamerasDict, FeaturesDict
 from ..classes.point_cloud import PointCloud
 from ..classes.points import Points
 from ..classes.targets import Targets
-from ..classes.typed_dict_classes import FeaturesDictEpoch, CamerasDictEpoch
-
 from ..thirdparty.transformations import euler_from_matrix, euler_matrix
 
 
@@ -27,8 +26,8 @@ def create_directory(path):
 def write_bundler_out(
     export_dir: Union[str, Path],
     im_dict: dict,
-    cameras: CamerasDictEpoch,
-    features: FeaturesDictEpoch,
+    cameras: CamerasDict,
+    features: FeaturesDict,
     points: Points,
     targets: Targets = None,
     targets_to_use: List[str] = [],
