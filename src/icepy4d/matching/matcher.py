@@ -359,10 +359,6 @@ def check_dict_keys(dict: dict, keys: List[str]):
         )
 
 
-def frame2tensor(frame, device):
-    return torch.from_numpy(frame / 255.0).float()[None, None].to(device)
-
-
 class ImageMatcherABC(ABC):
     def __init__(self, opt: dict = {}) -> None:
         self._opt = edict(opt)
@@ -410,92 +406,44 @@ class ImageMatcherBase(ImageMatcherABC):
 
     def reset(self):
         """Reset the matcher by clearing the features and matches"""
-        self._mkpts0 = None  # matched keypoints on image 0
-        self._mkpts1 = None  # matched keypoints on image 1
-        self._descriptors0 = None  # descriptors of mkpts on image 0
-        self._descriptors1 = None  # descriptors of mkpts on image 1
-        self._scores0 = None  # scores of mkpts on image 0
-        self._scores1 = None  # scores of mkpts on image 1
-        self._mconf = None  # match confidence (i.e., scores0 of the valid matches)
+        self._mkpts0 = None
+        self._mkpts1 = None
+        self._descriptors0 = None
+        self._descriptors1 = None
+        self._scores0 = None
+        self._scores1 = None
+        self._mconf = None
 
     @property
     def device(self):
-        """
-        Get the device on which the matcher is running.
-
-        Returns:
-            str: The device name.
-        """
         return self._device
 
     @property
     def mkpts0(self):
-        """
-        Get the matched keypoints on image 0.
-
-        Returns:
-            np.ndarray: The matched keypoints on image 0.
-        """
         return self._mkpts0
 
     @property
     def mkpts1(self):
-        """
-        Get the matched keypoints on image 1.
-
-        Returns:
-            np.ndarray: The matched keypoints on image 1.
-        """
         return self._mkpts1
 
     @property
     def descriptors0(self):
-        """
-        Get the descriptors of the matched keypoints on image 0.
-
-        Returns:
-            np.ndarray: The descriptors of the matched keypoints on image 0.
-        """
         return self._descriptors0
 
     @property
     def descriptors1(self):
-        """
-        Get the descriptors of the matched keypoints on image 1.
-
-        Returns:
-            np.ndarray: The descriptors of the matched keypoints on image 1.
-        """
         return self._descriptors1
 
     @property
     def scores0(self):
-        """
-        Get the scores of the matched keypoints on image 0.
-
-        Returns:
-            np.ndarray: The scores of the matched keypoints on image 0.
-        """
         return self._scores0
 
     @property
     def scores1(self):
-        """
-        Get the scores of the matched keypoints on image 1.
-
-        Returns:
-            np.ndarray: The scores of the matched keypoints on image 1.
-        """
         return self._scores1
 
     @property
     def mconf(self):
-        """
-        Get the match confidence (i.e., scores0 of the valid matches).
-
-        Returns:
-            np.ndarray: The match confidence (i.e., scores0 of the valid matches).
-        """
         return self._mconf
 
     def match(
@@ -795,7 +743,6 @@ class SuperGlueMatcher(ImageMatcherBase):
             FileNotFoundError: if the specified SuperGlue model weights file cannot be found
 
         """
-
         opt = self._build_superglue_config(opt)
         super().__init__(opt)
 
@@ -835,6 +782,9 @@ class SuperGlueMatcher(ImageMatcherBase):
             },
             "force_cpu": opt["force_cpu"],
         }
+
+    def _frame2tensor(self, frame, device):
+        return torch.from_numpy(frame / 255.0).float()[None, None].to(device)
 
     @timeit
     def match(
@@ -939,8 +889,8 @@ class SuperGlueMatcher(ImageMatcherBase):
         if len(image1.shape) > 2:
             image1 = cv2.cvtColor(image1, cv2.COLOR_RGB2GRAY)
 
-        tensor0 = frame2tensor(image0, self._device)
-        tensor1 = frame2tensor(image1, self._device)
+        tensor0 = self._frame2tensor(image0, self._device)
+        tensor1 = self._frame2tensor(image1, self._device)
 
         with torch.inference_mode():
             pred_tensor = self.matcher({"image0": tensor0, "image1": tensor1})
@@ -1038,8 +988,8 @@ class SuperGlueMatcher(ImageMatcherBase):
             tile1 = self._tiler.extract_patch(image1, lim1)
 
             # Run SuperGlue on a pair of tiles
-            tensor0 = frame2tensor(tile0, self._device)
-            tensor1 = frame2tensor(tile1, self._device)
+            tensor0 = self._(tile0, self._device)
+            tensor1 = self._frame2tensor(tile1, self._device)
             with torch.inference_mode():
                 pred_tensor = self.matcher({"image0": tensor0, "image1": tensor1})
             pred = {k: v[0].cpu().numpy() for k, v in pred_tensor.items()}
