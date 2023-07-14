@@ -498,18 +498,46 @@ class ImageMatcherBase(ImageMatcherABC):
         """
         return self._mconf
 
-    def match(self):
+    def match(
+        self,
+        image0: np.ndarray,
+        image1: np.ndarray,
+        quality: Quality = Quality.HIGH,
+        tile_selection: TileSelection = TileSelection.NONE,
+        **kwargs,
+    ) -> bool:
         """
-        Matches keypoints between two images. This method must be implemented by the child class.
+        Matches images and performs geometric verification.
+
+        Args:
+            image0: The first input image as a NumPy array.
+            image1: The second input image as a NumPy array.
+            quality: The quality level for resizing images (default: Quality.HIGH).
+            tile_selection: The method for selecting tiles for matching (default: TileSelection.NONE).
+            **kwargs: Additional keyword arguments for customization.
+
+        Returns:
+            A boolean indicating the success of the matching process.
+
         """
         raise NotImplementedError("Subclasses must implement match() method.")
 
-    def _match_images(self):
-        """
-        Matches keypoints between two full-resolution images.
+    def _match_images(
+        self,
+        image0: np.ndarray,
+        image1: np.ndarray,
+    ) -> Tuple[FeaturesBase, FeaturesBase, np.ndarray, np.ndarray]:
+        """Matches keypoints and descriptors in two given images (no matter if they are tiles or full-res images) using the SuperGlue algorithm.
 
-        Raises:
-            NotImplementedError: Subclasses must implement _match_images() method.
+        This method takes in two images as Numpy arrays, and returns the matches between keypoints
+        and descriptors in those images using the SuperGlue algorithm.
+
+        Args:
+            image0 (np.ndarray): the first image to match, as Numpy array
+            image1 (np.ndarray): the second image to match, as Numpy array
+
+        Returns:
+            Tuple[FeaturesBase, FeaturesBase, np.ndarray, np.ndarray]: a tuple containing the features of the first image, the features of the second image, the matches between them and the match confidence.
         """
         raise NotImplementedError(
             "Subclasses must implement _match_full_images() method."
@@ -524,29 +552,121 @@ class ImageMatcherBase(ImageMatcherABC):
         method: TileSelection = TileSelection.PRESELECTION,
     ) -> List[Tuple[int, int]]:
         """
-        Selects tiles to match based on the specified method.
+        Selects tile pairs for matching based on the specified method.
 
         Args:
             image0 (np.ndarray): The first image.
             image1 (np.ndarray): The second image.
-            t0_lims (dict[int, np.ndarray]): The limits of the tiles in image 0.
-            t1_lims (dict[int, np.ndarray]): The limits of the tiles in image 1.
-            method (TileSelection, optional): The method for selecting tiles. Defaults to TileSelection.PRESELECTION.
+            t0_lims (dict[int, np.ndarray]): The limits of tiles in image0.
+            t1_lims (dict[int, np.ndarray]): The limits of tiles in image1.
+            method (TileSelection, optional): The tile selection method. Defaults to TileSelection.PRESELECTION.
 
         Returns:
             List[Tuple[int, int]]: The selected tile pairs.
 
-        Raises:
-            NotImplementedError: Subclasses must implement _tile_selection() method.
         """
-        raise NotImplementedError("Subclasses must implement _tile_selection() method.")
 
-    def _match_tiles(self):
+        def points_in_rect(points: np.ndarray, rect: np.ndarray) -> np.ndarray:
+            logic = np.all(points > rect[:2], axis=1) & np.all(
+                points < rect[2:], axis=1
+            )
+            return logic
+
+        # default parameters
+        min_matches_per_tile = 2
+
+        # Select tile selection method
+        if method == TileSelection.EXHAUSTIVE:
+            # Match all the tiles with all the tiles
+            logging.info("Matching tiles exaustively")
+            tile_pairs = sorted(product(t0_lims.keys(), t1_lims.keys()))
+        elif method == TileSelection.GRID:
+            # Match tiles by regular grid
+            logging.info("Matching tiles by regular grid")
+            tile_pairs = sorted(zip(t0_lims.keys(), t1_lims.keys()))
+        elif method == TileSelection.PRESELECTION:
+            # Match tiles by preselection running matching on downsampled images
+            logging.info("Matching tiles by preselection tile selection")
+            if image0.shape[0] > 8000:
+                n_down = 4
+            if image0.shape[0] > 4000:
+                n_down = 3
+            elif image0.shape[0] > 2000:
+                n_down = 2
+            else:
+                n_down = 1
+
+            # Run inference on downsampled images
+            i0 = deepcopy(image0)
+            i1 = deepcopy(image1)
+            for _ in range(n_down):
+                i0 = cv2.pyrDown(i0)
+                i1 = cv2.pyrDown(i1)
+            f0, f1, mtc, _ = self._match_images(i0, i1)
+            vld = mtc > -1
+            kp0 = f0.keypoints[vld]
+            kp1 = f1.keypoints[mtc[vld]]
+            for _ in range(n_down):
+                kp0 *= 2
+                kp1 *= 2
+
+            # Select tile pairs where there are enough matches
+            tile_pairs = []
+            all_pairs = sorted(product(t0_lims.keys(), t1_lims.keys()))
+            for tidx0, tidx1 in all_pairs:
+                lim0 = t0_lims[tidx0]
+                lim1 = t1_lims[tidx1]
+                ret0 = points_in_rect(kp0, lim0)
+                ret1 = points_in_rect(kp1, lim1)
+                ret = ret0 & ret1
+                if sum(ret) > min_matches_per_tile:
+                    tile_pairs.append((tidx0, tidx1))
+            self.timer.update("preselection")
+
+            # Debug...
+            # c = "r"
+            # s = 5
+            # fig, axes = plt.subplots(1, 2)
+            # for ax, img, kp in zip(axes, [image0, image1], [kp0, kp1]):
+            #     ax.imshow(cv2.cvtColor(img, cv2.COLOR_BAYER_BG2BGR))
+            #     ax.scatter(kp[:, 0], kp[:, 1], s=s, c=c)
+            #     ax.axis("off")
+            # for lim0, lim1 in zip(t0_lims.values(), t1_lims.values()):
+            #     axes[0].axvline(lim0[0])
+            #     axes[0].axhline(lim0[1])
+            #     axes[1].axvline(lim1[0])
+            #     axes[1].axhline(lim1[1])
+            # # axes[1].get_yaxis().set_visible(False)
+            # fig.tight_layout()
+            # plt.show()
+            # fig.savefig("preselection.png")
+            # plt.close()
+
+        return tile_pairs
+
+    def _match_tiles(
+        self,
+        image0: np.ndarray,
+        image1: np.ndarray,
+        tile_selection: TileSelection = TileSelection.PRESELECTION,
+        **kwargs,
+    ) -> Tuple[FeaturesBase, FeaturesBase, np.ndarray, np.ndarray]:
         """
-        Matches keypoints between tiles of two images.
+        Matches tiles in two images and returns the features, matches, and confidence.
 
-        Raises:
-            NotImplementedError: Subclasses must implement _match_tiles() method.
+        Args:
+            image0: The first input image as a NumPy array.
+            image1: The second input image as a NumPy array.
+            tile_selection: The method for selecting tile pairs to match (default: TileSelection.PRESELECTION).
+            **kwargs: Additional keyword arguments for customization.
+
+        Returns:
+            A tuple containing:
+            - features0: FeaturesBase object representing keypoints, descriptors, and scores of image0.
+            - features1: FeaturesBase object representing keypoints, descriptors, and scores of image1.
+            - matches0: NumPy array with indices of matched keypoints in image0.
+            - mconf: NumPy array with confidence scores for the matches.
+
         """
         raise NotImplementedError("Subclasses must implement _match_tiles() method.")
 
@@ -641,7 +761,7 @@ class ImageMatcherBase(ImageMatcherABC):
         colors = kwargs.get("c", kwargs.get("color", ["r", "r"]))
         if isinstance(colors, str):
             colors = [colors, colors]
-        s = kwargs.get("s", 5)
+        s = kwargs.get("s", 2)
         fig, ax = plt.subplots(1, 2)
         ax[0].imshow(cv2.cvtColor(image0, cv2.COLOR_BGR2RGB))
         ax[0].scatter(kpts0[:, 0], kpts0[:, 1], s=s, c=colors[0])
@@ -724,7 +844,21 @@ class SuperGlueMatcher(ImageMatcherBase):
         quality: Quality = Quality.HIGH,
         tile_selection: TileSelection = TileSelection.NONE,
         **kwargs,
-    ):
+    ) -> bool:
+        """
+        Matches images and performs geometric verification.
+
+        Args:
+            image0: The first input image as a NumPy array.
+            image1: The second input image as a NumPy array.
+            quality: The quality level for resizing images (default: Quality.HIGH).
+            tile_selection: The method for selecting tiles for matching (default: TileSelection.NONE).
+            **kwargs: Additional keyword arguments for customization.
+
+        Returns:
+            A boolean indicating the success of the matching process.
+
+        """
         self.timer = AverageTimer()
 
         # Get kwargs
@@ -742,11 +876,11 @@ class SuperGlueMatcher(ImageMatcherBase):
         # Perform matching (on tiles or full images)
         if tile_selection == TileSelection.NONE:
             logging.info("Matching full images...")
-            features0, features1, matches0 = self._match_images(image0_, image1_)
+            features0, features1, matches0, _ = self._match_images(image0_, image1_)
 
         else:
             logging.info("Matching by tiles...")
-            features0, features1, matches0 = self._match_tiles(
+            features0, features1, matches0, _ = self._match_tiles(
                 image0_, image1_, tile_selection, **kwargs
             )
 
@@ -773,18 +907,20 @@ class SuperGlueMatcher(ImageMatcherBase):
             logging.info("Geometric verification done.")
             self.timer.update("geometric_verification")
 
-        save_dir = Path(save_dir)
-        save_dir.mkdir(parents=True, exist_ok=True)
         if do_viz_matches is True:
+            save_dir = Path(save_dir)
+            save_dir.mkdir(parents=True, exist_ok=True)
             self.viz_matches(image0, image1, save_dir / f"matches.png")
 
         self.timer.print("Matching")
+
+        return True
 
     def _match_images(
         self,
         image0: np.ndarray,
         image1: np.ndarray,
-    ) -> Tuple[FeaturesBase, FeaturesBase, np.ndarray]:
+    ) -> Tuple[FeaturesBase, FeaturesBase, np.ndarray, np.ndarray]:
         """Matches keypoints and descriptors in two given images (no matter if they are tiles or full-res images) using the SuperGlue algorithm.
 
         This method takes in two images as Numpy arrays, and returns the matches between keypoints
@@ -795,7 +931,7 @@ class SuperGlueMatcher(ImageMatcherBase):
             image1 (np.ndarray): the second image to match, as Numpy array
 
         Returns:
-            Tuple[FeaturesBase, FeaturesBase, np.ndarray]: a tuple containing the features of the first image, the features of the second image, and the matches between them
+            Tuple[FeaturesBase, FeaturesBase, np.ndarray, np.ndarray]: a tuple containing the features of the first image, the features of the second image, the matches between them and the match confidence.
         """
 
         if len(image0.shape) > 2:
@@ -810,6 +946,7 @@ class SuperGlueMatcher(ImageMatcherBase):
             pred_tensor = self.matcher({"image0": tensor0, "image1": tensor1})
         pred = {k: v[0].cpu().numpy() for k, v in pred_tensor.items()}
 
+        # Create FeaturesBase objects and matching array
         features0 = FeaturesBase(
             keypoints=pred["keypoints0"],
             descriptors=pred["descriptors0"],
@@ -822,103 +959,13 @@ class SuperGlueMatcher(ImageMatcherBase):
         )
         matches0 = pred["matches0"]
 
-        return features0, features1, matches0
+        # Create a match confidence array
+        valid = matches0 > -1
+        mconf = features0.scores[valid]
 
-    def _tile_selection(
-        self,
-        image0: np.ndarray,
-        image1: np.ndarray,
-        t0_lims: dict[int, np.ndarray],
-        t1_lims: dict[int, np.ndarray],
-        method: TileSelection = TileSelection.PRESELECTION,
-    ) -> List[Tuple[int, int]]:
-        """
-        Selects tile pairs for matching based on the specified method.
+        logging.info("Matching completed.")
 
-        Args:
-            image0 (np.ndarray): The first image.
-            image1 (np.ndarray): The second image.
-            t0_lims (dict[int, np.ndarray]): The limits of tiles in image0.
-            t1_lims (dict[int, np.ndarray]): The limits of tiles in image1.
-            method (TileSelection, optional): The tile selection method. Defaults to TileSelection.PRESELECTION.
-
-        Returns:
-            List[Tuple[int, int]]: The selected tile pairs.
-
-        """
-
-        def points_in_rect(points: np.ndarray, rect: np.ndarray) -> np.ndarray:
-            logic = np.all(points > rect[:2], axis=1) & np.all(
-                points < rect[2:], axis=1
-            )
-            return logic
-
-        # default parameters
-        min_matches_per_tile = 10
-
-        # Select tile pairs to match
-        if method == TileSelection.EXHAUSTIVE:
-            logging.info("Matching tiles exaustively")
-            tile_pairs = sorted(product(t0_lims.keys(), t1_lims.keys()))
-        elif method == TileSelection.GRID:
-            logging.info("Matching tiles by regular grid")
-            tile_pairs = sorted(zip(t0_lims.keys(), t1_lims.keys()))
-        elif method == TileSelection.PRESELECTION:
-            logging.info("Matching tiles by preselection tile selection")
-            if image0.shape[0] > 8000:
-                n_down = 4
-            if image0.shape[0] > 4000:
-                n_down = 3
-            elif image0.shape[0] > 2000:
-                n_down = 2
-            else:
-                n_down = 1
-
-            i0 = deepcopy(image0)
-            i1 = deepcopy(image1)
-            for _ in range(n_down):
-                i0 = cv2.pyrDown(i0)
-                i1 = cv2.pyrDown(i1)
-            f0, f1, mtc = self._match_images(i0, i1)
-            vld = mtc > -1
-            kp0 = f0.keypoints[vld]
-            kp1 = f1.keypoints[mtc[vld]]
-            for _ in range(n_down):
-                kp0 *= 2
-                kp1 *= 2
-
-            tile_pairs = []
-            all_pairs = sorted(product(t0_lims.keys(), t1_lims.keys()))
-            for tidx0, tidx1 in all_pairs:
-                lim0 = t0_lims[tidx0]
-                lim1 = t1_lims[tidx1]
-                ret0 = points_in_rect(kp0, lim0)
-                ret1 = points_in_rect(kp1, lim1)
-                ret = ret0 & ret1
-                if sum(ret) > min_matches_per_tile:
-                    tile_pairs.append((tidx0, tidx1))
-            self.timer.update("preselection")
-
-            # Debug...
-            # c = "r"
-            # s = 5
-            # fig, axes = plt.subplots(1, 2)
-            # for ax, img, kp in zip(axes, [image0, image1], [kp0, kp1]):
-            #     ax.imshow(cv2.cvtColor(img, cv2.COLOR_BAYER_BG2BGR))
-            #     ax.scatter(kp[:, 0], kp[:, 1], s=s, c=c)
-            #     ax.axis("off")
-            # for lim0, lim1 in zip(t0_lims.values(), t1_lims.values()):
-            #     axes[0].axvline(lim0[0])
-            #     axes[0].axhline(lim0[1])
-            #     axes[1].axvline(lim1[0])
-            #     axes[1].axhline(lim1[1])
-            # # axes[1].get_yaxis().set_visible(False)
-            # fig.tight_layout()
-            # plt.show()
-            # fig.savefig("preselection.png")
-            # plt.close()
-
-        return tile_pairs
+        return features0, features1, matches0, mconf
 
     def _match_tiles(
         self,
@@ -926,7 +973,27 @@ class SuperGlueMatcher(ImageMatcherBase):
         image1: np.ndarray,
         tile_selection: TileSelection = TileSelection.PRESELECTION,
         **kwargs,
-    ):
+    ) -> Tuple[FeaturesBase, FeaturesBase, np.ndarray, np.ndarray]:
+        """
+        Matches tiles in two images and returns the features, matches, and confidence.
+
+        Args:
+            image0: The first input image as a NumPy array.
+            image1: The second input image as a NumPy array.
+            tile_selection: The method for selecting tile pairs to match (default: TileSelection.PRESELECTION).
+            **kwargs: Additional keyword arguments for customization.
+
+        Returns:
+            A tuple containing:
+            - features0: FeaturesBase object representing keypoints, descriptors, and scores of image0.
+            - features1: FeaturesBase object representing keypoints, descriptors, and scores of image1.
+            - matches0: NumPy array with indices of matched keypoints in image0.
+            - mconf: NumPy array with confidence scores for the matches.
+
+        Raises:
+            AssertionError: If image0 or image1 is not a NumPy array.
+
+        """
         assert isinstance(image0, np.ndarray), "image0 must be a NumPy array"
         assert isinstance(image1, np.ndarray), "image1 must be a NumPy array"
 
@@ -1049,9 +1116,13 @@ class SuperGlueMatcher(ImageMatcherBase):
         # Create a 1-to-1 matching array
         matches0 = np.arange(mkpts0_full.shape[0])
 
+        # Create a match confidence array
+        valid = matches0 > -1
+        mconf = features0.scores[valid]
+
         logging.info("Matching by tile completed.")
 
-        return features0, features1, matches0
+        return features0, features1, matches0, mconf
 
     def _store_features(
         self,
@@ -1190,6 +1261,277 @@ class LOFTRMatcher(ImageMatcherBase):
         image0: np.ndarray,
         image1: np.ndarray,
         quality: Quality = Quality.HIGH,
+        tile_selection: TileSelection = TileSelection.NONE,
+        **kwargs,
+    ) -> bool:
+        """
+        Matches images and performs geometric verification.
+
+        Args:
+            image0: The first input image as a NumPy array.
+            image1: The second input image as a NumPy array.
+            quality: The quality level for resizing images (default: Quality.HIGH).
+            tile_selection: The method for selecting tiles for matching (default: TileSelection.NONE).
+            **kwargs: Additional keyword arguments for customization.
+
+        Returns:
+            A boolean indicating the success of the matching process.
+
+        """
+        self.timer = AverageTimer()
+
+        # Get kwargs
+        do_viz_matches = kwargs.get("do_viz_matches", False)
+        save_dir = kwargs.get("save_dir", ".")
+        gv_method = kwargs.get(
+            "geometric_verification", GeometricVerification.PYDEGENSAC
+        )
+        threshold = kwargs.get("threshold", 1)
+        confidence = kwargs.get("confidence", 0.9999)
+
+        # Resize images if needed
+        image0_, image1_ = self._resize_images(quality, image0, image1)
+
+        # Perform matching (on tiles or full images)
+        if tile_selection == TileSelection.NONE:
+            logging.info("Matching full images...")
+            features0, features1, matches0, mconf = self._match_images(image0_, image1_)
+
+        else:
+            logging.info("Matching by tiles...")
+            features0, features1, matches0, mconf = self._match_tiles(
+                image0_, image1_, tile_selection, **kwargs
+            )
+
+        # Retrieve original image coordinates if matching was performed on up/down-sampled images
+        features0, features1 = self._resize_features(quality, features0, features1)
+
+        # Store features as class members
+        self._mkpts0 = features0.keypoints
+        self._mkpts1 = features1.keypoints
+        self._mconf = mconf
+        self.timer.update("matching")
+        logging.info("Matching done!")
+
+        if do_viz_matches is True:
+            save_dir = Path(save_dir)
+            save_dir.mkdir(parents=True, exist_ok=True)
+            self._viz_matches_mpl(
+                image0, image1, self._mkpts0, self._mkpts1, save_dir / f"matches.png"
+            )
+
+        # Perform geometric verification
+        logging.info("Performing geometric verification...")
+        if gv_method is not GeometricVerification.NONE:
+            F, inlMask = geometric_verification(
+                self._mkpts0,
+                self._mkpts1,
+                method=gv_method,
+                confidence=confidence,
+                threshold=threshold,
+            )
+            self._F = F
+            self._filter_matches_by_mask(inlMask)
+            logging.info("Geometric verification done.")
+            self.timer.update("geometric_verification")
+
+        if do_viz_matches is True:
+            save_dir = Path(save_dir)
+            save_dir.mkdir(parents=True, exist_ok=True)
+            self._viz_matches_mpl(
+                image0,
+                image1,
+                self._mkpts0,
+                self._mkpts1,
+                save_dir / f"matches_valid.png",
+            )
+
+        self.timer.print("Matching")
+
+        return True
+
+    def _match_images(
+        self,
+        image0: np.ndarray,
+        image1: np.ndarray,
+    ) -> Tuple[FeaturesBase, FeaturesBase, np.ndarray, np.ndarray]:
+        """Matches keypoints and descriptors in two given images (no matter if they are tiles or full-res images) using the SuperGlue algorithm.
+
+        This method takes in two images as Numpy arrays, and returns the matches between keypoints
+        and descriptors in those images using the SuperGlue algorithm.
+
+        Args:
+            image0 (np.ndarray): the first image to match, as Numpy array
+            image1 (np.ndarray): the second image to match, as Numpy array
+
+        Returns:
+            Tuple[FeaturesBase, FeaturesBase, np.ndarray, np.ndarray]: a tuple containing the features of the first image, the features of the second image, the matches between them and the match confidence.
+        """
+
+        # Covert images to tensor
+        timg0_ = self._img_to_tensor(image0)
+        timg1_ = self._img_to_tensor(image1)
+
+        # Run inference
+        with torch.inference_mode():
+            input_dict = {"image0": timg0_, "image1": timg1_}
+            correspondences = self.matcher(input_dict)
+
+        # Get matches and build features
+        mkpts0 = correspondences["keypoints0"].cpu().numpy()
+        mkpts1 = correspondences["keypoints1"].cpu().numpy()
+        features0 = FeaturesBase(keypoints=mkpts0)
+        features1 = FeaturesBase(keypoints=mkpts1)
+
+        # Get match confidence
+        mconf = correspondences["confidence"].cpu().numpy()
+
+        # Create a 1-to-1 matching array
+        matches0 = np.arange(mkpts0.shape[0])
+
+        return features0, features1, matches0, mconf
+
+    def _match_tiles(
+        self,
+        image0: np.ndarray,
+        image1: np.ndarray,
+        tile_selection: TileSelection = TileSelection.PRESELECTION,
+        **kwargs,
+    ) -> Tuple[FeaturesBase, FeaturesBase, np.ndarray, np.ndarray]:
+        """
+        Matches tiles in two images and returns the features, matches, and confidence.
+
+        Args:
+            image0: The first input image as a NumPy array.
+            image1: The second input image as a NumPy array.
+            tile_selection: The method for selecting tile pairs to match (default: TileSelection.PRESELECTION).
+            **kwargs: Additional keyword arguments for customization.
+
+        Returns:
+            A tuple containing:
+            - features0: FeaturesBase object representing keypoints, descriptors, and scores of image0.
+            - features1: FeaturesBase object representing keypoints, descriptors, and scores of image1.
+            - matches0: NumPy array with indices of matched keypoints in image0.
+            - mconf: NumPy array with confidence scores for the matches.
+
+        """
+        # Get kwargs
+        grid = kwargs.get("grid", [1, 1])
+        overlap = kwargs.get("overlap", 0)
+        origin = kwargs.get("origin", [0, 0])
+        do_viz_tiles = kwargs.get("do_viz_tiles", False)
+
+        # Compute tiles limits and origin
+        self._tiler = Tiler(grid=grid, overlap=overlap, origin=origin)
+        t0_lims, t0_origin = self._tiler.compute_limits_by_grid(image0)
+        t1_lims, t1_origin = self._tiler.compute_limits_by_grid(image1)
+
+        # Select tile pairs to match
+        tile_pairs = self._tile_selection(
+            image0, image1, t0_lims, t1_lims, tile_selection
+        )
+
+        # Initialize empty array for storing matched keypoints, descriptors and scores
+        mkpts0_full = np.array([], dtype=np.float32).reshape(0, 2)
+        mkpts1_full = np.array([], dtype=np.float32).reshape(0, 2)
+        conf_full = np.array([], dtype=np.float32)
+
+        # Match each tile pair
+        for tidx0, tidx1 in tile_pairs:
+            logging.info(f" - Matching tile pair ({tidx0}, {tidx1})")
+
+            lim0 = t0_lims[tidx0]
+            lim1 = t1_lims[tidx1]
+            tile0 = self._tiler.extract_patch(image0, lim0)
+            tile1 = self._tiler.extract_patch(image1, lim1)
+
+            # Covert patch to tensor
+            timg0_ = self._img_to_tensor(tile0)
+            timg1_ = self._img_to_tensor(tile1)
+
+            # Run inference
+            with torch.inference_mode():
+                input_dict = {"image0": timg0_, "image1": timg1_}
+                correspondences = self.matcher(input_dict)
+
+            # Get matches and build features
+            mkpts0 = correspondences["keypoints0"].cpu().numpy()
+            mkpts1 = correspondences["keypoints1"].cpu().numpy()
+
+            # Get match confidence
+            conf = correspondences["confidence"].cpu().numpy()
+
+            # Append to full arrays
+            mkpts0_full = np.vstack(
+                (mkpts0_full, mkpts0 + np.array(lim0[0:2]).astype("float32"))
+            )
+            mkpts1_full = np.vstack(
+                (mkpts1_full, mkpts1 + np.array(lim1[0:2]).astype("float32"))
+            )
+            conf_full = np.concatenate((conf_full, conf))
+
+            # Plot matches on tile
+            save_dir = kwargs.get("save_dir", ".")
+            save_dir = Path(save_dir)
+            save_dir.mkdir(parents=True, exist_ok=True)
+            if do_viz_tiles is True:
+                self._viz_matches_mpl(
+                    tile0,
+                    tile1,
+                    mkpts0,
+                    mkpts1,
+                    save_dir / f"matches_tile_{tidx0}-{tidx1}.png",
+                )
+
+        logging.info("Restoring full image coordinates of matches...")
+
+        # Restore original image coordinates (not cropped)
+        mkpts0_full = mkpts0_full + np.array(t0_origin).astype("float32")
+        mkpts1_full = mkpts1_full + np.array(t1_origin).astype("float32")
+
+        # Select uniue features on image 0, on rounded coordinates
+        decimals = 1
+        _, unique_idx = np.unique(
+            np.round(mkpts0_full, decimals), axis=0, return_index=True
+        )
+        mkpts0_full = mkpts0_full[unique_idx]
+        mkpts1_full = mkpts1_full[unique_idx]
+        conf_full = conf_full[unique_idx]
+
+        # Create features
+        features0 = FeaturesBase(keypoints=mkpts0_full)
+        features1 = FeaturesBase(keypoints=mkpts1_full)
+
+        # Create a 1-to-1 matching array
+        matches0 = np.arange(mkpts0_full.shape[0])
+
+        logging.info("Matching by tile completed.")
+
+        return features0, features1, matches0, conf_full
+
+
+class LightGlueMatcher(ImageMatcherBase):
+    def __init__(self, opt: dict = {}) -> None:
+        """Initializes a LOFTRMatcher with Kornia object with the given options dictionary."""
+
+        opt = self._build_config(opt)
+        super().__init__(opt)
+
+        self.matcher = KF.LoFTR(pretrained="outdoor").to(self.device).eval()
+
+    def _img_to_tensor(self, image: np.ndarray) -> torch.Tensor:
+        image = K.image_to_tensor(np.array(image), False).float() / 255.0
+        image = K.color.bgr_to_rgb(image.to(self.device))
+        if image.shape[1] > 2:
+            image = K.color.rgb_to_grayscale(image)
+        return image
+
+    @timeit
+    def match(
+        self,
+        image0: np.ndarray,
+        image1: np.ndarray,
+        quality: Quality = Quality.HIGH,
         tile_selection: TileSelection = TileSelection.PRESELECTION,
         **kwargs,
     ):
@@ -1228,6 +1570,13 @@ class LOFTRMatcher(ImageMatcherBase):
         self.timer.update("matching")
         logging.info("Matching done!")
 
+        if do_viz_matches is True:
+            save_dir = Path(save_dir)
+            save_dir.mkdir(parents=True, exist_ok=True)
+            self._viz_matches_mpl(
+                image0, image1, self._mkpts0, self._mkpts1, save_dir / f"matches.png"
+            )
+
         # Perform geometric verification
         logging.info("Performing geometric verification...")
         if gv_method is not GeometricVerification.NONE:
@@ -1243,11 +1592,15 @@ class LOFTRMatcher(ImageMatcherBase):
             logging.info("Geometric verification done.")
             self.timer.update("geometric_verification")
 
-        save_dir = Path(save_dir)
-        save_dir.mkdir(parents=True, exist_ok=True)
         if do_viz_matches is True:
+            save_dir = Path(save_dir)
+            save_dir.mkdir(parents=True, exist_ok=True)
             self._viz_matches_mpl(
-                image0, image1, self._mkpts0, self._mkpts1, save_dir / f"matches.png"
+                image0,
+                image1,
+                self._mkpts0,
+                self._mkpts1,
+                save_dir / f"matches_valid.png",
             )
 
         self.timer.print("Matching")
@@ -1256,7 +1609,7 @@ class LOFTRMatcher(ImageMatcherBase):
         self,
         image0: np.ndarray,
         image1: np.ndarray,
-    ) -> Tuple[FeaturesBase, FeaturesBase, np.ndarray]:
+    ) -> Tuple[FeaturesBase, FeaturesBase, np.ndarray, np.ndarray]:
         """Matches keypoints and descriptors in two given images (no matter if they are tiles or full-res images) using the SuperGlue algorithm.
 
         This method takes in two images as Numpy arrays, and returns the matches between keypoints
@@ -1323,7 +1676,7 @@ class LOFTRMatcher(ImageMatcherBase):
             return logic
 
         # default parameters
-        min_matches_per_tile = 10
+        min_matches_per_tile = 2
 
         # Select tile pairs to match
         if method == TileSelection.EXHAUSTIVE:
