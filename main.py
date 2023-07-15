@@ -112,24 +112,18 @@ def compute_reprojection_error(fname, epoch, sep=","):
         residuals[f"norm_{cam_key}"] = res_norm
 
     # Compute global norm as mean of all cameras
-    residuals["global_norm"] = np.mean(
-        residuals[[f"norm_{x}" for x in cams]].to_numpy(), axis=1
-    )
+    residuals["global_norm"] = np.mean(residuals[[f"norm_{x}" for x in cams]].to_numpy(), axis=1)
     res_stas = residuals.describe()
     res_stas_s = res_stas.stack()
 
     if not Path(fname).exists():
         with open(cfg.residuals_fname, "w") as f:
             header_line = (
-                "ep"
-                + sep
-                + f"{sep}".join([f"{x[0]}-{x[1]}" for x in res_stas_s.index.to_list()])
+                "ep" + sep + f"{sep}".join([f"{x[0]}-{x[1]}" for x in res_stas_s.index.to_list()])
             )
             f.write(header_line + "\n")
     with open(fname, "a") as f:
-        line = (
-            epoch_dict[ep] + sep + f"{sep}".join([str(x) for x in res_stas_s.to_list()])
-        )
+        line = epoch_dict[ep] + sep + f"{sep}".join([str(x) for x in res_stas_s.to_list()])
         f.write(line + "\n")
 
 
@@ -162,7 +156,7 @@ def make_matching_plot(epoch, out_dir, show_fig=False):
     out_dir = Path(out_dir)
     out_dir.mkdir(exist_ok=True, parents=True)
     fig.savefig(
-        out_dir / f"matches_{epoch.datetime.strftime('%Y_%m_%d')}.png",
+        out_dir / f"matches_{epoch.timestamp.strftime('%Y_%m_%d')}.png",
         dpi=300,
     )
 
@@ -210,43 +204,36 @@ iter = 0  # necessary only for printing the number of processed iteration
 for ep in cfg.proc.epoch_to_process:
     logging.info("------------------------------------------------------")
     logging.info(
-        f"""Processing epoch {ep} 
-        [{iter}/{cfg.proc.epoch_to_process[-1]-cfg.proc.epoch_to_process[0]}]
-        - {epoch_dict[ep]}..."""
+        f"""Processing epoch {ep} [{iter}/{cfg.proc.epoch_to_process[-1]-cfg.proc.epoch_to_process[0]}] - {epoch_dict[ep]}..."""
     )
     iter += 1
-    epochdir = Path(cfg.paths.results_dir) / epoch_dict[ep]
+    epochdir = cfg.paths.results_dir / epoch_dict[ep]
     match_dir = epochdir / "matching"
 
     # Load existing epcoh
     if LOAD_EXISTING_SOLUTION:
-        path = f"{epochdir}/{epoch_dict[ep]}.pickle"
-        logging.info(f"Loading epoch from {path}")
-        epoch = Epoch.read_pickle(path, ignore_errors=True)
-        if epoch is not None:
-            epoches.add_epoch(epoch)
-            logging.info("Epoch loaded.")
-
-            # matches_fig_dir = "res/fig_for_paper/matches_fig"
-            # make_matching_plot(epoch, epoch, matches_fig_dir, show_fig=False)
-
-            del epoch
-            continue
-        else:
-            logging.error("Unable to import epoch.")
+        path = epochdir / f"{epoch_dict[ep]}.pickle"
+        epoch = Epoch.read_pickle(path)
+        epoches.add_epoch(epoch)
+        # matches_fig_dir = "res/fig_for_paper/matches_fig"
+        # make_matching_plot(epoch, epoch, matches_fig_dir, show_fig=False)
+        logging.info(f"Epoch {epoch.timestamp} loaded.")
+        del epoch
+        continue
     else:
         # Create new epoch
         epoch = inizializer.init_epoch(epoch_id=ep, epoch_dir=epochdir)
         epoches.add_epoch(epoch)
 
-        features_old = MatchingAndTracking(
-            cfg=cfg,
-            epoch=ep,
-            images=images,
-            features=features_old,
-            epoch_dict=epoch_dict,
-        )
-        epoch.features = features_old[ep]
+    # --- Matching and Tracking ---#
+    features_old = MatchingAndTracking(
+        cfg=cfg,
+        epoch=ep,
+        images=images,
+        features=features_old,
+        epoch_dict=epoch_dict,
+    )
+    epoch.features = features_old[ep]
 
     # Run additional matching on selected patches:
     if DO_ADDITIONAL_MATCHING:
@@ -270,8 +257,7 @@ for ep in cfg.proc.epoch_to_process:
                 geometric_verification_threshold=10,
                 viz_results=True,
                 fast_viz=True,
-                viz_path=match_dir
-                / f"{im_stems[0]}_{im_stems[1]}_matches_patch_{i}.png",
+                viz_path=match_dir / f"{im_stems[0]}_{im_stems[1]}_matches_patch_{i}.png",
             )
 
         # Run again geometric verification
@@ -291,7 +277,7 @@ for ep in cfg.proc.epoch_to_process:
     # --- Perform Relative orientation of the two cameras ---#
     # Initialize RelativeOrientation class with a list containing the two
     # cameras and a list contaning the matched features location on each camera.
-    # @TODO: decide wheter to do a deep copy of the arguments or directly 
+    # @TODO: decide wheter to do a deep copy of the arguments or directly
     # modify them in the function (and state it in docs).
     relative_ori = sfm.RelativeOrientation(
         [epoch.cameras[cams[0]], epoch.cameras[cams[1]]],
@@ -311,9 +297,9 @@ for ep in cfg.proc.epoch_to_process:
     epoch.cameras[cams[1]] = relative_ori.cameras[1]
 
     # --- Triangulate Points ---#
-    # Initialize a Triangulate class instance with a list containing the two 
-    # cameras and a list contaning the matched features location on each 
-    # camera. Triangulated points are saved as points3d proprierty of the 
+    # Initialize a Triangulate class instance with a list containing the two
+    # cameras and a list contaning the matched features location on each
+    # camera. Triangulated points are saved as points3d proprierty of the
     # Triangulate object (eg., triangulation.points3d)
     triang = sfm.Triangulate(
         [epoch.cameras[cams[0]], epoch.cameras[cams[1]]],
@@ -330,23 +316,19 @@ for ep in cfg.proc.epoch_to_process:
     # --- Absolute orientation (-> coregistration on stable points) ---#
     if cfg.proc.do_coregistration:
         # Get targets available in all cameras
-        # Labels of valid targets are returned as second element by 
+        # Labels of valid targets are returned as second element by
         # get_image_coor_by_label() method
-        valid_targets = epoch.targets.get_image_coor_by_label(
-            cfg.georef.targets_to_use, cam_id=0
-        )[1]
+        valid_targets = epoch.targets.get_image_coor_by_label(cfg.georef.targets_to_use, cam_id=0)[
+            1
+        ]
         for id in range(1, len(cams)):
             assert (
                 valid_targets
-                == epoch.targets.get_image_coor_by_label(
-                    cfg.georef.targets_to_use, cam_id=id
-                )[1]
+                == epoch.targets.get_image_coor_by_label(cfg.georef.targets_to_use, cam_id=id)[1]
             ), f"""epoch {ep} - {epoch_dict[ep]}: 
             Different targets found in image {id} - {images[cams[id]][ep]}"""
         if len(valid_targets) < 1:
-            logging.error(
-                f"Not enough targets found. Skipping epoch {ep} and moving to next epoch"
-            )
+            logging.error(f"Not enough targets found. Skipping epoch {ep} and moving to next epoch")
             continue
         if valid_targets != cfg.georef.targets_to_use:
             logging.warning(f"Not all targets found. Using onlys {valid_targets}")
@@ -426,8 +408,8 @@ for ep in cfg.proc.epoch_to_process:
         # for i, cam in enumerate(cams):
         #     focals[cam][ep] = ms_reader.get_focal_lengths()[i]
 
-        # Assign camera extrinsics and intrinsics estimated in Metashape to 
-        # Camera Object (assignation is done manaully @TODO automatic K and 
+        # Assign camera extrinsics and intrinsics estimated in Metashape to
+        # Camera Object (assignation is done manaully @TODO automatic K and
         # extrinsics matrixes to assign correct camera by camera label)
         new_K = ms_reader.get_K()
         epoch.cameras[cams[0]].update_K(new_K[1])
@@ -546,10 +528,7 @@ if cfg.proc.do_homography_warping:
                     epoch_range = range(ep - 2, ep + 3)
             cam_to_warp = deepcopy(epoch.cameras[cam])
             angles = np.stack(
-                [
-                    euler_from_matrix(epoches.get_epoch_id(e).cameras[cam].R)
-                    for e in epoch_range
-                ],
+                [euler_from_matrix(epoches.get_epoch_id(e).cameras[cam].R) for e in epoch_range],
                 axis=1,
             )
 
