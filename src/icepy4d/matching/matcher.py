@@ -1,5 +1,6 @@
 """SuperGlue matcher implementation
-The network was proposed in 'SuperGlue: Learning Feature Matching with Graph Neural Networks' and is implemented by wrapping over author's source-code.
+The network was proposed in 'SuperGlue: Learning Feature Matching with Graph
+Neural Networks' and is implemented by wrapping over author's source-code.
 Note: the pretrained model only supports SuperPoint detections currently.
 References:
 - http://openaccess.thecvf.com/content_CVPR_2020/papers/Sarlin_SuperGlue_Learning_Feature_Matching_With_Graph_Neural_Networks_CVPR_2020_paper.pdf
@@ -13,7 +14,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from itertools import product
 from pathlib import Path
-from typing import Dict, List, Tuple, Union
+from typing import List, Tuple
 
 import cv2
 import kornia as K
@@ -29,12 +30,11 @@ from icepy4d.thirdparty.SuperGlue.models.matching import Matching
 from icepy4d.thirdparty.SuperGlue.models.utils import make_matching_plot
 from icepy4d.utils import AverageTimer, timeit
 
-from .tiler import Tiler
-from .enums import GeometricVerification, Quality, TileSelection
-from .geometric_verification import geometric_verification
+from icepy4d.matching.enums import GeometricVerification, Quality, TileSelection
+from icepy4d.matching.geometric_verification import geometric_verification
+from icepy4d.matching.tiling import Tiler
 
 matplotlib.use("TkAgg")
-
 
 # TODO: use KORNIA for image tiling
 
@@ -90,12 +90,11 @@ class ImageMatcherBase(ImageMatcherABC):
         if not isinstance(opt, dict):
             raise TypeError("opt must be a dictionary")
         self._opt = edict(opt)
-        self._device = (
-            "cuda" if torch.cuda.is_available() and not opt.get("force_cpu") else "cpu"
-        )
+        self._device = "cuda" if torch.cuda.is_available() and not opt.get("force_cpu") else "cpu"
         logging.info(f"Running inference on device {self._device}")
 
-        # Inizialize additional variable members for storing matched keypoints descriptors and scores
+        # Inizialize additional variable members for storing matched
+        # keypoints descriptors and scores
         self._mkpts0 = None  # matched keypoints on image 0
         self._mkpts1 = None  # matched keypoints on image 1
         self._descriptors0 = None  # descriptors of mkpts on image 0
@@ -146,6 +145,58 @@ class ImageMatcherBase(ImageMatcherABC):
     def mconf(self):
         return self._mconf
 
+    def _match_images(
+        self,
+        image0: np.ndarray,
+        image1: np.ndarray,
+    ) -> Tuple[FeaturesBase, FeaturesBase, np.ndarray, np.ndarray]:
+        """Matches keypoints and descriptors in two given images (no
+        matter if they are tiles or full-res images) using the
+        SuperGlue algorithm.
+
+        This method takes in two images as Numpy arrays, and returns
+        the matches between keypoints
+        and descriptors in those images using the SuperGlue algorithm.
+
+        Args:
+            image0 (np.ndarray): the first image to match, as Numpy array
+            image1 (np.ndarray): the second image to match, as Numpy array
+
+        Returns:
+            Tuple[FeaturesBase, FeaturesBase, np.ndarray, np.ndarray]: a
+            tuple containing the features of the first image, the features
+            of the second image, the matches between them and the match
+            confidence.
+        """
+        raise NotImplementedError("Subclasses must implement _match_full_images() method.")
+
+    def _match_tiles(
+        self,
+        image0: np.ndarray,
+        image1: np.ndarray,
+        tile_selection: TileSelection = TileSelection.PRESELECTION,
+        **kwargs,
+    ) -> Tuple[FeaturesBase, FeaturesBase, np.ndarray, np.ndarray]:
+        """
+        Matches tiles in two images and returns the features, matches, and confidence.
+
+        Args:
+            image0: The first input image as a NumPy array.
+            image1: The second input image as a NumPy array.
+            tile_selection: The method for selecting tile pairs to match (default: TileSelection.PRESELECTION).
+            **kwargs: Additional keyword arguments for customization.
+
+        Returns:
+            A tuple containing:
+            - features0: FeaturesBase object representing keypoints, descriptors, and scores of image0.
+            - features1: FeaturesBase object representing keypoints, descriptors, and scores of image1.
+            - matches0: NumPy array with indices of matched keypoints in image0.
+            - mconf: NumPy array with confidence scores for the matches.
+
+        """
+        raise NotImplementedError("Subclasses must implement _match_tiles() method.")
+
+    @timeit
     def match(
         self,
         image0: np.ndarray,
@@ -168,28 +219,70 @@ class ImageMatcherBase(ImageMatcherABC):
             A boolean indicating the success of the matching process.
 
         """
-        raise NotImplementedError("Subclasses must implement match() method.")
+        self.timer = AverageTimer()
 
-    def _match_images(
-        self,
-        image0: np.ndarray,
-        image1: np.ndarray,
-    ) -> Tuple[FeaturesBase, FeaturesBase, np.ndarray, np.ndarray]:
-        """Matches keypoints and descriptors in two given images (no matter if they are tiles or full-res images) using the SuperGlue algorithm.
+        # Get kwargs
+        do_viz_matches = kwargs.get("do_viz_matches", False)
+        save_dir = kwargs.get("save_dir", ".")
+        gv_method = kwargs.get("geometric_verification", GeometricVerification.PYDEGENSAC)
+        threshold = kwargs.get("threshold", 1)
+        confidence = kwargs.get("confidence", 0.9999)
 
-        This method takes in two images as Numpy arrays, and returns the matches between keypoints
-        and descriptors in those images using the SuperGlue algorithm.
+        # Resize images if needed
+        image0_, image1_ = self._resize_images(quality, image0, image1)
 
-        Args:
-            image0 (np.ndarray): the first image to match, as Numpy array
-            image1 (np.ndarray): the second image to match, as Numpy array
+        # Perform matching (on tiles or full images)
+        if tile_selection == TileSelection.NONE:
+            logging.info("Matching full images...")
+            features0, features1, matches0, mconf = self._match_images(image0_, image1_)
 
-        Returns:
-            Tuple[FeaturesBase, FeaturesBase, np.ndarray, np.ndarray]: a tuple containing the features of the first image, the features of the second image, the matches between them and the match confidence.
-        """
-        raise NotImplementedError(
-            "Subclasses must implement _match_full_images() method."
-        )
+        else:
+            logging.info("Matching by tiles...")
+            features0, features1, matches0, mconf = self._match_tiles(
+                image0_, image1_, tile_selection, **kwargs
+            )
+
+        # Retrieve original image coordinates if matching was performed on up/down-sampled images
+        features0, features1 = self._resize_features(quality, features0, features1)
+
+        # Store features as class members
+        try:
+            self._store_features(features0, features1, matches0)
+            self._mconf = mconf
+        except Exception as e:
+            logging.error(
+                f"""Error storing matches: {e}. 
+                Implement your own _store_features() method if the
+                output of your matcher is different from FeaturesBase."""
+            )
+        self.timer.update("matching")
+        logging.info("Matching done!")
+
+        # Perform geometric verification
+        logging.info("Performing geometric verification...")
+        if gv_method is not GeometricVerification.NONE:
+            F, inlMask = geometric_verification(
+                self._mkpts0,
+                self._mkpts1,
+                method=gv_method,
+                confidence=confidence,
+                threshold=threshold,
+            )
+            self._F = F
+            self._filter_matches_by_mask(inlMask)
+            logging.info("Geometric verification done.")
+            self.timer.update("geometric_verification")
+
+        if do_viz_matches is True:
+            save_dir = Path(save_dir)
+            save_dir.mkdir(parents=True, exist_ok=True)
+            self._viz_matches_mpl(
+                image0, image1, self._mkpts0, self._mkpts1, save_dir / "matches.png"
+            )
+
+        self.timer.print("Matching")
+
+        return True
 
     def _tile_selection(
         self,
@@ -215,9 +308,7 @@ class ImageMatcherBase(ImageMatcherABC):
         """
 
         def points_in_rect(points: np.ndarray, rect: np.ndarray) -> np.ndarray:
-            logic = np.all(points > rect[:2], axis=1) & np.all(
-                points < rect[2:], axis=1
-            )
+            logic = np.all(points > rect[:2], axis=1) & np.all(points < rect[2:], axis=1)
             return logic
 
         # default parameters
@@ -292,32 +383,6 @@ class ImageMatcherBase(ImageMatcherABC):
 
         return tile_pairs
 
-    def _match_tiles(
-        self,
-        image0: np.ndarray,
-        image1: np.ndarray,
-        tile_selection: TileSelection = TileSelection.PRESELECTION,
-        **kwargs,
-    ) -> Tuple[FeaturesBase, FeaturesBase, np.ndarray, np.ndarray]:
-        """
-        Matches tiles in two images and returns the features, matches, and confidence.
-
-        Args:
-            image0: The first input image as a NumPy array.
-            image1: The second input image as a NumPy array.
-            tile_selection: The method for selecting tile pairs to match (default: TileSelection.PRESELECTION).
-            **kwargs: Additional keyword arguments for customization.
-
-        Returns:
-            A tuple containing:
-            - features0: FeaturesBase object representing keypoints, descriptors, and scores of image0.
-            - features1: FeaturesBase object representing keypoints, descriptors, and scores of image1.
-            - matches0: NumPy array with indices of matched keypoints in image0.
-            - mconf: NumPy array with confidence scores for the matches.
-
-        """
-        raise NotImplementedError("Subclasses must implement _match_tiles() method.")
-
     def _resize_images(
         self, quality: Quality, image0: np.ndarray, image1: np.ndarray
     ) -> Tuple[np.ndarray]:
@@ -346,6 +411,43 @@ class ImageMatcherBase(ImageMatcherABC):
             image0_ = cv2.pyrDown(cv2.pyrDown(image0))
             image1_ = cv2.pyrDown(cv2.pyrDown(image1))
         return image0_, image1_
+
+    def _store_features(
+        self,
+        features0: FeaturesBase,
+        features1: FeaturesBase,
+        matches0: np.ndarray,
+        force_overwrite: bool = True,
+    ) -> bool:
+        """Stores keypoints, descriptors and scores of the matches in the object's members."""
+
+        assert isinstance(features0, FeaturesBase), "features0 must be a FeaturesBase object"
+        assert isinstance(features1, FeaturesBase), "features1 must be a FeaturesBase object"
+        assert hasattr(features0, "keypoints"), "No keypoints found in features0"
+        assert hasattr(features1, "keypoints"), "No keypoints found in features1"
+
+        if self._mkpts0 is not None and self._mkpts1 is not None:
+            if force_overwrite is False:
+                logging.warning(
+                    "Matches already stored. Not overwriting them. Use force_overwrite=True to force overwrite them."
+                )
+                return False
+            else:
+                logging.warning("Matches already stored. Overwrite them")
+
+        valid = matches0 > -1
+        self._valid = valid
+        idx1 = matches0[valid]
+        self._mkpts0 = features0.keypoints[valid]
+        self._mkpts1 = features1.keypoints[idx1]
+        if features0.descriptors is not None:
+            self._descriptors0 = features0.descriptors[:, valid]
+            self._descriptors1 = features1.descriptors[:, idx1]
+        if features0.scores is not None:
+            self._scores0 = features0.scores[valid]
+            self._scores1 = features1.scores[idx1]
+
+        return True
 
     def _resize_features(
         self, quality: Quality, features0: FeaturesBase, features1: FeaturesBase
@@ -514,9 +616,7 @@ class SuperGlueMatcher(ImageMatcherBase):
         # Get kwargs
         do_viz_matches = kwargs.get("do_viz_matches", False)
         save_dir = kwargs.get("save_dir", ".")
-        gv_method = kwargs.get(
-            "geometric_verification", GeometricVerification.PYDEGENSAC
-        )
+        gv_method = kwargs.get("geometric_verification", GeometricVerification.PYDEGENSAC)
         threshold = kwargs.get("threshold", 1)
         confidence = kwargs.get("confidence", 0.9999)
 
@@ -560,7 +660,7 @@ class SuperGlueMatcher(ImageMatcherBase):
         if do_viz_matches is True:
             save_dir = Path(save_dir)
             save_dir.mkdir(parents=True, exist_ok=True)
-            self.viz_matches(image0, image1, save_dir / f"matches.png")
+            self.viz_matches(image0, image1, save_dir / "matches.png")
 
         self.timer.print("Matching")
 
@@ -665,9 +765,7 @@ class SuperGlueMatcher(ImageMatcherBase):
         t1_lims, t1_origin = self._tiler.compute_limits_by_grid(image1)
 
         # Select tile pairs to match
-        tile_pairs = self._tile_selection(
-            image0, image1, t0_lims, t1_lims, tile_selection
-        )
+        tile_pairs = self._tile_selection(image0, image1, t0_lims, t1_lims, tile_selection)
 
         # Initialize empty array for storing matched keypoints, descriptors and scores
         mkpts0_full = np.array([], dtype=np.float32).reshape(0, 2)
@@ -701,7 +799,7 @@ class SuperGlueMatcher(ImageMatcherBase):
                 pred["descriptors1"],
             )
             scores0, scores1 = pred["scores0"], pred["scores1"]
-            matches0, matches1 = (
+            matches0, _ = (
                 pred["matches0"],
                 pred["matches1"],
             )
@@ -716,12 +814,8 @@ class SuperGlueMatcher(ImageMatcherBase):
             conf = conf[valid]
 
             # Append matches to full array
-            mkpts0_full = np.vstack(
-                (mkpts0_full, mkpts0 + np.array(lim0[0:2]).astype("float32"))
-            )
-            mkpts1_full = np.vstack(
-                (mkpts1_full, mkpts1 + np.array(lim1[0:2]).astype("float32"))
-            )
+            mkpts0_full = np.vstack((mkpts0_full, mkpts0 + np.array(lim0[0:2]).astype("float32")))
+            mkpts1_full = np.vstack((mkpts1_full, mkpts1 + np.array(lim1[0:2]).astype("float32")))
             descriptors0_full = np.hstack((descriptors0_full, descriptors0))
             descriptors1_full = np.hstack((descriptors1_full, descriptors1))
             scores0_full = np.concatenate((scores0_full, scores0))
@@ -773,44 +867,6 @@ class SuperGlueMatcher(ImageMatcherBase):
         logging.info("Matching by tile completed.")
 
         return features0, features1, matches0, mconf
-
-    def _store_features(
-        self,
-        features0: FeaturesBase,
-        features1: FeaturesBase,
-        matches0: np.ndarray,
-        force_overwrite: bool = True,
-    ) -> None:
-        """Stores keypoints, descriptors and scores of the matches in the object's members."""
-
-        assert isinstance(
-            features0, FeaturesBase
-        ), "features0 must be a FeaturesBase object"
-        assert isinstance(
-            features1, FeaturesBase
-        ), "features1 must be a FeaturesBase object"
-        assert hasattr(features0, "keypoints"), "No keypoints found in features0"
-        assert hasattr(features1, "keypoints"), "No keypoints found in features1"
-
-        if self._mkpts0 is not None and self._mkpts1 is not None:
-            if force_overwrite is False:
-                logging.warning(
-                    "Matches already stored. Not overwriting them. Use force_overwrite=True to force overwrite them."
-                )
-                return
-            else:
-                logging.warning("Matches already stored. Overwrite them")
-
-        valid = matches0 > -1
-        self._valid = valid
-        idx1 = matches0[valid]
-        self._mkpts0 = features0.keypoints[valid]
-        self._mkpts1 = features1.keypoints[idx1]
-        self._descriptors0 = features0.descriptors[:, valid]
-        self._descriptors1 = features1.descriptors[:, idx1]
-        self._scores0 = features0.scores[valid]
-        self._scores1 = features1.scores[idx1]
-        self._mconf = features0.scores[valid]
 
     def viz_matches(
         self,
@@ -933,9 +989,7 @@ class LOFTRMatcher(ImageMatcherBase):
         # Get kwargs
         do_viz_matches = kwargs.get("do_viz_matches", False)
         save_dir = kwargs.get("save_dir", ".")
-        gv_method = kwargs.get(
-            "geometric_verification", GeometricVerification.PYDEGENSAC
-        )
+        gv_method = kwargs.get("geometric_verification", GeometricVerification.PYDEGENSAC)
         threshold = kwargs.get("threshold", 1)
         confidence = kwargs.get("confidence", 0.9999)
 
@@ -967,7 +1021,7 @@ class LOFTRMatcher(ImageMatcherBase):
             save_dir = Path(save_dir)
             save_dir.mkdir(parents=True, exist_ok=True)
             self._viz_matches_mpl(
-                image0, image1, self._mkpts0, self._mkpts1, save_dir / f"matches.png"
+                image0, image1, self._mkpts0, self._mkpts1, save_dir / "matches.png"
             )
 
         # Perform geometric verification
@@ -993,7 +1047,7 @@ class LOFTRMatcher(ImageMatcherBase):
                 image1,
                 self._mkpts0,
                 self._mkpts1,
-                save_dir / f"matches_valid.png",
+                save_dir / "matches_valid.png",
             )
 
         self.timer.print("Matching")
@@ -1005,17 +1059,23 @@ class LOFTRMatcher(ImageMatcherBase):
         image0: np.ndarray,
         image1: np.ndarray,
     ) -> Tuple[FeaturesBase, FeaturesBase, np.ndarray, np.ndarray]:
-        """Matches keypoints and descriptors in two given images (no matter if they are tiles or full-res images) using the SuperGlue algorithm.
+        """Matches keypoints and descriptors in two given images
+        (no matter if they are tiles or full-res images) using
+        the SuperGlue algorithm.
 
-        This method takes in two images as Numpy arrays, and returns the matches between keypoints
-        and descriptors in those images using the SuperGlue algorithm.
+        This method takes in two images as Numpy arrays, and returns
+        the matches between keypoints and descriptors in those images
+        using the SuperGlue algorithm.
 
         Args:
             image0 (np.ndarray): the first image to match, as Numpy array
             image1 (np.ndarray): the second image to match, as Numpy array
 
         Returns:
-            Tuple[FeaturesBase, FeaturesBase, np.ndarray, np.ndarray]: a tuple containing the features of the first image, the features of the second image, the matches between them and the match confidence.
+            Tuple[FeaturesBase, FeaturesBase, np.ndarray, np.ndarray]: a
+            tuple containing the features of the first image, the features
+            of the second image, the matches between them and the match
+            onfidence.
         """
 
         # Covert images to tensor
@@ -1077,9 +1137,7 @@ class LOFTRMatcher(ImageMatcherBase):
         t1_lims, t1_origin = self._tiler.compute_limits_by_grid(image1)
 
         # Select tile pairs to match
-        tile_pairs = self._tile_selection(
-            image0, image1, t0_lims, t1_lims, tile_selection
-        )
+        tile_pairs = self._tile_selection(image0, image1, t0_lims, t1_lims, tile_selection)
 
         # Initialize empty array for storing matched keypoints, descriptors and scores
         mkpts0_full = np.array([], dtype=np.float32).reshape(0, 2)
@@ -1112,12 +1170,8 @@ class LOFTRMatcher(ImageMatcherBase):
             conf = correspondences["confidence"].cpu().numpy()
 
             # Append to full arrays
-            mkpts0_full = np.vstack(
-                (mkpts0_full, mkpts0 + np.array(lim0[0:2]).astype("float32"))
-            )
-            mkpts1_full = np.vstack(
-                (mkpts1_full, mkpts1 + np.array(lim1[0:2]).astype("float32"))
-            )
+            mkpts0_full = np.vstack((mkpts0_full, mkpts0 + np.array(lim0[0:2]).astype("float32")))
+            mkpts1_full = np.vstack((mkpts1_full, mkpts1 + np.array(lim1[0:2]).astype("float32")))
             conf_full = np.concatenate((conf_full, conf))
 
             # Plot matches on tile
@@ -1141,9 +1195,7 @@ class LOFTRMatcher(ImageMatcherBase):
 
         # Select uniue features on image 0, on rounded coordinates
         decimals = 1
-        _, unique_idx = np.unique(
-            np.round(mkpts0_full, decimals), axis=0, return_index=True
-        )
+        _, unique_idx = np.unique(np.round(mkpts0_full, decimals), axis=0, return_index=True)
         mkpts0_full = mkpts0_full[unique_idx]
         mkpts1_full = mkpts1_full[unique_idx]
         conf_full = conf_full[unique_idx]
@@ -1190,9 +1242,7 @@ class LightGlueMatcher(ImageMatcherBase):
         # Get kwargs
         do_viz_matches = kwargs.get("do_viz_matches", False)
         save_dir = kwargs.get("save_dir", ".")
-        gv_method = kwargs.get(
-            "geometric_verification", GeometricVerification.PYDEGENSAC
-        )
+        gv_method = kwargs.get("geometric_verification", GeometricVerification.PYDEGENSAC)
         threshold = kwargs.get("threshold", 1)
         confidence = kwargs.get("confidence", 0.9999)
 
@@ -1224,7 +1274,7 @@ class LightGlueMatcher(ImageMatcherBase):
             save_dir = Path(save_dir)
             save_dir.mkdir(parents=True, exist_ok=True)
             self._viz_matches_mpl(
-                image0, image1, self._mkpts0, self._mkpts1, save_dir / f"matches.png"
+                image0, image1, self._mkpts0, self._mkpts1, save_dir / "matches.png"
             )
 
         # Perform geometric verification
@@ -1250,7 +1300,7 @@ class LightGlueMatcher(ImageMatcherBase):
                 image1,
                 self._mkpts0,
                 self._mkpts1,
-                save_dir / f"matches_valid.png",
+                save_dir / "matches_valid.png",
             )
 
         self.timer.print("Matching")
@@ -1320,9 +1370,7 @@ class LightGlueMatcher(ImageMatcherBase):
         """
 
         def points_in_rect(points: np.ndarray, rect: np.ndarray) -> np.ndarray:
-            logic = np.all(points > rect[:2], axis=1) & np.all(
-                points < rect[2:], axis=1
-            )
+            logic = np.all(points > rect[:2], axis=1) & np.all(points < rect[2:], axis=1)
             return logic
 
         # default parameters
@@ -1392,9 +1440,7 @@ class LightGlueMatcher(ImageMatcherBase):
         t1_lims, t1_origin = self._tiler.compute_limits_by_grid(image1)
 
         # Select tile pairs to match
-        tile_pairs = self._tile_selection(
-            image0, image1, t0_lims, t1_lims, tile_selection
-        )
+        tile_pairs = self._tile_selection(image0, image1, t0_lims, t1_lims, tile_selection)
 
         # Initialize empty array for storing matched keypoints, descriptors and scores
         mkpts0_full = np.array([], dtype=np.float32).reshape(0, 2)
@@ -1427,12 +1473,8 @@ class LightGlueMatcher(ImageMatcherBase):
             conf = correspondences["confidence"].cpu().numpy()
 
             # Append to full arrays
-            mkpts0_full = np.vstack(
-                (mkpts0_full, mkpts0 + np.array(lim0[0:2]).astype("float32"))
-            )
-            mkpts1_full = np.vstack(
-                (mkpts1_full, mkpts1 + np.array(lim1[0:2]).astype("float32"))
-            )
+            mkpts0_full = np.vstack((mkpts0_full, mkpts0 + np.array(lim0[0:2]).astype("float32")))
+            mkpts1_full = np.vstack((mkpts1_full, mkpts1 + np.array(lim1[0:2]).astype("float32")))
             conf_full = np.concatenate((conf_full, conf))
 
             # Plot matches on tile
@@ -1456,9 +1498,7 @@ class LightGlueMatcher(ImageMatcherBase):
 
         # Select uniue features on image 0, on rounded coordinates
         decimals = 1
-        _, unique_idx = np.unique(
-            np.round(mkpts0_full, decimals), axis=0, return_index=True
-        )
+        _, unique_idx = np.unique(np.round(mkpts0_full, decimals), axis=0, return_index=True)
         mkpts0_full = mkpts0_full[unique_idx]
         mkpts1_full = mkpts1_full[unique_idx]
         conf_full = conf_full[unique_idx]
@@ -1476,9 +1516,10 @@ class LightGlueMatcher(ImageMatcherBase):
 
 
 if __name__ == "__main__":
-    import os
+    # Seup logger
+    logging.basicConfig(level=logging.INFO)
 
-    assset_path = Path("assets")
+    # assset_path = Path("assets")
 
     # im_path0 = assset_path / "img/cam1/IMG_2637.jpg"
     # im_path1 = assset_path / "img/cam2/IMG_1112.jpg"

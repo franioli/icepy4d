@@ -15,7 +15,7 @@ from .geometry import (
     undistort_points,
     project_points,
 )
-from ..matching.matching_base import MatchingAndTracking
+from ..matching.matching_tracking import MatchingAndTracking
 
 
 class IncrementalReconstruction:

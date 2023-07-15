@@ -65,7 +65,7 @@ def print_welcome_msg() -> None:
     print("===========================================================\n")
 
 
-def parse_command_line() -> Tuple[str, dict]:
+def parse_command_line() -> Tuple[Path, dict]:
     """
     parse_command_line Parse command line input
 
@@ -266,9 +266,7 @@ class Inizializer:
         print_welcome_msg()
 
         self.cfg = cfg
-        assert (
-            "camera_names" in self.cfg.paths
-        ), "Camera names not available in cfg file."
+        assert "camera_names" in self.cfg.paths, "Camera names not available in cfg file."
         self.cams = self.cfg.paths.camera_names
 
     def init_image_ds(self):
@@ -278,13 +276,9 @@ class Inizializer:
         Returns:
             ImagesDict: _description_
         """
-        self.images = {
-            cam: ImageDS(self.cfg.paths.image_dir / cam) for cam in self.cams
-        }
+        self.images = {cam: ImageDS(self.cfg.paths.image_dir / cam) for cam in self.cams}
         for cam in self.cams:
-            self.images[cam].write_exif_to_csv(
-                self.cfg.paths.image_dir / f"image_list_{cam}.csv"
-            )
+            self.images[cam].write_exif_to_csv(self.cfg.paths.image_dir / f"image_list_{cam}.csv")
         return self.images
 
     def init_epoch_dict(self):
@@ -341,14 +335,12 @@ class Inizializer:
 
         # Load targets
         target_paths = [
-            self.cfg.georef.target_dir
-            / (im_epoch[cam].stem + self.cfg.georef.target_file_ext)
+            self.cfg.georef.target_dir / (im_epoch[cam].stem + self.cfg.georef.target_file_ext)
             for cam in self.cams
         ]
         targ_ep = Targets(
             im_file_path=target_paths,
-            obj_file_path=self.cfg.georef.target_dir
-            / self.cfg.georef.target_world_file,
+            obj_file_path=self.cfg.georef.target_dir / self.cfg.georef.target_world_file,
         )
 
         # init empty features and points
@@ -385,9 +377,7 @@ class Inizializer_old:
         print_welcome_msg()
 
         self.cfg = cfg
-        assert (
-            "camera_names" in self.cfg.paths
-        ), "Camera names not available in cfg file."
+        assert "camera_names" in self.cfg.paths, "Camera names not available in cfg file."
         self.cams = self.cfg.paths.camera_names
 
     def init_image_ds(self):  # -> ImagesDict:
@@ -397,13 +387,9 @@ class Inizializer_old:
         Returns:
             ImagesDict: _description_
         """
-        self.images = {
-            cam: ImageDS(self.cfg.paths.image_dir / cam) for cam in self.cams
-        }
+        self.images = {cam: ImageDS(self.cfg.paths.image_dir / cam) for cam in self.cams}
         for cam in self.cams:
-            self.images[cam].write_exif_to_csv(
-                self.cfg.paths.image_dir / f"image_list_{cam}.csv"
-            )
+            self.images[cam].write_exif_to_csv(self.cfg.paths.image_dir / f"image_list_{cam}.csv")
         return self.images
 
     def init_epoch_dict(self):
@@ -454,19 +440,16 @@ class Inizializer_old:
         self.targets = {}
         for epoch in self.cfg.proc.epoch_to_process:
             p1_path = self.cfg.georef.target_dir / (
-                self.images[self.cams[0]].get_image_stem(epoch)
-                + self.cfg.georef.target_file_ext
+                self.images[self.cams[0]].get_image_stem(epoch) + self.cfg.georef.target_file_ext
             )
 
             p2_path = self.cfg.georef.target_dir / (
-                self.images[self.cams[1]].get_image_stem(epoch)
-                + self.cfg.georef.target_file_ext
+                self.images[self.cams[1]].get_image_stem(epoch) + self.cfg.georef.target_file_ext
             )
 
             self.targets[epoch] = Targets(
                 im_file_path=[p1_path, p2_path],
-                obj_file_path=self.cfg.georef.target_dir
-                / self.cfg.georef.target_world_file,
+                obj_file_path=self.cfg.georef.target_dir / self.cfg.georef.target_world_file,
             )
 
         return self.targets
