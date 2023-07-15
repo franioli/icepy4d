@@ -177,13 +177,6 @@ def parse_yaml_cfg(cfg_file: Union[str, Path]) -> edict:
     if cfg.matching_stats_fname.exists():
         cfg.matching_stats_fname.unlink()
 
-    # - Processing options
-    if cfg.proc.do_matching == False and cfg.proc.do_tracking == True:
-        logging.warning(
-            "Invalid combination of Matching and Tracking options. Tracking was se to enabled, but Matching was not. Disabling Tracking."
-        )
-        cfg.proc.do_tracking == False
-
     # - Image-realted options
     cfg.images.mask_bounding_box = np.array(cfg.images.mask_bounding_box).astype("int")
 
