@@ -1,15 +1,15 @@
 import importlib
-import cv2
-import torch
 import logging
 import pickle
-import logging
-
-from typing import List, Union
 from pathlib import Path
+from typing import Union
 
-from icepy4d.classes.features import Features
+import cv2
+import numpy as np
+import torch
+
 import icepy4d.classes as icepy4d_classes
+from icepy4d.classes.features import Features
 
 
 def geometric_verification(
@@ -23,19 +23,28 @@ def geometric_verification(
     enable_degeneracy_check: bool = True,
 ):
     """
-    NOTE: this function is deprecated. Use geometric_verification from icepy4d.matching.geometric_verification instead.
+    NOTE: this function is deprecated. Use geometric_verification
+    from icepy4d.matching.geometric_verification instead.
 
-    Performs geometric verification of matches on full images using either Pydegensac or MAGSAC++.
+    Performs geometric verification of matches on full images using
+    either Pydegensac or MAGSAC++.
 
     Args:
-        features (icepy4d_classes.FeaturesDict): A dictionary containing extracted features for each camera view.
-            threshold (float): Pixel error threshold for considering a correspondence an inlier.
+        features (icepy4d_classes.FeaturesDict): A dictionary containing
+        extracted features for each camera view.
+            threshold (float): Pixel error threshold for considering a
+            correspondence an inlier.
             confidence (float): The required confidence level in the results.
-            max_iters (int): The maximum number of iterations for estimating the fundamental matrix.
-            laf_consistensy_coef (float): The weight given to Local Affine Frame (LAF) consistency term for pydegensac.
-            error_type (str): The error function used for computing the residuals in the RANSAC loop.
-            symmetric_error_check (bool): If True, performs an additional check on the residuals in the opposite direction.
-            enable_degeneracy_check (bool): If True, enables the check for degeneracy using SVD.
+            max_iters (int): The maximum number of iterations for estimating
+            the fundamental matrix.
+            laf_consistensy_coef (float): The weight given to Local Affine
+            Frame (LAF) consistency term for pydegensac.
+            error_type (str): The error function used for computing the
+            residuals in the RANSAC loop.
+            symmetric_error_check (bool): If True, performs an additional check
+            on the residuals in the opposite direction.
+            enable_degeneracy_check (bool): If True, enables the check for
+            degeneracy using SVD.
 
     Returns:
         None
@@ -44,12 +53,13 @@ def geometric_verification(
         ImportError: If Pydegensac library is not available.
 
     Note:
-        The function modifies directly the input Features object by removing the outliers after geoemtric verification.
+        The function modifies directly the input Features object by removing
+        the outliers after geoemtric verification.
 
     """
 
     logging.warning(
-        "This function is deprecated. Use geometric_verification from icepy4d.matching.geometric_verification instead."
+        "This function is deprecated. Use geometric_verification from icepy4. Use matching.geometric_verification instead."
     )
 
     logging.info("Geometric verification of matches on full images...")
@@ -57,7 +67,7 @@ def geometric_verification(
     try:
         pydegensac = importlib.import_module("pydegensac")
         use_pydegensac = True
-    except:
+    except ImportError:
         logging.error(
             "Pydegensac not available. Using MAGSAC++ (OpenCV) for geometric verification."
         )
@@ -93,42 +103,6 @@ def geometric_verification(
 
     features[cams[0]].filter_feature_by_mask(inlMask)
     features[cams[1]].filter_feature_by_mask(inlMask)
-
-
-def load_matches_from_disk(dir: Union[str, Path]) -> Features:
-    """
-    load_matches_from_disk Load features from pickle file
-
-    Args:
-        dir (Union[str, Path]): path of the folder containing the pickle file
-
-    Raises:
-        FileNotFoundError: No pickle file found or multiple pickle file found.
-
-    Returns:
-        Features: Loaded features
-    """
-    try:
-        fname = list(dir.glob("*.pickle"))
-        if len(fname) < 1:
-            msg = f"No pickle file found in the epoch directory {dir}"
-            logging.error(msg)
-            raise FileNotFoundError(msg)
-        if len(fname) > 1:
-            msg = f"More than one pickle file is present in the epoch directory {dir}"
-            logging.error(msg)
-            raise FileNotFoundError(msg)
-        with open(fname[0], "rb") as f:
-            try:
-                loaded_features = pickle.load(f)
-                logging.info(f"Loaded features from {fname[0]}")
-                return loaded_features
-            except:
-                msg = f"Invalid pickle file in epoch directory {dir}"
-                logging.error(msg)
-                raise FileNotFoundError(msg)
-    except FileNotFoundError as err:
-        logging.exception(err)
 
 
 def process_resize(w, h, resize):
@@ -169,3 +143,82 @@ def read_image(path, device, resize, resize_float):
 
     tensor = frame2tensor(image, device)
     return image, tensor, scales
+
+
+# -- File I/O --#
+def load_matches_from_disk(dir: Path) -> Features:
+    """
+    load_matches_from_disk Load features from pickle file
+
+    Args:
+        dir (Union[str, Path]): path of the folder containing the pickle file
+
+    Raises:
+        FileNotFoundError: No pickle file found or multiple pickle file found.
+
+    Returns:
+        Features: Loaded features
+    """
+    try:
+        fname = list(dir.glob("*.pickle"))
+        if len(fname) < 1:
+            msg = f"No pickle file found in the epoch directory {dir}"
+            logging.error(msg)
+            raise FileNotFoundError(msg)
+        if len(fname) > 1:
+            msg = f"More than one pickle file is present in the epoch directory {dir}"
+            logging.error(msg)
+            raise FileNotFoundError(msg)
+        with open(fname[0], "rb") as f:
+            try:
+                loaded_features = pickle.load(f)
+                logging.info(f"Loaded features from {fname[0]}")
+                return loaded_features
+            except:
+                msg = f"Invalid pickle file in epoch directory {dir}"
+                logging.error(msg)
+                raise FileNotFoundError(msg)
+    except FileNotFoundError as err:
+        logging.exception(err)
+
+
+def retrieve_matches_from_npz(opt: dict):
+    """
+    retrieve_matches Retrieve matches saved by SuperGlue in a npz archive and save results in text files
+
+    Args:
+        opt (dict): dict with the following keys:
+            - npz (str): path to the npz file
+            - output_dir (str): output direcotry path
+    Raises:
+        IOError: unable to read npz file
+    """
+
+    npz_path = Path(opt.npz)
+    output_path = Path(opt.output_dir)
+
+    npz_path = Path(npz_path)
+    if npz_path.exists():
+        try:
+            npz = np.load(npz_path)
+        except:
+            raise IOError(f"Cannot load matches .npz file {npz_path.name}")
+    if "npz" in locals():
+        print(f"Data in {npz_path.name} loaded successfully")
+    else:
+        print("No data loaded")
+
+    output_path = Path(output_path)
+    if not output_path.is_dir():
+        output_path.mkdir()
+
+    res = {k: npz[k] for k in npz.keys()}
+    for k in npz.keys():
+        np.savetxt(
+            output_path.as_posix() + "/" + k + ".txt",
+            res[k],
+            fmt="%.2f",
+            delimiter=",",
+            newline="\n",
+        )
+    print("Data saved successfully")

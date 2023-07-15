@@ -6,14 +6,10 @@ from easydict import EasyDict as edict
 from typing import List, Union
 from pathlib import Path
 
-# from .utils import load_matches_from_disk
 from .match_pairs import match_pair
 from .track_matches import track_matches
 
-from ..classes.features import Features
-
 DEBUG = True
-
 
 def MatchingAndTracking(
     cfg: edict,
@@ -22,6 +18,12 @@ def MatchingAndTracking(
     features: dict,
     epoch_dict: dict,
 ) -> dict:
+    """
+    MatchingAndTracking Run matching and tracking for a given epoch
+
+    NOTE: This function is deprecated. It is kept for backward compatibility with feature tracking. Use the new matchers classes such as icepy4d.matching.SuperGlueMatcher instead.
+    """
+    logging.warning("MatchingAndTracking is deprecated. Use the new matchers classes such as icepy4d.matching.SuperGlueMatcher instead.")
 
     epochdir = Path(cfg.paths.results_dir) / f"{epoch_dict[epoch]}/matching"
     cams = cfg.paths.camera_names
