@@ -16,8 +16,7 @@ proc:
   # or a list with the epoche numbers to be processed
   epoch_to_process: [0, 158] # [180, 338] # "all" #
 
-  #- Switches to find and track matches
-  do_matching: true
+  #- Perform tracking of previous epoch matches
   do_tracking: true
 
   #- Do space resection of first camera

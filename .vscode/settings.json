@@ -1,5 +1,7 @@
 {
-  "python.formatting.provider": "none",
+  "[markdown]": {
+    "editor.formatOnSave": false
+  },
   "python.analysis.extraPaths": [
     "${workspaceFolder}",
     "${workspaceFolder}/src"
@@ -8,10 +10,8 @@
   "python.testing.pytestArgs": ["tests"],
   "python.testing.unittestEnabled": false,
   "python.testing.pytestEnabled": true,
-  "[markdown]": {
-    "editor.formatOnSave": false
-  },
-  "[python]": {
-    "editor.defaultFormatter": "ms-python.black-formatter"
-  }
+  "python.formatting.provider": "black",
+  "python.linting.enabled": true,
+  "python.linting.flake8Enabled": true,
+  "python.linting.flake8Args": ["--max-line-length=100"]
 }
