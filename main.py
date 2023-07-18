@@ -38,21 +38,15 @@ import icepy4d.utils as icepy4d_utils
 import icepy4d.utils.initialization as inizialization
 from icepy4d.classes.epoch import Epoch, Epoches
 from icepy4d.io.export2bundler import write_bundler_out
-from icepy4d.matching.match_by_preselection import (
-    find_matches_on_patches,
-    match_by_preselection,
-)
-from icepy4d.matching.matching_tracking import MatchingAndTracking
-from icepy4d.matching.tracking_base import tracking_base
-from icepy4d.matching.utils import (
-    geometric_verification,
-    load_matches_from_disk,
-)
+from icepy4d.matching.match_by_preselection import  find_matches_on_patches,
+
+from icepy4d.matching.utils import  geometric_verification
+
 
 # Temporary parameters TODO: put them in config file
 CFG_FILE = "config/config_2022.yaml"
 LOAD_EXISTING_SOLUTION = False
-DO_ADDITIONAL_MATCHING = True
+DO_ADDITIONAL_MATCHING = False
 PATCHES = [
     {"p1": [0, 500, 2000, 2000], "p2": [4000, 0, 6000, 1500]},
     {"p1": [1000, 1500, 4500, 2500], "p2": [1500, 1500, 5000, 2500]},
@@ -214,10 +208,13 @@ for ep in cfg.proc.epoch_to_process:
     if LOAD_EXISTING_SOLUTION:
         path = epochdir / f"{epoch_dict[ep]}.pickle"
         epoch = Epoch.read_pickle(path)
+
+        # For backward compatibility.
+        # TODO: remove this when all epochs are saved with new format
+        epoch._timestamp = epoch._datetime
+        del epoch._datetime
         epoches.add_epoch(epoch)
-        # matches_fig_dir = "res/fig_for_paper/matches_fig"
-        # make_matching_plot(epoch, epoch, matches_fig_dir, show_fig=False)
-        logging.info(f"Epoch {epoch.timestamp} loaded.")
+
         del epoch
         continue
     else:
@@ -226,14 +223,56 @@ for ep in cfg.proc.epoch_to_process:
         epoches.add_epoch(epoch)
 
     # --- Matching and Tracking ---#
-    features_old = MatchingAndTracking(
-        cfg=cfg,
-        epoch=ep,
-        images=images,
-        features=features_old,
-        epoch_dict=epoch_dict,
+    # features_old = MatchingAndTracking(
+    #     cfg=cfg,
+    #     epoch=ep,
+    #     images=images,
+    #     features=features_old,
+    #     epoch_dict=epoch_dict,
+    # )
+    # epoch.features = features_old[ep]
+    from icepy4d.matching.matcher import (
+        SuperGlueMatcher,
+        TileSelection,
+        Quality,
+        GeometricVerification,
     )
-    epoch.features = features_old[ep]
+
+    matcher = SuperGlueMatcher(cfg.matching)
+    grid = [4, 3]
+    overlap = 200
+    matcher.match(
+        epoch.images[cams[0]].value,
+        epoch.images[cams[1]].value,
+        quality=Quality.HIGH,
+        tile_selection=TileSelection.PRESELECTION,
+        grid=grid,
+        overlap=overlap,
+        do_viz_matches=True,
+        do_viz_tiles=True,
+        save_dir=match_dir,
+        geometric_verification=GeometricVerification.PYDEGENSAC,
+        threshold=1,
+        confidence=0.9999,
+    )
+
+    # TODO: implement this as a method of Matcher class
+    from icepy4d.classes import Features
+
+    f = {cam: Features() for cam in cams}
+    f[cams[0]].append_features_from_numpy(
+        x=matcher.mkpts0[:, 0],
+        y=matcher.mkpts0[:, 1],
+        descr=matcher.descriptors0,
+        scores=matcher.scores0,
+    )
+    f[cams[1]].append_features_from_numpy(
+        x=matcher.mkpts1[:, 0],
+        y=matcher.mkpts1[:, 1],
+        descr=matcher.descriptors1,
+        scores=matcher.scores1,
+    )
+    epoch.features = f
 
     # Run additional matching on selected patches:
     if DO_ADDITIONAL_MATCHING:
@@ -359,6 +398,107 @@ for ep in cfg.proc.epoch_to_process:
             )
             continue
 
+    # Save features in colmap db
+    print("AAAAA")
+    import h5py
+    from collections import defaultdict
+    import torch
+    from copy import deepcopy
+    import os
+
+    MIN_MATCHES = 15
+    colmap_dir = Path("colmap")
+    colmap_dir.mkdir(exist_ok=True, parents=True)
+
+    sg_features_fname = f"features_sg.h5"
+    with h5py.File(colmap_dir / sg_features_fname, mode="w") as f_match:
+        key1 = epoch.images[cams[0]].name
+        key2 = epoch.images[cams[1]].name
+        group = f_match.require_group(key1)
+        n_matches = len(epoch.features[cams[0]])
+
+        mkpts0 = epoch.features[cams[0]].kpts_to_numpy()
+        mkpts1 = epoch.features[cams[1]].kpts_to_numpy()
+        if n_matches >= MIN_MATCHES:
+            group.create_dataset(key2, data=np.concatenate([mkpts0, mkpts1], axis=1))
+
+    kpts = defaultdict(list)
+    match_indexes = defaultdict(dict)
+    total_kpts = defaultdict(int)
+    with h5py.File(colmap_dir / sg_features_fname, mode="r") as f_match:
+        for k1 in f_match.keys():
+            group = f_match[k1]
+            for k2 in group.keys():
+                matches = group[k2][...]
+                total_kpts[k1]
+                kpts[k1].append(matches[:, :2])
+                kpts[k2].append(matches[:, 2:])
+                current_match = torch.arange(len(matches)).reshape(-1, 1).repeat(1, 2)
+                current_match[:, 0] += total_kpts[k1]
+                current_match[:, 1] += total_kpts[k2]
+                total_kpts[k1] += len(matches)
+                total_kpts[k2] += len(matches)
+                match_indexes[k1][k2] = current_match
+    for k in kpts.keys():
+        kpts[k] = np.round(np.concatenate(kpts[k], axis=0))
+    unique_kpts = {}
+    unique_match_idxs = {}
+    out_match = defaultdict(dict)
+    for k in kpts.keys():
+        uniq_kps, uniq_reverse_idxs = torch.unique(
+            torch.from_numpy(kpts[k]), dim=0, return_inverse=True
+        )
+        unique_match_idxs[k] = uniq_reverse_idxs
+        unique_kpts[k] = uniq_kps.numpy()
+    for k1, group in match_indexes.items():
+        for k2, m in group.items():
+            m2 = deepcopy(m)
+            m2[:, 0] = unique_match_idxs[k1][m2[:, 0]]
+            m2[:, 1] = unique_match_idxs[k2][m2[:, 1]]
+            out_match[k1][k2] = m2.numpy()
+
+    with h5py.File(colmap_dir / "keypoints.h5", mode="w") as f_kp:
+        for k, kpts1 in unique_kpts.items():
+            f_kp[k] = kpts1
+
+    with h5py.File(colmap_dir / f"matches.h5", mode="w") as f_match:
+        for k1, gr in out_match.items():
+            group = f_match.require_group(k1)
+            for k2, match in gr.items():
+                group[k2] = match
+
+    from icepy4d.io.colmap_utils.h5_to_db import add_keypoints, add_matches, COLMAPDatabase
+    import pycolmap
+
+    # Create fake dir for colmap with symlinks
+    img_dir = colmap_dir / "images"
+    img_dir.mkdir(exist_ok=True, parents=True)
+    for cam in cams:
+        dst = img_dir / epoch.images[cam].name
+        if not dst.exists():
+            os.symlink(epoch.images[cam].path, dst)
+
+    database_path = colmap_dir / "colmap.db"
+    database_path.unlink(missing_ok=True)
+    db = COLMAPDatabase.connect(database_path)
+    db.create_tables()
+    single_camera = False
+    img_ext = ".jpg"
+    fname_to_id = add_keypoints(db, colmap_dir, img_dir, "simple-radial", single_camera)
+    add_matches(
+        db,
+        colmap_dir,
+        fname_to_id,
+    )
+    db.commit()
+
+    output_path = colmap_dir / "sparse"
+    pycolmap.match_exhaustive(database_path)
+    maps = pycolmap.incremental_mapping(database_path, colmap_dir, output_path)
+    if not os.path.isdir(output_path):
+        os.makedirs(output_path)
+    maps[0].write(output_path)
+
     # Create point cloud and save .ply to disk
     # pcd_epc = icepy4d_classes.PointCloud(points3d=points3d, points_col=triang.colors)
     pts = icepy4d_classes.Points()
@@ -481,7 +621,7 @@ for ep in cfg.proc.epoch_to_process:
 
         # Save matches plot
         matches_fig_dir = "res/fig_for_paper/matches_fig"
-        make_matching_plot(epoches[ep], ep, matches_fig_dir, show_fig=False)
+        # make_matching_plot(epoches[ep], ep, matches_fig_dir, show_fig=False)
 
         # Compute reprojection error
         compute_reprojection_error(cfg.residuals_fname, epoches[ep])

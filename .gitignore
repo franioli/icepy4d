@@ -20,6 +20,7 @@ logs/
 assets/Metashape-*
 src/icepy4d/thirdparty/SuperGluePretrainedNetwork.old/
 mmm/
+colmap/
 
 # VScode
 # .vscode/
