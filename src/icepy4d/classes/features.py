@@ -62,9 +62,7 @@ def float32_type_check(
                 logging.info("Input array are int numbers. Casting them to np.float32")
             array = array.astype(np.float32)
     if array.dtype != np.float32:
-        raise ValueError(
-            "Invalid type of input array. It must be a numpy array of type np.float32"
-        )
+        raise ValueError("Invalid type of input array. It must be a numpy array of type np.float32")
 
     return array
 
@@ -116,9 +114,7 @@ class Feature:
         if track_id is not None:
             if isinstance(track_id, int) or isinstance(track_id, np.int64):
                 track_id = np.int32(track_id)
-            assert isinstance(
-                track_id, np.int32
-            ), "Invalid track_id. It must be a integer number"
+            assert isinstance(track_id, np.int32), "Invalid track_id. It must be a integer number"
             self._track = np.int32(track_id)
         else:
             self._track = None
@@ -157,6 +153,9 @@ class Feature:
             self.epoch = epoch
         else:
             self.epoch = None
+
+    def __repr__(self) -> str:
+        return f"Feature with track_id={self._track}"
 
     @property
     def x(self) -> np.float32:
@@ -294,6 +293,9 @@ class Features:
             self._iter = 0
             raise StopIteration
 
+    def __repr__(self) -> str:
+        return f"Features with {len(self)} features"
+
     @property
     def num_features(self):
         """
@@ -324,9 +326,7 @@ class Features:
         Args:
             new_feature (Feature): Feature object to be appended. It must contain at least the x and y coordinates of the keypoint.
         """
-        assert isinstance(
-            new_feature, Feature
-        ), "Invalid input feature. It must be Feature object"
+        assert isinstance(new_feature, Feature), "Invalid input feature. It must be Feature object"
         self._last_id += 1
         self._values[self._last_id] = new_feature
         if new_feature.descr is not None:
@@ -347,9 +347,7 @@ class Features:
         try:
             last_id = np.int32(last_track_id)
         except:
-            raise ValueError(
-                "Invalid input argument last_track_id. It must be an integer number."
-            )
+            raise ValueError("Invalid input argument last_track_id. It must be an integer number.")
         self._last_id = last_id
 
     def append_features_from_numpy(
@@ -593,9 +591,7 @@ class Features:
     ):
         """Save keypoints in a .txt file"""
         kpts = self.kpts_to_numpy()
-        np.savetxt(
-            path, kpts, fmt=fmt, delimiter=delimiter, newline="\n", header=header
-        )
+        np.savetxt(path, kpts, fmt=fmt, delimiter=delimiter, newline="\n", header=header)
 
     def save_as_pickle(self, path: Union[str, Path]) -> True:
         """Save keypoints in as pickle file"""

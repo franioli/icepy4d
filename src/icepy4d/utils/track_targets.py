@@ -32,8 +32,10 @@ from typing import List, Union
 
 from icepy4d.classes.images import ImageDS
 from icepy4d.classes.targets import Targets
-from icepy4d.matching.templatematch import TemplateMatch, Stats, MatchResult
+from icepy4d.matching.templatematch import TemplateMatch, MatchResult
 from icepy4d.utils.timer import AverageTimer
+
+# TODO: Check this class with the code implemented in the icepy4d.matching.templatematch script.
 
 
 class TrackTargets:
@@ -51,7 +53,6 @@ class TrackTargets:
         verbose: bool = True,
         debug_viz: bool = False,
     ) -> None:
-
         self.images = images
         self.out_dir = Path(out_dir)
         self.patch_centers = patch_centers
@@ -284,7 +285,6 @@ class TrackTargets:
 
 
 if __name__ == "__main__":
-
     # TODO: implement tracking from and to a specific epoch
 
     # Parameters
@@ -305,10 +305,11 @@ if __name__ == "__main__":
     debug_viz = True
     verbose = True
 
-    targets_image_paths = [Path(TARGETS_DIR) / fname for fname in TARGETS_IMAGES_FNAMES]
+    target_dir = Path(TARGETS_DIR)
+    targets_image_paths = [target_dir / fname for fname in TARGETS_IMAGES_FNAMES]
     targets = Targets(
         im_file_path=targets_image_paths,
-        obj_file_path=Path(TARGETS_DIR) / TARGETS_WORLD_FNAME,
+        obj_file_path=target_dir / TARGETS_WORLD_FNAME,
     )
 
     for cam_id, cam in enumerate(cams):

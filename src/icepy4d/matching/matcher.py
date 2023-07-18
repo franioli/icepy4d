@@ -26,13 +26,13 @@ import numpy as np
 import torch
 from easydict import EasyDict as edict
 
-from icepy4d.thirdparty.SuperGlue.models.matching import Matching
-from icepy4d.thirdparty.SuperGlue.models.utils import make_matching_plot
-from icepy4d.utils import AverageTimer, timeit
-
+from icepy4d.classes import Features
 from icepy4d.matching.enums import GeometricVerification, Quality, TileSelection
 from icepy4d.matching.geometric_verification import geometric_verification
 from icepy4d.matching.tiling import Tiler
+from icepy4d.thirdparty.SuperGlue.models.matching import Matching
+from icepy4d.thirdparty.SuperGlue.models.utils import make_matching_plot
+from icepy4d.utils import AverageTimer, timeit
 
 matplotlib.use("TkAgg")
 
@@ -276,9 +276,20 @@ class ImageMatcherBase(ImageMatcherABC):
         if do_viz_matches is True:
             save_dir = Path(save_dir)
             save_dir.mkdir(parents=True, exist_ok=True)
-            self._viz_matches_mpl(
-                image0, image1, self._mkpts0, self._mkpts1, save_dir / "matches.png"
-            )
+            try:
+                self._viz_matches_mpl(
+                    image0, image1, self._mkpts0, self._mkpts1, save_dir / "matches.png"
+                )
+            except Exception as e:
+                logging.error(f"Error visualizing matches with OpenCV: {e}. Fallback to maplotlib.")
+                self._viz_matches_mpl(
+                    image0,
+                    image1,
+                    self._mkpts0,
+                    self._mkpts1,
+                    save_dir / "matches.png",
+                    hide_fig=True,
+                )
 
         self.timer.print("Matching")
 
@@ -588,84 +599,6 @@ class SuperGlueMatcher(ImageMatcherBase):
     def _frame2tensor(self, frame, device):
         return torch.from_numpy(frame / 255.0).float()[None, None].to(device)
 
-    @timeit
-    def match(
-        self,
-        image0: np.ndarray,
-        image1: np.ndarray,
-        quality: Quality = Quality.HIGH,
-        tile_selection: TileSelection = TileSelection.NONE,
-        **kwargs,
-    ) -> bool:
-        """
-        Matches images and performs geometric verification.
-
-        Args:
-            image0: The first input image as a NumPy array.
-            image1: The second input image as a NumPy array.
-            quality: The quality level for resizing images (default: Quality.HIGH).
-            tile_selection: The method for selecting tiles for matching (default: TileSelection.NONE).
-            **kwargs: Additional keyword arguments for customization.
-
-        Returns:
-            A boolean indicating the success of the matching process.
-
-        """
-        self.timer = AverageTimer()
-
-        # Get kwargs
-        do_viz_matches = kwargs.get("do_viz_matches", False)
-        save_dir = kwargs.get("save_dir", ".")
-        gv_method = kwargs.get("geometric_verification", GeometricVerification.PYDEGENSAC)
-        threshold = kwargs.get("threshold", 1)
-        confidence = kwargs.get("confidence", 0.9999)
-
-        # Resize images if needed
-        image0_, image1_ = self._resize_images(quality, image0, image1)
-
-        # Perform matching (on tiles or full images)
-        if tile_selection == TileSelection.NONE:
-            logging.info("Matching full images...")
-            features0, features1, matches0, _ = self._match_images(image0_, image1_)
-
-        else:
-            logging.info("Matching by tiles...")
-            features0, features1, matches0, _ = self._match_tiles(
-                image0_, image1_, tile_selection, **kwargs
-            )
-
-        # Retrieve original image coordinates if matching was performed on up/down-sampled images
-        features0, features1 = self._resize_features(quality, features0, features1)
-
-        # Store features as class members
-        self._store_features(features0, features1, matches0)
-        self.timer.update("matching")
-        logging.info("Matching done!")
-
-        # Perform geometric verification
-        logging.info("Performing geometric verification...")
-        if gv_method is not GeometricVerification.NONE:
-            F, inlMask = geometric_verification(
-                self._mkpts0,
-                self._mkpts1,
-                method=gv_method,
-                confidence=confidence,
-                threshold=threshold,
-            )
-            self._F = F
-            self._filter_matches_by_mask(inlMask)
-            logging.info("Geometric verification done.")
-            self.timer.update("geometric_verification")
-
-        if do_viz_matches is True:
-            save_dir = Path(save_dir)
-            save_dir.mkdir(parents=True, exist_ok=True)
-            self.viz_matches(image0, image1, save_dir / "matches.png")
-
-        self.timer.print("Matching")
-
-        return True
-
     def _match_images(
         self,
         image0: np.ndarray,
@@ -786,7 +719,7 @@ class SuperGlueMatcher(ImageMatcherBase):
             tile1 = self._tiler.extract_patch(image1, lim1)
 
             # Run SuperGlue on a pair of tiles
-            tensor0 = self._(tile0, self._device)
+            tensor0 = self._frame2tensor(tile0, self._device)
             tensor1 = self._frame2tensor(tile1, self._device)
             with torch.inference_mode():
                 pred_tensor = self.matcher({"image0": tensor0, "image1": tensor1})
@@ -833,6 +766,7 @@ class SuperGlueMatcher(ImageMatcherBase):
                     mkpts0,
                     mkpts1,
                     save_dir / f"matches_tile_{tidx0}-{tidx1}.png",
+                    hide_fig=True,
                 )
 
         logging.info("Restoring full image coordinates of matches...")
@@ -960,99 +894,6 @@ class LOFTRMatcher(ImageMatcherBase):
         if image.shape[1] > 2:
             image = K.color.rgb_to_grayscale(image)
         return image
-
-    @timeit
-    def match(
-        self,
-        image0: np.ndarray,
-        image1: np.ndarray,
-        quality: Quality = Quality.HIGH,
-        tile_selection: TileSelection = TileSelection.NONE,
-        **kwargs,
-    ) -> bool:
-        """
-        Matches images and performs geometric verification.
-
-        Args:
-            image0: The first input image as a NumPy array.
-            image1: The second input image as a NumPy array.
-            quality: The quality level for resizing images (default: Quality.HIGH).
-            tile_selection: The method for selecting tiles for matching (default: TileSelection.NONE).
-            **kwargs: Additional keyword arguments for customization.
-
-        Returns:
-            A boolean indicating the success of the matching process.
-
-        """
-        self.timer = AverageTimer()
-
-        # Get kwargs
-        do_viz_matches = kwargs.get("do_viz_matches", False)
-        save_dir = kwargs.get("save_dir", ".")
-        gv_method = kwargs.get("geometric_verification", GeometricVerification.PYDEGENSAC)
-        threshold = kwargs.get("threshold", 1)
-        confidence = kwargs.get("confidence", 0.9999)
-
-        # Resize images if needed
-        image0_, image1_ = self._resize_images(quality, image0, image1)
-
-        # Perform matching (on tiles or full images)
-        if tile_selection == TileSelection.NONE:
-            logging.info("Matching full images...")
-            features0, features1, matches0, mconf = self._match_images(image0_, image1_)
-
-        else:
-            logging.info("Matching by tiles...")
-            features0, features1, matches0, mconf = self._match_tiles(
-                image0_, image1_, tile_selection, **kwargs
-            )
-
-        # Retrieve original image coordinates if matching was performed on up/down-sampled images
-        features0, features1 = self._resize_features(quality, features0, features1)
-
-        # Store features as class members
-        self._mkpts0 = features0.keypoints
-        self._mkpts1 = features1.keypoints
-        self._mconf = mconf
-        self.timer.update("matching")
-        logging.info("Matching done!")
-
-        if do_viz_matches is True:
-            save_dir = Path(save_dir)
-            save_dir.mkdir(parents=True, exist_ok=True)
-            self._viz_matches_mpl(
-                image0, image1, self._mkpts0, self._mkpts1, save_dir / "matches.png"
-            )
-
-        # Perform geometric verification
-        logging.info("Performing geometric verification...")
-        if gv_method is not GeometricVerification.NONE:
-            F, inlMask = geometric_verification(
-                self._mkpts0,
-                self._mkpts1,
-                method=gv_method,
-                confidence=confidence,
-                threshold=threshold,
-            )
-            self._F = F
-            self._filter_matches_by_mask(inlMask)
-            logging.info("Geometric verification done.")
-            self.timer.update("geometric_verification")
-
-        if do_viz_matches is True:
-            save_dir = Path(save_dir)
-            save_dir.mkdir(parents=True, exist_ok=True)
-            self._viz_matches_mpl(
-                image0,
-                image1,
-                self._mkpts0,
-                self._mkpts1,
-                save_dir / "matches_valid.png",
-            )
-
-        self.timer.print("Matching")
-
-        return True
 
     def _match_images(
         self,
@@ -1624,81 +1465,3 @@ if __name__ == "__main__":
     # )
 
     print("Matching succeded.")
-
-    # -------------------- OLD --------------------
-
-    # Test Superpoint class
-    # device = torch.device("cuda")
-    # superpoint_detector = SuperPoint_features(cfg.matching.max_keypoints)
-    # features0 = superpoint_detector.detect_and_describe(img0)
-    # features1 = superpoint_detector.detect_and_describe(img1)
-
-    # matching = Matching().eval().to(device)
-
-    # _, tens0, _ = read_image(img0, device, [2400], 0, True)
-    # _, tens1, _ = read_image(img1, device, [2400], 0, True)
-
-    # data = {
-    #     "image0": tens0,
-    #     "image1": tens1,
-    # }
-    # data = {**data, **{k + "0": v for k, v in features0.items()}}
-    # data = {**data, **{k + "1": v for k, v in features1.items()}}
-
-    # pred = matching(data)
-
-
-# class SuperPoint_features:
-#     def __init__(
-#         self,
-#         max_keypoints: int = 2048,
-#         keypoint_threshold: float = 0.0001,
-#         use_cuda: bool = True,
-#         #  weights_path: Path = MODEL_WEIGHTS_PATH,
-#     ) -> None:
-#         """Configures the object.
-#         Args:
-#             max_keypoints: max keypoints to detect in an image.
-#             keypoint_threshold: threshold for keypoints detection
-#             use_cuda (optional): flag controlling the use of GPUs via CUDA. Defaults to True.
-#             # weights_path (optional): Path to the model weights. Defaults to MODEL_WEIGHT_PATH.
-#         """
-#         self._use_cuda = use_cuda and torch.cuda.is_available()
-#         self._config = {
-#             "superpoint": {
-#                 "nms_radius": NMS_RADIUS,
-#                 "keypoint_threshold": keypoint_threshold,
-#                 "max_keypoints": max_keypoints,
-#             },
-#         }
-
-#     def detect_and_describe(self, im_path: Path):
-#         """Jointly generate keypoint detections and their associated descriptors from a single image."""
-#         # TODO(ayushbaid): fix inference issue #110
-#         device = torch.device("cuda" if self._use_cuda else "cpu")
-#         model = SuperPoint(self._config).eval().to(device)
-
-#         # Read image and transform to tensor
-#         image, image_tensor, _ = read_image(im_path, device, [2400], 0, True)
-
-#         # Compute features.
-#         with torch.no_grad():
-#             model_results = model({"image": image_tensor})
-#         torch.cuda.empty_cache()
-
-#         return model_results
-
-# keypoints = model_results["keypoints"][0].detach().cpu().numpy()
-# scores = model_results["scores"][0].detach().cpu().numpy()
-# descriptors = model_results["descriptors"][0].detach().cpu().numpy()
-
-# features = Features
-# features.append_features(
-#     {
-#         "kpts": keypoints,
-#         "descr": descriptors,
-#         "score": scores,
-#     }
-# )
-
-# return features

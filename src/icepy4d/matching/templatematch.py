@@ -252,76 +252,14 @@ class TemplateMatch:
         return self.result
 
 
-# class Stats:
-#     def __init__(self, x: np.ndarray) -> None:
-#         """
-#         __init__ Compute statistics given an array of residuals
-
-#         Args:
-#             x (np.ndarray): nx2 array of residuals
-#         """
-#         self.x = x
-#         self.compute_stats()
-
-#     def compute_stats(self) -> None:
-#         """
-#         compute_stats compute basic statistics
-#         """
-#         # rmse_ = lambda x: np.sqrt((x[:, 0] ** 2).mean())
-#         # rmse = np.array(list(map(rmse_, self.x)))
-#         self.rmse = [
-#             np.sqrt((self.x[:, 0] ** 2).mean()),
-#             np.sqrt((self.x[:, 1] ** 2).mean()),
-#             np.sqrt((self.x.flatten() ** 2).mean()),
-#         ]
-#         self.mean = [self.x[:, 0].mean(), self.x[:, 1].mean(), self.x.flatten().mean()]
-#         self.std = [self.x[:, 0].std(), self.x[:, 1].std(), self.x.flatten().std()]
-#         self.min = [self.x[:, 0].min(), self.x[:, 1].min(), self.x.flatten().min()]
-#         self.max = [self.x[:, 0].max(), self.x[:, 1].max(), self.x.flatten().max()]
-
-#     def print_stats(self) -> None:
-#         """
-#         print_stats Print statistics on residuals
-#         """
-#         print("Stat:\tx\ty\tglobal")
-#         print(f"RMSE:\t{self.rmse[0]:.2f}\t{self.rmse[1]:.2f}\t{self.rmse[2]:.2f}")
-#         print(f"AVG:\t{self.mean[0]:.2f}\t{self.mean[1]:.2f}\t{self.mean[2]:.2f}")
-#         print(f"STD:\t{self.std[0]:.2f}\t{self.std[1]:.2f}\t{self.std[2]:.2f}")
-#         print(f"MIN:\t{self.min[0]:.2f}\t{self.min[1]:.2f}\t{self.min[2]:.2f}")
-#         print(f"MAX:\t{self.max[0]:.2f}\t{self.max[1]:.2f}\t{self.max[2]:.2f}")
-
-
-# def print_stats(x) -> None:
-#     """
-#     print_stats Print statistics on residuals
-
-#     Args:
-#         x (nx2 np.ndarray): 2xn array containing xy residuals
-#     """
-#     rmse = [
-#         np.sqrt((x[:, 0] ** 2).mean()),
-#         np.sqrt((x[:, 1] ** 2).mean()),
-#         np.sqrt((x.flatten() ** 2).mean()),
-#     ]
-
-#     print("Stat:\tx\ty\tglobal")
-#     print(f"RMSE:\t{rmse[0]:.2f}\t{rmse[1]:.2f}\t{rmse[2]:.2f}")
-#     print(f"AVG:\t{x[:, 0].mean():.2f}\t{x[:, 1].mean():.2f}\t{x.flatten().mean():.2f}")
-#     print(f"STD:\t{x[:, 0].std():.2f}\t{x[:, 1].std():.2f}\t{x.flatten().std():.2f}")
-#     print(f"MIN:\t{x[:, 0].min():.2f}\t{x[:, 1].min():.2f}\t{x.flatten().min():.2f}")
-#     print(f"MAX:\t{x[:, 0].max():.2f}\t{x[:, 1].max():.2f}\t{x.flatten().max():.2f}")
-
-
 if __name__ == "__main__":
     # Test templateMatch class
 
-    import time
     from copy import deepcopy
     from pathlib import Path
 
     import cv2
     import matplotlib.pyplot as plt
-    from tqdm import tqdm
 
     from icepy4d import classes as icepy4d_classes
     from icepy4d.utils.initialization import parse_yaml_cfg
