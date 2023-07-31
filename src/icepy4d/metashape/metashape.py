@@ -131,10 +131,12 @@ class MetashapeProject:
         logging.info(f"Created project {self.project_path}.")
 
     def add_images(self) -> None:
-        p = self.cfg.im_path.glob("*." + self.cfg.im_ext)
-        images = [str(x) for x in p if x.is_file()]
+        extensions = [self.cfg.im_ext, self.cfg.im_ext.upper()]
+        imlist = []
+        for ext in extensions:
+            imlist.extend(list(self.cfg.im_path.glob("*." + ext)))
+        images = [str(x) for x in imlist if x.is_file()]
         self.doc.chunk.addPhotos(images)
-
         # Add cameras and tie points from bundler output
         cameras_from_bundler(
             chunk=self.doc.chunk,
