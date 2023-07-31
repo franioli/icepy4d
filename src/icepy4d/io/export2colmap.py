@@ -12,6 +12,8 @@ import torch
 import icepy4d.classes as icepy4d_classes
 from icepy4d.thirdparty.transformations import quaternion_from_matrix
 
+from .utils import create_directory, make_symlink
+
 
 class CameraModels(Enum):
     PINHOLE = 0
@@ -133,8 +135,7 @@ def export_solution_to_colmap(
     for cam in cams:
         src = im_dict[cam]
         dst = im_folder / im_dict[cam].name
-        if not dst.exists():
-            os.symlink(src, dst)
+        make_symlink(src, dst)
 
     # Write empty points3D.txt
     file = open(export_dir / f"points3D.txt", "w")
