@@ -283,7 +283,7 @@ if __name__ == "__main__":
             obj_file_path=cfg.georef.target_dir / cfg.georef.target_world_file,
         )
 
-    cam_id = 0
+    cam_id = 1
     epoch = 0
     dt = 1
     roi_buffer = 128
@@ -391,7 +391,7 @@ if __name__ == "__main__":
             #     draw.ellipse(list(np.concatenate((t_est[epoch],t_est[epoch]))), outline=(255,0,0), width=1)
             #     im.save('test.jpg', "JPEG")
 
-        if debug:
+        if debug_viz:
             fig, ax = plt.subplots(1, 2)
             ax[0].imshow(A)
             ax[0].scatter(t_roi[0], t_roi[1], s=30, c="r", marker="+")
@@ -435,3 +435,11 @@ if __name__ == "__main__":
     print(diff_noCC.describe())
 
     print("Done")
+
+    target_coord_meas = {}
+    for epoch in cfg.proc.epoch_to_process:
+        target_coord_meas[epoch] = targets[epoch].get_image_coor_by_label(
+            targets_to_use, cam_id
+        )[0][0]
+    target_coord_meas = pd.DataFrame.from_dict(target_coord_meas, orient="index", columns=["x", "y"])
+    print(target_coord_meas.describe())
