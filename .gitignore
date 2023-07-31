@@ -21,6 +21,7 @@ assets/Metashape-*
 src/icepy4d/thirdparty/SuperGluePretrainedNetwork.old/
 mmm/
 colmap/
+scripts/track_targets/results/
 
 # VScode
 # .vscode/
