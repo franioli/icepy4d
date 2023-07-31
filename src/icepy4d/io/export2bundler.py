@@ -12,15 +12,7 @@ from ..classes.point_cloud import PointCloud
 from ..classes.points import Points
 from ..classes.targets import Targets
 from ..thirdparty.transformations import euler_from_matrix, euler_matrix
-
-
-def create_directory(path):
-    """
-    Creates a directory, if it does not exist.
-    """
-    path = Path(path)
-    path.mkdir(parents=True, exist_ok=True)
-    return path
+from .utils import create_directory, make_symlink
 
 
 def write_bundler_out(
@@ -65,8 +57,7 @@ def write_bundler_out(
     for cam in cams:
         src = im_dict[cam]
         dst = im_out_dir / im_dict[cam].name
-        if not dst.exists():
-            os.symlink(src, dst)
+        make_symlink(src, dst)
 
     # Write markers to file
     if targets is not None:
