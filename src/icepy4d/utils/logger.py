@@ -17,6 +17,32 @@ import logging
 import sys
 from datetime import date, datetime
 from pathlib import Path
+import functools
+import warnings
+
+
+def deprecated(func):
+    """This is a decorator which can be used to mark functions
+    as deprecated. It will result in a warning being emitted
+    and a logging warning when the function is used."""
+
+    @functools.wraps(func)
+    def new_func(*args, **kwargs):
+        message = kwargs.get("message", None)
+        if message is None:
+            message = f"aaaaaaaaaaaa {func.__name__}."
+        warnings.simplefilter("always", DeprecationWarning)  # turn off filter
+        msg = f"Call to deprecated function {func.__name__}."
+        warnings.warn(
+            msg,
+            category=DeprecationWarning,
+            stacklevel=2,
+        )
+        logging.warning(msg)
+        warnings.simplefilter("default", DeprecationWarning)  # reset filter
+        return func(*args, **kwargs)
+
+    return new_func
 
 
 # Logging formatter supporting colorized output
@@ -36,7 +62,7 @@ class LogFormatter(logging.Formatter):
         self.color = color
 
     def format(self, record, *args, **kwargs):
-        if self.color == True and record.levelno in self.COLOR_CODES:
+        if self.color is True and record.levelno in self.COLOR_CODES:
             record.color_on = self.COLOR_CODES[record.levelno]
             record.color_off = self.RESET_CODE
         else:
@@ -139,10 +165,10 @@ def setup_logger(
     # log_line_template = "%(color_on)s[%(created)d] [%(threadName)s] [%(levelname)-8s] %(message)s%(color_off)s"
 
     if console_log_level == "debug" or logfile_level == "debug":
-        log_line_template = f"%(color_on)s%(asctime)s | | [%(filename)s -> %(funcName)s], line %(lineno)d - [%(levelname)-8s] %(message)s%(color_off)s"
+        log_line_template = "%(color_on)s%(asctime)s | | [%(filename)s -> %(funcName)s], line %(lineno)d - [%(levelname)-8s] %(message)s%(color_off)s"
     else:
         log_line_template = (
-            f"%(color_on)s%(asctime)s | [%(levelname)-8s] %(message)s%(color_off)s"
+            "%(color_on)s%(asctime)s | [%(levelname)-8s] %(message)s%(color_off)s"
         )
 
     # Setup logging
