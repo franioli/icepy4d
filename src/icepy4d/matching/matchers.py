@@ -67,7 +67,7 @@ class SuperGlueMatcher(ImageMatcherBase):
         opt = self._build_superglue_config(opt)
         super().__init__(opt)
 
-        # Inizialize the Matching object with given configuration
+        # initialize the Matching object with given configuration
         self.matcher = Matching(self._opt).eval().to(self._device)
 
     def _build_superglue_config(self, opt: dict) -> dict:

@@ -41,7 +41,7 @@ matplotlib.use("TkAgg")
 
 cfg_file = Path("config/config_2022_exp.yaml")
 
-""" Inizialize Variables """
+""" initialize Variables """
 # Setup logger
 icepy_utils.setup_logger(
     log_folder="logs",
@@ -57,7 +57,7 @@ cfg = initialization.parse_yaml_cfg(cfg_file)
 timer_global = icepy_utils.AverageTimer()
 
 init = initialization.Inizialization(cfg)
-init.inizialize_icepy()
+init.initialize_icepy()
 cams = init.cams
 images = init.images
 epoch_dict = init.epoch_dict

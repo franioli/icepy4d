@@ -78,13 +78,12 @@ def check_args(opt) -> None:
     elif len(opt.resize) == 1 and opt.resize[0] > 0:
         logging.info(f"Will resize max dimension to {opt.resize[0]}")
     elif len(opt.resize) == 1:
-        logging.info(f"Will not resize images")
+        logging.info("Will not resize images")
     else:
         raise ValueError("Cannot specify more than two integers for --resize")
 
 
 def track_matches(pairs, maskBB, prevs, track_id, opt):
-
     opt.resize_float = RESIZE_FLOAT
     opt.viz_extension = VIZ_EXTENSION
     opt.opencv_display = OPENCV_DISPLAY
@@ -117,7 +116,7 @@ def track_matches(pairs, maskBB, prevs, track_id, opt):
     if opt.viz_matches:
         logging.info(f"Will write visualization images to directory {output_dir}")
 
-    # Inizialize lists for storing matching points
+    # initialize lists for storing matching points
     kpts0_full = []
     kpts1_full = []
     wasMatched = []
@@ -128,7 +127,7 @@ def track_matches(pairs, maskBB, prevs, track_id, opt):
 
     timer = AverageTimer()
 
-    #%% Run tracking
+    # %% Run tracking
     for cam, pair in enumerate(pairs):
         name0, name1 = pair[:2]
         stem0, stem1 = Path(name0).stem, Path(name1).stem
@@ -162,7 +161,6 @@ def track_matches(pairs, maskBB, prevs, track_id, opt):
 
         # Subdivide image in tiles
         do_viz = opt.viz_matches
-        useTile = opt.useTile
         writeTile2Disk = opt.writeTile2Disk
         do_viz_tile = opt.do_viz_tile
         rowDivisor = opt.rowDivisor
@@ -213,7 +211,7 @@ def track_matches(pairs, maskBB, prevs, track_id, opt):
             ptsInTile = np.zeros(len(kpts0), dtype=(bool))
             for i, kk in enumerate(kpts0):
                 ptsInTile[i] = point_in_rect(kk, limits0[t])
-            ptsInTileIdx = np.where(ptsInTile == True)[0]
+            ptsInTileIdx = np.where(ptsInTile is True)[0]
             kpts0_tile = kpts0[ptsInTile] - np.array(limits0[t][0:2]).astype("float32")
             track_id0_tile = np.array(track_id)[ptsInTile]
 
@@ -245,7 +243,7 @@ def track_matches(pairs, maskBB, prevs, track_id, opt):
             mkpts0 = kpts0_tile[valid]
             mkpts1 = kpts1[matches0[valid]]
             mconf = conf[valid]
-            track_id1 = track_id0_tile[valid]
+            track_id0_tile[valid]
 
             for i, pt in enumerate(kpts0_tile):
                 if predTile["matches0"][i] > -1:
@@ -370,7 +368,6 @@ def track_matches(pairs, maskBB, prevs, track_id, opt):
 
     # Viz point mached on both the images
     if do_viz:
-
         name0 = pairs[0][1]
         name1 = pairs[1][1]
         stem0, stem1 = Path(name0).stem, Path(name1).stem

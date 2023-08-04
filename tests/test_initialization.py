@@ -1,15 +1,13 @@
 import pytest
 import sys
 
-from datetime import datetime
 from pathlib import Path
 from easydict import EasyDict as edict
 
-from icepy4d.classes import ImageDS
 from icepy4d.utils.initialization import (
     parse_command_line,
     parse_yaml_cfg,
-    Inizializer,
+    initializer,
 )
 
 
@@ -78,7 +76,7 @@ def test_parse_yaml_cfg(data_dir, cfg_file):
 
 def test_inizialization_epoch_dict(cfg_file):
     cfg = parse_yaml_cfg(cfg_file)
-    init = Inizializer(cfg)
+    init = initializer(cfg)
     init.init_image_ds()
     epoch_dict = init.init_epoch_dict()
     assert isinstance(epoch_dict, dict), "Unable to build epoch_dict dictionary"

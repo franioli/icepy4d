@@ -42,7 +42,7 @@ from icepy4d.utils import initialization as inizialization
 
 # Temporary parameters TODO: put them in config file
 CFG_FILE = "config/config_2022.yaml"
-LOAD_EXISTING_SOLUTION = False
+LOAD_EXISTING_SOLUTION = True
 # DO_ADDITIONAL_MATCHING = False
 # PATCHES = [
 #     {"p1": [0, 500, 2000, 2000], "p2": [4000, 0, 6000, 1500]},
@@ -199,7 +199,7 @@ def save_to_colmap():
     maps[0].write(output_path)
 
 
-""" Inizialize Variables """
+""" initialize Variables """
 if len(sys.argv) > 1:
     # If given, parse inputs from command line and setup logger
     cfg_file, log_cfg = inizialization.parse_command_line()
@@ -214,17 +214,18 @@ else:
     icepy4d_utils.setup_logger(console_log_level="info", logfile_level="info")
 
 # Parse configuration file
-logging.info(f"Configuration file: {cfg_file.stem}")
 cfg = inizialization.parse_yaml_cfg(cfg_file)
 timer_global = icepy4d_utils.AverageTimer()
 
-# Inizialize variables
+# initialize variables
 cams = cfg.cams
-inizializer = inizialization.Inizializer(cfg)
-images = inizializer.init_image_ds()
-epoch_dict = inizializer.init_epoch_dict()
-features_old = inizializer.init_features()
+images, epoch_dict = inizialization.initialize_image_ds(cfg)
 epoches = Epoches(starting_epoch=cfg.proc.epoch_to_process[0])
+
+# initializer = inizialization.initializer(cfg)
+# images = initializer.init_image_ds()
+# epoch_dict = initializer.init_epoch_dict()
+# features_old = initializer.init_features()
 
 """ Big Loop over epoches """
 
@@ -243,20 +244,23 @@ for ep in cfg.proc.epoch_to_process:
 
     # Load existing epcoh
     if LOAD_EXISTING_SOLUTION:
-        path = epochdir / f"{epoch_dict[ep]}.pickle"
-        epoch = Epoch.read_pickle(path)
+        try:
+            epoch = Epoch.read_pickle(epochdir / f"{epoch_dict[ep]}.pickle")
+            epoches.add_epoch(epoch)
+            continue
+        except:
+            logging.error(
+                f"Unable to load epoch {epoch_dict[ep]} from pickle file. Creating new epoch..."
+            )
+            epoch = inizialization.initialize_epoch(
+                cfg=cfg, images=images, epoch_id=ep, epoch_dir=epochdir
+            )
+            epoches.add_epoch(epoch)
 
-        # For backward compatibility.
-        # TODO: remove this when all epochs are saved with new format
-        epoch._timestamp = epoch._datetime
-        del epoch._datetime
-        epoches.add_epoch(epoch)
-
-        del epoch
-        continue
     else:
-        # Create new epoch
-        epoch = inizializer.init_epoch(epoch_id=ep, epoch_dir=epochdir)
+        epoch = inizialization.initialize_epoch(
+            cfg=cfg, images=images, epoch_id=ep, epoch_dir=epochdir
+        )
         epoches.add_epoch(epoch)
 
     # --- Matching and Tracking ---#

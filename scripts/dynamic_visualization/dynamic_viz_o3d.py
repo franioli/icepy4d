@@ -5,7 +5,6 @@ from typing import List
 from pathlib import Path
 from easydict import EasyDict as edict
 from tqdm import tqdm
-from random import randint
 
 from icepy4d.classes.images import Image, ImageDS
 from icepy4d.utils.initialization import parse_yaml_cfg
@@ -121,7 +120,7 @@ if __name__ == "__main__":
     cfg_file = "config/config_base.yaml"
     cfg = parse_yaml_cfg(cfg_file)
 
-    """ Inizialize Variables """
+    """ initialize Variables """
     # @TODO: put this in an inizialization function
     cams = cfg.paths.camera_names
     features = dict.fromkeys(cams)

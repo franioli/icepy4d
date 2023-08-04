@@ -18,7 +18,7 @@
             logging.error("Unable to import epoch.")
     else:
         # Create new epoch
-        epoch = inizializer.init_epoch(epoch_id=ep, epoch_dir=epochdir)
+        epoch = initializer.init_epoch(epoch_id=ep, epoch_dir=epochdir)
         epoches.add_epoch(epoch)
 
         # NOTE: Move this part of code to a notebook for an example of how to create a new epoch
