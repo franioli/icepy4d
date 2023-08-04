@@ -3,13 +3,13 @@ import pydegensac
 import logging
 
 from easydict import EasyDict as edict
-from typing import List, Union
 from pathlib import Path
 
 from .match_pairs import match_pair
 from .track_matches import track_matches
 
 DEBUG = True
+
 
 def MatchingAndTracking(
     cfg: edict,
@@ -23,7 +23,9 @@ def MatchingAndTracking(
 
     NOTE: This function is deprecated. It is kept for backward compatibility with feature tracking. Use the new matchers classes such as icepy4d.matching.SuperGlueMatcher instead.
     """
-    logging.warning("MatchingAndTracking is deprecated. Use the new matchers classes such as icepy4d.matching.SuperGlueMatcher instead.")
+    logging.warning(
+        "MatchingAndTracking is deprecated. Use the new matchers classes such as icepy4d.matching.SuperGlueMatcher instead."
+    )
 
     epochdir = Path(cfg.paths.results_dir) / f"{epoch_dict[epoch]}/matching"
     cams = cfg.paths.camera_names
@@ -101,7 +103,7 @@ def MatchingAndTracking(
             if DEBUG:
                 # from ..visualization.visualization import make_matching_plot
 
-                f_list = {
+                {
                     epoch: features[epoch][cams[0]]
                     for epoch in range(cfg.proc.epoch_to_process[0], epoch + 1)
                 }
@@ -161,7 +163,7 @@ def MatchingAndTracking(
     logging.info(f"SuperGlue found {len(features[epoch][cam])} matches")
 
     # For debugging
-    f_list = {
+    {
         epoch: features[epoch][cams[0]]
         for epoch in range(cfg.proc.epoch_to_process[0], epoch + 1)
     }

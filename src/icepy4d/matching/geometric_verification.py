@@ -2,10 +2,9 @@ import importlib
 import logging
 
 import cv2
-import kornia as K
 import numpy as np
 
-from .enums import GeometricVerification, Quality, TileSelection
+from .enums import GeometricVerification
 
 
 def geometric_verification(
