@@ -37,7 +37,7 @@ from .geometry import estimate_pose
 
 class RelativeOrientation:
     def __init__(self, cameras: List[Camera], features: List[np.ndarray]) -> None:
-        """Inizialize RelativeOrientation class
+        """initialize RelativeOrientation class
         Parameters
         ----------
         cameras : List[Cameras]

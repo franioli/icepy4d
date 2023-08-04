@@ -1,14 +1,12 @@
-from typing import List, Union, Tuple, TypedDict
+from typing import TypedDict
+from datetime import datetime
 
 from .camera import Camera
 from .features import Features
-from .point_cloud import PointCloud
-from .images import Image, ImageDS
-from .targets import Targets
-from .points import Points
+from .images import Image
 
 """
-Define TypedDict classes for storing data from all the epoches
+Define basic data containers
 """
 
 
@@ -24,9 +22,15 @@ class ImagesDict(TypedDict):
     camera: Image
 
 
-# For backward compatibility. It must beintegrated in Epoches class
-class EpochDict(TypedDict):
-    epoch: str
+class EpochDict:
+    def __init__(self, dict: dict[int, datetime]):
+        self._dict = dict
+
+    def __getitem__(self, key):
+        return str(self._dict[key]).replace(" ", "_")
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__} with {len(self._dict)} epochs"
 
 
 # class FeaturesDictEpoch(TypedDict):

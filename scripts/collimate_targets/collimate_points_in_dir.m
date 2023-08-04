@@ -34,11 +34,11 @@ printPoints  = p.Results.printPoints;
 
 %% 
 
-%- Inizialize image datastore 
+%- initialize image datastore 
 imds = imageDatastore(im_dir, ...
     'FileExtensions',{im_ext}, 'LabelSource','foldernames'); 
 
-%- Inizialize other variables
+%- initialize other variables
 num_imgs = length(imds.Files);
 axLims = {};
 points = {};
