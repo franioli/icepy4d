@@ -173,15 +173,16 @@ def parse_yaml_cfg(cfg_file: Union[str, Path]) -> edict:
     cfg.matching_stats_fname = cfg.paths.results_dir / "matching_tracking_results.txt"
 
     # remove files if they already exist
-    if cfg.camera_estimated_fname.exists():
-        cfg.camera_estimated_fname.unlink()
-    if cfg.residuals_fname.exists():
-        cfg.residuals_fname.unlink()
-    if cfg.matching_stats_fname.exists():
-        cfg.matching_stats_fname.unlink()
+    if not cfg.proc.load_existing_results:
+        if cfg.camera_estimated_fname.exists():
+            cfg.camera_estimated_fname.unlink()
+        if cfg.residuals_fname.exists():
+            cfg.residuals_fname.unlink()
+        if cfg.matching_stats_fname.exists():
+            cfg.matching_stats_fname.unlink()
 
     # - Image-realted options
-    cfg.images.mask_bounding_box = np.array(cfg.images.mask_bounding_box).astype("int")
+    # cfg.images.mask_bounding_box = np.array(cfg.images.mask_bounding_box).astype("int")
 
     # - Georef options
     cfg.georef.camera_centers_world = np.array(cfg.georef.camera_centers_world)
