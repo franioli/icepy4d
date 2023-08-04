@@ -22,6 +22,9 @@ proc:
   #- Do space resection of first camera
   do_space_resection: false
 
+  #- Load existing results by reading Epochs object from disk (if False, the results will be overwritten)
+  load_existing_results: true
+
   #- If True try to coregister point clouds based on n double points
   do_coregistration: true
 
@@ -35,15 +38,6 @@ proc:
   camera_to_warp: "p2"
 
   save_sparse_cloud: true
-
-#- Image-related options
-images:
-  #- Bounding box for processing the images from the two cameras
-  # It must be a list of list of lists (one list for each camera)
-  # with the min/max coordinates as [xmin ymin xmax ymax]
-  # mask_bounding_box: [[1000, 1500, 5600, 3700], [100, 1800, 4700, 4000]]
-  # NOTE: DEPRECATED with new matcher calsses. Use matching preselection instead.
-  mask_bounding_box: [[900, 1000, 5600, 3900], [200, 1100, 4900, 4000]]
 
 #- Georeferencing (i.e. absolute orientation) information
 georef:
