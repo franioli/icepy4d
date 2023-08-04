@@ -24,7 +24,7 @@ from icepy4d.matching.geometric_verification import geometric_verification
 from icepy4d.matching.tiling import Tiler
 from icepy4d.thirdparty.SuperGlue.models.matching import Matching
 from icepy4d.thirdparty.SuperGlue.models.utils import make_matching_plot
-from icepy4d.utils import AverageTimer, timeit, deprecated
+from icepy4d.utils import AverageTimer, timeit
 
 matplotlib.use("TkAgg")
 
@@ -44,7 +44,6 @@ def check_dict_keys(dict: dict, keys: List[str]):
         )
 
 
-@deprecated
 class SuperGlueMatcher(ImageMatcherBase):
     def __init__(self, opt: dict) -> None:
         """Initializes a SuperGlueMatcher object with the given options dictionary.

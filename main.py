@@ -34,11 +34,11 @@ import numpy as np
 from icepy4d import matching
 from icepy4d import classes as icepy4d_classes
 from icepy4d import sfm
+from icepy4d import io  # export2bundler import write_bundler_out
 from icepy4d import utils as icepy4d_utils
 from icepy4d.classes.epoch import Epoch, Epoches
 from icepy4d.metashape import metashape as MS
 from icepy4d.utils import initialization as inizialization
-from icepy4d.io.export2bundler import write_bundler_out
 
 # Temporary parameters TODO: put them in config file
 CFG_FILE = "config/config_2022.yaml"
@@ -51,42 +51,6 @@ LOAD_EXISTING_SOLUTION = False
 #     {"p1": [2300, 1700, 3300, 2700], "p2": [3000, 1900, 4000, 2900]},
 # ]
 # TODO: parse_yaml_cfg set deafults paths to results file, check this.
-
-from typing import Union
-from pathlib import Path
-
-from icepy4d.thirdparty.transformations import euler_from_matrix
-
-
-def write_cameras_to_disk(output_path: Union[Path, str], epoch, date, sep: str = ","):
-    if epoch is None:
-        return
-
-    if not Path(output_path).exists():
-        items = [
-            "date",
-            "f1",
-            "omega1",
-            "phi1",
-            "kappa1",
-            "f2",
-            "omega2",
-            "phi2",
-            "kappa2",
-        ]
-        with open(cfg.camera_estimated_fname, "w") as file:
-            file.write(f"{f'{sep}'.join(items)}\n")
-
-    with open(output_path, "a") as file:
-        file.write(f"{date}")
-        for cam in epoch.cameras.keys():
-            f = epoch.cameras[cam].K[1, 1]
-            # R = epoch.cameras[cam].R
-            R = epoch.cameras[cam].pose[:3, :3]
-            o, p, k = euler_from_matrix(R)
-            o, p, k = np.rad2deg(o), np.rad2deg(p), np.rad2deg(k)
-            file.write(f"{sep}{f:.2f}{sep}{o:.4f}{sep}{p:.4f}{sep}{k:.4f}")
-        file.write("\n")
 
 
 def compute_reprojection_error(fname, epoch, sep=","):
@@ -536,7 +500,7 @@ for ep in cfg.proc.epoch_to_process:
 
         # Export results in Bundler format
         im_dict = {cam: images[cam].get_image_path(ep) for cam in cams}
-        write_bundler_out(
+        io.write_bundler_out(
             export_dir=epochdir,
             im_dict=im_dict,
             cameras=epoch.cameras,
@@ -638,7 +602,7 @@ for ep in cfg.proc.epoch_to_process:
         compute_reprojection_error(cfg.residuals_fname, epoches[ep])
 
         # Save focal length to file
-        write_cameras_to_disk(cfg.camera_estimated_fname, epoches[ep], epoch_dict[ep])
+        io.write_cameras_to_disk(cfg.camera_estimated_fname, epoches[ep])
 
     timer.print(f"Epoch {ep} completed")
 
