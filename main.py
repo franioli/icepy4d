@@ -42,7 +42,7 @@ from icepy4d.utils import initialization as inizialization
 
 # Temporary parameters TODO: put them in config file
 CFG_FILE = "config/config_2022.yaml"
-LOAD_EXISTING_SOLUTION = True
+# LOAD_EXISTING_SOLUTION = True
 # DO_ADDITIONAL_MATCHING = False
 # PATCHES = [
 #     {"p1": [0, 500, 2000, 2000], "p2": [4000, 0, 6000, 1500]},
@@ -243,10 +243,17 @@ for ep in cfg.proc.epoch_to_process:
     match_dir = epochdir / "matching"
 
     # Load existing epcoh
-    if LOAD_EXISTING_SOLUTION:
+    if cfg.proc.load_existing_results:
         try:
             epoch = Epoch.read_pickle(epochdir / f"{epoch_dict[ep]}.pickle")
             epoches.add_epoch(epoch)
+
+            # Compute reprojection error
+            io.write_reprojection_error_to_file(cfg.residuals_fname, epoches[ep])
+
+            # Save focal length to file
+            io.write_cameras_to_file(cfg.camera_estimated_fname, epoches[ep])
+
             continue
         except:
             logging.error(
@@ -284,7 +291,7 @@ for ep in cfg.proc.epoch_to_process:
         grid=grid,
         overlap=overlap,
         do_viz_matches=True,
-        do_viz_tiles=True,
+        do_viz_tiles=False,
         save_dir=match_dir,
         geometric_verification=matching.GeometricVerification.PYDEGENSAC,
         threshold=1,
