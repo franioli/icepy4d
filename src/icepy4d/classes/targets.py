@@ -308,7 +308,7 @@ if __name__ == "__main__":
     cfg = parse_yaml_cfg(CFG_FILE)
 
     init = Inizialization(cfg)
-    init.inizialize_icepy()
+    init.initialize_icepy()
     cams = init.cams
     images = init.images
     targets = init.targets

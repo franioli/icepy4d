@@ -23,10 +23,9 @@ SOFTWARE.
 """
 
 import logging
-import os
 from datetime import datetime
 from pathlib import Path
-from typing import List, Union
+from typing import List, Union, Dict
 
 import cv2
 import exifread
@@ -34,7 +33,6 @@ import numpy as np
 
 from .camera import Camera
 from .sensor_width_database import SensorWidthDatabase
-
 
 
 # @TODO: remove variable number of outputs
@@ -433,7 +431,7 @@ class ImageDS:
             IsADirectoryError: If the input path is invalid.
         """
         self._files = None
-        self._datetimes = {}
+        self._timestamps = {}
         self._folder = None
         self._ext = None
         self._elem = 0
@@ -517,6 +515,15 @@ class ImageDS:
             self._elem
             raise StopIteration
 
+    def __repr__(self) -> str:
+        """
+        Returns a string representation of the datastore.
+
+        Returns:
+            str: The string representation of the datastore.
+        """
+        return f"ImageDS({self._folder}) with {len(self)} images."
+
     def reset_imageds(self) -> None:
         """
         Re-initializes the image datastore.
@@ -541,11 +548,11 @@ class ImageDS:
         return self._folder
 
     @property
-    def datetimes(self) -> List[datetime]:
+    def timestamps(self) -> Dict[int, datetime]:
         """
-        Returns the list of datetimes of images in the datastore.
+        Returns the timestamps of the images in the datastore.
         """
-        return list(self._datetimes.values())
+        return self._timestamps
 
     def _read_image_list(self, recursive: bool = None) -> None:
         """
@@ -586,7 +593,7 @@ class ImageDS:
         try:
             for id, im in enumerate(self._files):
                 image = Image(im)
-                self._datetimes[id] = image.datetime
+                self._timestamps[id] = image.datetime
 
                 # These are kept only for backward compatibility
                 self._dates[id] = image.date
@@ -633,6 +640,18 @@ class ImageDS:
             str: The name without extension of the image.
         """
         return self._files[idx].stem
+
+    def get_image_timestamp(self, idx: int) -> datetime:
+        """
+        Returns the timestamp of the image at the specified position in the datastore.
+
+        Args:
+            idx (int): The index of the image.
+
+        Returns:
+            datetime: The timestamp of the image.
+        """
+        return self._timestamps[idx]
 
     def get_image_date(self, idx: int) -> str:
         """

@@ -25,19 +25,21 @@ import logging
 import pickle
 from datetime import datetime as dt
 from pathlib import Path
-from typing import Dict, Union, TypedDict
+from typing import Dict, Union
 
 from .camera import Camera
 from .features import Features
 from .point_cloud import PointCloud
-from .images import Image, ImageDS
+from .images import ImageDS
 from .targets import Targets
 from .points import Points
 
 DEFAULT_DATETIME_FMT = "%Y-%m-%d %H:%M:%S"
 
 
-def parse_str_to_datetime(datetime: Union[str, dt], datetime_format: str = DEFAULT_DATETIME_FMT):
+def parse_str_to_datetime(
+    datetime: Union[str, dt], datetime_format: str = DEFAULT_DATETIME_FMT
+):
     if isinstance(datetime, dt):
         return datetime
     elif isinstance(datetime, str):
@@ -66,13 +68,13 @@ class Epoch:
     def __init__(
         self,
         timestamp: Union[str, dt],
+        epoch_dir: Union[str, Path] = None,
         images: ImageDS = None,
         cameras: Dict[str, Camera] = None,
         features: Dict[str, Features] = None,
         points: Points = None,
         targets: Targets = None,
         point_cloud: PointCloud = None,
-        epoch_dir: Union[str, Path] = None,
         datetime_format: str = DEFAULT_DATETIME_FMT,
     ) -> None:
         """
@@ -85,13 +87,19 @@ class Epoch:
             points (classes.Points): The dictionary of 3D points
         """
         self._timestamp = parse_str_to_datetime(timestamp, datetime_format)
-        self._epoch_dir = Path(epoch_dir) if epoch_dir else None
         self.images = images
         self.cameras = cameras
         self.features = features
         self.points = points
         self.targets = targets
         self.point_cloud = point_cloud
+
+        if epoch_dir is not None:
+            self._epoch_dir = Path(epoch_dir)
+        else:
+            logging.info("Epoch directory not provided. Using timestamp as name")
+            self._epoch_dir = Path(str(self._timestamp).replace(" ", "_"))
+        self._epoch_dir.mkdir(parents=True, exist_ok=True)
 
     @property
     def timestamp(self):
@@ -271,7 +279,9 @@ class Epoches:
         """
         assert isinstance(epoch, Epoch), "Input epoch must be of type Epoch"
         assert hasattr(epoch, "timestamp"), "Epoch must have a timestamp attribute"
-        assert isinstance(epoch.timestamp, dt), "Epoch timestamp must be of type datetime"
+        assert isinstance(
+            epoch.timestamp, dt
+        ), "Epoch timestamp must be of type datetime"
         assert (
             epoch.timestamp not in self._epoches_map.values()
         ), "Epoch with the same timestamp already exists"

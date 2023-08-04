@@ -63,7 +63,7 @@ class ImageMatcherBase(ImageMatcherABC):
         )
         logging.info(f"Running inference on device {self._device}")
 
-        # Inizialize additional variable members for storing matched
+        # initialize additional variable members for storing matched
         # keypoints descriptors and scores
         self._mkpts0 = None  # matched keypoints on image 0
         self._mkpts1 = None  # matched keypoints on image 1
