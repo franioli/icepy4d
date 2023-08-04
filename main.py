@@ -31,10 +31,10 @@ from pathlib import Path
 import numpy as np
 
 # icepy4d4D
-from icepy4d import matching
 from icepy4d import classes as icepy4d_classes
+from icepy4d import matching
 from icepy4d import sfm
-from icepy4d import io  # export2bundler import write_bundler_out
+from icepy4d import io
 from icepy4d import utils as icepy4d_utils
 from icepy4d.classes.epoch import Epoch, Epoches
 from icepy4d.metashape import metashape as MS
@@ -51,44 +51,6 @@ LOAD_EXISTING_SOLUTION = False
 #     {"p1": [2300, 1700, 3300, 2700], "p2": [3000, 1900, 4000, 2900]},
 # ]
 # TODO: parse_yaml_cfg set deafults paths to results file, check this.
-
-
-def compute_reprojection_error(fname, epoch, sep=","):
-    print("Computing reprojection error")
-
-    import pandas as pd
-
-    residuals = pd.DataFrame()
-    for cam_key, camera in epoch.cameras.items():
-        feat = epoch.features[cam_key]
-        projections = camera.project_point(epoch.points.to_numpy())
-        res = projections - feat.kpts_to_numpy()
-        res_norm = np.linalg.norm(res, axis=1)
-        residuals["track_id"] = feat.get_track_ids()
-        residuals[f"x_{cam_key}"] = res[:, 0]
-        residuals[f"y_{cam_key}"] = res[:, 1]
-        residuals[f"norm_{cam_key}"] = res_norm
-
-    # Compute global norm as mean of all cameras
-    residuals["global_norm"] = np.mean(
-        residuals[[f"norm_{x}" for x in cams]].to_numpy(), axis=1
-    )
-    res_stas = residuals.describe()
-    res_stas_s = res_stas.stack()
-
-    if not Path(fname).exists():
-        with open(cfg.residuals_fname, "w") as f:
-            header_line = (
-                "ep"
-                + sep
-                + f"{sep}".join([f"{x[0]}-{x[1]}" for x in res_stas_s.index.to_list()])
-            )
-            f.write(header_line + "\n")
-    with open(fname, "a") as f:
-        line = (
-            epoch_dict[ep] + sep + f"{sep}".join([str(x) for x in res_stas_s.to_list()])
-        )
-        f.write(line + "\n")
 
 
 def make_matching_plot(epoch, out_dir, show_fig=False):
@@ -472,7 +434,7 @@ for ep in cfg.proc.epoch_to_process:
             )
             continue
 
-    save_to_colmap()
+    # save_to_colmap()
 
     # Create point cloud and save .ply to disk
     # pcd_epc = icepy4d_classes.PointCloud(points3d=points3d, points_col=triang.colors)
@@ -599,10 +561,10 @@ for ep in cfg.proc.epoch_to_process:
         # make_matching_plot(epoches[ep], ep, matches_fig_dir, show_fig=False)
 
         # Compute reprojection error
-        compute_reprojection_error(cfg.residuals_fname, epoches[ep])
+        io.write_reprojection_error_to_file(cfg.residuals_fname, epoches[ep])
 
         # Save focal length to file
-        io.write_cameras_to_disk(cfg.camera_estimated_fname, epoches[ep])
+        io.write_cameras_to_file(cfg.camera_estimated_fname, epoches[ep])
 
     timer.print(f"Epoch {ep} completed")
 
