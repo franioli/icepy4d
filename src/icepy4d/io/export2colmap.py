@@ -1,4 +1,3 @@
-import os
 from collections import defaultdict
 from copy import deepcopy
 from enum import Enum
@@ -12,7 +11,7 @@ import torch
 import icepy4d.classes as icepy4d_classes
 from icepy4d.thirdparty.transformations import quaternion_from_matrix
 
-from .utils import create_directory, make_symlink
+from .utils import make_symlink
 
 
 class CameraModels(Enum):
@@ -78,11 +77,11 @@ def features_to_h5(
             m2[:, 0] = unique_match_idxs[k1][m2[:, 0]]
             m2[:, 1] = unique_match_idxs[k2][m2[:, 1]]
             out_match[k1][k2] = m2.numpy()
-    with h5py.File(output_dir / f"keypoints.h5", mode="w") as f_kp:
+    with h5py.File(output_dir / "keypoints.h5", mode="w") as f_kp:
         for k, kpts1 in unique_kpts.items():
             f_kp[k] = kpts1
 
-    with h5py.File(output_dir / f"matches.h5", mode="w") as f_match:
+    with h5py.File(output_dir / "matches.h5", mode="w") as f_match:
         for k1, gr in out_match.items():
             group = f_match.require_group(k1)
             for k2, match in gr.items():
@@ -102,7 +101,7 @@ def export_solution_to_colmap(
     export_dir.mkdir(parents=True, exist_ok=True)
 
     # Write cameras.txt
-    file = open(export_dir / f"cameras.txt", "w")
+    file = open(export_dir / "cameras.txt", "w")
     for cam_id, cam in enumerate(cams):
         # Using OPENCV camera model!
         params = [
@@ -121,7 +120,7 @@ def export_solution_to_colmap(
 
     # Write images.txt
     im_folder = export_dir / "images"
-    file = open(export_dir / f"images.txt", "w")
+    file = open(export_dir / "images.txt", "w")
     for cam_id, cam in enumerate(cams):
         quaternions = quaternion_from_matrix(cameras[cam].R)
         C = cameras[cam].C.squeeze()
@@ -138,7 +137,7 @@ def export_solution_to_colmap(
         make_symlink(src, dst)
 
     # Write empty points3D.txt
-    file = open(export_dir / f"points3D.txt", "w")
+    file = open(export_dir / "points3D.txt", "w")
     file.close()
 
     return True
