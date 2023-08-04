@@ -42,6 +42,7 @@ images:
   # It must be a list of list of lists (one list for each camera)
   # with the min/max coordinates as [xmin ymin xmax ymax]
   # mask_bounding_box: [[1000, 1500, 5600, 3700], [100, 1800, 4700, 4000]]
+  # NOTE: DEPRECATED with new matcher calsses. Use matching preselection instead.
   mask_bounding_box: [[900, 1000, 5600, 3900], [200, 1100, 4900, 4000]]
 
 #- Georeferencing (i.e. absolute orientation) information
@@ -60,6 +61,7 @@ georef:
 
   #- Targets to use for Absolute Orientation, Space Resection and Bundle Adjustment
   targets_to_use: ["F2", "F12", "F13", "T2", "F10_2"] #
+  
 #- Other On-Off switches
 other:
   #- visualize outputs
