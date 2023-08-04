@@ -31,38 +31,38 @@ from pathlib import Path
 import numpy as np
 
 # icepy4d4D
-import icepy4d.classes as icepy4d_classes
-import icepy4d.metashape.metashape as MS
-import icepy4d.sfm as sfm
-import icepy4d.utils as icepy4d_utils
-import icepy4d.utils.initialization as inizialization
+from icepy4d import matching
+from icepy4d import classes as icepy4d_classes
+from icepy4d import sfm
+from icepy4d import utils as icepy4d_utils
 from icepy4d.classes.epoch import Epoch, Epoches
+from icepy4d.metashape import metashape as MS
+from icepy4d.utils import initialization as inizialization
 from icepy4d.io.export2bundler import write_bundler_out
-from icepy4d.matching.match_by_preselection import  find_matches_on_patches,
-
-from icepy4d.matching.utils import  geometric_verification
-
 
 # Temporary parameters TODO: put them in config file
 CFG_FILE = "config/config_2022.yaml"
 LOAD_EXISTING_SOLUTION = False
-DO_ADDITIONAL_MATCHING = False
-PATCHES = [
-    {"p1": [0, 500, 2000, 2000], "p2": [4000, 0, 6000, 1500]},
-    {"p1": [1000, 1500, 4500, 2500], "p2": [1500, 1500, 5000, 2500]},
-    {"p1": [2000, 2000, 3000, 3000], "p2": [2100, 2100, 3100, 3100]},
-    {"p1": [2300, 1700, 3300, 2700], "p2": [3000, 1900, 4000, 2900]},
-]
+# DO_ADDITIONAL_MATCHING = False
+# PATCHES = [
+#     {"p1": [0, 500, 2000, 2000], "p2": [4000, 0, 6000, 1500]},
+#     {"p1": [1000, 1500, 4500, 2500], "p2": [1500, 1500, 5000, 2500]},
+#     {"p1": [2000, 2000, 3000, 3000], "p2": [2100, 2100, 3100, 3100]},
+#     {"p1": [2300, 1700, 3300, 2700], "p2": [3000, 1900, 4000, 2900]},
+# ]
 # TODO: parse_yaml_cfg set deafults paths to results file, check this.
 
+from typing import Union
+from pathlib import Path
 
-def write_cameras_to_disk(fname, epoch, date, sep=","):
-    from icepy4d.thirdparty.transformations import euler_from_matrix
+from icepy4d.thirdparty.transformations import euler_from_matrix
 
+
+def write_cameras_to_disk(output_path: Union[Path, str], epoch, date, sep: str = ","):
     if epoch is None:
         return
 
-    if not Path(fname).exists():
+    if not Path(output_path).exists():
         items = [
             "date",
             "f1",
@@ -74,10 +74,10 @@ def write_cameras_to_disk(fname, epoch, date, sep=","):
             "phi2",
             "kappa2",
         ]
-        with open(cfg.camea_estimated_fname, "w") as file:
+        with open(cfg.camera_estimated_fname, "w") as file:
             file.write(f"{f'{sep}'.join(items)}\n")
 
-    with open(fname, "a") as file:
+    with open(output_path, "a") as file:
         file.write(f"{date}")
         for cam in epoch.cameras.keys():
             f = epoch.cameras[cam].K[1, 1]
@@ -106,18 +106,24 @@ def compute_reprojection_error(fname, epoch, sep=","):
         residuals[f"norm_{cam_key}"] = res_norm
 
     # Compute global norm as mean of all cameras
-    residuals["global_norm"] = np.mean(residuals[[f"norm_{x}" for x in cams]].to_numpy(), axis=1)
+    residuals["global_norm"] = np.mean(
+        residuals[[f"norm_{x}" for x in cams]].to_numpy(), axis=1
+    )
     res_stas = residuals.describe()
     res_stas_s = res_stas.stack()
 
     if not Path(fname).exists():
         with open(cfg.residuals_fname, "w") as f:
             header_line = (
-                "ep" + sep + f"{sep}".join([f"{x[0]}-{x[1]}" for x in res_stas_s.index.to_list()])
+                "ep"
+                + sep
+                + f"{sep}".join([f"{x[0]}-{x[1]}" for x in res_stas_s.index.to_list()])
             )
             f.write(header_line + "\n")
     with open(fname, "a") as f:
-        line = epoch_dict[ep] + sep + f"{sep}".join([str(x) for x in res_stas_s.to_list()])
+        line = (
+            epoch_dict[ep] + sep + f"{sep}".join([str(x) for x in res_stas_s.to_list()])
+        )
         f.write(line + "\n")
 
 
@@ -160,12 +166,117 @@ def make_matching_plot(epoch, out_dir, show_fig=False):
         plt.close()
 
 
+def save_to_colmap():
+    pass
+
+    # Save features in colmap db
+    print("AAAAA")
+    import h5py
+    from collections import defaultdict
+    import torch
+    from copy import deepcopy
+    import os
+    from icepy4d.io.colmap_utils.h5_to_db import (
+        add_keypoints,
+        add_matches,
+        COLMAPDatabase,
+    )
+    import pycolmap
+
+    MIN_MATCHES = 15
+    colmap_dir = Path("colmap")
+    colmap_dir.mkdir(exist_ok=True, parents=True)
+
+    sg_features_fname = "features_sg.h5"
+    with h5py.File(colmap_dir / sg_features_fname, mode="w") as f_match:
+        key1 = epoch.images[cams[0]].name
+        key2 = epoch.images[cams[1]].name
+        group = f_match.require_group(key1)
+        n_matches = len(epoch.features[cams[0]])
+
+        mkpts0 = epoch.features[cams[0]].kpts_to_numpy()
+        mkpts1 = epoch.features[cams[1]].kpts_to_numpy()
+        if n_matches >= MIN_MATCHES:
+            group.create_dataset(key2, data=np.concatenate([mkpts0, mkpts1], axis=1))
+
+    kpts = defaultdict(list)
+    match_indexes = defaultdict(dict)
+    total_kpts = defaultdict(int)
+    with h5py.File(colmap_dir / sg_features_fname, mode="r") as f_match:
+        for k1 in f_match.keys():
+            group = f_match[k1]
+            for k2 in group.keys():
+                matches = group[k2][...]
+                total_kpts[k1]
+                kpts[k1].append(matches[:, :2])
+                kpts[k2].append(matches[:, 2:])
+                current_match = torch.arange(len(matches)).reshape(-1, 1).repeat(1, 2)
+                current_match[:, 0] += total_kpts[k1]
+                current_match[:, 1] += total_kpts[k2]
+                total_kpts[k1] += len(matches)
+                total_kpts[k2] += len(matches)
+                match_indexes[k1][k2] = current_match
+    for k in kpts.keys():
+        kpts[k] = np.round(np.concatenate(kpts[k], axis=0))
+    unique_kpts = {}
+    unique_match_idxs = {}
+    out_match = defaultdict(dict)
+    for k in kpts.keys():
+        uniq_kps, uniq_reverse_idxs = torch.unique(
+            torch.from_numpy(kpts[k]), dim=0, return_inverse=True
+        )
+        unique_match_idxs[k] = uniq_reverse_idxs
+        unique_kpts[k] = uniq_kps.numpy()
+    for k1, group in match_indexes.items():
+        for k2, m in group.items():
+            m2 = deepcopy(m)
+            m2[:, 0] = unique_match_idxs[k1][m2[:, 0]]
+            m2[:, 1] = unique_match_idxs[k2][m2[:, 1]]
+            out_match[k1][k2] = m2.numpy()
+
+    with h5py.File(colmap_dir / "keypoints.h5", mode="w") as f_kp:
+        for k, kpts1 in unique_kpts.items():
+            f_kp[k] = kpts1
+
+    with h5py.File(colmap_dir / "matches.h5", mode="w") as f_match:
+        for k1, gr in out_match.items():
+            group = f_match.require_group(k1)
+            for k2, match in gr.items():
+                group[k2] = match
+
+    # Create fake dir for colmap with symlinks
+    img_dir = colmap_dir / "images"
+    img_dir.mkdir(exist_ok=True, parents=True)
+    for cam in cams:
+        dst = img_dir / epoch.images[cam].name
+        if not dst.exists():
+            os.symlink(epoch.images[cam].path, dst)
+
+    database_path = colmap_dir / "colmap.db"
+    database_path.unlink(missing_ok=True)
+    db = COLMAPDatabase.connect(database_path)
+    db.create_tables()
+    single_camera = False
+    fname_to_id = add_keypoints(db, colmap_dir, img_dir, "simple-radial", single_camera)
+    add_matches(
+        db,
+        colmap_dir,
+        fname_to_id,
+    )
+    db.commit()
+
+    output_path = colmap_dir / "sparse"
+    pycolmap.match_exhaustive(database_path)
+    maps = pycolmap.incremental_mapping(database_path, colmap_dir, output_path)
+    if not os.path.isdir(output_path):
+        os.makedirs(output_path)
+    maps[0].write(output_path)
+
+
 """ Inizialize Variables """
 if len(sys.argv) > 1:
-    # If given, parse inputs from command line
+    # If given, parse inputs from command line and setup logger
     cfg_file, log_cfg = inizialization.parse_command_line()
-
-    # Setup logger
     icepy4d_utils.setup_logger(
         log_cfg["log_folder"],
         log_cfg["log_name"],
@@ -180,9 +291,9 @@ else:
 logging.info(f"Configuration file: {cfg_file.stem}")
 cfg = inizialization.parse_yaml_cfg(cfg_file)
 timer_global = icepy4d_utils.AverageTimer()
-cams = cfg.cams
 
 # Inizialize variables
+cams = cfg.cams
 inizializer = inizialization.Inizializer(cfg)
 images = inizializer.init_image_ds()
 epoch_dict = inizializer.init_epoch_dict()
@@ -198,7 +309,7 @@ iter = 0  # necessary only for printing the number of processed iteration
 for ep in cfg.proc.epoch_to_process:
     logging.info("------------------------------------------------------")
     logging.info(
-        f"""Processing epoch {ep} [{iter}/{cfg.proc.epoch_to_process[-1]-cfg.proc.epoch_to_process[0]}] - {epoch_dict[ep]}..."""
+        f"""Processing epoch {ep} [{iter}/{cfg.proc.epoch_to_process[-1]-cfg.proc.epoch_to_process[0]}] - {epoch_dict[ep]}..."""  # noqa: E501
     )
     iter += 1
     epochdir = cfg.paths.results_dir / epoch_dict[ep]
@@ -231,27 +342,21 @@ for ep in cfg.proc.epoch_to_process:
     #     epoch_dict=epoch_dict,
     # )
     # epoch.features = features_old[ep]
-    from icepy4d.matching.matcher import (
-        SuperGlueMatcher,
-        TileSelection,
-        Quality,
-        GeometricVerification,
-    )
 
-    matcher = SuperGlueMatcher(cfg.matching)
+    matcher = matching.SuperGlueMatcher(cfg.matching)
     grid = [4, 3]
     overlap = 200
     matcher.match(
         epoch.images[cams[0]].value,
         epoch.images[cams[1]].value,
-        quality=Quality.HIGH,
-        tile_selection=TileSelection.PRESELECTION,
+        quality=matching.Quality.HIGH,
+        tile_selection=matching.TileSelection.PRESELECTION,
         grid=grid,
         overlap=overlap,
         do_viz_matches=True,
         do_viz_tiles=True,
         save_dir=match_dir,
-        geometric_verification=GeometricVerification.PYDEGENSAC,
+        geometric_verification=matching.GeometricVerification.PYDEGENSAC,
         threshold=1,
         confidence=0.9999,
     )
@@ -274,38 +379,39 @@ for ep in cfg.proc.epoch_to_process:
     )
     epoch.features = f
 
-    # Run additional matching on selected patches:
-    if DO_ADDITIONAL_MATCHING:
-        logging.info("Performing additional matching on user-specified patches")
-        im_stems = [epoch.images[cam].stem for cam in cams]
-        sg_opt = {
-            "weights": cfg.matching.weights,
-            "keypoint_threshold": 0.0001,
-            "max_keypoints": 8192,
-            "match_threshold": 0.2,
-            "force_cpu": False,
-        }
-        for i, patches_lim in enumerate(PATCHES):
-            find_matches_on_patches(
-                images=images,
-                patches_lim=patches_lim,
-                epoch=ep,
-                features=epoch.features,
-                cfg=sg_opt,
-                do_geometric_verification=True,
-                geometric_verification_threshold=10,
-                viz_results=True,
-                fast_viz=True,
-                viz_path=match_dir / f"{im_stems[0]}_{im_stems[1]}_matches_patch_{i}.png",
-            )
+    # # Run additional matching on selected patches:
+    # if DO_ADDITIONAL_MATCHING:
+    #     logging.info("Performing additional matching on user-specified patches")
+    #     im_stems = [epoch.images[cam].stem for cam in cams]
+    #     sg_opt = {
+    #         "weights": cfg.matching.weights,
+    #         "keypoint_threshold": 0.0001,
+    #         "max_keypoints": 8192,
+    #         "match_threshold": 0.2,
+    #         "force_cpu": False,
+    #     }
+    #     for i, patches_lim in enumerate(PATCHES):
+    #         find_matches_on_patches(
+    #             images=images,
+    #             patches_lim=patches_lim,
+    #             epoch=ep,
+    #             features=epoch.features,
+    #             cfg=sg_opt,
+    #             do_geometric_verification=True,
+    #             geometric_verification_threshold=10,
+    #             viz_results=True,
+    #             fast_viz=True,
+    #             viz_path=match_dir
+    #             / f"{im_stems[0]}_{im_stems[1]}_matches_patch_{i}.png",
+    #         )
 
-        # Run again geometric verification
-        geometric_verification(
-            epoch.features,
-            threshold=cfg.matching.pydegensac_threshold,
-            confidence=cfg.matching.pydegensac_confidence,
-        )
-        logging.info("Matching by patches completed.")
+    #     # Run again geometric verification
+    #     geometric_verification(
+    #         epoch.features,
+    #         threshold=cfg.matching.pydegensac_threshold,
+    #         confidence=cfg.matching.pydegensac_confidence,
+    #     )
+    #     logging.info("Matching by patches completed.")
 
     timer.update("matching")
 
@@ -357,17 +463,21 @@ for ep in cfg.proc.epoch_to_process:
         # Get targets available in all cameras
         # Labels of valid targets are returned as second element by
         # get_image_coor_by_label() method
-        valid_targets = epoch.targets.get_image_coor_by_label(cfg.georef.targets_to_use, cam_id=0)[
-            1
-        ]
+        valid_targets = epoch.targets.get_image_coor_by_label(
+            cfg.georef.targets_to_use, cam_id=0
+        )[1]
         for id in range(1, len(cams)):
             assert (
                 valid_targets
-                == epoch.targets.get_image_coor_by_label(cfg.georef.targets_to_use, cam_id=id)[1]
+                == epoch.targets.get_image_coor_by_label(
+                    cfg.georef.targets_to_use, cam_id=id
+                )[1]
             ), f"""epoch {ep} - {epoch_dict[ep]}: 
             Different targets found in image {id} - {images[cams[id]][ep]}"""
         if len(valid_targets) < 1:
-            logging.error(f"Not enough targets found. Skipping epoch {ep} and moving to next epoch")
+            logging.error(
+                f"Not enough targets found. Skipping epoch {ep} and moving to next epoch"  # noqa: E501
+            )
             continue
         if valid_targets != cfg.georef.targets_to_use:
             logging.warning(f"Not all targets found. Using onlys {valid_targets}")
@@ -398,106 +508,7 @@ for ep in cfg.proc.epoch_to_process:
             )
             continue
 
-    # Save features in colmap db
-    print("AAAAA")
-    import h5py
-    from collections import defaultdict
-    import torch
-    from copy import deepcopy
-    import os
-
-    MIN_MATCHES = 15
-    colmap_dir = Path("colmap")
-    colmap_dir.mkdir(exist_ok=True, parents=True)
-
-    sg_features_fname = f"features_sg.h5"
-    with h5py.File(colmap_dir / sg_features_fname, mode="w") as f_match:
-        key1 = epoch.images[cams[0]].name
-        key2 = epoch.images[cams[1]].name
-        group = f_match.require_group(key1)
-        n_matches = len(epoch.features[cams[0]])
-
-        mkpts0 = epoch.features[cams[0]].kpts_to_numpy()
-        mkpts1 = epoch.features[cams[1]].kpts_to_numpy()
-        if n_matches >= MIN_MATCHES:
-            group.create_dataset(key2, data=np.concatenate([mkpts0, mkpts1], axis=1))
-
-    kpts = defaultdict(list)
-    match_indexes = defaultdict(dict)
-    total_kpts = defaultdict(int)
-    with h5py.File(colmap_dir / sg_features_fname, mode="r") as f_match:
-        for k1 in f_match.keys():
-            group = f_match[k1]
-            for k2 in group.keys():
-                matches = group[k2][...]
-                total_kpts[k1]
-                kpts[k1].append(matches[:, :2])
-                kpts[k2].append(matches[:, 2:])
-                current_match = torch.arange(len(matches)).reshape(-1, 1).repeat(1, 2)
-                current_match[:, 0] += total_kpts[k1]
-                current_match[:, 1] += total_kpts[k2]
-                total_kpts[k1] += len(matches)
-                total_kpts[k2] += len(matches)
-                match_indexes[k1][k2] = current_match
-    for k in kpts.keys():
-        kpts[k] = np.round(np.concatenate(kpts[k], axis=0))
-    unique_kpts = {}
-    unique_match_idxs = {}
-    out_match = defaultdict(dict)
-    for k in kpts.keys():
-        uniq_kps, uniq_reverse_idxs = torch.unique(
-            torch.from_numpy(kpts[k]), dim=0, return_inverse=True
-        )
-        unique_match_idxs[k] = uniq_reverse_idxs
-        unique_kpts[k] = uniq_kps.numpy()
-    for k1, group in match_indexes.items():
-        for k2, m in group.items():
-            m2 = deepcopy(m)
-            m2[:, 0] = unique_match_idxs[k1][m2[:, 0]]
-            m2[:, 1] = unique_match_idxs[k2][m2[:, 1]]
-            out_match[k1][k2] = m2.numpy()
-
-    with h5py.File(colmap_dir / "keypoints.h5", mode="w") as f_kp:
-        for k, kpts1 in unique_kpts.items():
-            f_kp[k] = kpts1
-
-    with h5py.File(colmap_dir / f"matches.h5", mode="w") as f_match:
-        for k1, gr in out_match.items():
-            group = f_match.require_group(k1)
-            for k2, match in gr.items():
-                group[k2] = match
-
-    from icepy4d.io.colmap_utils.h5_to_db import add_keypoints, add_matches, COLMAPDatabase
-    import pycolmap
-
-    # Create fake dir for colmap with symlinks
-    img_dir = colmap_dir / "images"
-    img_dir.mkdir(exist_ok=True, parents=True)
-    for cam in cams:
-        dst = img_dir / epoch.images[cam].name
-        if not dst.exists():
-            os.symlink(epoch.images[cam].path, dst)
-
-    database_path = colmap_dir / "colmap.db"
-    database_path.unlink(missing_ok=True)
-    db = COLMAPDatabase.connect(database_path)
-    db.create_tables()
-    single_camera = False
-    img_ext = ".jpg"
-    fname_to_id = add_keypoints(db, colmap_dir, img_dir, "simple-radial", single_camera)
-    add_matches(
-        db,
-        colmap_dir,
-        fname_to_id,
-    )
-    db.commit()
-
-    output_path = colmap_dir / "sparse"
-    pycolmap.match_exhaustive(database_path)
-    maps = pycolmap.incremental_mapping(database_path, colmap_dir, output_path)
-    if not os.path.isdir(output_path):
-        os.makedirs(output_path)
-    maps[0].write(output_path)
+    save_to_colmap()
 
     # Create point cloud and save .ply to disk
     # pcd_epc = icepy4d_classes.PointCloud(points3d=points3d, points_col=triang.colors)
@@ -627,7 +638,7 @@ for ep in cfg.proc.epoch_to_process:
         compute_reprojection_error(cfg.residuals_fname, epoches[ep])
 
         # Save focal length to file
-        write_cameras_to_disk(cfg.camea_estimated_fname, epoches[ep], epoch_dict[ep])
+        write_cameras_to_disk(cfg.camera_estimated_fname, epoches[ep], epoch_dict[ep])
 
     timer.print(f"Epoch {ep} completed")
 
@@ -668,7 +679,10 @@ if cfg.proc.do_homography_warping:
                     epoch_range = range(ep - 2, ep + 3)
             cam_to_warp = deepcopy(epoch.cameras[cam])
             angles = np.stack(
-                [euler_from_matrix(epoches.get_epoch_id(e).cameras[cam].R) for e in epoch_range],
+                [
+                    euler_from_matrix(epoches.get_epoch_id(e).cameras[cam].R)
+                    for e in epoch_range
+                ],
                 axis=1,
             )
 
