@@ -35,6 +35,8 @@ from typing import List, Union
 from .camera import Camera
 from .point_cloud import PointCloud
 
+logger = logging.getLogger(__name__)
+
 
 def float32_type_check(
     array: np.ndarray, cast_integers: bool = False, verbose: bool = False

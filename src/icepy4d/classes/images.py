@@ -34,6 +34,9 @@ import numpy as np
 from .camera import Camera
 from .sensor_width_database import SensorWidthDatabase
 
+logger = logging.getLogger(__name__)
+logging.getLogger("exifread").setLevel(logging.WARNING)
+
 
 # @TODO: remove variable number of outputs
 def read_image(
@@ -63,7 +66,7 @@ def read_image(
     try:
         image = cv2.imread(str(path), flag)
     except:
-        logging.error(f"Impossible to load image {path}")
+        logger.error(f"Impossible to load image {path}")
         return None, None
 
     if color:
@@ -139,7 +142,7 @@ class Image:
         if self._height:
             return int(self._height)
         else:
-            logging.error("Image height not available. Read it from exif first")
+            logger.error("Image height not available. Read it from exif first")
             return None
 
     @property
@@ -148,7 +151,7 @@ class Image:
         if self._width:
             return int(self._width)
         else:
-            logging.error("Image width not available. Read it from exif first")
+            logger.error("Image width not available. Read it from exif first")
             return None
 
     @property
@@ -198,7 +201,7 @@ class Image:
         if self._date_time is not None:
             return self._date_time.strftime("%Y:%m:%d")
         else:
-            logging.error("No exif data available.")
+            logger.error("No exif data available.")
             return
 
     @property
@@ -210,7 +213,7 @@ class Image:
         if self._date_time is not None:
             return self._date_time.strftime("%H:%M:%S")
         else:
-            logging.error("No exif data available.")
+            logger.error("No exif data available.")
             return None
 
     @property
@@ -225,7 +228,7 @@ class Image:
         if self._date_time is not None:
             return self._date_time
         else:
-            logging.error("No exif data available.")
+            logger.error("No exif data available.")
             return
 
     @property
@@ -249,7 +252,7 @@ class Image:
         if self._date_time is not None:
             return self._date_time
         else:
-            logging.error("No exif data available.")
+            logger.error("No exif data available.")
             return
 
     def read_image(
@@ -266,7 +269,7 @@ class Image:
             self.read_exif()
             return self._value_array
         else:
-            logging.error(f"Input paht {self.path} not valid.")
+            logger.error(f"Input paht {self.path} not valid.")
             return None
 
     def reset_image(self) -> None:
@@ -275,11 +278,10 @@ class Image:
     def read_exif(self) -> None:
         """Read image exif with exifread and store them in a dictionary"""
         try:
-            f = open(self._path, "rb")
-            self._exif_data = exifread.process_file(f, details=False)
-            f.close()
+            with open(self._path, "rb") as f:
+                self._exif_data = exifread.process_file(f, details=False, debug=False)
         except:
-            logging.error("No exif data available.")
+            logger.error("No exif data available.")
 
         # Get image size
         if (
@@ -295,7 +297,7 @@ class Image:
             self._width = self._exif_data["EXIF ExifImageWidth"].printable
             self._height = self._exif_data["EXIF ExifImageLength"].printable
         else:
-            logging.error(
+            logger.error(
                 "Image width and height found in exif. Try to load the image and get image size from numpy array"
             )
             try:
@@ -312,7 +314,7 @@ class Image:
         elif "EXIF DateTimeOriginal" in self._exif_data.keys():
             date_str = self._exif_data["EXIF DateTimeOriginal"].printable
         else:
-            logging.error("Date not available in exif.")
+            logger.error("Date not available in exif.")
             return
         self._date_time = datetime.strptime(date_str, self._date_time_fmt)
 
@@ -350,12 +352,12 @@ class Image:
             try:
                 self.read_exif()
             except OSError:
-                logging.error("Unable to read exif data.")
+                logger.error("Unable to read exif data.")
                 return None
         try:
             focal_length_mm = float(self._exif_data["EXIF FocalLength"].printable)
         except OSError:
-            logging.error("Focal length non found in exif data.")
+            logger.error("Focal length non found in exif data.")
             return None
         try:
             sensor_width_db = SensorWidthDatabase()
@@ -364,7 +366,7 @@ class Image:
                 self._exif_data["Image Model"].printable,
             )
         except OSError:
-            logging.error("Unable to get sensor size in mm from sensor database")
+            logger.error("Unable to get sensor size in mm from sensor database")
             return None
 
         img_w_px = self.width
@@ -445,7 +447,7 @@ class ImageDS:
             self._folder = Path(path)
             if not self._folder.exists():
                 msg = f"Error: invalid input path {self._folder}"
-                logging.error(msg)
+                logger.error(msg)
                 raise IsADirectoryError(msg)
             if ext is not None:
                 self._ext = ext
@@ -454,7 +456,7 @@ class ImageDS:
         try:
             self._read_dates()
         except RuntimeError as err:
-            logging.exception(err)
+            logger.exception(err)
 
     def __len__(self) -> int:
         """
@@ -581,7 +583,7 @@ class ImageDS:
         self._files = sorted(self._folder.glob(pattern))
 
         if len(self._files) == 0:
-            logging.error(f"No images found in folder {self._folder}")
+            logger.error(f"No images found in folder {self._folder}")
             return
 
     def _read_dates(self) -> None:
@@ -599,7 +601,7 @@ class ImageDS:
                 self._dates[id] = image.date
                 self._times[id] = image.time
         except:
-            logging.error("Unable to read image dates and time from EXIF.")
+            logger.error("Unable to read image dates and time from EXIF.")
             self._dates, self._times = {}, {}
             return
 

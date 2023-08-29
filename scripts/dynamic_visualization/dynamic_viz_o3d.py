@@ -7,7 +7,7 @@ from easydict import EasyDict as edict
 from tqdm import tqdm
 
 from icepy4d.classes.images import Image, ImageDS
-from icepy4d.utils.initialization import parse_yaml_cfg
+from icepy4d.utils.initialization import parse_cfg
 
 
 def read_asci_pc(path):
@@ -118,7 +118,7 @@ def viz_loop_folder(dir, ext, out_dir):
 if __name__ == "__main__":
     # Parse options from yaml file
     cfg_file = "config/config_base.yaml"
-    cfg = parse_yaml_cfg(cfg_file)
+    cfg = parse_cfg(cfg_file)
 
     """ initialize Variables """
     # @TODO: put this in an inizialization function

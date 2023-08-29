@@ -1,3 +1,10 @@
+#- Define log levels and folder
+log:
+  # Log levels: "debug", "info", "warning", "error", "critical"
+  level: "info"
+  folder: "logs"
+  base_filename: "icepy4d"
+
 #- Define paths and base settings
 # All pahts MUST be relative to the root folder of icepy4d and
 # they will be converted to pathlib.Path when parsing this yaml file)
