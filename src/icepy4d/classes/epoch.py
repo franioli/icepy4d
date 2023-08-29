@@ -132,6 +132,15 @@ class Epoch:
         """
         return self._timestamp.strftime("%H:%M:%S")
 
+    def __str__(self) -> str:
+        """
+        Returns a string representation of the Epoch object
+
+        Returns:
+            str: The string representation of the Epoch object
+        """
+        return f"{self._timestamp.strftime(DEFAULT_DATETIME_FMT).replace(' ', '_')}"
+
     def __repr__(self):
         """
         Returns a string representation of the Epoch object
