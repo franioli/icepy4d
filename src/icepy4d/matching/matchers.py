@@ -28,6 +28,8 @@ from icepy4d.utils import AverageTimer, timeit
 
 matplotlib.use("TkAgg")
 
+logger = logging.getLogger(__name__)
+
 # TODO: use KORNIA for image tiling
 
 # SuperPoint and SuperGlue default parameters
@@ -154,7 +156,7 @@ class SuperGlueMatcher(ImageMatcherBase):
         valid = matches0 > -1
         mconf = features0.scores[valid]
 
-        logging.info("Matching completed.")
+        logger.info("Matching completed.")
 
         return features0, features1, matches0, mconf
 
@@ -221,7 +223,7 @@ class SuperGlueMatcher(ImageMatcherBase):
 
         # Match each tile pair
         for tidx0, tidx1 in tile_pairs:
-            logging.info(f" - Matching tile pair ({tidx0}, {tidx1})")
+            logger.info(f" - Matching tile pair ({tidx0}, {tidx1})")
 
             lim0 = t0_lims[tidx0]
             lim1 = t1_lims[tidx1]
@@ -283,7 +285,7 @@ class SuperGlueMatcher(ImageMatcherBase):
                     hide_fig=True,
                 )
 
-        logging.info("Restoring full image coordinates of matches...")
+        logger.info("Restoring full image coordinates of matches...")
 
         # Restore original image coordinates (not cropped)
         mkpts0_full = mkpts0_full + np.array(t0_origin).astype("float32")
@@ -312,7 +314,7 @@ class SuperGlueMatcher(ImageMatcherBase):
         valid = matches0 > -1
         mconf = features0.scores[valid]
 
-        logging.info("Matching by tile completed.")
+        logger.info("Matching by tile completed.")
 
         return features0, features1, matches0, mconf
 
@@ -503,7 +505,7 @@ class LOFTRMatcher(ImageMatcherBase):
 
         # Match each tile pair
         for tidx0, tidx1 in tile_pairs:
-            logging.info(f" - Matching tile pair ({tidx0}, {tidx1})")
+            logger.info(f" - Matching tile pair ({tidx0}, {tidx1})")
 
             lim0 = t0_lims[tidx0]
             lim1 = t1_lims[tidx1]
@@ -548,7 +550,7 @@ class LOFTRMatcher(ImageMatcherBase):
                     save_dir / f"matches_tile_{tidx0}-{tidx1}.png",
                 )
 
-        logging.info("Restoring full image coordinates of matches...")
+        logger.info("Restoring full image coordinates of matches...")
 
         # Restore original image coordinates (not cropped)
         mkpts0_full = mkpts0_full + np.array(t0_origin).astype("float32")
@@ -570,7 +572,7 @@ class LOFTRMatcher(ImageMatcherBase):
         # Create a 1-to-1 matching array
         matches0 = np.arange(mkpts0_full.shape[0])
 
-        logging.info("Matching by tile completed.")
+        logger.info("Matching by tile completed.")
 
         return features0, features1, matches0, conf_full
 
@@ -616,11 +618,11 @@ class LightGlueMatcher(ImageMatcherBase):
 
         # Perform matching (on tiles or full images)
         if tile_selection == TileSelection.NONE:
-            logging.info("Matching full images...")
+            logger.info("Matching full images...")
             features0, features1, matches0, mconf = self._match_images(image0_, image1_)
 
         else:
-            logging.info("Matching by tiles...")
+            logger.info("Matching by tiles...")
             features0, features1, matches0, mconf = self._match_tiles(
                 image0_, image1_, tile_selection, **kwargs
             )
@@ -633,7 +635,7 @@ class LightGlueMatcher(ImageMatcherBase):
         self._mkpts1 = features1.keypoints
         self._mconf = mconf
         self.timer.update("matching")
-        logging.info("Matching done!")
+        logger.info("Matching done!")
 
         if do_viz_matches is True:
             save_dir = Path(save_dir)
@@ -643,7 +645,7 @@ class LightGlueMatcher(ImageMatcherBase):
             )
 
         # Perform geometric verification
-        logging.info("Performing geometric verification...")
+        logger.info("Performing geometric verification...")
         if gv_method is not GeometricVerification.NONE:
             F, inlMask = geometric_verification(
                 self._mkpts0,
@@ -654,7 +656,7 @@ class LightGlueMatcher(ImageMatcherBase):
             )
             self._F = F
             self._filter_matches_by_mask(inlMask)
-            logging.info("Geometric verification done.")
+            logger.info("Geometric verification done.")
             self.timer.update("geometric_verification")
 
         if do_viz_matches is True:
@@ -745,13 +747,13 @@ class LightGlueMatcher(ImageMatcherBase):
 
         # Select tile pairs to match
         if method == TileSelection.EXHAUSTIVE:
-            logging.info("Matching tiles exaustively")
+            logger.info("Matching tiles exaustively")
             tile_pairs = sorted(product(t0_lims.keys(), t1_lims.keys()))
         elif method == TileSelection.GRID:
-            logging.info("Matching tiles by regular grid")
+            logger.info("Matching tiles by regular grid")
             tile_pairs = sorted(zip(t0_lims.keys(), t1_lims.keys()))
         elif method == TileSelection.PRESELECTION:
-            logging.info("Matching tiles by preselection tile selection")
+            logger.info("Matching tiles by preselection tile selection")
             if image0.shape[0] > 8000:
                 n_down = 4
             if image0.shape[0] > 4000:
@@ -818,7 +820,7 @@ class LightGlueMatcher(ImageMatcherBase):
 
         # Match each tile pair
         for tidx0, tidx1 in tile_pairs:
-            logging.info(f" - Matching tile pair ({tidx0}, {tidx1})")
+            logger.info(f" - Matching tile pair ({tidx0}, {tidx1})")
 
             lim0 = t0_lims[tidx0]
             lim1 = t1_lims[tidx1]
@@ -863,7 +865,7 @@ class LightGlueMatcher(ImageMatcherBase):
                     save_dir / f"matches_tile_{tidx0}-{tidx1}.png",
                 )
 
-        logging.info("Restoring full image coordinates of matches...")
+        logger.info("Restoring full image coordinates of matches...")
 
         # Restore original image coordinates (not cropped)
         mkpts0_full = mkpts0_full + np.array(t0_origin).astype("float32")
@@ -885,14 +887,14 @@ class LightGlueMatcher(ImageMatcherBase):
         # Create a 1-to-1 matching array
         matches0 = np.arange(mkpts0_full.shape[0])
 
-        logging.info("Matching by tile completed.")
+        logger.info("Matching by tile completed.")
 
         return features0, features1, matches0, conf_full
 
 
 if __name__ == "__main__":
     # Seup logger
-    logging.basicConfig(level=logging.INFO)
+    logger.basicConfig(level=logger.INFO)
 
     # assset_path = Path("assets")
 
