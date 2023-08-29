@@ -45,6 +45,12 @@ def deprecated(func):
     return new_func
 
 
+def get_logger(name: str = "__name__", level: str = "info"):
+    logger = logging.getLogger(name)
+    logger.setLevel(level.upper())
+    return logger
+
+
 # Logging formatter supporting colorized output
 class LogFormatter(logging.Formatter):
     COLOR_CODES = {
@@ -150,7 +156,7 @@ def configure_logging(
 
 def setup_logger(
     log_folder: str = "logs",
-    log_base_name: str = "icepy4d",
+    log_base_name: str = "log",
     console_log_level: str = "info",
     logfile_level: str = "info",
 ):
@@ -188,7 +194,7 @@ def setup_logger(
 # Call main function
 if __name__ == "__main__":
     CONSOLE_LOG_LEVEL = "info"
-    LOGFILE_LEVEL = "debug"
+    LOGFILE_LEVEL = "info"
     LOG_FOLDER = "logs"
     LOG_BASE_NAME = "icepy4d"
 

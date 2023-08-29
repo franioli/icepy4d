@@ -262,10 +262,10 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
     from icepy4d import classes as icepy4d_classes
-    from icepy4d.utils.initialization import parse_yaml_cfg
+    from icepy4d.utils.initialization import parse_cfg
 
     cfg_file = "config/config_base.yaml"
-    cfg = parse_yaml_cfg(cfg_file)
+    cfg = parse_cfg(cfg_file)
     cams = cfg.cams
 
     images = {cam: icepy4d_classes.ImageDS(cfg.paths.image_dir / cam) for cam in cams}
@@ -441,5 +441,7 @@ if __name__ == "__main__":
         target_coord_meas[epoch] = targets[epoch].get_image_coor_by_label(
             targets_to_use, cam_id
         )[0][0]
-    target_coord_meas = pd.DataFrame.from_dict(target_coord_meas, orient="index", columns=["x", "y"])
+    target_coord_meas = pd.DataFrame.from_dict(
+        target_coord_meas, orient="index", columns=["x", "y"]
+    )
     print(target_coord_meas.describe())

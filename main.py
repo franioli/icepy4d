@@ -23,9 +23,7 @@ SOFTWARE.
 """
 
 import gc
-import logging
 import shutil
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -40,8 +38,9 @@ from icepy4d.classes.epoch import Epoch, Epoches
 from icepy4d.metashape import metashape as MS
 from icepy4d.utils import initialization as inizialization
 
-# Temporary parameters TODO: put them in config file
+# Define configuration file
 CFG_FILE = "config/config_2022.yaml"
+
 # LOAD_EXISTING_SOLUTION = True
 # DO_ADDITIONAL_MATCHING = False
 # PATCHES = [
@@ -50,7 +49,7 @@ CFG_FILE = "config/config_2022.yaml"
 #     {"p1": [2000, 2000, 3000, 3000], "p2": [2100, 2100, 3100, 3100]},
 #     {"p1": [2300, 1700, 3300, 2700], "p2": [3000, 1900, 4000, 2900]},
 # ]
-# TODO: parse_yaml_cfg set deafults paths to results file, check this.
+# TODO: parse_cfg set deafults paths to results file, check this.
 
 
 def make_matching_plot(epoch, out_dir, show_fig=False):
@@ -199,23 +198,11 @@ def save_to_colmap():
     maps[0].write(output_path)
 
 
-""" initialize Variables """
-if len(sys.argv) > 1:
-    # If given, parse inputs from command line and setup logger
-    cfg_file, log_cfg = inizialization.parse_command_line()
-    icepy4d_utils.setup_logger(
-        log_cfg["log_folder"],
-        log_cfg["log_name"],
-        log_cfg["log_file_level"],
-        log_cfg["log_console_level"],
-    )
-else:
-    cfg_file = Path(CFG_FILE)
-    icepy4d_utils.setup_logger(console_log_level="info", logfile_level="info")
-
 # Parse configuration file
-cfg = inizialization.parse_yaml_cfg(cfg_file)
+cfg_file = Path(CFG_FILE)
+cfg = inizialization.parse_cfg(cfg_file)
 timer_global = icepy4d_utils.AverageTimer()
+logger = icepy4d_utils.get_logger()
 
 # initialize variables
 cams = cfg.cams
@@ -229,13 +216,13 @@ epoches = Epoches(starting_epoch=cfg.proc.epoch_to_process[0])
 
 """ Big Loop over epoches """
 
-logging.info("------------------------------------------------------")
-logging.info("Processing started:")
+logger.info("------------------------------------------------------")
+logger.info("Processing started:")
 timer = icepy4d_utils.AverageTimer()
 iter = 0  # necessary only for printing the number of processed iteration
 for ep in cfg.proc.epoch_to_process:
-    logging.info("------------------------------------------------------")
-    logging.info(
+    logger.info("------------------------------------------------------")
+    logger.info(
         f"""Processing epoch {ep} [{iter}/{cfg.proc.epoch_to_process[-1]-cfg.proc.epoch_to_process[0]}] - {epoch_dict[ep]}..."""  # noqa: E501
     )
     iter += 1
@@ -256,7 +243,7 @@ for ep in cfg.proc.epoch_to_process:
 
             continue
         except:
-            logging.error(
+            logger.error(
                 f"Unable to load epoch {epoch_dict[ep]} from pickle file. Creating new epoch..."
             )
             epoch = inizialization.initialize_epoch(
@@ -318,7 +305,7 @@ for ep in cfg.proc.epoch_to_process:
 
     # # Run additional matching on selected patches:
     # if DO_ADDITIONAL_MATCHING:
-    #     logging.info("Performing additional matching on user-specified patches")
+    #     logger.info("Performing additional matching on user-specified patches")
     #     im_stems = [epoch.images[cam].stem for cam in cams]
     #     sg_opt = {
     #         "weights": cfg.matching.weights,
@@ -348,13 +335,13 @@ for ep in cfg.proc.epoch_to_process:
     #         threshold=cfg.matching.pydegensac_threshold,
     #         confidence=cfg.matching.pydegensac_confidence,
     #     )
-    #     logging.info("Matching by patches completed.")
+    #     logger.info("Matching by patches completed.")
 
     timer.update("matching")
 
     """ SfM """
 
-    logging.info(f"Reconstructing epoch {ep}...")
+    logger.info(f"Reconstructing epoch {ep}...")
 
     # --- Perform Relative orientation of the two cameras ---#
     # Initialize RelativeOrientation class with a list containing the two
@@ -393,7 +380,7 @@ for ep in cfg.proc.epoch_to_process:
     points3d = triang.triangulate_two_views(
         compute_colors=True, image=images[cams[1]].read_image(ep).value, cam_id=1
     )
-    logging.info("Tie points triangulated.")
+    logger.info("Tie points triangulated.")
 
     # --- Absolute orientation (-> coregistration on stable points) ---#
     if cfg.proc.do_coregistration:
@@ -412,12 +399,12 @@ for ep in cfg.proc.epoch_to_process:
             ), f"""epoch {ep} - {epoch_dict[ep]}: 
             Different targets found in image {id} - {images[cams[id]][ep]}"""
         if len(valid_targets) < 1:
-            logging.error(
+            logger.error(
                 f"Not enough targets found. Skipping epoch {ep} and moving to next epoch"  # noqa: E501
             )
             continue
         if valid_targets != cfg.georef.targets_to_use:
-            logging.warning(f"Not all targets found. Using onlys {valid_targets}")
+            logger.warning(f"Not all targets found. Using onlys {valid_targets}")
 
         image_coords = [
             epoch.targets.get_image_coor_by_label(valid_targets, cam_id=id)[0]
@@ -435,11 +422,10 @@ for ep in cfg.proc.epoch_to_process:
             points3d = abs_ori.apply_transformation(points3d=points3d)
             for i, cam in enumerate(cams):
                 epoch.cameras[cam] = abs_ori.cameras[i]
-            logging.info("Absolute orientation completed.")
+            logger.info("Absolute orientation completed.")
         except ValueError as err:
-            logging.error(err)
-            logging.error(
-                f"""Absolute orientation failed. 
+            logger.error(
+                f"""{err}. Absolute orientation failed. 
                 Not enough targets available.
                 Skipping epoch {ep} and moving to next epoch"""
             )
@@ -464,7 +450,7 @@ for ep in cfg.proc.epoch_to_process:
         # delete it completely and start a new metashape project
         metashape_path = epochdir / "metashape"
         if metashape_path.exists() and cfg.metashape.force_overwrite_projects:
-            logging.warning(
+            logger.warning(
                 f"""Metashape folder {metashape_path} already exists,
                 but force_overwrite_projects is set to True.
                 Removing all old Metashape files"""
@@ -571,7 +557,7 @@ for ep in cfg.proc.epoch_to_process:
         matches_fig_dir = "res/fig_for_paper/matches_fig"
         # make_matching_plot(epoches[ep], ep, matches_fig_dir, show_fig=False)
 
-        # Compute reprojection error
+        # Compute reprojection error and save to file
         io.write_reprojection_error_to_file(cfg.residuals_fname, epoches[ep])
 
         # Save focal length to file
@@ -589,7 +575,7 @@ if cfg.proc.do_homography_warping:
     from icepy4d.thirdparty.transformations import euler_from_matrix, euler_matrix
     from icepy4d.utils.homography import homography_warping
 
-    logging.info("Performing homograpy warping for DIC")
+    logger.info("Performing homograpy warping for DIC")
 
     reference_day = "2022_07_28"
     do_smoothing = True
@@ -645,4 +631,4 @@ if cfg.proc.do_homography_warping:
 
 timer_global.print("Total time elapsed")
 
-logging.info("Processing completed.")
+logger.info("Processing completed.")
