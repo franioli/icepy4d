@@ -233,7 +233,6 @@ for ep in cfg.proc.epoch_to_process:
     if cfg.proc.load_existing_results:
         try:
             epoch = Epoch.read_pickle(epochdir / f"{epoch_dict[ep]}.pickle")
-            epoches.add_epoch(epoch)
 
             # Compute reprojection error
             io.write_reprojection_error_to_file(cfg.residuals_fname, epoches[ep])
@@ -249,13 +248,13 @@ for ep in cfg.proc.epoch_to_process:
             epoch = inizialization.initialize_epoch(
                 cfg=cfg, images=images, epoch_id=ep, epoch_dir=epochdir
             )
-            epoches.add_epoch(epoch)
 
     else:
         epoch = inizialization.initialize_epoch(
             cfg=cfg, images=images, epoch_id=ep, epoch_dir=epochdir
         )
-        epoches.add_epoch(epoch)
+
+    epoches.add_epoch(epoch)
 
     # --- Matching and Tracking ---#
     # features_old = MatchingAndTracking(
@@ -267,23 +266,32 @@ for ep in cfg.proc.epoch_to_process:
     # )
     # epoch.features = features_old[ep]
 
+    # Define matching parameters
+    matching_quality = matching.Quality.HIGH
+    tile_selection = matching.TileSelection.PRESELECTION
+    tiling_grid = [4, 3]
+    tiling_overlap = 200
+    geometric_verification = matching.GeometricVerification.PYDEGENSAC
+    geometric_verification_threshold = 1
+    geometric_verification_confidence = 0.9999
+
+    # Create a new matcher object
     matcher = matching.SuperGlueMatcher(cfg.matching)
-    grid = [4, 3]
-    overlap = 200
     matcher.match(
         epoch.images[cams[0]].value,
         epoch.images[cams[1]].value,
-        quality=matching.Quality.HIGH,
-        tile_selection=matching.TileSelection.PRESELECTION,
-        grid=grid,
-        overlap=overlap,
+        quality=matching_quality,
+        tile_selection=tile_selection,
+        grid=tiling_grid,
+        overlap=tiling_overlap,
         do_viz_matches=True,
         do_viz_tiles=False,
         save_dir=match_dir,
-        geometric_verification=matching.GeometricVerification.PYDEGENSAC,
-        threshold=1,
-        confidence=0.9999,
+        geometric_verification=geometric_verification,
+        threshold=geometric_verification_threshold,
+        confidence=geometric_verification_confidence,
     )
+    timer.update("matching")
 
     # TODO: implement this as a method of Matcher class
     from icepy4d.classes import Features
