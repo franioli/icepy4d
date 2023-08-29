@@ -6,6 +6,7 @@ import numpy as np
 
 from .enums import GeometricVerification
 
+logger = logging.getLogger(__name__)
 
 def geometric_verification(
     mkpts0: np.ndarray = None,
@@ -47,7 +48,7 @@ def geometric_verification(
     inlMask = np.ones(len(mkpts0), dtype=bool)
 
     if len(mkpts0) < 4:
-        logging.warning("Not enough matches to perform geometric verification.")
+        logger.warning("Not enough matches to perform geometric verification.")
         return F, inlMask
 
     if method == GeometricVerification.PYDEGENSAC:
@@ -55,7 +56,7 @@ def geometric_verification(
             pydegensac = importlib.import_module("pydegensac")
             fallback = False
         except:
-            logging.error(
+            logger.error(
                 "Pydegensac not available. Using MAGSAC++ (OpenCV) for geometric verification."
             )
             fallback = True
@@ -73,12 +74,12 @@ def geometric_verification(
                 symmetric_error_check=symmetric_error_check,
                 enable_degeneracy_check=enable_degeneracy_check,
             )
-            logging.info(
+            logger.info(
                 f"Pydegensac found {inlMask.sum()} inliers ({inlMask.sum()*100/len(mkpts0):.2f}%)"
             )
         except Exception as err:
             # Fall back to MAGSAC++ if pydegensac fails
-            logging.error(
+            logger.error(
                 f"{err}. Unable to perform geometric verification with Pydegensac. Trying using MAGSAC++ (OpenCV) instead."
             )
             fallback = True
@@ -89,11 +90,11 @@ def geometric_verification(
                 mkpts0, mkpts1, cv2.USAC_MAGSAC, 0.5, 0.999, 100000
             )
             inlMask = (inliers > 0).squeeze()
-            logging.info(
+            logger.info(
                 f"MAGSAC++ found {inlMask.sum()} inliers ({inlMask.sum()*100/len(mkpts0):.2f}%)"
             )
         except Exception as err:
-            logging.error(
+            logger.error(
                 f"{err}. Unable to perform geometric verification with MAGSAC++."
             )
             inlMask = np.ones(len(mkpts0), dtype=bool)

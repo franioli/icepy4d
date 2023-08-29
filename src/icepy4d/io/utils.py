@@ -4,6 +4,7 @@ from pathlib import Path
 from shutil import copy as scopy
 from typing import Union
 
+logger = logging.getLogger(__name__)
 
 def make_symlink(src: Union[str, Path], dst: Union[str, Path], force_overwrite=False):
     src, dst = Path(src), Path(dst)
@@ -13,18 +14,18 @@ def make_symlink(src: Union[str, Path], dst: Union[str, Path], force_overwrite=F
         try:
             os.symlink(src, dst)
         except OSError:
-            logging.warning(f"Unable to create symbolic link to {dst}. Copying file.")
+            logger.warning(f"Unable to create symbolic link to {dst}. Copying file.")
             scopy(src, dst)
     elif force_overwrite:
         os.remove(dst)
         try:
             os.symlink(src, dst)
-            logging.warning(f"Symbolic link overwritten.")
+            logger.warning(f"Symbolic link overwritten.")
         except OSError:
-            logging.warning("Unable to create symbolic link. Copying file instead.")
+            logger.warning("Unable to create symbolic link. Copying file instead.")
             scopy(src, dst)
     else:
-        logging.warning(f"{dst} already exists. Skipping symbolic link creation.")
+        logger.warning(f"{dst} already exists. Skipping symbolic link creation.")
 
 
 def create_directory(path):

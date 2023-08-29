@@ -19,6 +19,8 @@ from icepy4d.utils import AverageTimer, timeit
 
 matplotlib.use("TkAgg")
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class FeaturesBase:
@@ -61,7 +63,7 @@ class ImageMatcherBase(ImageMatcherABC):
         self._device = (
             "cuda" if torch.cuda.is_available() and not opt.get("force_cpu") else "cpu"
         )
-        logging.info(f"Running inference on device {self._device}")
+        logger.info(f"Running inference on device {self._device}")
 
         # initialize additional variable members for storing matched
         # keypoints descriptors and scores
@@ -207,11 +209,11 @@ class ImageMatcherBase(ImageMatcherABC):
 
         # Perform matching (on tiles or full images)
         if tile_selection == TileSelection.NONE:
-            logging.info("Matching full images...")
+            logger.info("Matching full images...")
             features0, features1, matches0, mconf = self._match_images(image0_, image1_)
 
         else:
-            logging.info("Matching by tiles...")
+            logger.info("Matching by tiles...")
             features0, features1, matches0, mconf = self._match_tiles(
                 image0_, image1_, tile_selection, **kwargs
             )
@@ -224,16 +226,16 @@ class ImageMatcherBase(ImageMatcherABC):
             self._store_features(features0, features1, matches0)
             self._mconf = mconf
         except Exception as e:
-            logging.error(
+            logger.error(
                 f"""Error storing matches: {e}. 
                 Implement your own _store_features() method if the
                 output of your matcher is different from FeaturesBase."""
             )
         self.timer.update("matching")
-        logging.info("Matching done!")
+        logger.info("Matching done!")
 
         # Perform geometric verification
-        logging.info("Performing geometric verification...")
+        logger.info("Performing geometric verification...")
         if gv_method is not GeometricVerification.NONE:
             F, inlMask = geometric_verification(
                 self._mkpts0,
@@ -244,7 +246,7 @@ class ImageMatcherBase(ImageMatcherABC):
             )
             self._F = F
             self._filter_matches_by_mask(inlMask)
-            logging.info("Geometric verification done.")
+            logger.info("Geometric verification done.")
             self.timer.update("geometric_verification")
 
         if do_viz_matches is True:
@@ -255,7 +257,7 @@ class ImageMatcherBase(ImageMatcherABC):
                     image0, image1, self._mkpts0, self._mkpts1, save_dir / "matches.png"
                 )
             except Exception as e:
-                logging.error(
+                logger.error(
                     f"Error visualizing matches with OpenCV: {e}. Fallback to maplotlib."
                 )
                 self._viz_matches_mpl(
@@ -306,15 +308,15 @@ class ImageMatcherBase(ImageMatcherABC):
         # Select tile selection method
         if method == TileSelection.EXHAUSTIVE:
             # Match all the tiles with all the tiles
-            logging.info("Matching tiles exaustively")
+            logger.info("Matching tiles exaustively")
             tile_pairs = sorted(product(t0_lims.keys(), t1_lims.keys()))
         elif method == TileSelection.GRID:
             # Match tiles by regular grid
-            logging.info("Matching tiles by regular grid")
+            logger.info("Matching tiles by regular grid")
             tile_pairs = sorted(zip(t0_lims.keys(), t1_lims.keys()))
         elif method == TileSelection.PRESELECTION:
             # Match tiles by preselection running matching on downsampled images
-            logging.info("Matching tiles by preselection tile selection")
+            logger.info("Matching tiles by preselection tile selection")
             if image0.shape[0] > 8000:
                 n_down = 4
             if image0.shape[0] > 4000:
@@ -421,12 +423,12 @@ class ImageMatcherBase(ImageMatcherABC):
 
         if self._mkpts0 is not None and self._mkpts1 is not None:
             if force_overwrite is False:
-                logging.warning(
+                logger.warning(
                     "Matches already stored. Not overwriting them. Use force_overwrite=True to force overwrite them."
                 )
                 return False
             else:
-                logging.warning("Matches already stored. Overwrite them")
+                logger.warning("Matches already stored. Overwrite them")
 
         valid = matches0 > -1
         self._valid = valid
