@@ -30,7 +30,7 @@ proc:
   do_space_resection: false
 
   #- Load existing results by reading Epochs object from disk (if False, the results will be overwritten)
-  load_existing_results: true
+  load_existing_results: false
 
   #- If True try to coregister point clouds based on n double points
   do_coregistration: true
