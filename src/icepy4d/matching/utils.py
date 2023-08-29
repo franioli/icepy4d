@@ -1,13 +1,15 @@
 import logging
 import pickle
 from pathlib import Path
-from typing import List
 
 import cv2
 import numpy as np
 import torch
 
 from icepy4d.classes.features import Features
+
+logger = logging.getLogger(__name__)
+
 
 # def geometric_verification(
 #     features: icepy4d_classes.FeaturesDict,
@@ -55,17 +57,17 @@ from icepy4d.classes.features import Features
 
 #     """
 
-#     logging.warning(
+#     logger.warning(
 #         "This function is deprecated. Use geometric_verification from icepy4. Use matching.geometric_verification instead."
 #     )
 
-#     logging.info("Geometric verification of matches on full images...")
+#     logger.info("Geometric verification of matches on full images...")
 #     cams = list(features.keys())
 #     try:
 #         pydegensac = importlib.import_module("pydegensac")
 #         use_pydegensac = True
 #     except ImportError:
-#         logging.error(
+#         logger.error(
 #             "Pydegensac not available. Using MAGSAC++ (OpenCV) for geometric verification."
 #         )
 #         use_pydegensac = False
@@ -81,7 +83,7 @@ from icepy4d.classes.features import Features
 #             symmetric_error_check=symmetric_error_check,
 #             enable_degeneracy_check=enable_degeneracy_check,
 #         )
-#         logging.info(
+#         logger.info(
 #             f"Pydegensac found {inlMask.sum()} inliers ({inlMask.sum()*100/len(features[cams[0]]):.2f}%)"
 #         )
 #     else:
@@ -94,7 +96,7 @@ from icepy4d.classes.features import Features
 #             100000,
 #         )
 #         inlMask = inliers > 0
-#         logging.info(
+#         logger.info(
 #             f"MAGSAC++ found {inlMask.sum()} inliers ({inlMask.sum()*100/len(features[cams[0]].kpts_to_numpy()):.2f}%)"
 #         )
 
@@ -114,9 +116,9 @@ def process_resize(w, h, resize):
 
     # # Issue warning if resolution is too small or too large.
     # if max(w_new, h_new) < 160:
-    #     logging.warning("Warning: input resolution is very small, results may vary")
+    #     logger.warning("Warning: input resolution is very small, results may vary")
     # elif max(w_new, h_new) > 2000:
-    #     logging.warning("Warning: input resolution is very large, results may vary")
+    #     logger.warning("Warning: input resolution is very large, results may vary")
 
     return w_new, h_new
 
@@ -160,23 +162,23 @@ def load_matches_from_disk(dir: Path) -> Features:
         fname = list(dir.glob("*.pickle"))
         if len(fname) < 1:
             msg = f"No pickle file found in the epoch directory {dir}"
-            logging.error(msg)
+            logger.error(msg)
             raise FileNotFoundError(msg)
         if len(fname) > 1:
             msg = f"More than one pickle file is present in the epoch directory {dir}"
-            logging.error(msg)
+            logger.error(msg)
             raise FileNotFoundError(msg)
         with open(fname[0], "rb") as f:
             try:
                 loaded_features = pickle.load(f)
-                logging.info(f"Loaded features from {fname[0]}")
+                logger.info(f"Loaded features from {fname[0]}")
                 return loaded_features
             except:
                 msg = f"Invalid pickle file in epoch directory {dir}"
-                logging.error(msg)
+                logger.error(msg)
                 raise FileNotFoundError(msg)
     except FileNotFoundError as err:
-        logging.exception(err)
+        logger.exception(err)
 
 
 def retrieve_matches_from_npz(opt: dict):
