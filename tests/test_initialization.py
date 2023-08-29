@@ -6,7 +6,7 @@ from easydict import EasyDict as edict
 
 from icepy4d.utils.initialization import (
     parse_command_line,
-    parse_yaml_cfg,
+    parse_cfg,
     initializer,
 )
 
@@ -51,13 +51,13 @@ def test_parse_command_line():
         parse_command_line()
 
 
-def test_parse_yaml_cfg(data_dir, cfg_file):
+def test_parse_cfg(data_dir, cfg_file):
     with pytest.raises(
         SystemExit, match="Configuration file does not exist! Aborting."
     ):
-        parse_yaml_cfg("non_existent_config.yaml")
+        parse_cfg("non_existent_config.yaml")
 
-    cfg = parse_yaml_cfg(cfg_file)
+    cfg = parse_cfg(cfg_file)
     assert isinstance(
         cfg, edict
     ), "Unable to create valid cfg dictionary from yaml file"
@@ -75,7 +75,7 @@ def test_parse_yaml_cfg(data_dir, cfg_file):
 
 
 def test_inizialization_epoch_dict(cfg_file):
-    cfg = parse_yaml_cfg(cfg_file)
+    cfg = parse_cfg(cfg_file)
     init = initializer(cfg)
     init.init_image_ds()
     epoch_dict = init.init_epoch_dict()

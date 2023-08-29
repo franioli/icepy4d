@@ -36,6 +36,8 @@ from .points import Points
 
 DEFAULT_DATETIME_FMT = "%Y-%m-%d %H:%M:%S"
 
+logger = logging.getLogger(__name__)
+
 
 def parse_str_to_datetime(
     datetime: Union[str, dt], datetime_format: str = DEFAULT_DATETIME_FMT
@@ -47,7 +49,7 @@ def parse_str_to_datetime(
             datetime = dt.strptime(datetime, datetime_format)
         except:
             err = "Unable to convert datetime to string. You should provide a datetime object or a string in the format %Y-%m-%d %H:%M:%S, or you should pass the datetime format as a string to the datetime_format argument"
-            logging.warning(err)
+            logger.warning(err)
             raise ValueError(err)
     else:
         err = "Invalid epoch datetime. It should be a datetime object or a string in the format %Y-%m-%d %H:%M:%S"
@@ -97,7 +99,7 @@ class Epoch:
         if epoch_dir is not None:
             self._epoch_dir = Path(epoch_dir)
         else:
-            logging.info("Epoch directory not provided. Using timestamp as name")
+            logger.info("Epoch directory not provided. Using timestamp as name")
             self._epoch_dir = Path(str(self._timestamp).replace(" ", "_"))
         self._epoch_dir.mkdir(parents=True, exist_ok=True)
 
@@ -180,7 +182,7 @@ class Epoch:
                 pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
             return True
         except:
-            logging.error("Unable to save the Solution as Pickle object")
+            logger.error("Unable to save the Solution as Pickle object")
             return False
 
     @staticmethod
@@ -198,14 +200,14 @@ class Epoch:
         assert path.exists(), f"Input path {path} does not exists"
 
         try:
-            logging.info(f"Loading epoch from {path}")
+            logger.info(f"Loading epoch from {path}")
             with open(path, "rb") as inp:
                 epoch = pickle.load(inp)
             if epoch is not None:
-                logging.info(f"Epoch loaded from {path}")
+                logger.info(f"Epoch loaded from {path}")
                 return epoch
             else:
-                logging.error(f"Unable to load epoch from {path}")
+                logger.error(f"Unable to load epoch from {path}")
                 return None
         except Exception as e:
             raise e(f"Unable to read Epoch from file {path}")
@@ -320,7 +322,7 @@ class Epoches:
         for ep in self._epochs.values():
             if ep.timestamp == timestamp:
                 return ep
-        logging.warning(f"Epoch with timestamp {timestamp} not found")
+        logger.warning(f"Epoch with timestamp {timestamp} not found")
         return None
 
 

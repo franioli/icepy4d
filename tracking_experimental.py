@@ -52,7 +52,7 @@ icepy_utils.setup_logger(
 
 # Parse configuration file
 logging.info(f"Configuration file: {cfg_file.stem}")
-cfg = initialization.parse_yaml_cfg(cfg_file)
+cfg = initialization.parse_cfg(cfg_file)
 
 timer_global = icepy_utils.AverageTimer()
 

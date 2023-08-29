@@ -23,7 +23,6 @@ SOFTWARE.
 """
 
 import argparse
-import logging
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -46,7 +45,9 @@ from icepy4d.classes import (
     Points,
     Targets,
 )
-from icepy4d.utils import deprecated
+from icepy4d.utils import setup_logger, get_logger, deprecated
+
+logger = get_logger()
 
 """ 
 This file defines the dictionary cfg which includes the default parameters of the pipeline.
@@ -55,13 +56,13 @@ The dictionary is updated/extended at runtime with the parameters defined by the
 
 
 def print_welcome_msg() -> None:
-    print("\n===========================================================")
+    print("\n================================================================")
     print("ICEpy4D")
     print(
         "Image-based Continuos monitoring of glaciers' Evolution with low-cost stereo-cameras and Deep Learning photogrammetry"
     )
     print("2023 - Francesco Ioli - francesco.ioli@polimi.it")
-    print("===========================================================\n")
+    print("================================================================\n")
 
 
 def parse_command_line() -> Tuple[Path, dict]:
@@ -129,7 +130,7 @@ def parse_command_line() -> Tuple[Path, dict]:
     return cfg_file, log_cfg
 
 
-def parse_yaml_cfg(cfg_file: Union[str, Path]) -> edict:
+def parse_cfg(cfg_file: Union[str, Path]) -> edict:
     """
     Parse a YAML configuration file and return it as an easydict.
 
@@ -146,8 +147,6 @@ def parse_yaml_cfg(cfg_file: Union[str, Path]) -> edict:
     print_welcome_msg()
 
     cfg_file = Path(cfg_file)
-    logging.info(f"Configuration file: {cfg_file.stem}")
-
     if not cfg_file.exists():
         sys.exit("Configuration file does not exist! Aborting.")
 
@@ -156,6 +155,19 @@ def parse_yaml_cfg(cfg_file: Union[str, Path]) -> edict:
             cfg = edict(yaml.safe_load(file))
     except:
         raise RuntimeError("Unable to create valid cfg dictionary from yaml file")
+
+    # Setup logger
+    if "log" not in cfg:
+        setup_logger()
+    else:
+        setup_logger(
+            log_folder=cfg.log.get("folder", "logs"),
+            log_base_name=cfg.log.get("base_filename", "log"),
+            console_log_level=cfg.log.get("log.level", "info"),
+            logfile_level=cfg.log.get("log.level", "info"),
+        )
+    logger = get_logger()
+    logger.info(f"Configuration file: {cfg_file.stem}")
 
     # Camera names
     cfg.cams = cfg.paths.camera_names
@@ -190,7 +202,7 @@ def parse_yaml_cfg(cfg_file: Union[str, Path]) -> edict:
 
     # - Check and expand epoches to be processed
     if cfg.proc.epoch_to_process == "all":
-        logging.info(
+        logger.info(
             "Epoch_to_process set to 'all'. Expanding it based on the images found in image folder."
         )
         img_ds = dict.fromkeys(cfg.cams)
@@ -198,7 +210,7 @@ def parse_yaml_cfg(cfg_file: Union[str, Path]) -> edict:
         n_images = len(img_ds)
         cfg.proc.epoch_to_process = [x for x in range(n_images)]
     elif len(cfg.proc.epoch_to_process) == 2:
-        logging.info(
+        logger.info(
             f"Epoch_to_process set to a pair of values. Expanding it for a range of epoches from epoch {cfg.proc.epoch_to_process[0]} to {cfg.proc.epoch_to_process[1]}."
         )
         ep_ini = cfg.proc.epoch_to_process[0]
@@ -206,7 +218,7 @@ def parse_yaml_cfg(cfg_file: Union[str, Path]) -> edict:
         cfg.proc.epoch_to_process = [x for x in range(ep_ini, ep_fin)]
     else:
         msg = "Invalid input of epoches to process"
-        logging.error(msg)
+        logger.error(msg)
         raise ValueError(msg)
     assert isinstance(cfg.proc.epoch_to_process, list) and all(
         isinstance(element, int) for element in cfg.proc.epoch_to_process
@@ -228,7 +240,7 @@ def validate_cfg(cfg: edict) -> None:
         if len(images[cams[i]]) != len(images[cams[i - 1]]):
             raise ValueError("Error: different number of images per camera")
         else:
-            logging.info("Image datastores created successfully.")
+            logger.info("Image datastores created successfully.")
 
 
 def print_cfg(cfg: edict):
@@ -461,7 +473,7 @@ if __name__ == "__main__":
     from icepy4d.classes.epoch import Epoch, Epoches
 
     cfg_file = "./config/config_base.yaml"
-    cfg = parse_yaml_cfg(cfg_file)
+    cfg = parse_cfg(cfg_file)
     print(cfg)
     images, epoch_dict = initialize_image_ds(cfg)
     a = images["p1"]
