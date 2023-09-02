@@ -30,6 +30,8 @@ import logging
 from typing import List, Tuple, Union
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
+
 
 class Targets:
     """
@@ -158,7 +160,7 @@ class Targets:
                 coor.append(selected.iloc[:, 1:].to_numpy())
                 labels_valid.append(lab)
             else:
-                logging.warning(
+                logger.warning(
                     f"Warning: target {lab} is not present on camera {cam_id}."
                 )
 
@@ -167,7 +169,7 @@ class Targets:
             return np.concatenate(coor, axis=0), labels_valid
         else:
             msg = "No targets with the provided labels found."
-            logging.error(msg)
+            logger.error(msg)
             raise ValueError(msg)
 
     def get_object_coor_by_label(
@@ -194,14 +196,14 @@ class Targets:
                 coor.append(selected.iloc[:, 1:].to_numpy())
                 labels_valid.append(lab)
             else:
-                logging.warning(f"Warning: target {lab} is not present.")
+                logger.warning(f"Warning: target {lab} is not present.")
 
         # If at least one target was found, concatenate arrays to return nx3 array containing world coordinates
         if coor:
             return np.concatenate(coor, axis=0), labels_valid
         else:
             msg = "No targets with the provided labels found."
-            logging.error(msg)
+            logger.error(msg)
             raise ValueError(msg)
 
     def read_im_coord_from_txt(
@@ -241,7 +243,7 @@ class Targets:
         path = Path(path)
         if not path.exists():
             msg = f"Error: Input path {path} does not exist."
-            logging.error(msg)
+            logger.error(msg)
             raise FileNotFoundError(msg)
 
         data = pd.read_csv(path, sep=delimiter, header=header)
@@ -280,7 +282,7 @@ class Targets:
         path = Path(path)
         if not path.exists():
             msg = f"Error: Input path {path} does not exist."
-            logging.error(msg)
+            logger.error(msg)
             raise FileNotFoundError(msg)
 
         data = pd.read_csv(path, sep=delimiter, header=header)
@@ -302,13 +304,13 @@ class Targets:
 if __name__ == "__main__":
     """Test classes"""
 
-    from icepy4d.utils.initialization import parse_yaml_cfg, Inizialization
+    from icepy4d.utils.initialization import parse_cfg, Inizialization
 
     CFG_FILE = "config/config_2021_1.yaml"
-    cfg = parse_yaml_cfg(CFG_FILE)
+    cfg = parse_cfg(CFG_FILE)
 
     init = Inizialization(cfg)
-    init.inizialize_icepy()
+    init.initialize_icepy()
     cams = init.cams
     images = init.images
     targets = init.targets

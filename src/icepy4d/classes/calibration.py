@@ -3,10 +3,12 @@ import logging
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from pathlib import Path
-from typing import List, Tuple, Union
-import platform
+from typing import Tuple, Union
 
 import numpy as np
+
+logger = logging.getLogger(__name__)
+
 
 """ Calibration """
 
@@ -27,7 +29,7 @@ def read_opencv_calibration(
     - path: Union[str, Path]
         Path to the calibration file.
     - verbose: bool (optional)
-        Verbosity flag for additional logging.
+        Verbosity flag for additional logger.
 
     Returns:
     Tuple[float, float, np.ndarray, np.ndarray]: (w, h, K, dist)
@@ -52,15 +54,15 @@ def read_opencv_calibration(
 
         if len(data) == 15:
             if verbose:
-                logging.info("Using OPENCV camera model.")
+                logger.info("Using OPENCV camera model.")
             dist = data[11:15].astype(float)
         elif len(data) == 16:
             if verbose:
-                logging.info("Using OPENCV camera model + k3")
+                logger.info("Using OPENCV camera model + k3")
             dist = data[11:16].astype(float)
         elif len(data) == 19:
             if verbose:
-                logging.info("Using FULL OPENCV camera model")
+                logger.info("Using FULL OPENCV camera model")
             dist = data[11:19].astype(float)
         else:
             raise ValueError(
@@ -100,7 +102,7 @@ def read_xml_calibration(
             date = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ")
             K = np.array([[f, 0, cx], [0, f, cy], [0, 0, 1]])
             dist = np.array([k1, k2, p1, p2])
-        except Exception as e:
+        except Exception:
             raise ValueError(
                 "Unable to read xml calibration file as a Agisoft Metashape format. Check the file format."
             )
@@ -123,7 +125,7 @@ def read_xml_calibration(
                 calibration_time_str.strip('"'), "%a %b %d %H:%M:%S %Y"
             )
 
-        except Exception as e:
+        except Exception:
             raise ValueError(
                 "Unable to read xml calibration file as a OpenCV format. Check the file format."
             )

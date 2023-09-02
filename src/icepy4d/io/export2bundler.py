@@ -1,5 +1,4 @@
 import logging
-import os
 from copy import deepcopy
 from pathlib import Path
 from shutil import copy as scopy
@@ -11,16 +10,8 @@ from ..classes import CamerasDict, FeaturesDict
 from ..classes.point_cloud import PointCloud
 from ..classes.points import Points
 from ..classes.targets import Targets
-from ..thirdparty.transformations import euler_from_matrix, euler_matrix
-
-
-def create_directory(path):
-    """
-    Creates a directory, if it does not exist.
-    """
-    path = Path(path)
-    path.mkdir(parents=True, exist_ok=True)
-    return path
+from ..thirdparty.transformations import euler_matrix
+from .utils import create_directory, make_symlink
 
 
 def write_bundler_out(
@@ -54,7 +45,7 @@ def write_bundler_out(
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # Write im_list.txt in the same directory
-    file = open(out_dir / f"im_list.txt", "w")
+    file = open(out_dir / "im_list.txt", "w")
     for cam in cams:
         file.write(f"{im_dict[cam]}\n")
     file.close()
@@ -65,8 +56,7 @@ def write_bundler_out(
     for cam in cams:
         src = im_dict[cam]
         dst = im_out_dir / im_dict[cam].name
-        if not dst.exists():
-            os.symlink(src, dst)
+        make_symlink(src, dst)
 
     # Write markers to file
     if targets is not None:
@@ -78,7 +68,7 @@ def write_bundler_out(
                 targets_to_use
             ), "Invalid argument targets_enabled. Arguments targets_to_use and targets_enabled must have the same length."
 
-        file = open(out_dir / f"gcps.txt", "w")
+        file = open(out_dir / "gcps.txt", "w")
         targets_enabled = [int(x) for x in targets_enabled]
         for i, target in enumerate(targets_to_use):
             for i, cam in enumerate(cams):
@@ -88,7 +78,7 @@ def write_bundler_out(
                     im_coor = targets.get_image_coor_by_label([target], cam_id=i)[
                         0
                     ].squeeze()
-                except ValueError as err:
+                except ValueError:
                     logging.error(
                         f"Target {target} not found on image {im_dict[cam].name}. Skipped."
                     )
@@ -185,7 +175,7 @@ def write_bundler_out_all_epoches(
         out_dir = create_directory(export_dir / "data")
 
         # Write im_list.txt in the same directory
-        file = open(out_dir / f"im_list.txt", "w")
+        file = open(out_dir / "im_list.txt", "w")
         for cam in cams:
             file.write(f"{images[cam][epoch]}\n")
         file.close()
@@ -199,7 +189,7 @@ def write_bundler_out_all_epoches(
             )
 
         # Write markers to file
-        file = open(out_dir / f"gcps.txt", "w")
+        file = open(out_dir / "gcps.txt", "w")
         targets_enabled = [int(x) for x in targets_enabled]
         for i, target in enumerate(targets_to_use):
             for i, cam in enumerate(cams):

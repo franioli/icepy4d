@@ -1,3 +1,10 @@
+#- Define log levels and folder
+log:
+  # Log levels: "debug", "info", "warning", "error", "critical"
+  level: "info"
+  folder: "logs"
+  base_filename: "icepy4d"
+
 #- Define paths and base settings
 # All pahts MUST be relative to the root folder of icepy4d and
 # they will be converted to pathlib.Path when parsing this yaml file)
@@ -16,12 +23,14 @@ proc:
   # or a list with the epoche numbers to be processed
   epoch_to_process: [0, 158] # [180, 338] # "all" #
 
-  #- Switches to find and track matches
-  do_matching: true
+  #- Perform tracking of previous epoch matches
   do_tracking: true
 
   #- Do space resection of first camera
   do_space_resection: false
+
+  #- Load existing results by reading Epochs object from disk (if False, the results will be overwritten)
+  load_existing_results: false
 
   #- If True try to coregister point clouds based on n double points
   do_coregistration: true
@@ -36,14 +45,6 @@ proc:
   camera_to_warp: "p2"
 
   save_sparse_cloud: true
-
-#- Image-related options
-images:
-  #- Bounding box for processing the images from the two cameras
-  # It must be a list of list of lists (one list for each camera)
-  # with the min/max coordinates as [xmin ymin xmax ymax]
-  # mask_bounding_box: [[1000, 1500, 5600, 3700], [100, 1800, 4700, 4000]]
-  mask_bounding_box: [[900, 1000, 5600, 3900], [200, 1100, 4900, 4000]]
 
 #- Georeferencing (i.e. absolute orientation) information
 georef:
@@ -61,6 +62,7 @@ georef:
 
   #- Targets to use for Absolute Orientation, Space Resection and Bundle Adjustment
   targets_to_use: ["F2", "F12", "F13", "T2", "F10_2"] #
+  
 #- Other On-Off switches
 other:
   #- visualize outputs
