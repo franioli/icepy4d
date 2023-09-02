@@ -45,7 +45,7 @@ class Triangulate:
         cameras: List[Camera] = None,
         image_points: List[np.ndarray] = None,
     ) -> None:
-        """Inizialize class
+        """initialize class
         Parameters
         ----------
         cameras : List
@@ -68,7 +68,6 @@ class Triangulate:
         image: np.ndarray = None,
         cam_id: int = 0,
     ) -> np.ndarray:
-
         if approach == "iterative_LS_triangulation":
             pts0_und = undistort_points(
                 self.image_points[views_ids[0]], self.cameras[views_ids[0]]
@@ -144,7 +143,7 @@ class Triangulate:
             camera,
             convert_BRG2RGB=convert_BRG2RGB,
         )
-        logging.info(f"Point colors interpolated")
+        logging.info("Point colors interpolated")
 
         return self.colors
 

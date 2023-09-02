@@ -29,9 +29,10 @@ import time
 
 from typing import Union, List, Tuple
 from pathlib import Path
-from copy import deepcopy
 from itertools import compress
 from matplotlib import pyplot as plt
+
+logger = logging.getLogger(__name__)
 
 
 def float32_type_check(
@@ -53,13 +54,13 @@ def float32_type_check(
     """
     if array.dtype == np.float64 or array.dtype == float:
         if verbose:
-            logging.info("Input array are float64 numbers. Casting them to np.float32")
+            logger.info("Input array are float64 numbers. Casting them to np.float32")
         array = array.astype(np.float32)
 
     if cast_integers:
         if array.dtype == int or array.dtype == np.int32 or array.dtype == np.int64:
             if verbose:
-                logging.info("Input array are int numbers. Casting them to np.float32")
+                logger.info("Input array are int numbers. Casting them to np.float32")
             array = array.astype(np.float32)
     if array.dtype != np.float32:
         raise ValueError(
@@ -158,6 +159,9 @@ class Feature:
         else:
             self.epoch = None
 
+    def __repr__(self) -> str:
+        return f"Feature with track_id={self._track}"
+
     @property
     def x(self) -> np.float32:
         "Get x coordinate of the feature"
@@ -179,7 +183,7 @@ class Feature:
         if self._track is not None:
             return np.int32(self._track)
         else:
-            logging.warning("Track id is not available")
+            logger.warning("Track id is not available")
             return None
 
     @property
@@ -188,7 +192,7 @@ class Feature:
         if self._descr is not None:
             return np.float32(self._descr)
         else:
-            logging.warning("Descriptor is not available")
+            logger.warning("Descriptor is not available")
             return None
 
     @property
@@ -197,7 +201,7 @@ class Feature:
         if self._score is not None:
             return np.float32(self._score)
         else:
-            logging.warning("Score is not available")
+            logger.warning("Score is not available")
             return None
 
 
@@ -246,7 +250,7 @@ class Features:
         if track_id in list(self._values.keys()):
             return self._values[track_id]
         else:
-            logging.warning(f"Feature with track id {track_id} not available.")
+            logger.warning(f"Feature with track id {track_id} not available.")
             return None
 
     def __contains__(self, track_id: np.int32) -> bool:
@@ -275,7 +279,7 @@ class Features:
             bool: True if the item was present and deleted, False otherwise.
         """
         if track_id not in self:
-            logging.warning(f"Feature with track_id {track_id} not present")
+            logger.warning(f"Feature with track_id {track_id} not present")
             return False
         else:
             del self._values[track_id]
@@ -293,6 +297,9 @@ class Features:
         else:
             self._iter = 0
             raise StopIteration
+
+    def __repr__(self) -> str:
+        return f"Features with {len(self)} features"
 
     @property
     def num_features(self):
@@ -375,7 +382,7 @@ class Features:
         assert isinstance(x, np.ndarray), "invalid type of x vector"
         assert isinstance(y, np.ndarray), "invalid type of y vector"
         if not np.any(x):
-            logging.warning("Empty input feature arrays. Nothing done.")
+            logger.warning("Empty input feature arrays. Nothing done.")
             return None
         x = float32_type_check(x, cast_integers=True)
         y = float32_type_check(y, cast_integers=True)
@@ -411,7 +418,7 @@ class Features:
                 for id in track_ids:
                     if id in list(self._values.keys()):
                         msg = f"Feature with track_id {id} is already present in Features object. Ignoring input track_id and assigning progressive track_ids."
-                        logging.error(msg)
+                        logger.error(msg)
                         raise ValueError(msg)
                 ids = track_ids
             except ValueError:
@@ -694,7 +701,7 @@ if __name__ == "__main__":
         t0 = time.time()
         features_new.append_features_from_numpy(x, y, descr, scores)
         t1 = time.time()
-        logging.info(
+        logger.info(
             f"Append features from numpy array to dict of Feature objects: Elapsed time {t1-t0:.4f} s"
         )
 
@@ -702,7 +709,7 @@ if __name__ == "__main__":
         t0 = time.time()
         out = features_new.to_numpy(get_descr=True)
         t1 = time.time()
-        logging.info(f"Get kpt+descr: Elapsed time {t1-t0:.4f} s")
+        logger.info(f"Get kpt+descr: Elapsed time {t1-t0:.4f} s")
 
     # Test iterable
     print(next(features_new).xy)

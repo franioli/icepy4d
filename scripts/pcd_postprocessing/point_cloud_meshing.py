@@ -4,7 +4,7 @@ import multiprocessing
 from pathlib import Path
 from multiprocessing import Pool
 
-from icepy4d.point_cloud_proc.open3d_fun import MeshingPoisson
+from icepy4d.post_processing.open3d_fun import MeshingPoisson
 
 PCD_DIR = "res/point_clouds"
 PCD_PATTERN = "dense_2022*.ply"  # "dense_2022_05_02.ply"  #

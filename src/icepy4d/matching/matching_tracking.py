@@ -3,29 +3,12 @@ import pydegensac
 import logging
 
 from easydict import EasyDict as edict
-from typing import List, Union
 from pathlib import Path
 
 from .match_pairs import match_pair
 from .track_matches import track_matches
 
-DEBUG = False
-
-WRITE_RES_STATS = True
-RESULT_FNAME = "res/matching_tracking_results.txt"
-
-if WRITE_RES_STATS and not Path(RESULT_FNAME).exists():
-    sep = ","
-    items = [
-        "epoch",
-        "day_cur",
-        "day_before",
-        "n_tracked",
-        "n_new_matches",
-        "n_valid",
-    ]
-    with open(RESULT_FNAME, "w") as f:
-        f.write(f"{f'{sep}'.join(items)}\n")
+DEBUG = True
 
 
 def MatchingAndTracking(
@@ -35,6 +18,15 @@ def MatchingAndTracking(
     features: dict,
     epoch_dict: dict,
 ) -> dict:
+    """
+    MatchingAndTracking Run matching and tracking for a given epoch
+
+    NOTE: This function is deprecated. It is kept for backward compatibility with feature tracking. Use the new matchers classes such as icepy4d.matching.SuperGlueMatcher instead.
+    """
+    logging.warning(
+        "MatchingAndTracking is deprecated. Use the new matchers classes such as icepy4d.matching.SuperGlueMatcher instead."
+    )
+
     epochdir = Path(cfg.paths.results_dir) / f"{epoch_dict[epoch]}/matching"
     cams = cfg.paths.camera_names
 
@@ -107,22 +99,11 @@ def MatchingAndTracking(
                 epoch=epoch - 1,
             )
 
-            # Write tracking stats to file
-            if WRITE_RES_STATS:
-                with open(RESULT_FNAME, "a") as f:
-                    line = [
-                        epoch,
-                        epoch_dict[epoch],
-                        epoch_dict[epoch - 1],
-                        len(tracked_kpts_idx),
-                    ]
-                    f.write(",".join([str(x) for x in line]) + ",")
-
             # For debugging
             if DEBUG:
                 # from ..visualization.visualization import make_matching_plot
 
-                f_list = {
+                {
                     epoch: features[epoch][cams[0]]
                     for epoch in range(cfg.proc.epoch_to_process[0], epoch + 1)
                 }
@@ -151,15 +132,6 @@ def MatchingAndTracking(
             logging.warning(
                 f"Skipping tracking from epoch {epoch_dict[epoch-1]} to {epoch_dict[epoch]}"
             )
-            if WRITE_RES_STATS:
-                with open(RESULT_FNAME, "a") as f:
-                    line = [
-                        epoch,
-                        epoch_dict[epoch],
-                        epoch_dict[epoch - 1],
-                        "",
-                    ]
-                    f.write(",".join([str(x) for x in line]) + ",")
 
     # -- Find Matches at current epoch --#
     logging.info(f"Run Superglue to find matches at epoch {epoch}")
@@ -191,15 +163,10 @@ def MatchingAndTracking(
     logging.info(f"SuperGlue found {len(features[epoch][cam])} matches")
 
     # For debugging
-    f_list = {
+    {
         epoch: features[epoch][cams[0]]
         for epoch in range(cfg.proc.epoch_to_process[0], epoch + 1)
     }
-
-    if WRITE_RES_STATS:
-        with open(RESULT_FNAME, "a") as f:
-            line = [epoch, len(x)]
-            f.write(f"{len(x)}" + ",")
 
     # Run Pydegensac to estimate F matrix and reject outliers
     logging.info(
@@ -222,11 +189,6 @@ def MatchingAndTracking(
 
     features[epoch][cams[0]].filter_feature_by_mask(inlMask)
     features[epoch][cams[1]].filter_feature_by_mask(inlMask)
-
-    if WRITE_RES_STATS:
-        with open(RESULT_FNAME, "a") as f:
-            line = [epoch, len(x)]
-            f.write(f"{len(features[epoch][cams[0]])}" + "\n")
 
     # Write matched points to disk
     im_stems = (

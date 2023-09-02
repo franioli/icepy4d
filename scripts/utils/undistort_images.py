@@ -5,7 +5,6 @@ from pathlib import Path
 from tqdm import tqdm
 
 import src.icepy4d.classes as icepy4d_classes
-import src.icepy4d.sfm as sfm
 import src.icepy4d.utils.initialization as initialization
 from multiprocessing import Pool, current_process
 
@@ -22,7 +21,7 @@ logging.basicConfig(
 )
 
 
-cfg = initialization.parse_yaml_cfg(cfg_file)
+cfg = initialization.parse_cfg(cfg_file)
 init = initialization.Inizialization(cfg)
 init.init_image_ds()
 cameras = init.init_cameras()

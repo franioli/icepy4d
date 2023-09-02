@@ -25,18 +25,22 @@ import logging
 import pickle
 from datetime import datetime as dt
 from pathlib import Path
-from typing import Dict, Union, TypedDict
+from typing import Dict, Union
 
 from .camera import Camera
 from .features import Features
 from .point_cloud import PointCloud
-from .images import Image, ImageDS
+from .images import ImageDS
 from .targets import Targets
 from .points import Points
 
+DEFAULT_DATETIME_FMT = "%Y-%m-%d %H:%M:%S"
+
+logger = logging.getLogger(__name__)
+
 
 def parse_str_to_datetime(
-    datetime: Union[str, dt], datetime_format: str = "%Y-%m-%d %H:%M:%S"
+    datetime: Union[str, dt], datetime_format: str = DEFAULT_DATETIME_FMT
 ):
     if isinstance(datetime, dt):
         return datetime
@@ -45,7 +49,7 @@ def parse_str_to_datetime(
             datetime = dt.strptime(datetime, datetime_format)
         except:
             err = "Unable to convert datetime to string. You should provide a datetime object or a string in the format %Y-%m-%d %H:%M:%S, or you should pass the datetime format as a string to the datetime_format argument"
-            logging.warning(err)
+            logger.warning(err)
             raise ValueError(err)
     else:
         err = "Invalid epoch datetime. It should be a datetime object or a string in the format %Y-%m-%d %H:%M:%S"
@@ -65,15 +69,15 @@ class Epoch:
 
     def __init__(
         self,
-        datetime: Union[str, dt],
+        timestamp: Union[str, dt],
+        epoch_dir: Union[str, Path] = None,
         images: ImageDS = None,
         cameras: Dict[str, Camera] = None,
         features: Dict[str, Features] = None,
         points: Points = None,
         targets: Targets = None,
         point_cloud: PointCloud = None,
-        epoch_dir: Union[str, Path] = None,
-        datetime_format: str = "%Y-%m-%d %H:%M:%S",
+        datetime_format: str = DEFAULT_DATETIME_FMT,
     ) -> None:
         """
         Initializes a Epcoh object with the provided data
@@ -84,8 +88,7 @@ class Epoch:
             features (classes.Features): The dictionary of feature points
             points (classes.Points): The dictionary of 3D points
         """
-        self._datetime = parse_str_to_datetime(datetime, datetime_format)
-        self._epoch_dir = Path(epoch_dir) if epoch_dir else None
+        self._timestamp = parse_str_to_datetime(timestamp, datetime_format)
         self.images = images
         self.cameras = cameras
         self.features = features
@@ -93,9 +96,16 @@ class Epoch:
         self.targets = targets
         self.point_cloud = point_cloud
 
+        if epoch_dir is not None:
+            self._epoch_dir = Path(epoch_dir)
+        else:
+            logger.info("Epoch directory not provided. Using timestamp as name")
+            self._epoch_dir = Path(str(self._timestamp).replace(" ", "_"))
+        self._epoch_dir.mkdir(parents=True, exist_ok=True)
+
     @property
-    def datetime(self):
-        return self._datetime
+    def timestamp(self):
+        return self._timestamp
 
     @property
     def epoch_dir(self):
@@ -109,7 +119,7 @@ class Epoch:
         Returns:
             str: The date and time of the epoch in the format "YYYY:MM:DD HH:MM:SS".
         """
-        return self._datetime.strftime("%Y:%m:%d")
+        return self._timestamp.strftime("%Y:%m:%d")
 
     @property
     def time_str(self) -> str:
@@ -120,7 +130,16 @@ class Epoch:
             str: The time of the epoch in the format "HH:MM:SS".
 
         """
-        return self._datetime.strftime("%H:%M:%S")
+        return self._timestamp.strftime("%H:%M:%S")
+
+    def __str__(self) -> str:
+        """
+        Returns a string representation of the Epoch object
+
+        Returns:
+            str: The string representation of the Epoch object
+        """
+        return f"{self._timestamp.strftime(DEFAULT_DATETIME_FMT).replace(' ', '_')}"
 
     def __repr__(self):
         """
@@ -129,7 +148,7 @@ class Epoch:
         Returns:
             str: The string representation of the Epoch object
         """
-        return f"Epoch {self.datetime}"
+        return f"Epoch {self.timestamp}"
 
     def __iter__(self):
         """
@@ -172,11 +191,11 @@ class Epoch:
                 pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
             return True
         except:
-            logging.error("Unable to save the Solution as Pickle object")
+            logger.error("Unable to save the Solution as Pickle object")
             return False
 
     @staticmethod
-    def read_pickle(path: Union[str, Path], ignore_errors: bool = False):
+    def read_pickle(path: Union[str, Path]):
         """
         Load a Epoch object from a binary file
 
@@ -187,16 +206,20 @@ class Epoch:
             Epoch: An Epoh object
         """
         path = Path(path)
-        if not ignore_errors:
-            assert path.exists(), "Input path does not exists"
+        assert path.exists(), f"Input path {path} does not exists"
 
         try:
+            logger.info(f"Loading epoch from {path}")
             with open(path, "rb") as inp:
-                solution = pickle.load(inp)
-            return solution
-        except:
-            logging.error("Unable to read Epoch from pickle file")
-            return None
+                epoch = pickle.load(inp)
+            if epoch is not None:
+                logger.info(f"Epoch loaded from {path}")
+                return epoch
+            else:
+                logger.error(f"Unable to load epoch from {path}")
+                return None
+        except Exception as e:
+            raise e(f"Unable to read Epoch from file {path}")
 
 
 class Epoches:
@@ -249,12 +272,12 @@ class Epoches:
         return self._epochs[epoch_id]
 
     def __contains__(
-        self, epoch_date: Union[str, dt], datetime_format: str = "%Y-%m-%d %H:%M:%S"
+        self, epoch_date: Union[str, dt], datetime_format: str = DEFAULT_DATETIME_FMT
     ) -> bool:
         """Check if an epoch is in the Epoch objet"""
-        datetime = parse_str_to_datetime(epoch_date, datetime_format)
-        datetimes = [x for x in self._epoches_map.values()]
-        return datetime in datetimes
+        timestamp = parse_str_to_datetime(epoch_date, datetime_format)
+        timestamps = [x for x in self._epoches_map.values()]
+        return timestamp in timestamps
 
     def add_epoch(self, epoch: Epoch):
         """
@@ -266,16 +289,18 @@ class Epoches:
             epoch (Epoch): The epoch object to be added
         """
         assert isinstance(epoch, Epoch), "Input epoch must be of type Epoch"
-        assert hasattr(epoch, "datetime"), "Epoch must have a datetime attribute"
-        assert isinstance(epoch.datetime, dt), "Epoch datetime must be of type datetime"
+        assert hasattr(epoch, "timestamp"), "Epoch must have a timestamp attribute"
+        assert isinstance(
+            epoch.timestamp, dt
+        ), "Epoch timestamp must be of type datetime"
         assert (
-            epoch.datetime not in self._epoches_map.values()
-        ), "Epoch with the same date already exists"
+            epoch.timestamp not in self._epoches_map.values()
+        ), "Epoch with the same timestamp already exists"
         if self._last_epoch == -1:
             epoch_id = self._starting_epoch
         else:
             epoch_id = self._last_epoch + 1
-        self._epoches_map[epoch_id] = epoch.datetime
+        self._epoches_map[epoch_id] = epoch.timestamp
         self._epochs[epoch_id] = epoch
         self._last_epoch = epoch_id
 
@@ -289,36 +314,36 @@ class Epoches:
         Returns:
             str: The date corresponding to the epoch_id
         """
-        return self._epochs.get(epoch_id).datetime
+        return self._epochs.get(epoch_id).timestamp
 
     def get_epoch_id(
-        self, epoch_date: Union[str, dt], datetime_format: str = "%Y-%m-%d %H:%M:%S"
+        self, epoch_date: Union[str, dt], datetime_format: str = DEFAULT_DATETIME_FMT
     ) -> int:
-        datetime = parse_str_to_datetime(epoch_date, datetime_format)
+        timestamp = parse_str_to_datetime(epoch_date, datetime_format)
         for i, ep in self._epochs.items():
-            if ep.datetime == datetime:
+            if ep.timestamp == timestamp:
                 return i
 
     def get_epoch_by_date(
-        self, datetime: Union[str, dt], datetime_format: str = "%Y-%m-%d %H:%M:%S"
+        self, timestamp: Union[str, dt], datetime_format: str = DEFAULT_DATETIME_FMT
     ) -> Epoch:
-        datetime = parse_str_to_datetime(datetime, datetime_format)
+        timestamp = parse_str_to_datetime(timestamp, datetime_format)
         for ep in self._epochs.values():
-            if ep.datetime == datetime:
+            if ep.timestamp == timestamp:
                 return ep
-        logging.warning(f"Epoch with datetime {datetime} not found")
+        logger.warning(f"Epoch with timestamp {timestamp} not found")
         return None
 
 
 if __name__ == "__main__":
     # Epoch from datetime object
-    date = dt.strptime("2021-01-01 00:00:00", "%Y-%m-%d %H:%M:%S")
-    ep = Epoch(datetime=date)
+    date = dt.strptime("2021-01-01 00:00:00", DEFAULT_DATETIME_FMT)
+    ep = Epoch(timestamp=date)
     print(ep)
 
     # Epoch from string
     date = "2021-01-01 00:00:00"
-    ep = Epoch(datetime=date)
+    ep = Epoch(timestamp=date)
     print(ep)
 
     # Epoches
@@ -326,7 +351,7 @@ if __name__ == "__main__":
     print(epoches)
 
     # Add epoch
-    ep1 = Epoch(datetime=date)
+    ep1 = Epoch(timestamp=date)
     epoches.add_epoch(ep)
     print(epoches)
 
@@ -337,7 +362,7 @@ if __name__ == "__main__":
     print(epoches.get_epoch_date(0))
     print(epoches.get_epoch_id(date))
 
-    ep2 = Epoch(datetime="2021-01-02 00:00:00")
+    ep2 = Epoch(timestamp="2021-01-02 00:00:00")
     epoches.add_epoch(ep2)
     print(epoches)
 

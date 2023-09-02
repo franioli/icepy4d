@@ -1,5 +1,7 @@
 {
-  "python.formatting.provider": "none",
+  "[markdown]": {
+    "editor.formatOnSave": false
+  },
   "python.analysis.extraPaths": [
     "${workspaceFolder}",
     "${workspaceFolder}/src"
@@ -7,11 +9,5 @@
   "python.analysis.typeCheckingMode": "off",
   "python.testing.pytestArgs": ["tests"],
   "python.testing.unittestEnabled": false,
-  "python.testing.pytestEnabled": true,
-  "[markdown]": {
-    "editor.formatOnSave": false
-  },
-  "[python]": {
-    "editor.defaultFormatter": "ms-python.black-formatter"
-  }
+  "python.testing.pytestEnabled": true
 }
