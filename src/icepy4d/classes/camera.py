@@ -27,11 +27,13 @@ import numpy as np
 import cv2
 import logging
 
-from typing import List, Union, Tuple
+from typing import Union, Tuple
 from scipy import linalg
 from pathlib import Path
 
 from .calibration import read_opencv_calibration
+
+logger = logging.getLogger(__name__)
 
 
 class Camera:
@@ -443,7 +445,7 @@ class Camera:
         elif mat.shape[1] == 1:
             block = np.block([[np.eye(3), mat], [np.zeros((1, 3)), 1]])
         else:
-            logging.error("Error: unknown input matrix dimensions.")
+            logger.error("Error: unknown input matrix dimensions.")
             return None
 
         return block

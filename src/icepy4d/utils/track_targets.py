@@ -32,8 +32,10 @@ from typing import List, Union
 
 from icepy4d.classes.images import ImageDS
 from icepy4d.classes.targets import Targets
-from icepy4d.matching.templatematch import TemplateMatch, Stats, MatchResult
+from icepy4d.matching.templatematch import TemplateMatch, MatchResult
 from icepy4d.utils.timer import AverageTimer
+
+# TODO: Check this class with the code implemented in the icepy4d.matching.templatematch script.
 
 
 class TrackTargets:
@@ -41,17 +43,16 @@ class TrackTargets:
         self,
         images: ImageDS,
         patch_centers: List[np.ndarray],
-        out_dir: str,
-        patch_width: int = 512,
+        out_dir: str = "results",
         method: str = "OC",
         template_width: int = 32,
         search_width: int = 128,
+        patch_width: int = 512,
         base_epoch: int = 0,
         target_names: List[str] = None,
         verbose: bool = True,
         debug_viz: bool = False,
     ) -> None:
-
         self.images = images
         self.out_dir = Path(out_dir)
         self.patch_centers = patch_centers
@@ -85,18 +86,19 @@ class TrackTargets:
         else:
             raise StopIteration
 
-    def extract_pathes(self, epoch: int = None) -> None:
+    def extract_pathes(self, epoch: int = None) -> List[np.ndarray]:
         """
         extract_pathes Extract image patches for template matching.
 
         Args:
             epoch (int, optional): index of the image of ImageDS in which the target has to be search. If None, self._iter will be used. Defaults to None.
         """
-        # Coordinates of the center of the patch in full image
         if epoch is not None:
             iter = epoch
         else:
             iter = self._iter
+
+        # Coordinates of the center of the patch in full image
         self._pc_int = np.round(self.patch_centers[self._cur_target]).astype(int)
         self._patch = [
             np.round(self._pc_int[0] - self.patch_width / 2).astype(int),
@@ -104,12 +106,14 @@ class TrackTargets:
             np.round(self._pc_int[0] + self.patch_width / 2).astype(int),
             np.round(self._pc_int[1] + self.patch_width / 2).astype(int),
         ]
-        self._A = self.images.read_image(self.base_epoch).value[
+        # Get patches
+        A = self.images.read_image(self.base_epoch).value[
             self._patch[1] : self._patch[3], self._patch[0] : self._patch[2]
         ]
-        self._B = self.images.read_image(iter).value[
+        B = self.images.read_image(iter).value[
             self._patch[1] : self._patch[3], self._patch[0] : self._patch[2]
         ]
+        return A, B
 
     def viz_template(self) -> None:
         """
@@ -142,10 +146,10 @@ class TrackTargets:
         """
         track_single_epoch method to actual perform feature tracking on next image
         """
-        self.extract_pathes()
+        A, B = self.extract_pathes()
         tm = TemplateMatch(
-            A=cv2.cvtColor(self._A, cv2.COLOR_RGB2GRAY),
-            B=cv2.cvtColor(self._B, cv2.COLOR_RGB2GRAY),
+            A=cv2.cvtColor(A, cv2.COLOR_RGB2GRAY),
+            B=cv2.cvtColor(B, cv2.COLOR_RGB2GRAY),
             xy=self.patch_centers[self._cur_target] - self._patch[:2],
             method=self.method,
             template_width=self.template_width,
@@ -168,7 +172,11 @@ class TrackTargets:
             if r:
                 self.viz_result(self.out_dir, r)
 
-        self.results[self._cur_target][self._iter] = r
+        if self.target_names is not None:
+            target_name = self.target_names[self._cur_target]
+        else:
+            target_name = self._cur_target
+        self.results[target_name][self._iter] = r
         del self._A, self._B, tm, r
         gc.collect()
 
@@ -201,7 +209,7 @@ class TrackTargets:
             else:
                 target_name = self._cur_target
             print(f"Tracking target {target_name}")
-            self.results[self._cur_target] = {}
+            self.results[target_name] = {}
             self.track()
             timer.update(f"target {target_name}")
 
@@ -284,7 +292,6 @@ class TrackTargets:
 
 
 if __name__ == "__main__":
-
     # TODO: implement tracking from and to a specific epoch
 
     # Parameters
@@ -305,10 +312,11 @@ if __name__ == "__main__":
     debug_viz = True
     verbose = True
 
-    targets_image_paths = [Path(TARGETS_DIR) / fname for fname in TARGETS_IMAGES_FNAMES]
+    target_dir = Path(TARGETS_DIR)
+    targets_image_paths = [target_dir / fname for fname in TARGETS_IMAGES_FNAMES]
     targets = Targets(
         im_file_path=targets_image_paths,
-        obj_file_path=Path(TARGETS_DIR) / TARGETS_WORLD_FNAME,
+        obj_file_path=target_dir / TARGETS_WORLD_FNAME,
     )
 
     for cam_id, cam in enumerate(cams):

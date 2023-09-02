@@ -8,7 +8,7 @@ import open3d as o3d
 from mpl_toolkits.mplot3d import Axes3D, art3d
 from tqdm import tqdm
 
-from icepy4d.point_cloud_proc.open3d_fun import (
+from icepy4d.post_processing.open3d_fun import (
     filter_pcd_by_polyline,
     read_and_merge_point_clouds,
 )

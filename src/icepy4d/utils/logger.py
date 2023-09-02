@@ -17,6 +17,74 @@ import logging
 import sys
 from datetime import date, datetime
 from pathlib import Path
+import functools
+import warnings
+
+
+def deprecated(func):
+    """This is a decorator which can be used to mark functions
+    as deprecated. It will result in a warning being emitted
+    and a logging warning when the function is used."""
+
+    @functools.wraps(func)
+    def new_func(*args, **kwargs):
+        message = kwargs.get("message", None)
+        if message is None:
+            message = f"aaaaaaaaaaaa {func.__name__}."
+        warnings.simplefilter("always", DeprecationWarning)  # turn off filter
+        msg = f"Call to deprecated function {func.__name__}."
+        warnings.warn(
+            msg,
+            category=DeprecationWarning,
+            stacklevel=2,
+        )
+        logging.warning(msg)
+        warnings.simplefilter("default", DeprecationWarning)  # reset filter
+        return func(*args, **kwargs)
+
+    return new_func
+
+
+def setup_logger(
+    log_folder: str = "logs",
+    log_base_name: str = "log",
+    console_log_level: str = "info",
+    logfile_level: str = "info",
+):
+    log_folder = Path(log_folder)
+    log_folder.mkdir(exist_ok=True, parents=True)
+
+    today = date.today()
+    now = datetime.now()
+    current_date = f"{today.strftime('%Y_%m_%d')}_{now.strftime('%H:%M')}"
+    log_file = log_folder / f"{log_base_name}_{current_date}.log"
+
+    # log_line_template = "%(color_on)s[%(created)d] [%(threadName)s] [%(levelname)-8s] %(message)s%(color_off)s"
+
+    if console_log_level == "debug" or logfile_level == "debug":
+        log_line_template = "%(color_on)s%(asctime)s | | [%(filename)s -> %(funcName)s], line %(lineno)d - [%(levelname)-8s] %(message)s%(color_off)s"
+    else:
+        log_line_template = (
+            "%(color_on)s%(asctime)s | [%(levelname)-8s] %(message)s%(color_off)s"
+        )
+
+    # Setup logging
+    if not configure_logging(
+        console_log_output="stdout",
+        console_log_level=console_log_level,
+        console_log_color=True,
+        logfile_file=log_file,
+        logfile_log_level=logfile_level,
+        logfile_log_color=False,
+        log_line_template=log_line_template,
+    ):
+        print("Failed to setup logging, aborting.")
+        raise RuntimeError
+
+
+def get_logger(name: str = "__name__"):
+    logger = logging.getLogger(name)
+    return logger
 
 
 # Logging formatter supporting colorized output
@@ -36,7 +104,7 @@ class LogFormatter(logging.Formatter):
         self.color = color
 
     def format(self, record, *args, **kwargs):
-        if self.color == True and record.levelno in self.COLOR_CODES:
+        if self.color is True and record.levelno in self.COLOR_CODES:
             record.color_on = self.COLOR_CODES[record.levelno]
             record.color_off = self.RESET_CODE
         else:
@@ -122,47 +190,10 @@ def configure_logging(
     return True
 
 
-def setup_logger(
-    log_folder: str = "logs",
-    log_base_name: str = "icepy4d",
-    console_log_level: str = "info",
-    logfile_level: str = "info",
-):
-    log_folder = Path(log_folder)
-    log_folder.mkdir(exist_ok=True, parents=True)
-
-    today = date.today()
-    now = datetime.now()
-    current_date = f"{today.strftime('%Y_%m_%d')}_{now.strftime('%H:%M')}"
-    log_file = log_folder / f"{log_base_name}_{current_date}.log"
-
-    # log_line_template = "%(color_on)s[%(created)d] [%(threadName)s] [%(levelname)-8s] %(message)s%(color_off)s"
-
-    if console_log_level == "debug" or logfile_level == "debug":
-        log_line_template = f"%(color_on)s%(asctime)s | | [%(filename)s -> %(funcName)s], line %(lineno)d - [%(levelname)-8s] %(message)s%(color_off)s"
-    else:
-        log_line_template = (
-            f"%(color_on)s%(asctime)s | [%(levelname)-8s] %(message)s%(color_off)s"
-        )
-
-    # Setup logging
-    if not configure_logging(
-        console_log_output="stdout",
-        console_log_level=console_log_level,
-        console_log_color=True,
-        logfile_file=log_file,
-        logfile_log_level=logfile_level,
-        logfile_log_color=False,
-        log_line_template=log_line_template,
-    ):
-        print("Failed to setup logging, aborting.")
-        raise RuntimeError
-
-
 # Call main function
 if __name__ == "__main__":
     CONSOLE_LOG_LEVEL = "info"
-    LOGFILE_LEVEL = "debug"
+    LOGFILE_LEVEL = "info"
     LOG_FOLDER = "logs"
     LOG_BASE_NAME = "icepy4d"
 

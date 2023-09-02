@@ -30,6 +30,8 @@ import laspy
 from pathlib import Path
 from typing import Union
 
+logger = logging.getLogger(__name__)
+
 
 class PointCloud:
     """
@@ -69,7 +71,7 @@ class PointCloud:
             elif any(pcd_path.suffix in e for e in o3d_format):
                 self.pcd = o3d.io.read_point_cloud(str(pcd_path))
             else:
-                logging.error(
+                logger.error(
                     "Invalid file format. It mus be a las (it uses laspy) or one among [.ply, .pcd, .txt, .csv] (it uses open3d)"
                 )
         self._verbose = verbose
@@ -108,7 +110,7 @@ class PointCloud:
         try:
             las = laspy.read(path)
         except:
-            logging.error(f"Unable to read {path.name}.")
+            logger.error(f"Unable to read {path.name}.")
             raise ValueError(f"Unable to read {path.name}.")
         self.from_numpy(points3d=las.xyz)
 
@@ -145,7 +147,7 @@ class PointCloud:
         )
         self.pcd = self.pcd.select_by_index(ind)
         if self._verbose:
-            logging.info("Point cloud filtered by Statistical Oulier Removal")
+            logger.info("Point cloud filtered by Statistical Oulier Removal")
 
     def write_ply(self, path: Union[str, Path]) -> True:
         """Write point cloud to disk as .ply format.

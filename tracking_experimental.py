@@ -23,31 +23,25 @@ SOFTWARE.
 """
 
 import logging
-from datetime import datetime
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import cv2
 import matplotlib
 
 # %%
 import numpy as np
-from matplotlib import pyplot as plt
 
 # ICEpy4D
-import icepy4d.classes as icepy4d_classes
 import icepy4d.utils as icepy_utils
 import icepy4d.utils.initialization as initialization
-import icepy4d.visualization as icepy_viz
-from icepy4d.classes.solution import Solution
 
 matplotlib.use("TkAgg")
 
 
 cfg_file = Path("config/config_2022_exp.yaml")
 
-""" Inizialize Variables """
+""" initialize Variables """
 # Setup logger
 icepy_utils.setup_logger(
     log_folder="logs",
@@ -58,12 +52,12 @@ icepy_utils.setup_logger(
 
 # Parse configuration file
 logging.info(f"Configuration file: {cfg_file.stem}")
-cfg = initialization.parse_yaml_cfg(cfg_file)
+cfg = initialization.parse_cfg(cfg_file)
 
 timer_global = icepy_utils.AverageTimer()
 
 init = initialization.Inizialization(cfg)
-init.inizialize_icepy()
+init.initialize_icepy()
 cams = init.cams
 images = init.images
 epoch_dict = init.epoch_dict
@@ -82,7 +76,7 @@ iter = 0  # necessary only for printing the number of processed iteration
 for epoch in cfg.proc.epoch_to_process:
     logging.info("------------------------------------------------------")
     logging.info(
-        f"Processing epoch {epoch} [{iter}/{cfg.proc.epoch_to_process[-1]-cfg.proc.epoch_to_process[0]}] - {epoch_dict[epoch]}..."
+        f"Processing epoch {epoch} [{iter}/{cfg.proc.epoch_to_process[-1]-cfg.proc.epoch_to_process[0]}] - {epoch_dict[epoch]}..."  # noqa: E501
     )
     iter += 1
 
@@ -93,7 +87,7 @@ for epoch in cfg.proc.epoch_to_process:
 
     path = epochdir / f"{epoch_dict[epoch]}.pickle"
     logging.info(f"Loading solution from {path}")
-    solution = Solution.read_pickle(path, ignore_errors=True)
+    solution = epoch.read_pickle(path, ignore_errors=True)
     if solution is not None:
         cameras[epoch], _, features[epoch], points[epoch] = solution
         # logging.info("Solution imported.")
@@ -277,7 +271,6 @@ for epoch in cfg.proc.epoch_to_process:
 
 
 """ Tracking all features for one week around 26 July 2022"""
-import open3d as o3d
 
 from icepy4d.utils.tracking_features_utils import (
     tracked_points_time_series,
