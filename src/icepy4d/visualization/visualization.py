@@ -7,12 +7,14 @@ import matplotlib.cm as cm
 import matplotlib
 import logging
 
-from typing import List, Union, Dict
+from typing import List, Union
 from pathlib import Path
 from copy import deepcopy
 
 from icepy4d.classes import Camera, Feature, Features, PointCloud
 from icepy4d.sfm.geometry import project_points
+
+matplotlib.use("tkagg")
 
 
 """ Visualization of images"""
@@ -78,6 +80,39 @@ def plot_keypoints(kpts0, kpts1, color="w", ps=2):
     ax = plt.gcf().axes
     ax[0].scatter(kpts0[:, 0], kpts0[:, 1], c=color, s=ps)
     ax[1].scatter(kpts1[:, 0], kpts1[:, 1], c=color, s=ps)
+
+
+def plot_matches_epoch(epoch, out_dir, show_fig=False):
+    cams = list(epoch.cameras.keys())
+    features = epoch.features
+    images = epoch.images
+
+    fig, axes = plt.subplots(1, 2)
+    titles = ["C1", "C2"]
+    for cam, ax, title in zip(cams, axes, titles):
+        plot_features(
+            images[cam].value,
+            features[cam],
+            ax=ax,
+            s=2,
+            linewidths=0.3,
+        )
+        ax.set_title(f"{title}")
+        ax.set_xticks([])
+        ax.set_yticks([])
+    fig.tight_layout()
+
+    out_dir = Path(out_dir)
+    out_dir.mkdir(exist_ok=True, parents=True)
+    fig.savefig(
+        out_dir / f"matches_{epoch.timestamp.strftime('%Y_%m_%d')}.png",
+        dpi=300,
+    )
+
+    if show_fig:
+        plt.show()
+    else:
+        plt.close()
 
 
 def draw_matches(kpts0, kpts1, color, lw=1.5, ps=4):
@@ -361,7 +396,7 @@ def plot_features(
 ):
     """Wrapper around plot_points to work if the input is a Features object"""
     xy = features.to_numpy()["kpts"]
-    fig = plot_points(
+    plot_points(
         image,
         points=xy,
         title=title,
@@ -814,24 +849,24 @@ def make_camera_angles_plot(
             f"Attitude angles of the two cameras_plt - differences with respect to epoch {baseline_epoch}"
         )
     else:
-        fig.suptitle(f"Attitude angles of the two cameras")
+        fig.suptitle("Attitude angles of the two cameras")
     for i, cam_key in enumerate(cam_keys):
         ax[0, i].plot(epoches, list(angles[cam_key]["omega"].values()), "o")
         ax[0, i].grid(visible=True, which="both")
         ax[0, i].set_xlabel("Epoch")
-        ax[0, i].set_ylabel(f"Omega [deg]")
+        ax[0, i].set_ylabel("Omega [deg]")
         ax[0, i].set_title(f"Camera {cam_key}")
 
         ax[1, i].plot(epoches, list(angles[cam_key]["phi"].values()), "o")
         ax[1, i].grid(visible=True, which="both")
         ax[1, i].set_xlabel("Epoch")
-        ax[1, i].set_ylabel(f"Phi [deg]")
+        ax[1, i].set_ylabel("Phi [deg]")
         ax[1, i].set_title(f"Camera {cam_key}")
 
         ax[2, i].plot(epoches, list(angles[cam_key]["kappa"].values()), "o")
         ax[2, i].grid(visible=True, which="both")
         ax[2, i].set_xlabel("Epoch")
-        ax[2, i].set_ylabel(f"Kappa [deg]")
+        ax[2, i].set_ylabel("Kappa [deg]")
         ax[2, i].set_title(f"Camera {cam_key}")
     fig.tight_layout(pad=0.05)
 
