@@ -479,7 +479,7 @@ class ImageDS:
 
     def __getitem__(self, idx: int) -> str:
         """
-        Returns the image name (including extension) at position idx in the datastore.
+        Returns the image path (including extension) at position idx in the datastore .
 
         Args:
             idx (int): The index of the image.
@@ -487,7 +487,7 @@ class ImageDS:
         Returns:
             str: The name of the image.
         """
-        return self._files[idx].name
+        return str(self._files[idx])
 
     def __iter__(self):
         """

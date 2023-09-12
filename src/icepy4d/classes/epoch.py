@@ -87,7 +87,10 @@ class Epoch:
             images (classes.ImagesDict): The dictionary of images and their metadata
             features (classes.Features): The dictionary of feature points
             points (classes.Points): The dictionary of 3D points
+
+        TODO: Simplify the initialization of the Epoch object if no parameters are provided.
         """
+
         self._timestamp = parse_str_to_datetime(timestamp, datetime_format)
         self.images = images
         self.cameras = cameras

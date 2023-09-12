@@ -22,6 +22,8 @@ src/icepy4d/thirdparty/SuperGluePretrainedNetwork.old/
 mmm/
 colmap/
 scripts/track_targets/results/
+notebooks/logs/
+notebooks/res/
 
 # VScode
 # .vscode/
