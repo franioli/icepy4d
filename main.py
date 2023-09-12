@@ -52,45 +52,6 @@ CFG_FILE = "config/config_2022.yaml"
 # TODO: parse_cfg set deafults paths to results file, check this.
 
 
-def make_matching_plot(epoch, out_dir, show_fig=False):
-    import matplotlib
-    from matplotlib import pyplot as plt
-
-    from icepy4d.visualization import plot_features
-
-    matplotlib.use("tkagg")
-    cams = list(epoch.cameras.keys())
-    features = epoch.features
-    images = epoch.images
-
-    fig, axes = plt.subplots(1, 2)
-    titles = ["C1", "C2"]
-    for cam, ax, title in zip(cams, axes, titles):
-        plot_features(
-            images[cam].value,
-            features[cam],
-            ax=ax,
-            s=2,
-            linewidths=0.3,
-        )
-        ax.set_title(f"{title}")
-        ax.set_xticks([])
-        ax.set_yticks([])
-    fig.tight_layout()
-
-    out_dir = Path(out_dir)
-    out_dir.mkdir(exist_ok=True, parents=True)
-    fig.savefig(
-        out_dir / f"matches_{epoch.timestamp.strftime('%Y_%m_%d')}.png",
-        dpi=300,
-    )
-
-    if show_fig:
-        plt.show()
-    else:
-        plt.close()
-
-
 def save_to_colmap():
     pass
 
@@ -563,7 +524,7 @@ for ep in cfg.proc.epoch_to_process:
 
         # Save matches plot
         matches_fig_dir = "res/fig_for_paper/matches_fig"
-        # make_matching_plot(epoches[ep], ep, matches_fig_dir, show_fig=False)
+        # plot_matches_epoch(epoches[ep], ep, matches_fig_dir, show_fig=False)
 
         # Compute reprojection error and save to file
         io.write_reprojection_error_to_file(cfg.residuals_fname, epoches[ep])
