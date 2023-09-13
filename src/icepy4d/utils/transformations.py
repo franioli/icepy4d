@@ -5,6 +5,7 @@ import open3d as o3d
 from pathlib import Path
 from typing import Union
 
+
 "Transformation for Belvedere North-West terminus, from Local RS to WGS84-UTM32N"
 BELV_LOC2UTM = np.array(
     [
@@ -103,7 +104,7 @@ class Rotrotranslation:
         BELV_UTM2LOC = np.linalg.inv(BELV_LOC2UTM)
         return cls(BELV_UTM2LOC)
 
-    def apply_transformation(self, x: np.ndarray) -> np.ndarray:
+    def transform(self, x: np.ndarray) -> np.ndarray:
         """
         Applies a 4x4 transformation matrix in homogeneous coordinates
         to a Nx3 or Nx4 numpy array representing n points in euclidean or homogeneous coordinates, respectively.
@@ -137,7 +138,7 @@ class Rotrotranslation:
 
         return out
 
-    def apply_inverse_transformation(self, x: np.ndarray) -> np.ndarray:
+    def transform_inverse(self, x: np.ndarray) -> np.ndarray:
         """
         Applies the inverse of a 4x4 transformation matrix in homogeneous coordinates
         to a 4xn numpy array in homogeneous coordinates. If input points are not in homogeneous coordinates, it converts them using convert_to_homogeneous function.
@@ -170,31 +171,39 @@ class Rotrotranslation:
 
     def transform_pcd(
         self,
-        fname: Union[str, Path],
-        out_fname: str = None,
-    ) -> None:
+        pcd_path: Union[str, Path],
+        out_path: str = None,
+        inverse: bool = False,
+    ) -> o3d.geometry.PointCloud:
         """
         Transforms a point cloud in PCD format using the current transformation matrix and saves the transformed point cloud to a file.
 
         Args:
-            fname (Union[str, Path]): The path to the input PCD file containing the point cloud data.
-            out_fname (str, optional): The output filename for the transformed point cloud. If not provided, a default filename will be generated.
+            pcd_path (Union[str, Path]): The path to the input PCD file containing the point cloud data.
+            out_path (str, optional): The output filename for the transformed point cloud. If not provided, a default filename will be generated.
 
         Returns:
-            None
+            o3d.geometry.PointCloud: The transformed point cloud as an Open3D PointCloud object.
         """
-        fname = Path(fname)
+        pcd_path = Path(pcd_path)
 
         # Read the point cloud from the input PCD file
-        x = self.read_pcd(fname)
+        x = self.read_pcd(pcd_path)
 
         # Apply the transformation
-        x_transf = self.apply_transformation(x)
+        if not inverse:
+            x_transf = self.transform(x)
+        else:
+            x_transf = self.transform_inverse(x)
+
+        # Convert the transformed point cloud to a PCD object
+        pcd_out = self.convert_points_to_pcd(x_transf)
 
         # Save the transformed point cloud to the specified file
-        if out_fname is None:
-            out_fname = fname.parent / f"{fname.stem}_transformed.pcd"
-        self.write_pcd(out_fname, x_transf)
+        if out_path is not None:
+            self.write_pcd(out_path, pcd_out)
+
+        return pcd_out
 
     def read_pcd(self, fname: Union[str, Path]) -> np.ndarray:
         """
@@ -222,28 +231,41 @@ class Rotrotranslation:
 
         return np.asarray(pcd.points)
 
-    def write_pcd(self, fname: Union[str, Path], x: np.ndarray) -> None:
+    def convert_points_to_pcd(self, points: np.ndarray) -> o3d.geometry.PointCloud:
+        """
+        Converts a numpy array of points to an Open3D PointCloud object.
+
+        Args:
+            points (np.ndarray): A numpy array containing the point cloud data in the shape (N, 3), where N is the number of points in the point cloud.
+
+        Returns:
+            o3d.geometry.PointCloud: The point cloud data as an Open3D PointCloud object.
+        """
+        assert points.shape[1] == 3, "points must be a Nx3 numpy array."
+
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(points)
+
+        return pcd
+
+    def write_pcd(
+        self, out_path: Union[str, Path], pcd: o3d.geometry.PointCloud
+    ) -> None:
         """
         Writes a point cloud to a PCD file using Open3D.
 
         Args:
-            fname (Union[str, Path]): The path to the output PCD file.
-            x (np.ndarray): A numpy array containing the point cloud data in the shape (N, 3), where N is the number of points in the point cloud.
+            out_path (Union[str, Path]): The path to the output PCD file.
+            pcd (o3d.geometry.PointCloud): An Open3D PointCloud object containing the point cloud data to be written.
 
         Returns:
             None
 
         Raises:
-            AssertionError: If the input array 'x' is not a numpy array or does not have the shape (N, 3).
+            ValueError: If there is an error writing the point cloud to the PCD file.
         """
-        assert isinstance(x, np.ndarray), "x must be a numpy array."
-        assert x.shape[1] == 3, "x must be a Nx3 numpy array."
-
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(x)
-
         try:
-            o3d.io.write_point_cloud(str(fname), pcd)
+            o3d.io.write_point_cloud(str(out_path), pcd)
         except Exception as e:
             raise ValueError(f"Error writing the point cloud to the PCD file: {e}")
 
@@ -329,8 +351,8 @@ if __name__ == "__main__":
     fname = "data/targets/target_world.csv"
     target_loc = pd.read_csv(fname)
     points = target_loc[["X", "Y", "Z"]].to_numpy()
-    points_utm = belv_rotra.apply_transformation(points)
-    points_loc_t = belv_rotra.apply_inverse_transformation(points_utm)
+    points_utm = belv_rotra.transform(points)
+    points_loc_t = belv_rotra.transform_inverse(points_utm)
     assert np.allclose(points, points_loc_t)
 
     # targets_utm = pd.DataFrame(columns=["label", "E", "N", "h"])
@@ -338,7 +360,8 @@ if __name__ == "__main__":
     # targets_utm.to_csv(out_name, sep=",", index=False)
 
     # Work with point clouds
-    pcd_name = "res/monthly_pcd/belvedere2021_densaMedium_lingua_50cm_utm.ply"
-    belv_rotra.transform_pcd(pcd_name)
+    pcd_path = "res/monthly_pcd/belvedere2021_densaMedium_lingua_50cm_utm.ply"
+    out_path = "res/monthly_pcd/belvedere2021_densaMedium_lingua_50cm_loc.ply"
+    pcd_transf = belv_rotra.transform_pcd(pcd_path, out_path=out_path)
 
     print("done")
