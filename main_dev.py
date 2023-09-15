@@ -349,7 +349,7 @@ for ep in cfg.proc.epoch_to_process:
         ],
     )
     points3d = triang.triangulate_two_views(
-        compute_colors=True, image=images[cams[1]].read_image(ep).value, cam_id=1
+        compute_colors=True, image=epoch.images[cams[1]].value, cam_id=1
     )
     logger.info("Tie points triangulated.")
 

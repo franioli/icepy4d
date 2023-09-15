@@ -136,6 +136,10 @@ class Image:
         if image:
             self._value_array = image
 
+    def __repr__(self) -> str:
+        """Returns a string representation of the image"""
+        return f"Image {self._path}"
+
     @property
     def height(self) -> int:
         """Returns the height of the image"""
