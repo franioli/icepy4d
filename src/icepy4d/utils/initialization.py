@@ -23,8 +23,8 @@ SOFTWARE.
 """
 
 import argparse
+import datetime
 import sys
-from datetime import datetime
 from pathlib import Path
 from pprint import pprint
 from typing import Tuple, Union, Dict
@@ -64,71 +64,6 @@ def print_welcome_msg() -> None:
     )
     print("2023 - Francesco Ioli - francesco.ioli@polimi.it")
     print("================================================================\n")
-
-
-def parse_command_line() -> Tuple[Path, dict]:
-    """
-    parse_command_line Parse command line input
-
-    Returns:
-        Tuple[str, dict]: Tuple containing the path of the configuration file and a dictionary containing parameters to setup the logger
-    """
-    parser = argparse.ArgumentParser(
-        description="""icepy4d
-            Low-cost stereo photogrammetry for 4D glacier monitoring \
-            Check -h or --help for options.
-        Usage: ./main.py -c config_base.yaml"""
-    )
-    parser.add_argument(
-        "-c",
-        "--config",
-        type=str,
-        help="Path of to the configuration file",
-    )
-    parser.add_argument(
-        "--log_folder",
-        default="logs",
-        type=str,
-        help="Folder for storing logs (default: 'logs')",
-    )
-    parser.add_argument(
-        "--log_name",
-        default="log",
-        type=str,
-        help="Base name of the log file",
-    )
-    parser.add_argument(
-        "--log_file_level",
-        default="info",
-        type=str,
-        help="Set log level for logging to file \
-            (possible options are: 'debug', 'info', \
-            'warning', 'error', 'critical')",
-    )
-    parser.add_argument(
-        "--log_console_level",
-        default="info",
-        type=str,
-        help="Set log level for logging to stdout \
-            (possible options are: 'debug', 'info', \
-            'warning', 'error', 'critical')",
-    )
-    args = parser.parse_args()
-
-    if not len(sys.argv) > 1:
-        raise ValueError(
-            "Not enough input arguments. Specify at least the configuration file. Use --help (or -h) for help."
-        )
-
-    cfg_file = Path(args.config)
-    log_cfg = {
-        "log_folder": args.log_folder,
-        "log_name": args.log_name,
-        "log_file_level": args.log_file_level,
-        "log_console_level": args.log_console_level,
-    }
-
-    return cfg_file, log_cfg
 
 
 def parse_cfg(cfg_file: Union[str, Path], ignore_errors: bool = False) -> edict:
@@ -179,7 +114,7 @@ def parse_cfg(cfg_file: Union[str, Path], ignore_errors: bool = False) -> edict:
 
     # Camera names
     cfg.cams = sorted(
-        [Path(f.path) for f in os.scandir(cfg.paths.image_dir) if f.is_dir()]
+        [str(f.name) for f in os.scandir(cfg.paths.image_dir) if f.is_dir()]
     )
 
     # - Result paths
@@ -233,6 +168,71 @@ def parse_cfg(cfg_file: Union[str, Path], ignore_errors: bool = False) -> edict:
     return cfg
 
 
+def initialize_epoch(
+    cfg: edict, epoch_timestamp: datetime.datetime, images: dict, epoch_dir: Path
+):
+    """Initialize an Epoch object for ICEPy4D processing.
+
+    This function initializes an Epoch object for processing data in ICEPy4D.
+    It sets up the Epoch object with images, cameras, targets, features,
+    points, and other necessary data structures for the specified epoch.
+    The timestamp of the epoch is taken from the image Exif metadata of the
+    first camera in the list of cameras.
+
+    Args:
+        cfg (EasyDict): An EasyDict object containing the configuration         parameters, including paths, camera settings, and other relevant data.
+        images (Dict[str, Image]): A dictionary containing Image objects, where the keys are camera names (camera keys) and the values are corresponding Image instances.
+        epoch_id (int): The epoch ID or index indicating the specific epoch to initialize.
+        epoch_dir (Path, optional): The directory path where the epoch data will be stored. If not provided, a directory path will be created in the results directory based on the timestamp of the epoch. Defaults to None.
+
+    Returns:
+        Epoch: An initialized Epoch object representing the specified epoch.
+
+    Example:
+        >>> cfg = EasyDict()
+        >>> # Populate cfg with appropriate configuration parameters
+        >>> images = {"cam1": Image(...), "cam2": Image(...)}
+        >>> epoch = initialize_epoch(cfg, images, epoch_id=0)
+    """
+
+    # Build dictionary of Images for the current epoch
+    im_epoch: ImagesDict = {cam: Image(img) for cam, img in images.items()}
+
+    # Load cameras
+    cams_ep: CamerasDict = {}
+    for cam in cfg.cams:
+        calib = Calibration(cfg.paths.calibration_dir / f"{cam}.txt")
+        cams_ep[cam] = calib.to_camera()
+
+    # Load targets
+    target_paths = [
+        cfg.georef.target_dir / (im_epoch[cam].stem + cfg.georef.target_file_ext)
+        for cam in cfg.cams
+    ]
+    targ_ep = Targets(
+        im_file_path=target_paths,
+        obj_file_path=cfg.georef.target_dir / cfg.georef.target_world_file,
+    )
+
+    # init empty features and points
+    feat_ep = {cam: Features() for cam in cfg.cams}
+    pts_ep = Points()
+
+    epoch_timestamp = epoch_timestamp.replace("_", " ")
+    epoch = Epoch(
+        epoch_timestamp,
+        images=im_epoch,
+        cameras=cams_ep,
+        features=feat_ep,
+        points=pts_ep,
+        targets=targ_ep,
+        point_cloud=None,
+        epoch_dir=epoch_dir,
+    )
+    return epoch
+
+
+@deprecated
 def validate_cfg(cfg: edict) -> None:
     cams = cfg.paths.camera_names
     images = dict.fromkeys(cams)
@@ -300,178 +300,69 @@ def initialize_image_ds(cfg: edict) -> Tuple[Dict[str, ImageDS], EpochDataMap]:
     return images, epoch_dict
 
 
-def initialize_epoch(cfg: edict, images: dict, epoch_id: int, epoch_dir: Path = None):
-    """Initialize an Epoch object for ICEPy4D processing.
-
-    This function initializes an Epoch object for processing data in ICEPy4D.
-    It sets up the Epoch object with images, cameras, targets, features,
-    points, and other necessary data structures for the specified epoch.
-    The timestamp of the epoch is taken from the image Exif metadata of the
-    first camera in the list of cameras.
-
-    Args:
-        cfg (EasyDict): An EasyDict object containing the configuration         parameters, including paths, camera settings, and other relevant data.
-        images (Dict[str, Image]): A dictionary containing Image objects, where the keys are camera names (camera keys) and the values are corresponding Image instances.
-        epoch_id (int): The epoch ID or index indicating the specific epoch to initialize.
-        epoch_dir (Path, optional): The directory path where the epoch data will be stored. If not provided, a directory path will be created in the results directory based on the timestamp of the epoch. Defaults to None.
+def parse_command_line() -> Tuple[Path, dict]:
+    """
+    parse_command_line Parse command line input
 
     Returns:
-        Epoch: An initialized Epoch object representing the specified epoch.
-
-    Example:
-        >>> cfg = EasyDict()
-        >>> # Populate cfg with appropriate configuration parameters
-        >>> images = {"cam1": Image(...), "cam2": Image(...)}
-        >>> epoch = initialize_epoch(cfg, images, epoch_id=0)
+        Tuple[str, dict]: Tuple containing the path of the configuration file and a dictionary containing parameters to setup the logger
     """
+    parser = argparse.ArgumentParser(
+        description="""icepy4d
+            Low-cost stereo photogrammetry for 4D glacier monitoring \
+            Check -h or --help for options.
+        Usage: ./main.py -c config_base.yaml"""
+    )
+    parser.add_argument(
+        "-c",
+        "--config",
+        type=str,
+        help="Path of to the configuration file",
+    )
+    parser.add_argument(
+        "--log_folder",
+        default="logs",
+        type=str,
+        help="Folder for storing logs (default: 'logs')",
+    )
+    parser.add_argument(
+        "--log_name",
+        default="log",
+        type=str,
+        help="Base name of the log file",
+    )
+    parser.add_argument(
+        "--log_file_level",
+        default="info",
+        type=str,
+        help="Set log level for logging to file \
+            (possible options are: 'debug', 'info', \
+            'warning', 'error', 'critical')",
+    )
+    parser.add_argument(
+        "--log_console_level",
+        default="info",
+        type=str,
+        help="Set log level for logging to stdout \
+            (possible options are: 'debug', 'info', \
+            'warning', 'error', 'critical')",
+    )
+    args = parser.parse_args()
 
-    timestamp = images[cfg.cams[0]].get_image_timestamp(epoch_id)
-    if epoch_dir is None:
-        epoch_dir = cfg.paths.results_dir / str(timestamp).replace(" ", "_")
+    if not len(sys.argv) > 1:
+        raise ValueError(
+            "Not enough input arguments. Specify at least the configuration file. Use --help (or -h) for help."
+        )
 
-    # Build dictionary of Images for the current epoch
-    im_epoch: ImagesDict = {
-        cam: Image(images[cam].get_image_path(epoch_id)) for cam in cfg.cams
+    cfg_file = Path(args.config)
+    log_cfg = {
+        "log_folder": args.log_folder,
+        "log_name": args.log_name,
+        "log_file_level": args.log_file_level,
+        "log_console_level": args.log_console_level,
     }
 
-    # Load cameras
-    cams_ep: CamerasDict = {}
-    for cam in cfg.cams:
-        calib = Calibration(cfg.paths.calibration_dir / f"{cam}.txt")
-        cams_ep[cam] = calib.to_camera()
-
-    # Load targets
-    target_paths = [
-        cfg.georef.target_dir / (im_epoch[cam].stem + cfg.georef.target_file_ext)
-        for cam in cfg.cams
-    ]
-    targ_ep = Targets(
-        im_file_path=target_paths,
-        obj_file_path=cfg.georef.target_dir / cfg.georef.target_world_file,
-    )
-
-    # init empty features and points
-    feat_ep = {cam: Features() for cam in cfg.cams}
-    pts_ep = Points()
-
-    epoch = Epoch(
-        timestamp,
-        images=im_epoch,
-        cameras=cams_ep,
-        features=feat_ep,
-        points=pts_ep,
-        targets=targ_ep,
-        point_cloud=None,
-        epoch_dir=epoch_dir,
-    )
-    return epoch
-
-
-@deprecated
-class initializer:
-    def __init__(
-        self,
-        cfg: edict,
-    ) -> None:
-        """
-        __init__ initialization class
-
-        Args:
-            cfg (edict): dictionary (as EasyDict object) containing all the configuration parameters.
-        """
-
-        self.cfg = cfg
-        assert (
-            "camera_names" in self.cfg.paths
-        ), "Camera names not available in cfg file."
-        self.cams = self.cfg.paths.camera_names
-
-    def init_image_ds(self):
-        """
-        init_image_ds _summary_
-
-        Returns:
-            ImagesDict: _description_
-        """
-        self.images = initialize_epoch(self.cfg)
-        return self.images
-
-    def init_epoch_dict(self):
-        """
-        init_epoch_dict Build dictonary containing pairs of epoch and dates, as follows:
-        {0: "2021_01_01", 1: "2021_01_02" ...}
-
-        Returns:
-            EpochDataMap: epoc_dict
-        """
-        self.epoch_dict = {}
-        for epoch in range(len(self.images[self.cams[0]])):
-            date_str = self.images[self.cams[0]].get_image_date(epoch)
-            date = datetime.strptime(date_str, "%Y:%m:%d")
-            self.epoch_dict[epoch] = f"{date.year}_{date.month:02}_{date.day:02}"
-        return self.epoch_dict
-
-    def init_features(self):
-        """
-        init_features _summary_
-
-        Returns:
-            _type_: _description_
-
-        NOTE: This function is deprecated. It is kept for backward compatibility with the function MatchingAndTracking that require the full dictionary of features as input. It will be removed in future versions.
-        """
-        self.features = {}
-        for epoch in self.cfg.proc.epoch_to_process:
-            self.features[epoch] = {cam: Features() for cam in self.cams}
-
-        return self.features
-
-    def init_epoch(self, epoch_id: int, epoch_dir: Union[Path, str] = None):
-        """
-        init_epoch _summary_
-
-        Returns:
-            Epoch: _description_
-        """
-
-        # Build dictionary of Images for the current epoch
-        im_epoch: ImagesDict = {
-            cam: Image(self.images[cam].get_image_path(epoch_id)) for cam in self.cams
-        }
-
-        # Load cameras
-        cams_ep: CamerasDict = {}
-        for cam in self.cams:
-            calib = Calibration(self.cfg.paths.calibration_dir / f"{cam}.txt")
-            cams_ep[cam] = calib.to_camera()
-
-        # Load targets
-        target_paths = [
-            self.cfg.georef.target_dir
-            / (im_epoch[cam].stem + self.cfg.georef.target_file_ext)
-            for cam in self.cams
-        ]
-        targ_ep = Targets(
-            im_file_path=target_paths,
-            obj_file_path=self.cfg.georef.target_dir
-            / self.cfg.georef.target_world_file,
-        )
-
-        # init empty features and points
-        feat_ep = {cam: Features() for cam in self.cams}
-        pts_ep = Points()
-
-        epoch = Epoch(
-            im_epoch[self.cams[0]].datetime,
-            images=im_epoch,
-            cameras=cams_ep,
-            features=feat_ep,
-            points=pts_ep,
-            targets=targ_ep,
-            point_cloud=None,
-            epoch_dir=epoch_dir,
-        )
-        return epoch
+    return cfg_file, log_cfg
 
 
 if __name__ == "__main__":
