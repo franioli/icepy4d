@@ -6,7 +6,7 @@ from pathlib import Path
 from easydict import EasyDict as edict
 from tqdm import tqdm
 
-from icepy4d.classes.images import Image, ImageDS
+from icepy4d.core.images import Image, ImageDS
 from icepy4d.utils.initialization import parse_cfg
 
 

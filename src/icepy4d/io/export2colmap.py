@@ -8,7 +8,7 @@ import h5py
 import numpy as np
 import torch
 
-import icepy4d.classes as icepy4d_classes
+import icepy4d.core as icepy4d_classes
 from icepy4d.thirdparty.transformations import quaternion_from_matrix
 
 from .utils import make_symlink

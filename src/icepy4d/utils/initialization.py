@@ -34,15 +34,13 @@ import numpy as np
 import yaml
 from easydict import EasyDict as edict
 
-from icepy4d.classes import (
+from icepy4d.core import (
     Calibration,
     CamerasDict,
     Epoch,
     EpochDataMap,
     Features,
-    Image,
     ImageDS,
-    ImagesDict,
     Points,
     Targets,
 )
@@ -196,7 +194,7 @@ def initialize_epoch(
     """
 
     # Build dictionary of Images for the current epoch
-    im_epoch: ImagesDict = {cam: Image(img) for cam, img in images.items()}
+    # im_epoch: ImagesDict = {cam: Image(img) for cam, img in images.items()}
 
     # Load cameras
     cams_ep: CamerasDict = {}
@@ -206,7 +204,7 @@ def initialize_epoch(
 
     # Load targets
     target_paths = [
-        cfg.georef.target_dir / (im_epoch[cam].stem + cfg.georef.target_file_ext)
+        cfg.georef.target_dir / (images[cam].stem + cfg.georef.target_file_ext)
         for cam in cfg.cams
     ]
     targ_ep = Targets(
@@ -221,7 +219,7 @@ def initialize_epoch(
     epoch_timestamp = epoch_timestamp.replace("_", " ")
     epoch = Epoch(
         epoch_timestamp,
-        images=im_epoch,
+        images=images,
         cameras=cams_ep,
         features=feat_ep,
         points=pts_ep,
@@ -366,7 +364,7 @@ def parse_command_line() -> Tuple[Path, dict]:
 
 
 if __name__ == "__main__":
-    from icepy4d.classes.epoch import Epoch, Epoches
+    from icepy4d.core.epoch import Epoch, Epoches
 
     cfg_file = "./config/config_base.yaml"
     cfg = parse_cfg(cfg_file)

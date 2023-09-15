@@ -5,7 +5,7 @@ from typing import TypedDict, List, Union
 from pathlib import Path
 from itertools import groupby
 
-import icepy4d.classes as icepy4d_classes
+import icepy4d.core as icepy4d_classes
 
 from icepy4d.utils.geospatial import *
 from icepy4d.utils.timer import timeit
