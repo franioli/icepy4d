@@ -42,6 +42,12 @@ DEFAULT_DATETIME_FMT = "%Y-%m-%d %H:%M:%S"
 logger = logging.getLogger(__name__)
 
 
+class AttributeDict(dict):
+    __getattr__ = dict.__getitem__
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
+
+
 def parse_str_to_datetime(
     datetime: Union[str, dt], datetime_format: str = DEFAULT_DATETIME_FMT
 ):
@@ -105,12 +111,59 @@ def find_closest_timestamp(
 
 
 class EpochDataMap(dict):
+    """
+    A class for managing epoch data mapping, including timestamps and associated images.
+
+    Args:
+        image_dir (Union[str, Path]): The directory containing image data.
+        master_camera (str): The name of the master camera (optional).
+        time_tolerance_sec (int): The maximum time difference allowed to consider two images taken by different cameras as simultaneous (this allows for considering a non-perfect time synchronization between different cameras). Default is 1200 seconds (20 minutes).
+
+    Attributes:
+        _image_dir (Path): The path to the image directory.
+        _master_camera (str): The name of the master camera.
+        _timetolerance (timedelta): The time tolerance for timestamp matching.
+        _cams (List[str]): The list of camera names.
+        _map (dict): The mapping of epoch data.
+
+    Methods:
+        _get_timestamps(folder: Union[str, Path]) -> Tuple[List[dt], List[Path]]:
+            Get timestamps and image paths from a specified folder.
+        _build_map():
+            Build the mapping of epoch data.
+        _write_map(filename: str, sep: str = ",", header: bool = True) -> None:
+            Write the mapping data to a CSV file.
+        __getitem__(self, key):
+            Retrieve epoch data by key.
+        __repr__(self) -> str:
+            Return a string representation of the EpochDataMap.
+        __len__(self) -> int:
+            Return the number of epochs in the EpochDataMap.
+        __iter__(self):
+            Initialize an iterator for the EpochDataMap.
+        __next__(self):
+            Get the next element in the EpochDataMap.
+        __contains__(self, timestamp: Union[str, dt]) -> bool:
+            Check if a timestamp is present in the EpochDataMap.
+        get_epoch_timestamp(self, epoch_id: int) -> dt:
+            Get the timestamp of a specific epoch.
+        get_epoch_images(self, epoch_id: int) -> List[Path]:
+            Get the images associated with a specific epoch.
+        get_epoch_images_by_timestamp(self, timestamp: Union[str, dt]) -> List[Path]:
+            Get the images associated with an epoch by timestamp.
+        get_epoch_image_timestamps(self, epoch_id: int) -> List[dt]:
+            Get the timestamps of images associated with a specific epoch.
+    """
+
     def __init__(
         self,
         image_dir: Union[str, Path],
         master_camera=None,
         time_tolerance_sec: timedelta = 1200,
     ):
+        """
+        Initialize the EpochDataMap with image directory, master camera, and time tolerance.
+        """
         self._image_dir = Path(image_dir)
         assert self._image_dir.exists(), f"{self._image_dir} does not exist"
 
@@ -132,60 +185,14 @@ class EpochDataMap(dict):
         self._cams = sorted([f.name for f in os.scandir(self._image_dir) if f.is_dir()])
 
         # Build dict
+        self._map = {}
         self._build_map()
 
         # Write dict to file
         self._write_map(self._image_dir / "epoch_map.csv")
 
-    def _get_timestamps(self, folder: Union[str, Path]) -> Tuple[List[dt], List[Path]]:
-        imageDS = ImageDS(folder)
-        paths = list(imageDS.files)
-        timestamps = list(imageDS.timestamps.values())
-        return timestamps, paths
-
-    def _build_map(self):
-        self._map = {}
-
-        # Build imageDS for master camera and get timestamps
-        timestamps, paths = self._get_timestamps(self._image_dir / self._master_camera)
-
-        # build mapping dict for master camera
-        for i, (ts, path) in enumerate(zip(timestamps, paths)):
-            self._map[i] = {"timestamp": ts, "images": [path], "image_timestamps": [ts]}
-
-        # Find closest timestamp for each camera
-        slave_cameras = deepcopy(self._cams)
-        slave_cameras.remove(self._master_camera)
-
-        for cam in slave_cameras:
-            timestamps1, paths1 = self._get_timestamps(self._image_dir / cam)
-            for key, value in self._map.items():
-                ref_ts = value["timestamp"]
-                closest_ts, closest_idx, _ = find_closest_timestamp(
-                    ref_ts, timestamps1, self._timetolerance
-                )
-                self._map[key]["images"].append(paths1[closest_idx])
-                self._map[key]["image_timestamps"].append(closest_ts)
-
-    def _write_map(self, filename: str, sep: str = ",", header: bool = True) -> None:
-        file = open(filename, "w")
-        if header:
-            columns = ["epoch", "date", "time"]
-            for cam in self._cams:
-                columns.append(cam)
-            file.write(f"{sep}".join(columns) + "\n")
-        for key, value in self._map.items():
-            value = self._map[key]
-            date = value["timestamp"].strftime("%Y-%m-%d")
-            time = value["timestamp"].strftime("%H:%M:%S")
-            image_paths = value["images"]
-            paths_str = [str(p) for p in image_paths]
-            line = [str(key), date, time] + paths_str
-            file.write(f"{sep}".join(line) + "\n")
-        file.close()
-
     def __getitem__(self, key):
-        return str(self._map[key])
+        return self._map[key]
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__} with {len(self._map)} epochs"
@@ -198,12 +205,12 @@ class EpochDataMap(dict):
         return self
 
     def __next__(self):
-        while self._elem <= len(self._map):
+        while self._elem < len(self._map):
             file = self._map[self._elem]
             self._elem += 1
             return file
         else:
-            self._elem
+            self._elem = 0
             raise StopIteration
 
     def __contains__(self, timestamp: Union[str, dt]) -> bool:
@@ -211,8 +218,12 @@ class EpochDataMap(dict):
         timestamps = [x["timestamp"] for x in self._map.values()]
         return timestamp in timestamps
 
+    @property
+    def cams(self):
+        return self._cams
+
     def get_epoch_timestamp(self, epoch_id: int) -> dt:
-        return self._map[epoch_id]["timestamp"]
+        return str(self._map[epoch_id]["timestamp"]).replace(" ", "_")
 
     def get_epoch_images(self, epoch_id: int) -> List[Path]:
         return self._map[epoch_id]["images"]
@@ -222,6 +233,63 @@ class EpochDataMap(dict):
         timestamps = [x["timestamp"] for x in self._map.values()]
         idx = timestamps.index(timestamp)
         return self._map[idx]["images"]
+
+    def get_epoch_image_timestamps(self, epoch_id: int) -> List[dt]:
+        return self._map[epoch_id]["image_timestamps"]
+
+    def _get_timestamps(self, folder: Union[str, Path]) -> Tuple[List[dt], List[Path]]:
+        imageDS = ImageDS(folder)
+        paths = list(imageDS.files)
+        timestamps = list(imageDS.timestamps.values())
+        return timestamps, paths
+
+    def _build_map(self):
+        # Build imageDS for master camera and get timestamps
+        timestamps, paths = self._get_timestamps(self._image_dir / self._master_camera)
+
+        # build mapping dict for master camera
+        for i, (ts, path) in enumerate(zip(timestamps, paths)):
+            self._map[i] = AttributeDict(
+                {
+                    "timestamp": ts,
+                    "images": {self._master_camera: path},
+                    "image_timestamps": {self._master_camera: ts},
+                }
+            )
+
+        # Find closest timestamp for each camera
+        slave_cameras = deepcopy(self._cams)
+        slave_cameras.remove(self._master_camera)
+
+        for cam in slave_cameras:
+            timestamps1, paths1 = self._get_timestamps(self._image_dir / cam)
+            for key, value in self._map.items():
+                ref_ts = value["timestamp"]
+                closest_ts, closest_idx, _ = find_closest_timestamp(
+                    ref_ts, timestamps1, self._timetolerance
+                )
+                self._map[key]["images"][cam] = paths1[closest_idx]
+                self._map[key]["image_timestamps"][cam] = closest_ts
+
+    def _write_map(self, filename: str, sep: str = ",", header: bool = True) -> None:
+        file = open(filename, "w")
+        if header:
+            columns = ["epoch", "date", "time"]
+            for cam in self._cams:
+                columns.append(cam)
+                columns.append(f"{cam}_timestamp")
+            file.write(f"{sep}".join(columns) + "\n")
+        for key, value in self._map.items():
+            value = self._map[key]
+            date = value["timestamp"].strftime("%Y-%m-%d")
+            time = value["timestamp"].strftime("%H:%M:%S")
+            str_2_add = []
+            for cam in self._cams:
+                str_2_add.append(str(value["images"][cam]))
+                str_2_add.append(str(value["image_timestamps"][cam]))
+            line = [str(key), date, time] + str_2_add
+            file.write(f"{sep}".join(line) + "\n")
+        file.close()
 
 
 class Epoch:

@@ -655,7 +655,7 @@ print("Done.")
 
 # # Week 0:
 # ep_st, ep_fin = 181, 184
-# eps = {ep: epoch_dict[ep] for ep in range(ep_st, ep_fin)}
+# eps = {ep: epoch_map.get_epoch_timestamp(ep) for ep in range(ep_st, ep_fin)}
 
 # ep = list(eps.keys())[1]
 # date = eps[ep]
@@ -797,7 +797,7 @@ print("Done.")
 #         dpi=100,
 #     )
 
-#     dates = [epoch_dict[ep] for ep in cfg.proc.epoch_to_process]
+#     dates = [epoch_map.get_epoch_timestamp(ep) for ep in cfg.proc.epoch_to_process]
 #     dates = [datetime.strptime(date, "%Y_%m_%d") for date in dates]
 #     fig, ax = plt.subplots(1, len(cams))
 #     fig.autofmt_xdate()
