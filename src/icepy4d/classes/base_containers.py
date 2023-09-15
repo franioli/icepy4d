@@ -1,5 +1,4 @@
 from typing import TypedDict
-from datetime import datetime
 
 from .camera import Camera
 from .features import Features
@@ -22,15 +21,15 @@ class ImagesDict(TypedDict):
     camera: Image
 
 
-class EpochDict:
-    def __init__(self, dict: dict[int, datetime]):
-        self._dict = dict
+# class EpochDataMap:
+#     def __init__(self, dict: dict[int, datetime]):
+#         self._dict = dict
 
-    def __getitem__(self, key):
-        return str(self._dict[key]).replace(" ", "_")
+#     def __getitem__(self, key):
+#         return str(self._dict[key]).replace(" ", "_")
 
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__} with {len(self._dict)} epochs"
+#     def __repr__(self) -> str:
+#         return f"{self.__class__.__name__} with {len(self._dict)} epochs"
 
 
 # class FeaturesDictEpoch(TypedDict):
