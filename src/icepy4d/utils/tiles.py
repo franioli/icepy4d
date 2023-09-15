@@ -31,7 +31,7 @@ import logging
 from pathlib import Path
 from typing import List
 
-from icepy4d.classes.images import Image, ImageDS
+from icepy4d.core.images import Image, ImageDS
 
 # TODO: use KORNIA for image tiling
 

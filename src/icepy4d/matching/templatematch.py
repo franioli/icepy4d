@@ -261,7 +261,7 @@ if __name__ == "__main__":
     import cv2
     import matplotlib.pyplot as plt
 
-    from icepy4d import classes as icepy4d_classes
+    from icepy4d import core as icepy4d_classes
     from icepy4d.utils.initialization import parse_cfg
 
     cfg_file = "config/config_base.yaml"
