@@ -160,15 +160,14 @@ def save_to_colmap():
 
 
 # Parse configuration file
-cfg_file = Path(CFG_FILE)
-cfg = inizialization.parse_cfg(cfg_file)
+cfg = inizialization.parse_cfg(CFG_FILE)
 timer_global = icepy4d_utils.AverageTimer()
 logger = icepy4d_utils.get_logger()
 
 # initialize variables
-cams = cfg.cams
 epoch_map = EpochDataMap(cfg.paths.image_dir)
 epoches = Epoches(starting_epoch=cfg.proc.epoch_to_process[0])
+cams = cfg.cams
 
 """ Big Loop over epoches """
 
@@ -179,16 +178,18 @@ iter = 0  # necessary only for printing the number of processed iteration
 for ep in cfg.proc.epoch_to_process:
     logger.info("------------------------------------------------------")
     logger.info(
-        f"""Processing epoch {ep} [{iter}/{cfg.proc.epoch_to_process[-1]-cfg.proc.epoch_to_process[0]}] - {epoch_dict[ep]}..."""  # noqa: E501
+        f"""Processing epoch {ep} [{iter}/{cfg.proc.epoch_to_process[-1]-cfg.proc.epoch_to_process[0]}] - {epoch_map[ep].timestamp}..."""  # noqa: E501
     )
     iter += 1
-    epochdir = cfg.paths.results_dir / epoch_dict[ep]
+    epochdir = cfg.paths.results_dir / epoch_map.get_epoch_timestamp(ep)
     match_dir = epochdir / "matching"
 
     # Load existing epcoh
     if cfg.proc.load_existing_results:
         try:
-            epoch = Epoch.read_pickle(epochdir / f"{epoch_dict[ep]}.pickle")
+            epoch = Epoch.read_pickle(
+                epochdir / f"{epoch_map.get_epoch_timestamp(ep)}.pickle"
+            )
 
             # Compute reprojection error
             io.write_reprojection_error_to_file(cfg.residuals_fname, epoches[ep])
@@ -199,15 +200,21 @@ for ep in cfg.proc.epoch_to_process:
             continue
         except:
             logger.error(
-                f"Unable to load epoch {epoch_dict[ep]} from pickle file. Creating new epoch..."
+                f"Unable to load epoch {epoch_map.get_epoch_timestamp(ep)} from pickle file. Creating new epoch..."
             )
             epoch = inizialization.initialize_epoch(
-                cfg=cfg, images=images, epoch_id=ep, epoch_dir=epochdir
+                cfg=cfg,
+                images=epoch_map.get_epoch_images(ep),
+                epoch_id=ep,
+                epoch_dir=epochdir,
             )
 
     else:
         epoch = inizialization.initialize_epoch(
-            cfg=cfg, images=images, epoch_id=ep, epoch_dir=epochdir
+            cfg=cfg,
+            epoch_timestamp=epoch_map.get_epoch_timestamp(ep),
+            images=epoch_map.get_epoch_images(ep),
+            epoch_dir=epochdir,
         )
 
     epoches.add_epoch(epoch)
@@ -360,7 +367,7 @@ for ep in cfg.proc.epoch_to_process:
                 == epoch.targets.get_image_coor_by_label(
                     cfg.georef.targets_to_use, cam_id=id
                 )[1]
-            ), f"""epoch {ep} - {epoch_dict[ep]}: 
+            ), f"""epoch {ep} - {epoch_map.get_epoch_timestamp(ep)}: 
             Different targets found in image {id} - {images[cams[id]][ep]}"""
         if len(valid_targets) < 1:
             logger.error(
@@ -486,7 +493,8 @@ for ep in cfg.proc.epoch_to_process:
 
         if cfg.proc.save_sparse_cloud:
             epoch.points.to_point_cloud().write_ply(
-                cfg.paths.results_dir / f"point_clouds/sparse_{epoch_dict[ep]}.ply"
+                cfg.paths.results_dir
+                / f"point_clouds/sparse_{epoch_map.get_epoch_timestamp(ep)}.ply"
             )
 
         # - For debugging purposes
@@ -515,7 +523,9 @@ for ep in cfg.proc.epoch_to_process:
         gc.collect()
 
         # Save epoch as a pickle object
-        epoches[ep].save_pickle(f"{epochdir}/{epoch_dict[ep]}.pickle")
+        epoches[ep].save_pickle(
+            f"{epochdir}/{epoch_map.get_epoch_timestamp(ep)}.pickle"
+        )
 
         # Save matches plot
         matches_fig_dir = "res/fig_for_paper/matches_fig"
