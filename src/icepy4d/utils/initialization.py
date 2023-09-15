@@ -28,6 +28,7 @@ from datetime import datetime
 from pathlib import Path
 from pprint import pprint
 from typing import Tuple, Union, Dict
+import os
 
 import numpy as np
 import yaml
@@ -37,7 +38,7 @@ from icepy4d.classes import (
     Calibration,
     CamerasDict,
     Epoch,
-    EpochDict,
+    EpochDataMap,
     Features,
     Image,
     ImageDS,
@@ -130,7 +131,7 @@ def parse_command_line() -> Tuple[Path, dict]:
     return cfg_file, log_cfg
 
 
-def parse_cfg(cfg_file: Union[str, Path]) -> edict:
+def parse_cfg(cfg_file: Union[str, Path], ignore_errors: bool = False) -> edict:
     """
     Parse a YAML configuration file and return it as an easydict.
 
@@ -167,10 +168,7 @@ def parse_cfg(cfg_file: Union[str, Path]) -> edict:
             logfile_level=cfg.log.get("log.level", "info"),
         )
     logger = get_logger()
-    logger.info(f"Configuration file: {cfg_file.stem}")
-
-    # Camera names
-    cfg.cams = cfg.paths.camera_names
+    logger.info(f"Configuration file: {cfg_file.name}")
 
     # - Data paths
     root_path = Path().absolute()
@@ -178,6 +176,11 @@ def parse_cfg(cfg_file: Union[str, Path]) -> edict:
     cfg.paths.image_dir = root_path / Path(cfg.paths.image_dir)
     cfg.paths.calibration_dir = root_path / Path(cfg.paths.calibration_dir)
     cfg.paths.results_dir = root_path / Path(cfg.paths.results_dir)
+
+    # Camera names
+    cfg.cams = sorted(
+        [Path(f.path) for f in os.scandir(cfg.paths.image_dir) if f.is_dir()]
+    )
 
     # - Result paths
     cfg.camera_estimated_fname = cfg.paths.results_dir / "camera_info_est.txt"
@@ -224,7 +227,8 @@ def parse_cfg(cfg_file: Union[str, Path]) -> edict:
         isinstance(element, int) for element in cfg.proc.epoch_to_process
     ), "Invalid input of epoches to process"
 
-    validate_cfg(cfg)
+    # if not ignore_errors:
+    #     validate_cfg(cfg)
 
     return cfg
 
@@ -260,14 +264,15 @@ def download_model():
     pass
 
 
-def initialize_image_ds(cfg: edict) -> Tuple[Dict[str, ImageDS], EpochDict]:
+@deprecated
+def initialize_image_ds(cfg: edict) -> Tuple[Dict[str, ImageDS], EpochDataMap]:
     """Initialize an ImagesDict object with camera directories and metadata.
 
     This function initializes an ImagesDict object with camera directories and
     metadata for each camera specified in the configuration (cfg). It creates
     an ImageDS object for each camera and writes its corresponding Exif
     metadata to a CSV file.
-    Additionally, it creates an EpochDict object containing the epoch
+    Additionally, it creates an EpochDataMap object containing the epoch
     timestamps, taken from the image exif of the first camera in the list of
     cameras.
 
@@ -276,10 +281,10 @@ def initialize_image_ds(cfg: edict) -> Tuple[Dict[str, ImageDS], EpochDict]:
             including paths and camera settings.
 
     Returns:
-        Tuple[Dict[str, ImageDS], EpochDict]: A tuple containing a dictionary with
-            ImageDS objects and an EpochDict object. The keys of the dictionary are
+        Tuple[Dict[str, ImageDS], EpochDataMap]: A tuple containing a dictionary with
+            ImageDS objects and an EpochDataMap object. The keys of the dictionary are
             camera names (camera keys), and the values are corresponding ImageDS
-            instances. The EpochDict object contains the epoch timestamps derived
+            instances. The EpochDataMap object contains the epoch timestamps derived
             from the image Exif metadata of the first camera in the list.
 
     Example:
@@ -290,7 +295,7 @@ def initialize_image_ds(cfg: edict) -> Tuple[Dict[str, ImageDS], EpochDict]:
     images = {cam: ImageDS(cfg.paths.image_dir / cam) for cam in cfg.cams}
     for cam in cfg.cams:
         images[cam].write_exif_to_csv(cfg.paths.image_dir / f"image_list_{cam}.csv")
-    epoch_dict = EpochDict(images[cfg.cams[0]].timestamps)
+    epoch_dict = EpochDataMap(images[cfg.cams[0]].timestamps)
 
     return images, epoch_dict
 
@@ -397,7 +402,7 @@ class initializer:
         {0: "2021_01_01", 1: "2021_01_02" ...}
 
         Returns:
-            EpochDict: epoc_dict
+            EpochDataMap: epoc_dict
         """
         self.epoch_dict = {}
         for epoch in range(len(self.images[self.cams[0]])):

@@ -30,11 +30,11 @@ import numpy as np
 
 # icepy4d4D
 from icepy4d import classes as icepy4d_classes
+from icepy4d.classes.epoch import Epoch, Epoches, EpochDataMap
 from icepy4d import matching
 from icepy4d import sfm
 from icepy4d import io
 from icepy4d import utils as icepy4d_utils
-from icepy4d.classes.epoch import Epoch, Epoches
 from icepy4d.metashape import metashape as MS
 from icepy4d.utils import initialization as inizialization
 
@@ -167,13 +167,8 @@ logger = icepy4d_utils.get_logger()
 
 # initialize variables
 cams = cfg.cams
-images, epoch_dict = inizialization.initialize_image_ds(cfg)
+epoch_map = EpochDataMap(cfg.paths.image_dir)
 epoches = Epoches(starting_epoch=cfg.proc.epoch_to_process[0])
-
-# initializer = inizialization.initializer(cfg)
-# images = initializer.init_image_ds()
-# epoch_dict = initializer.init_epoch_dict()
-# features_old = initializer.init_features()
 
 """ Big Loop over epoches """
 
