@@ -30,7 +30,7 @@ import numpy as np
 
 # icepy4d4D
 from icepy4d import core as icecore
-from icepy4d.core.epoch import Epoch, Epoches, EpochDataMap
+from icepy4d.core import Epoch, Epoches, EpochDataMap
 from icepy4d import matching
 from icepy4d import sfm
 from icepy4d import io
@@ -181,14 +181,14 @@ for ep in cfg.proc.epoch_to_process:
         f"""Processing epoch {ep} [{iter}/{cfg.proc.epoch_to_process[-1]-cfg.proc.epoch_to_process[0]}] - {epoch_map[ep].timestamp}..."""  # noqa: E501
     )
     iter += 1
-    epochdir = cfg.paths.results_dir / epoch_map.get_epoch_timestamp(ep)
+    epochdir = cfg.paths.results_dir / epoch_map.get_timestamp_str(ep)
     match_dir = epochdir / "matching"
 
     # Load existing epcoh
     if cfg.proc.load_existing_results:
         try:
             epoch = Epoch.read_pickle(
-                epochdir / f"{epoch_map.get_epoch_timestamp(ep)}.pickle"
+                epochdir / f"{epoch_map.get_timestamp(ep)}.pickle"
             )
 
             # Compute reprojection error
@@ -200,11 +200,11 @@ for ep in cfg.proc.epoch_to_process:
             continue
         except:
             logger.error(
-                f"Unable to load epoch {epoch_map.get_epoch_timestamp(ep)} from pickle file. Creating new epoch..."
+                f"Unable to load epoch {epoch_map.get_timestamp(ep)} from pickle file. Creating new epoch..."
             )
             epoch = initialization.initialize_epoch(
                 cfg=cfg,
-                images=epoch_map.get_epoch_images(ep),
+                images=epoch_map.get_images(ep),
                 epoch_id=ep,
                 epoch_dir=epochdir,
             )
@@ -212,8 +212,8 @@ for ep in cfg.proc.epoch_to_process:
     else:
         epoch = initialization.initialize_epoch(
             cfg=cfg,
-            epoch_timestamp=epoch_map.get_epoch_timestamp(ep),
-            images=epoch_map.get_epoch_images(ep),
+            epoch_timestamp=epoch_map.get_timestamp(ep),
+            images=epoch_map.get_images(ep),
             epoch_dir=epochdir,
         )
 
@@ -365,7 +365,7 @@ for ep in cfg.proc.epoch_to_process:
                 == epoch.targets.get_image_coor_by_label(
                     cfg.georef.targets_to_use, cam_id=id
                 )[1]
-            ), f"""epoch {ep} - {epoch_map.get_epoch_timestamp(ep)}: 
+            ), f"""epoch {ep} - {epoch_map.get_timestamp(ep)}: 
             Different targets found in image {id} - {epoch.images[cams[id]]}"""
         if len(valid_targets) < 1:
             logger.error(
@@ -427,7 +427,7 @@ for ep in cfg.proc.epoch_to_process:
             shutil.rmtree(metashape_path, ignore_errors=True)
 
         # Export results in Bundler format
-        im_dict = {cam: images[cam].get_image_path(ep) for cam in cams}
+        im_dict = {cam: epoch.images[cam].path for cam in cams}
         io.write_bundler_out(
             export_dir=epochdir,
             im_dict=im_dict,
@@ -439,9 +439,9 @@ for ep in cfg.proc.epoch_to_process:
             targets_enabled=[True for el in valid_targets],
         )
 
-        ms_cfg = MS.build_metashape_cfg(cfg, epoch_dict, ep)
-        ms = MS.MetashapeProject(ms_cfg, timer)
-        ms.run_full_workflow()
+        ms_cfg = MS.build_metashape_cfg(cfg, epoch.timestamp)
+        metashape = MS.MetashapeProject(ms_cfg, timer)
+        metashape.run_full_workflow()
 
         ms_reader = MS.MetashapeReader(
             metashape_dir=epochdir / "metashape",
@@ -492,7 +492,7 @@ for ep in cfg.proc.epoch_to_process:
         if cfg.proc.save_sparse_cloud:
             epoch.points.to_point_cloud().write_ply(
                 cfg.paths.results_dir
-                / f"point_clouds/sparse_{epoch_map.get_epoch_timestamp(ep)}.ply"
+                / f"point_clouds/sparse_{epoch_map.get_timestamp(ep)}.ply"
             )
 
         # - For debugging purposes
@@ -521,9 +521,7 @@ for ep in cfg.proc.epoch_to_process:
         gc.collect()
 
         # Save epoch as a pickle object
-        epoches[ep].save_pickle(
-            f"{epochdir}/{epoch_map.get_epoch_timestamp(ep)}.pickle"
-        )
+        epoches[ep].save_pickle(f"{epochdir}/{epoch_map.get_timestamp(ep)}.pickle")
 
         # Save matches plot
         matches_fig_dir = "res/fig_for_paper/matches_fig"

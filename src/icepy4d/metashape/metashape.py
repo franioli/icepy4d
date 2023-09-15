@@ -26,6 +26,7 @@ import Metashape
 import numpy as np
 import pandas as pd
 import logging
+import datetime
 
 from pathlib import Path
 from easydict import EasyDict as edict
@@ -41,11 +42,12 @@ from .metashape_core import (
 )
 from icepy4d.utils.timer import AverageTimer
 from icepy4d.core.calibration import read_opencv_calibration
+from icepy4d.core.constants import DATETIME_FMT
 
 REGION_RESIZE_FCT = 10.0
 
 
-def build_metashape_cfg(cfg: edict, epoch_dict: dict, cur_epoch: int) -> edict:
+def build_metashape_cfg(cfg: edict, timestamp: Union[str, datetime.datetime]) -> edict:
     """
     # build_metashape_cfg Build metashape configuration dictionary, starting from global configuration dictionary.
 
@@ -59,18 +61,24 @@ def build_metashape_cfg(cfg: edict, epoch_dict: dict, cur_epoch: int) -> edict:
     """
     ms_cfg = edict()
 
+    # To be sure that the timestamp is in the correct format
+    if isinstance(timestamp, str):
+        timestamp = timestamp.replace(" ", "_")
+    elif isinstance(timestamp, datetime.datetime):
+        timestamp = timestamp.strftime(DATETIME_FMT)
+
     # Paths
-    ms_cfg.dir = cfg.paths.results_dir / f"{epoch_dict[cur_epoch]}/metashape"
-    ms_cfg.project_path = ms_cfg.dir / f"{epoch_dict[cur_epoch]}.psx"
+    ms_cfg.dir = cfg.paths.results_dir / f"{timestamp}/metashape"
+    ms_cfg.project_path = ms_cfg.dir / f"{timestamp}.psx"
     ms_cfg.im_path = ms_cfg.dir / "data/images"
     ms_cfg.im_ext = cfg.paths.image_extension
-    ms_cfg.bundler_file_path = ms_cfg.dir / f"data/{epoch_dict[cur_epoch]}.out"
+    ms_cfg.bundler_file_path = ms_cfg.dir / f"data/{timestamp}.out"
     ms_cfg.bundler_im_list = ms_cfg.dir / "data/im_list.txt"
     ms_cfg.gcp_filename = ms_cfg.dir / "data/gcps.txt"
     ms_cfg.calib_filenames = cfg.metashape.calib_filenames
     ms_cfg.dense_path = cfg.paths.results_dir / "point_clouds"
-    ms_cfg.dense_name = f"dense_{epoch_dict[cur_epoch]}.ply"
-    ms_cfg.mesh_name = f"mesh_{epoch_dict[cur_epoch]}.ply"
+    ms_cfg.dense_name = f"dense_{timestamp}.ply"
+    ms_cfg.mesh_name = f"mesh_{timestamp}.ply"
 
     # Processing parameters
     ms_cfg.optimize_cameras = cfg.metashape.optimize_cameras
@@ -322,7 +330,7 @@ class MetashapeProject:
             )
 
         # Write legend file
-        with open(str(export_dir / f"sensors_legend.txt"), "w") as f:
+        with open(str(export_dir / "sensors_legend.txt"), "w") as f:
             f.write("id, label\n")
             for id, sensor in enumerate(sensors):
                 f.write(f"{id}, {sensor.label}\n")
