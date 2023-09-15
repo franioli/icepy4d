@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 import torch
 
-from icepy4d.classes.features import Features
+from icepy4d.core.features import Features
 
 logger = logging.getLogger(__name__)
 

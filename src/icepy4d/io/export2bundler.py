@@ -6,10 +6,10 @@ from typing import List, Union
 
 import numpy as np
 
-from ..classes import CamerasDict, FeaturesDict
-from ..classes.point_cloud import PointCloud
-from ..classes.points import Points
-from ..classes.targets import Targets
+from ..core import CamerasDict, FeaturesDict
+from ..core.point_cloud import PointCloud
+from ..core.points import Points
+from ..core.targets import Targets
 from ..thirdparty.transformations import euler_matrix
 from .utils import create_directory, make_symlink
 

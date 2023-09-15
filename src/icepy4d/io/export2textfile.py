@@ -5,9 +5,9 @@ from typing import Union
 import pandas as pd
 
 from icepy4d.thirdparty.transformations import euler_from_matrix
-from icepy4d.classes.epoch import Epoch
-from icepy4d.classes.features import Features
-from icepy4d.classes.images import ImageDS
+from icepy4d.core.epoch import Epoch
+from icepy4d.core.features import Features
+from icepy4d.core.images import ImageDS
 
 
 def write_cameras_to_file(

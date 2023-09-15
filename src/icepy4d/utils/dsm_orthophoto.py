@@ -7,7 +7,7 @@ from pathlib import Path
 from rasterio.transform import Affine
 from scipy.interpolate import LinearNDInterpolator
 
-from ..classes.camera import Camera
+from ..core.camera import Camera
 from ..sfm.interpolate_colors import interpolate_point_colors
 
 

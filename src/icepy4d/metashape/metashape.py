@@ -40,7 +40,7 @@ from .metashape_core import (
     read_gcp_file,
 )
 from icepy4d.utils.timer import AverageTimer
-from icepy4d.classes.calibration import read_opencv_calibration
+from icepy4d.core.calibration import read_opencv_calibration
 
 REGION_RESIZE_FCT = 10.0
 

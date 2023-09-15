@@ -29,8 +29,8 @@ from pathlib import Path
 import numpy as np
 
 # icepy4d4D
-from icepy4d import classes as icepy4d_classes
-from icepy4d.classes.epoch import Epoch, Epoches, EpochDataMap
+from icepy4d import core as icecore
+from icepy4d.core.epoch import Epoch, Epoches, EpochDataMap
 from icepy4d import matching
 from icepy4d import sfm
 from icepy4d import io
@@ -257,9 +257,7 @@ for ep in cfg.proc.epoch_to_process:
     timer.update("matching")
 
     # TODO: implement this as a method of Matcher class
-    from icepy4d.classes import Features
-
-    f = {cam: Features() for cam in cams}
+    f = {cam: icecore.Features() for cam in cams}
     f[cams[0]].append_features_from_numpy(
         x=matcher.mkpts0[:, 0],
         y=matcher.mkpts0[:, 1],
@@ -368,7 +366,7 @@ for ep in cfg.proc.epoch_to_process:
                     cfg.georef.targets_to_use, cam_id=id
                 )[1]
             ), f"""epoch {ep} - {epoch_map.get_epoch_timestamp(ep)}: 
-            Different targets found in image {id} - {images[cams[id]][ep]}"""
+            Different targets found in image {id} - {epoch.images[cams[id]]}"""
         if len(valid_targets) < 1:
             logger.error(
                 f"Not enough targets found. Skipping epoch {ep} and moving to next epoch"  # noqa: E501
@@ -405,8 +403,8 @@ for ep in cfg.proc.epoch_to_process:
     # save_to_colmap()
 
     # Create point cloud and save .ply to disk
-    # pcd_epc = icepy4d_classes.PointCloud(points3d=points3d, points_col=triang.colors)
-    pts = icepy4d_classes.Points()
+    # pcd_epc = icecore.PointCloud(points3d=points3d, points_col=triang.colors)
+    pts = icecore.Points()
     pts.append_points_from_numpy(
         points3d,
         track_ids=epoch.features[cams[0]].get_track_ids(),
@@ -481,7 +479,7 @@ for ep in cfg.proc.epoch_to_process:
             cam_id=1,
         )
 
-        # pcd_epc = icepy4d_classes.PointCloud(
+        # pcd_epc = icecore.PointCloud(
         #     points3d=points3d, points_col=triang.colors
         # )
 

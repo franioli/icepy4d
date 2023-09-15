@@ -4,6 +4,9 @@ from .camera import Camera
 from .features import Features
 from .images import Image
 
+DEFAULT_DATETIME_FMT = "%Y-%m-%d %H:%M:%S"
+
+
 """
 Define basic data containers
 """

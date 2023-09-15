@@ -33,11 +33,9 @@ import os
 from .camera import Camera
 from .features import Features
 from .point_cloud import PointCloud
-from .images import ImageDS
+from .images import Image, ImageDS
 from .targets import Targets
 from .points import Points
-
-DEFAULT_DATETIME_FMT = "%Y-%m-%d %H:%M:%S"
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +55,7 @@ def parse_str_to_datetime(
     Args:
         datetime (Union[str, dt]): A string or datetime object to be parsed.
         datetime_format (str): A format string specifying the datetime format
-            if `datetime` is a string. Default format is "%Y-%m-%d %H:%M:%S".
+            if `datetime` is a string. Default format is "%Y-%m-%d_%H:%M:%S".
 
     Returns:
         dt: A datetime object representing the parsed datetime.
@@ -71,11 +69,11 @@ def parse_str_to_datetime(
         try:
             datetime = dt.strptime(datetime, datetime_format)
         except:
-            err = "Unable to convert datetime to string. You should provide a datetime object or a string in the format %Y-%m-%d %H:%M:%S, or you should pass the datetime format as a string to the datetime_format argument"
+            err = f"Unable to convert datetime to string. You should provide a datetime object or a string in the format {DEFAULT_DATETIME_FMT}, or you should pass the datetime format as a string to the datetime_format argument"
             logger.warning(err)
             raise ValueError(err)
     else:
-        err = "Invalid epoch datetime. It should be a datetime object or a string in the format %Y-%m-%d %H:%M:%S"
+        err = f"Invalid epoch datetime. It should be a datetime object or a string in the format {DEFAULT_DATETIME_FMT}"
     return datetime
 
 
@@ -252,8 +250,7 @@ class EpochDataMap(dict):
             self._map[i] = AttributeDict(
                 {
                     "timestamp": ts,
-                    "images": {self._master_camera: path},
-                    "image_timestamps": {self._master_camera: ts},
+                    "images": {self._master_camera: Image(path)},
                 }
             )
 
@@ -265,11 +262,10 @@ class EpochDataMap(dict):
             timestamps1, paths1 = self._get_timestamps(self._image_dir / cam)
             for key, value in self._map.items():
                 ref_ts = value["timestamp"]
-                closest_ts, closest_idx, _ = find_closest_timestamp(
+                _, closest_idx, _ = find_closest_timestamp(
                     ref_ts, timestamps1, self._timetolerance
                 )
-                self._map[key]["images"][cam] = paths1[closest_idx]
-                self._map[key]["image_timestamps"][cam] = closest_ts
+                self._map[key]["images"][cam] = Image(paths1[closest_idx])
 
     def _write_map(self, filename: str, sep: str = ",", header: bool = True) -> None:
         file = open(filename, "w")
@@ -285,8 +281,10 @@ class EpochDataMap(dict):
             time = value["timestamp"].strftime("%H:%M:%S")
             str_2_add = []
             for cam in self._cams:
-                str_2_add.append(str(value["images"][cam]))
-                str_2_add.append(str(value["image_timestamps"][cam]))
+                str_2_add.append(value["images"][cam].name)
+                str_2_add.append(
+                    f"{value['images'][cam].date}_{value['images'][cam].time}"
+                )
             line = [str(key), date, time] + str_2_add
             file.write(f"{sep}".join(line) + "\n")
         file.close()
@@ -307,7 +305,7 @@ class Epoch:
         self,
         timestamp: Union[str, dt],
         epoch_dir: Union[str, Path] = None,
-        images: ImageDS = None,
+        images: Dict[str, Image] = None,
         cameras: Dict[str, Camera] = None,
         features: Dict[str, Features] = None,
         points: Points = None,
@@ -336,19 +334,15 @@ class Epoch:
         self.point_cloud = point_cloud
 
         if epoch_dir is not None:
-            self._epoch_dir = Path(epoch_dir)
+            self.epoch_dir = Path(epoch_dir)
         else:
-            logger.info("Epoch directory not provided. Using timestamp as name")
-            self._epoch_dir = Path(str(self._timestamp).replace(" ", "_"))
-        self._epoch_dir.mkdir(parents=True, exist_ok=True)
+            logger.info("Epoch directory not provided. Using epoch timestamp.")
+            self.epoch_dir = Path(str(self._timestamp).replace(" ", "_"))
+        self.epoch_dir.mkdir(parents=True, exist_ok=True)
 
     @property
     def timestamp(self):
         return self._timestamp
-
-    @property
-    def epoch_dir(self):
-        return self._epoch_dir
 
     @property
     def date_str(self) -> str:
@@ -387,7 +381,7 @@ class Epoch:
         Returns:
             str: The string representation of the Epoch object
         """
-        return f"Epoch {self.timestamp}"
+        return f"Epoch {self._timestamp}"
 
     def __iter__(self):
         """

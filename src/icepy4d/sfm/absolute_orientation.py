@@ -3,7 +3,7 @@ from typing import List, Tuple
 import cv2
 import numpy as np
 
-from icepy4d.classes.camera import Camera
+from icepy4d.core.camera import Camera
 from icepy4d.sfm.triangulation import Triangulate
 from icepy4d.thirdparty.transformations import (
     affine_matrix_from_points,
