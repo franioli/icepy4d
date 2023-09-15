@@ -182,7 +182,7 @@ class Calibration:
 
     def to_camera(self):
         assert self._K is not None, "Calibration file not read."
-        cam = importlib.import_module("icepy4d.classes.camera")
+        cam = importlib.import_module("icepy4d.core.camera")
         return cam.Camera(
             width=self._w,
             height=self._h,

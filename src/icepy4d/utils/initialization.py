@@ -193,9 +193,6 @@ def initialize_epoch(
         >>> epoch = initialize_epoch(cfg, images, epoch_id=0)
     """
 
-    # Build dictionary of Images for the current epoch
-    # im_epoch: ImagesDict = {cam: Image(img) for cam, img in images.items()}
-
     # Load cameras
     cams_ep: CamerasDict = {}
     for cam in cfg.cams:
@@ -216,7 +213,6 @@ def initialize_epoch(
     feat_ep = {cam: Features() for cam in cfg.cams}
     pts_ep = Points()
 
-    epoch_timestamp = epoch_timestamp.replace("_", " ")
     epoch = Epoch(
         epoch_timestamp,
         images=images,

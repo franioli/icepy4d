@@ -69,7 +69,7 @@ def parse_str_to_datetime(
     elif isinstance(datetime, str):
         try:
             datetime = dt.strptime(datetime, datetime_format)
-        except:
+        except ValueError:
             err = f"Unable to convert datetime to string. You should provide a datetime object or a string in the format {DATETIME_FMT}, or you should pass the datetime format as a string to the datetime_format argument"
             logger.warning(err)
             raise ValueError(err)
@@ -144,7 +144,7 @@ class EpochDataMap(dict):
             Get the next element in the EpochDataMap.
         __contains__(self, timestamp: Union[str, dt]) -> bool:
             Check if a timestamp is present in the EpochDataMap.
-        get_epoch_timestamp(self, epoch_id: int) -> dt:
+        get_timestamp(self, epoch_id: int) -> dt:
             Get the timestamp of a specific epoch.
         get_epoch_images(self, epoch_id: int) -> List[Path]:
             Get the images associated with a specific epoch.
@@ -221,20 +221,20 @@ class EpochDataMap(dict):
     def cams(self):
         return self._cams
 
-    def get_epoch_timestamp(self, epoch_id: int) -> dt:
-        return str(self._map[epoch_id]["timestamp"]).replace(" ", "_")
+    def get_timestamp(self, epoch_id: int) -> dt:
+        return self._map[epoch_id]["timestamp"]
 
-    def get_epoch_images(self, epoch_id: int) -> List[Path]:
+    def get_timestamp_str(self, epoch_id: int) -> str:
+        return self._map[epoch_id]["timestamp"].strftime(DATETIME_FMT)
+
+    def get_images(self, epoch_id: int) -> List[Path]:
         return self._map[epoch_id]["images"]
 
-    def get_epoch_images_by_timestamp(self, timestamp: Union[str, dt]) -> List[Path]:
+    def get_images_by_timestamp(self, timestamp: Union[str, dt]) -> List[Path]:
         timestamp = parse_str_to_datetime(timestamp)
         timestamps = [x["timestamp"] for x in self._map.values()]
         idx = timestamps.index(timestamp)
         return self._map[idx]["images"]
-
-    def get_epoch_image_timestamps(self, epoch_id: int) -> List[dt]:
-        return self._map[epoch_id]["image_timestamps"]
 
     def _get_timestamps(self, folder: Union[str, Path]) -> Tuple[List[dt], List[Path]]:
         imageDS = ImageDS(folder)
