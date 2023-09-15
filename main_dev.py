@@ -34,9 +34,9 @@ from icepy4d.core.epoch import Epoch, Epoches, EpochDataMap
 from icepy4d import matching
 from icepy4d import sfm
 from icepy4d import io
-from icepy4d import utils as icepy4d_utils
+from icepy4d import utils
 from icepy4d.metashape import metashape as MS
-from icepy4d.utils import initialization as inizialization
+from icepy4d.utils import initialization
 
 # Define configuration file
 CFG_FILE = "config/config_2022.yaml"
@@ -160,12 +160,12 @@ def save_to_colmap():
 
 
 # Parse configuration file
-cfg = inizialization.parse_cfg(CFG_FILE)
-timer_global = icepy4d_utils.AverageTimer()
-logger = icepy4d_utils.get_logger()
+cfg = initialization.parse_cfg(CFG_FILE)
+timer_global = utils.AverageTimer()
+logger = utils.get_logger()
 
 # initialize variables
-epoch_map = EpochDataMap(cfg.paths.image_dir)
+epoch_map = EpochDataMap(cfg.paths.image_dir, time_tolerance_sec=1200)
 epoches = Epoches(starting_epoch=cfg.proc.epoch_to_process[0])
 cams = cfg.cams
 
@@ -173,7 +173,7 @@ cams = cfg.cams
 
 logger.info("------------------------------------------------------")
 logger.info("Processing started:")
-timer = icepy4d_utils.AverageTimer()
+timer = utils.AverageTimer()
 iter = 0  # necessary only for printing the number of processed iteration
 for ep in cfg.proc.epoch_to_process:
     logger.info("------------------------------------------------------")
@@ -202,7 +202,7 @@ for ep in cfg.proc.epoch_to_process:
             logger.error(
                 f"Unable to load epoch {epoch_map.get_epoch_timestamp(ep)} from pickle file. Creating new epoch..."
             )
-            epoch = inizialization.initialize_epoch(
+            epoch = initialization.initialize_epoch(
                 cfg=cfg,
                 images=epoch_map.get_epoch_images(ep),
                 epoch_id=ep,
@@ -210,7 +210,7 @@ for ep in cfg.proc.epoch_to_process:
             )
 
     else:
-        epoch = inizialization.initialize_epoch(
+        epoch = initialization.initialize_epoch(
             cfg=cfg,
             epoch_timestamp=epoch_map.get_epoch_timestamp(ep),
             images=epoch_map.get_epoch_images(ep),

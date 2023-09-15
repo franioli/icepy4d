@@ -36,6 +36,7 @@ from .point_cloud import PointCloud
 from .images import Image, ImageDS
 from .targets import Targets
 from .points import Points
+from .constants import DATETIME_FMT
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ class AttributeDict(dict):
 
 
 def parse_str_to_datetime(
-    datetime: Union[str, dt], datetime_format: str = DEFAULT_DATETIME_FMT
+    datetime: Union[str, dt], datetime_format: str = DATETIME_FMT
 ):
     """
     Parse a string or datetime object into a datetime object.
@@ -69,11 +70,11 @@ def parse_str_to_datetime(
         try:
             datetime = dt.strptime(datetime, datetime_format)
         except:
-            err = f"Unable to convert datetime to string. You should provide a datetime object or a string in the format {DEFAULT_DATETIME_FMT}, or you should pass the datetime format as a string to the datetime_format argument"
+            err = f"Unable to convert datetime to string. You should provide a datetime object or a string in the format {DATETIME_FMT}, or you should pass the datetime format as a string to the datetime_format argument"
             logger.warning(err)
             raise ValueError(err)
     else:
-        err = f"Invalid epoch datetime. It should be a datetime object or a string in the format {DEFAULT_DATETIME_FMT}"
+        err = f"Invalid epoch datetime. It should be a datetime object or a string in the format {DATETIME_FMT}"
     return datetime
 
 
@@ -157,7 +158,7 @@ class EpochDataMap(dict):
         self,
         image_dir: Union[str, Path],
         master_camera=None,
-        time_tolerance_sec: timedelta = 1200,
+        time_tolerance_sec: timedelta = 180,
     ):
         """
         Initialize the EpochDataMap with image directory, master camera, and time tolerance.
@@ -311,7 +312,7 @@ class Epoch:
         points: Points = None,
         targets: Targets = None,
         point_cloud: PointCloud = None,
-        datetime_format: str = DEFAULT_DATETIME_FMT,
+        datetime_format: str = DATETIME_FMT,
     ) -> None:
         """
         Initializes a Epcoh object with the provided data
@@ -372,7 +373,7 @@ class Epoch:
         Returns:
             str: The string representation of the Epoch object
         """
-        return f"{self._timestamp.strftime(DEFAULT_DATETIME_FMT).replace(' ', '_')}"
+        return f"{self._timestamp.strftime(DATETIME_FMT).replace(' ', '_')}"
 
     def __repr__(self):
         """
@@ -505,7 +506,7 @@ class Epoches:
         return self._epochs[epoch_id]
 
     def __contains__(
-        self, epoch_date: Union[str, dt], datetime_format: str = DEFAULT_DATETIME_FMT
+        self, epoch_date: Union[str, dt], datetime_format: str = DATETIME_FMT
     ) -> bool:
         """Check if an epoch is in the Epoch objet"""
         timestamp = parse_str_to_datetime(epoch_date, datetime_format)
@@ -550,7 +551,7 @@ class Epoches:
         return self._epochs.get(epoch_id).timestamp
 
     def get_epoch_id(
-        self, epoch_date: Union[str, dt], datetime_format: str = DEFAULT_DATETIME_FMT
+        self, epoch_date: Union[str, dt], datetime_format: str = DATETIME_FMT
     ) -> int:
         timestamp = parse_str_to_datetime(epoch_date, datetime_format)
         for i, ep in self._epochs.items():
@@ -558,7 +559,7 @@ class Epoches:
                 return i
 
     def get_epoch_by_date(
-        self, timestamp: Union[str, dt], datetime_format: str = DEFAULT_DATETIME_FMT
+        self, timestamp: Union[str, dt], datetime_format: str = DATETIME_FMT
     ) -> Epoch:
         timestamp = parse_str_to_datetime(timestamp, datetime_format)
         for ep in self._epochs.values():
@@ -572,7 +573,7 @@ if __name__ == "__main__":
     epoch_map = EpochDataMap("/home/francesco/Projects/icepy4d/data/img")
 
     # Epoch from datetime object
-    date = dt.strptime("2021-01-01 00:00:00", DEFAULT_DATETIME_FMT)
+    date = dt.strptime("2021-01-01 00:00:00", DATETIME_FMT)
     ep = Epoch(timestamp=date)
     print(ep)
 

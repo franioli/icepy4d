@@ -31,8 +31,10 @@ import cv2
 import exifread
 import numpy as np
 
+
 from .camera import Camera
 from .sensor_width_database import SensorWidthDatabase
+from .constants import DATE_FMT, DATETIME_FMT, TIME_FMT
 
 logger = logging.getLogger(__name__)
 logging.getLogger("exifread").setLevel(logging.WARNING)
@@ -126,15 +128,12 @@ class Image:
         """
 
         self._path = Path(path)
-        self._value_array = None
+        self._value_array = image
         self._width = None
         self._height = None
         self._exif_data = None
         self._date_time = None
         self.read_exif()
-
-        if image:
-            self._value_array = image
 
     def __repr__(self) -> str:
         """Returns a string representation of the image"""
@@ -197,13 +196,12 @@ class Image:
     def date(self) -> str:
         """
         Returns the date and time of the image in a string format.
-        If the information is not available in the EXIF metadata, it returns None.
 
         Returns:
-            str or None: The date and time of the image in the format "YYYY:MM:DD HH:MM:SS", or None if not available.
+            str: The date and time of the image.
         """
         if self._date_time is not None:
-            return self._date_time.strftime("%Y:%m:%d")
+            return self._date_time.strftime(DATE_FMT)
         else:
             logger.error("No exif data available.")
             return
@@ -215,7 +213,7 @@ class Image:
 
         """
         if self._date_time is not None:
-            return self._date_time.strftime("%H:%M:%S")
+            return self._date_time.strftime(TIME_FMT)
         else:
             logger.error("No exif data available.")
             return None
@@ -223,14 +221,27 @@ class Image:
     @property
     def datetime(self) -> datetime:
         """
-        Returns the date and time of the image in a string format.
-        If the information is not available in the EXIF metadata, it returns None.
+        Returns the date and time of the image as datetime object.
 
         Returns:
             datetime: The date and time of the image as datetime object
         """
         if self._date_time is not None:
             return self._date_time
+        else:
+            logger.error("No exif data available.")
+            return
+
+    @property
+    def timestamp(self) -> str:
+        """
+        Returns the date and time of the image in a string format.
+
+        Returns:
+            str: The date and time of the image as datetime object
+        """
+        if self._date_time is not None:
+            return self._date_time.strftime(DATETIME_FMT)
         else:
             logger.error("No exif data available.")
             return
@@ -244,20 +255,6 @@ class Image:
             return self._value_array
         else:
             return self.read_image(self._path)
-
-    def get_datetime(self) -> datetime:
-        """
-        Returns the date and time of the image in a string format.
-        If the information is not available in the EXIF metadata, it returns None.
-
-        Returns:
-            datetime: The date and time of the image as datetime object
-        """
-        if self._date_time is not None:
-            return self._date_time
-        else:
-            logger.error("No exif data available.")
-            return
 
     def read_image(
         self,
@@ -284,7 +281,7 @@ class Image:
         try:
             with open(self._path, "rb") as f:
                 self._exif_data = exifread.process_file(f, details=False, debug=False)
-        except:
+        except OSError:
             logger.error("No exif data available.")
 
         # Get image size
@@ -308,7 +305,7 @@ class Image:
                 img = Image(self.path)
                 self.height, self.width = img.height, img.width
 
-            except:
+            except OSError:
                 raise RuntimeError("Unable to get image dimensions.")
 
         # Get Image Date and Time
