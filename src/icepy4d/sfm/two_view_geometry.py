@@ -29,7 +29,7 @@ from typing import List
 import cv2
 import numpy as np
 
-from ..classes.camera import Camera
+from ..core.camera import Camera
 from .geometry import estimate_pose
 
 """ RelativeOrientation class"""
