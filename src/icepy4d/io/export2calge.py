@@ -2,8 +2,8 @@ import numpy as np
 import logging
 
 
-from ..classes.images import ImageDS
-from ..classes.features import Features
+from ..core.images import ImageDS
+from ..core.features import Features
 
 
 """
