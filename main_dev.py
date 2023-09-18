@@ -387,7 +387,7 @@ for ep in cfg.proc.epoch_to_process:
                 image_points=image_coords,
                 camera_centers_world=cfg.georef.camera_centers_world,
             )
-            T = abs_ori.estimate_transformation_linear(estimate_scale=True)
+            _, abs_ori.estimate_transformation_linear(estimate_scale=True)
             points3d = abs_ori.apply_transformation(points3d=points3d)
             for i, cam in enumerate(cams):
                 epoch.cameras[cam] = abs_ori.cameras[i]
@@ -440,7 +440,8 @@ for ep in cfg.proc.epoch_to_process:
         )
 
         ms_cfg = MS.build_metashape_cfg(cfg, epoch.timestamp)
-        metashape = MS.MetashapeProject(ms_cfg, timer)
+        im_list = [epoch.images[cam].path for cam in cams]
+        metashape = MS.MetashapeProject(im_list, ms_cfg, timer)
         metashape.run_full_workflow()
 
         ms_reader = MS.MetashapeReader(
@@ -452,20 +453,18 @@ for ep in cfg.proc.epoch_to_process:
         #     focals[cam][ep] = ms_reader.get_focal_lengths()[i]
 
         # Assign camera extrinsics and intrinsics estimated in Metashape to
-        # Camera Object (assignation is done manaully @TODO automatic K and
-        # extrinsics matrixes to assign correct camera by camera label)
-        new_K = ms_reader.get_K()
-        epoch.cameras[cams[0]].update_K(new_K[1])
-        epoch.cameras[cams[1]].update_K(new_K[0])
+        # Camera Object
 
-        epoch.cameras[cams[0]].update_extrinsics(
-            ms_reader.extrinsics[images[cams[0]].get_image_stem(ep)]
-        )
-        epoch.cameras[cams[1]].update_extrinsics(
-            ms_reader.extrinsics[images[cams[1]].get_image_stem(ep)]
-        )
+        img_stems = [epoch.images[cam].stem for cam in cams]
+        ms_label = list(ms_reader.extrinsics.keys())
+        cam_idx_map = {cam: ms_label.index(stem) for cam, stem in zip(cams, img_stems)}
+        cam_label_map = {cam: ms_label[idx] for cam, idx in cam_idx_map.items()}
+        for cam_idx, cam in enumerate(cams):
+            epoch.cameras[cam].update_K(ms_reader.K[cam_idx])
+        for cam, label in cam_label_map.items():
+            epoch.cameras[cam].update_extrinsics(ms_reader.extrinsics[label])
 
-        # Triangulate again points and update Point Cloud dict
+        # Triangulate again points and save point cloud to disk
         triang = sfm.Triangulate(
             [epoch.cameras[cams[0]], epoch.cameras[cams[1]]],
             [
@@ -475,13 +474,9 @@ for ep in cfg.proc.epoch_to_process:
         )
         points3d = triang.triangulate_two_views(
             compute_colors=True,
-            image=images[cams[1]].read_image(ep).value,
+            image=epoch.images[cams[1]].value,
             cam_id=1,
         )
-
-        # pcd_epc = icecore.PointCloud(
-        #     points3d=points3d, points_col=triang.colors
-        # )
 
         epoch.points.append_points_from_numpy(
             points3d,
@@ -516,8 +511,7 @@ for ep in cfg.proc.epoch_to_process:
 
         # Clean variables
         del relative_ori, triang, abs_ori, points3d
-        del T, new_K
-        del ms_cfg, ms, ms_reader
+        del ms_cfg, metashape, ms_reader
         gc.collect()
 
         # Save epoch as a pickle object
