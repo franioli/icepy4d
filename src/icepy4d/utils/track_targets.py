@@ -30,8 +30,8 @@ from copy import deepcopy
 from pathlib import Path
 from typing import List, Union
 
-from icepy4d.classes.images import ImageDS
-from icepy4d.classes.targets import Targets
+from icepy4d.core.images import ImageDS
+from icepy4d.core.targets import Targets
 from icepy4d.matching.templatematch import TemplateMatch, MatchResult
 from icepy4d.utils.timer import AverageTimer
 

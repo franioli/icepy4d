@@ -11,7 +11,7 @@ from typing import List, Union
 from pathlib import Path
 from copy import deepcopy
 
-from icepy4d.classes import Camera, Feature, Features, PointCloud
+from icepy4d.core import Camera, Feature, Features, PointCloud
 from icepy4d.sfm.geometry import project_points
 
 matplotlib.use("tkagg")
