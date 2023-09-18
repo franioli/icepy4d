@@ -29,14 +29,14 @@ from pathlib import Path
 import numpy as np
 
 # icepy4d4D
-from icepy4d import classes as icepy4d_classes
+from icepy4d import core as icecore
+from icepy4d.core import Epoch, Epoches, EpochDataMap
 from icepy4d import matching
 from icepy4d import sfm
 from icepy4d import io
-from icepy4d import utils as icepy4d_utils
-from icepy4d.classes.epoch import Epoch, Epoches
+from icepy4d import utils
 from icepy4d.metashape import metashape as MS
-from icepy4d.utils import initialization as inizialization
+from icepy4d.utils import initialization
 
 # Define configuration file
 CFG_FILE = "config/config_2022.yaml"
@@ -160,40 +160,36 @@ def save_to_colmap():
 
 
 # Parse configuration file
-cfg_file = Path(CFG_FILE)
-cfg = inizialization.parse_cfg(cfg_file)
-timer_global = icepy4d_utils.AverageTimer()
-logger = icepy4d_utils.get_logger()
+cfg = initialization.parse_cfg(CFG_FILE)
+timer_global = utils.AverageTimer()
+logger = utils.get_logger()
 
 # initialize variables
-cams = cfg.cams
-images, epoch_dict = inizialization.initialize_image_ds(cfg)
+epoch_map = EpochDataMap(cfg.paths.image_dir, time_tolerance_sec=1200)
 epoches = Epoches(starting_epoch=cfg.proc.epoch_to_process[0])
-
-# initializer = inizialization.initializer(cfg)
-# images = initializer.init_image_ds()
-# epoch_dict = initializer.init_epoch_dict()
-# features_old = initializer.init_features()
+cams = cfg.cams
 
 """ Big Loop over epoches """
 
 logger.info("------------------------------------------------------")
 logger.info("Processing started:")
-timer = icepy4d_utils.AverageTimer()
+timer = utils.AverageTimer()
 iter = 0  # necessary only for printing the number of processed iteration
 for ep in cfg.proc.epoch_to_process:
     logger.info("------------------------------------------------------")
     logger.info(
-        f"""Processing epoch {ep} [{iter}/{cfg.proc.epoch_to_process[-1]-cfg.proc.epoch_to_process[0]}] - {epoch_dict[ep]}..."""  # noqa: E501
+        f"""Processing epoch {ep} [{iter}/{cfg.proc.epoch_to_process[-1]-cfg.proc.epoch_to_process[0]}] - {epoch_map[ep].timestamp}..."""  # noqa: E501
     )
     iter += 1
-    epochdir = cfg.paths.results_dir / epoch_dict[ep]
+    epochdir = cfg.paths.results_dir / epoch_map.get_timestamp_str(ep)
     match_dir = epochdir / "matching"
 
     # Load existing epcoh
     if cfg.proc.load_existing_results:
         try:
-            epoch = Epoch.read_pickle(epochdir / f"{epoch_dict[ep]}.pickle")
+            epoch = Epoch.read_pickle(
+                epochdir / f"{epoch_map.get_timestamp(ep)}.pickle"
+            )
 
             # Compute reprojection error
             io.write_reprojection_error_to_file(cfg.residuals_fname, epoches[ep])
@@ -204,15 +200,21 @@ for ep in cfg.proc.epoch_to_process:
             continue
         except:
             logger.error(
-                f"Unable to load epoch {epoch_dict[ep]} from pickle file. Creating new epoch..."
+                f"Unable to load epoch {epoch_map.get_timestamp(ep)} from pickle file. Creating new epoch..."
             )
-            epoch = inizialization.initialize_epoch(
-                cfg=cfg, images=images, epoch_id=ep, epoch_dir=epochdir
+            epoch = initialization.initialize_epoch(
+                cfg=cfg,
+                images=epoch_map.get_images(ep),
+                epoch_id=ep,
+                epoch_dir=epochdir,
             )
 
     else:
-        epoch = inizialization.initialize_epoch(
-            cfg=cfg, images=images, epoch_id=ep, epoch_dir=epochdir
+        epoch = initialization.initialize_epoch(
+            cfg=cfg,
+            epoch_timestamp=epoch_map.get_timestamp(ep),
+            images=epoch_map.get_images(ep),
+            epoch_dir=epochdir,
         )
 
     epoches.add_epoch(epoch)
@@ -255,9 +257,7 @@ for ep in cfg.proc.epoch_to_process:
     timer.update("matching")
 
     # TODO: implement this as a method of Matcher class
-    from icepy4d.classes import Features
-
-    f = {cam: Features() for cam in cams}
+    f = {cam: icecore.Features() for cam in cams}
     f[cams[0]].append_features_from_numpy(
         x=matcher.mkpts0[:, 0],
         y=matcher.mkpts0[:, 1],
@@ -347,7 +347,7 @@ for ep in cfg.proc.epoch_to_process:
         ],
     )
     points3d = triang.triangulate_two_views(
-        compute_colors=True, image=images[cams[1]].read_image(ep).value, cam_id=1
+        compute_colors=True, image=epoch.images[cams[1]].value, cam_id=1
     )
     logger.info("Tie points triangulated.")
 
@@ -365,8 +365,8 @@ for ep in cfg.proc.epoch_to_process:
                 == epoch.targets.get_image_coor_by_label(
                     cfg.georef.targets_to_use, cam_id=id
                 )[1]
-            ), f"""epoch {ep} - {epoch_dict[ep]}: 
-            Different targets found in image {id} - {images[cams[id]][ep]}"""
+            ), f"""epoch {ep} - {epoch_map.get_timestamp(ep)}: 
+            Different targets found in image {id} - {epoch.images[cams[id]]}"""
         if len(valid_targets) < 1:
             logger.error(
                 f"Not enough targets found. Skipping epoch {ep} and moving to next epoch"  # noqa: E501
@@ -387,7 +387,7 @@ for ep in cfg.proc.epoch_to_process:
                 image_points=image_coords,
                 camera_centers_world=cfg.georef.camera_centers_world,
             )
-            T = abs_ori.estimate_transformation_linear(estimate_scale=True)
+            _, abs_ori.estimate_transformation_linear(estimate_scale=True)
             points3d = abs_ori.apply_transformation(points3d=points3d)
             for i, cam in enumerate(cams):
                 epoch.cameras[cam] = abs_ori.cameras[i]
@@ -403,8 +403,8 @@ for ep in cfg.proc.epoch_to_process:
     # save_to_colmap()
 
     # Create point cloud and save .ply to disk
-    # pcd_epc = icepy4d_classes.PointCloud(points3d=points3d, points_col=triang.colors)
-    pts = icepy4d_classes.Points()
+    # pcd_epc = icecore.PointCloud(points3d=points3d, points_col=triang.colors)
+    pts = icecore.Points()
     pts.append_points_from_numpy(
         points3d,
         track_ids=epoch.features[cams[0]].get_track_ids(),
@@ -427,7 +427,7 @@ for ep in cfg.proc.epoch_to_process:
             shutil.rmtree(metashape_path, ignore_errors=True)
 
         # Export results in Bundler format
-        im_dict = {cam: images[cam].get_image_path(ep) for cam in cams}
+        im_dict = {cam: epoch.images[cam].path for cam in cams}
         io.write_bundler_out(
             export_dir=epochdir,
             im_dict=im_dict,
@@ -439,9 +439,10 @@ for ep in cfg.proc.epoch_to_process:
             targets_enabled=[True for el in valid_targets],
         )
 
-        ms_cfg = MS.build_metashape_cfg(cfg, epoch_dict, ep)
-        ms = MS.MetashapeProject(ms_cfg, timer)
-        ms.run_full_workflow()
+        ms_cfg = MS.build_metashape_cfg(cfg, epoch.timestamp)
+        im_list = [epoch.images[cam].path for cam in cams]
+        metashape = MS.MetashapeProject(im_list, ms_cfg, timer)
+        metashape.run_full_workflow()
 
         ms_reader = MS.MetashapeReader(
             metashape_dir=epochdir / "metashape",
@@ -452,20 +453,18 @@ for ep in cfg.proc.epoch_to_process:
         #     focals[cam][ep] = ms_reader.get_focal_lengths()[i]
 
         # Assign camera extrinsics and intrinsics estimated in Metashape to
-        # Camera Object (assignation is done manaully @TODO automatic K and
-        # extrinsics matrixes to assign correct camera by camera label)
-        new_K = ms_reader.get_K()
-        epoch.cameras[cams[0]].update_K(new_K[1])
-        epoch.cameras[cams[1]].update_K(new_K[0])
+        # Camera Object
 
-        epoch.cameras[cams[0]].update_extrinsics(
-            ms_reader.extrinsics[images[cams[0]].get_image_stem(ep)]
-        )
-        epoch.cameras[cams[1]].update_extrinsics(
-            ms_reader.extrinsics[images[cams[1]].get_image_stem(ep)]
-        )
+        img_stems = [epoch.images[cam].stem for cam in cams]
+        ms_label = list(ms_reader.extrinsics.keys())
+        cam_idx_map = {cam: ms_label.index(stem) for cam, stem in zip(cams, img_stems)}
+        cam_label_map = {cam: ms_label[idx] for cam, idx in cam_idx_map.items()}
+        for cam_idx, cam in enumerate(cams):
+            epoch.cameras[cam].update_K(ms_reader.K[cam_idx])
+        for cam, label in cam_label_map.items():
+            epoch.cameras[cam].update_extrinsics(ms_reader.extrinsics[label])
 
-        # Triangulate again points and update Point Cloud dict
+        # Triangulate again points and save point cloud to disk
         triang = sfm.Triangulate(
             [epoch.cameras[cams[0]], epoch.cameras[cams[1]]],
             [
@@ -475,13 +474,9 @@ for ep in cfg.proc.epoch_to_process:
         )
         points3d = triang.triangulate_two_views(
             compute_colors=True,
-            image=images[cams[1]].read_image(ep).value,
+            image=epoch.images[cams[1]].value,
             cam_id=1,
         )
-
-        # pcd_epc = icepy4d_classes.PointCloud(
-        #     points3d=points3d, points_col=triang.colors
-        # )
 
         epoch.points.append_points_from_numpy(
             points3d,
@@ -491,7 +486,8 @@ for ep in cfg.proc.epoch_to_process:
 
         if cfg.proc.save_sparse_cloud:
             epoch.points.to_point_cloud().write_ply(
-                cfg.paths.results_dir / f"point_clouds/sparse_{epoch_dict[ep]}.ply"
+                cfg.paths.results_dir
+                / f"point_clouds/sparse_{epoch_map.get_timestamp(ep)}.ply"
             )
 
         # - For debugging purposes
@@ -515,12 +511,11 @@ for ep in cfg.proc.epoch_to_process:
 
         # Clean variables
         del relative_ori, triang, abs_ori, points3d
-        del T, new_K
-        del ms_cfg, ms, ms_reader
+        del ms_cfg, metashape, ms_reader
         gc.collect()
 
         # Save epoch as a pickle object
-        epoches[ep].save_pickle(f"{epochdir}/{epoch_dict[ep]}.pickle")
+        epoches[ep].save_pickle(f"{epochdir}/{epoch_map.get_timestamp(ep)}.pickle")
 
         # Save matches plot
         matches_fig_dir = "res/fig_for_paper/matches_fig"

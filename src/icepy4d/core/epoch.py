@@ -24,36 +24,271 @@ SOFTWARE.
 import logging
 import pickle
 from datetime import datetime as dt
+from datetime import timedelta
 from pathlib import Path
-from typing import Dict, Union
+from copy import deepcopy
+from typing import Dict, Union, List, Tuple
+import os
 
 from .camera import Camera
 from .features import Features
 from .point_cloud import PointCloud
-from .images import ImageDS
+from .images import Image, ImageDS
 from .targets import Targets
 from .points import Points
-
-DEFAULT_DATETIME_FMT = "%Y-%m-%d %H:%M:%S"
+from .constants import DATETIME_FMT
 
 logger = logging.getLogger(__name__)
 
 
+class AttributeDict(dict):
+    __getattr__ = dict.__getitem__
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
+
+
 def parse_str_to_datetime(
-    datetime: Union[str, dt], datetime_format: str = DEFAULT_DATETIME_FMT
+    datetime: Union[str, dt], datetime_format: str = DATETIME_FMT
 ):
+    """
+    Parse a string or datetime object into a datetime object.
+
+    Args:
+        datetime (Union[str, dt]): A string or datetime object to be parsed.
+        datetime_format (str): A format string specifying the datetime format
+            if `datetime` is a string. Default format is "%Y-%m-%d_%H:%M:%S".
+
+    Returns:
+        dt: A datetime object representing the parsed datetime.
+
+    Raises:
+        ValueError: If the input cannot be converted to a datetime object.
+    """
     if isinstance(datetime, dt):
         return datetime
     elif isinstance(datetime, str):
         try:
             datetime = dt.strptime(datetime, datetime_format)
-        except:
-            err = "Unable to convert datetime to string. You should provide a datetime object or a string in the format %Y-%m-%d %H:%M:%S, or you should pass the datetime format as a string to the datetime_format argument"
+        except ValueError:
+            err = f"Unable to convert datetime to string. You should provide a datetime object or a string in the format {DATETIME_FMT}, or you should pass the datetime format as a string to the datetime_format argument"
             logger.warning(err)
             raise ValueError(err)
     else:
-        err = "Invalid epoch datetime. It should be a datetime object or a string in the format %Y-%m-%d %H:%M:%S"
+        err = f"Invalid epoch datetime. It should be a datetime object or a string in the format {DATETIME_FMT}"
     return datetime
+
+
+def find_closest_timestamp(
+    ref_timestamp: dt,
+    timestamps: List[dt],
+    time_tolerance: timedelta = timedelta(seconds=60),
+) -> Tuple[dt, int, timedelta]:
+    """
+    Find the closest timestamp to a reference timestamp within a list of timestamps.
+
+    Args:
+        ref_timestamp (dt): The reference datetime object.
+        timestamps (List[dt]): A list of datetime objects to search for the closest timestamp.
+        time_tolerance (timedelta): The maximum time difference allowed to consider a timestamp as close.
+            Default is 60 seconds.
+
+    Returns:
+        Tuple[dt, int, timedelta]: A tuple containing the closest timestamp, its index in the list of timestamps,
+        and the time difference between the reference timestamp and the closest timestamp.
+        If no timestamp within the specified tolerance is found, the timestamp is None, the index is None,
+        and the time difference is None.
+    """
+    tdiffs = [abs(ts - ref_timestamp) for ts in timestamps]
+    min_dt = min(tdiffs) if min(tdiffs) < time_tolerance else None
+    if min_dt is not None:
+        closest_idx = tdiffs.index(min_dt)
+        closest_timestamp = timestamps[closest_idx]
+    else:
+        closest_idx = None
+        closest_timestamp = None
+    return closest_timestamp, closest_idx, min_dt
+
+
+class EpochDataMap(dict):
+    """
+    A class for managing epoch data mapping, including timestamps and associated images.
+
+    Args:
+        image_dir (Union[str, Path]): The directory containing image data.
+        master_camera (str): The name of the master camera (optional).
+        time_tolerance_sec (int): The maximum time difference allowed to consider two images taken by different cameras as simultaneous (this allows for considering a non-perfect time synchronization between different cameras). Default is 1200 seconds (20 minutes).
+
+    Attributes:
+        _image_dir (Path): The path to the image directory.
+        _master_camera (str): The name of the master camera.
+        _timetolerance (timedelta): The time tolerance for timestamp matching.
+        _cams (List[str]): The list of camera names.
+        _map (dict): The mapping of epoch data.
+
+    Methods:
+        _get_timestamps(folder: Union[str, Path]) -> Tuple[List[dt], List[Path]]:
+            Get timestamps and image paths from a specified folder.
+        _build_map():
+            Build the mapping of epoch data.
+        _write_map(filename: str, sep: str = ",", header: bool = True) -> None:
+            Write the mapping data to a CSV file.
+        __getitem__(self, key):
+            Retrieve epoch data by key.
+        __repr__(self) -> str:
+            Return a string representation of the EpochDataMap.
+        __len__(self) -> int:
+            Return the number of epochs in the EpochDataMap.
+        __iter__(self):
+            Initialize an iterator for the EpochDataMap.
+        __next__(self):
+            Get the next element in the EpochDataMap.
+        __contains__(self, timestamp: Union[str, dt]) -> bool:
+            Check if a timestamp is present in the EpochDataMap.
+        get_timestamp(self, epoch_id: int) -> dt:
+            Get the timestamp of a specific epoch.
+        get_epoch_images(self, epoch_id: int) -> List[Path]:
+            Get the images associated with a specific epoch.
+        get_epoch_images_by_timestamp(self, timestamp: Union[str, dt]) -> List[Path]:
+            Get the images associated with an epoch by timestamp.
+        get_epoch_image_timestamps(self, epoch_id: int) -> List[dt]:
+            Get the timestamps of images associated with a specific epoch.
+    """
+
+    def __init__(
+        self,
+        image_dir: Union[str, Path],
+        master_camera=None,
+        time_tolerance_sec: timedelta = 180,
+    ):
+        """
+        Initialize the EpochDataMap with image directory, master camera, and time tolerance.
+        """
+        self._image_dir = Path(image_dir)
+        assert self._image_dir.exists(), f"{self._image_dir} does not exist"
+
+        # if a master camera is specified, check if it exists in the image dir
+        if master_camera:
+            assert self._master_camera in os.scandir(
+                self._image_dir
+            ), f"Master camera not found in image directory {self._image_dir}"
+        # if master camera is not specified, use the first camera found
+        else:
+            master_camera = sorted(
+                [f.name for f in os.scandir(self._image_dir) if f.is_dir()]
+            )[0]
+        self._master_camera = master_camera
+
+        self._timetolerance = timedelta(seconds=time_tolerance_sec)
+
+        # Get camera names
+        self._cams = sorted([f.name for f in os.scandir(self._image_dir) if f.is_dir()])
+
+        # Build dict
+        self._map = {}
+        self._build_map()
+
+        # Write dict to file
+        self._write_map(self._image_dir / "epoch_map.csv")
+
+    def __getitem__(self, key):
+        return self._map[key]
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__} with {len(self._map)} epochs"
+
+    def __len__(self):
+        return len(self._map)
+
+    def __iter__(self):
+        self._elem = 0
+        return self
+
+    def __next__(self):
+        while self._elem < len(self._map):
+            file = self._map[self._elem]
+            self._elem += 1
+            return file
+        else:
+            self._elem = 0
+            raise StopIteration
+
+    def __contains__(self, timestamp: Union[str, dt]) -> bool:
+        timestamp = parse_str_to_datetime(timestamp)
+        timestamps = [x["timestamp"] for x in self._map.values()]
+        return timestamp in timestamps
+
+    @property
+    def cams(self):
+        return self._cams
+
+    def get_timestamp(self, epoch_id: int) -> dt:
+        return self._map[epoch_id]["timestamp"]
+
+    def get_timestamp_str(self, epoch_id: int) -> str:
+        return self._map[epoch_id]["timestamp"].strftime(DATETIME_FMT)
+
+    def get_images(self, epoch_id: int) -> List[Path]:
+        return self._map[epoch_id]["images"]
+
+    def get_images_by_timestamp(self, timestamp: Union[str, dt]) -> List[Path]:
+        timestamp = parse_str_to_datetime(timestamp)
+        timestamps = [x["timestamp"] for x in self._map.values()]
+        idx = timestamps.index(timestamp)
+        return self._map[idx]["images"]
+
+    def _get_timestamps(self, folder: Union[str, Path]) -> Tuple[List[dt], List[Path]]:
+        imageDS = ImageDS(folder)
+        paths = list(imageDS.files)
+        timestamps = list(imageDS.timestamps.values())
+        return timestamps, paths
+
+    def _build_map(self):
+        # Build imageDS for master camera and get timestamps
+        timestamps, paths = self._get_timestamps(self._image_dir / self._master_camera)
+
+        # build mapping dict for master camera
+        for i, (ts, path) in enumerate(zip(timestamps, paths)):
+            self._map[i] = AttributeDict(
+                {
+                    "timestamp": ts,
+                    "images": {self._master_camera: Image(path)},
+                }
+            )
+
+        # Find closest timestamp for each camera
+        slave_cameras = deepcopy(self._cams)
+        slave_cameras.remove(self._master_camera)
+
+        for cam in slave_cameras:
+            timestamps1, paths1 = self._get_timestamps(self._image_dir / cam)
+            for key, value in self._map.items():
+                ref_ts = value["timestamp"]
+                _, closest_idx, _ = find_closest_timestamp(
+                    ref_ts, timestamps1, self._timetolerance
+                )
+                self._map[key]["images"][cam] = Image(paths1[closest_idx])
+
+    def _write_map(self, filename: str, sep: str = ",", header: bool = True) -> None:
+        file = open(filename, "w")
+        if header:
+            columns = ["epoch", "date", "time"]
+            for cam in self._cams:
+                columns.append(cam)
+                columns.append(f"{cam}_timestamp")
+            file.write(f"{sep}".join(columns) + "\n")
+        for key, value in self._map.items():
+            value = self._map[key]
+            date = value["timestamp"].strftime("%Y-%m-%d")
+            time = value["timestamp"].strftime("%H:%M:%S")
+            str_2_add = []
+            for cam in self._cams:
+                str_2_add.append(value["images"][cam].name)
+                str_2_add.append(
+                    f"{value['images'][cam].date}_{value['images'][cam].time}"
+                )
+            line = [str(key), date, time] + str_2_add
+            file.write(f"{sep}".join(line) + "\n")
+        file.close()
 
 
 class Epoch:
@@ -71,13 +306,13 @@ class Epoch:
         self,
         timestamp: Union[str, dt],
         epoch_dir: Union[str, Path] = None,
-        images: ImageDS = None,
+        images: Dict[str, Image] = None,
         cameras: Dict[str, Camera] = None,
         features: Dict[str, Features] = None,
         points: Points = None,
         targets: Targets = None,
         point_cloud: PointCloud = None,
-        datetime_format: str = DEFAULT_DATETIME_FMT,
+        datetime_format: str = DATETIME_FMT,
     ) -> None:
         """
         Initializes a Epcoh object with the provided data
@@ -100,19 +335,15 @@ class Epoch:
         self.point_cloud = point_cloud
 
         if epoch_dir is not None:
-            self._epoch_dir = Path(epoch_dir)
+            self.epoch_dir = Path(epoch_dir)
         else:
-            logger.info("Epoch directory not provided. Using timestamp as name")
-            self._epoch_dir = Path(str(self._timestamp).replace(" ", "_"))
-        self._epoch_dir.mkdir(parents=True, exist_ok=True)
+            logger.info("Epoch directory not provided. Using epoch timestamp.")
+            self.epoch_dir = Path(str(self._timestamp).replace(" ", "_"))
+        self.epoch_dir.mkdir(parents=True, exist_ok=True)
 
     @property
     def timestamp(self):
         return self._timestamp
-
-    @property
-    def epoch_dir(self):
-        return self._epoch_dir
 
     @property
     def date_str(self) -> str:
@@ -142,7 +373,7 @@ class Epoch:
         Returns:
             str: The string representation of the Epoch object
         """
-        return f"{self._timestamp.strftime(DEFAULT_DATETIME_FMT).replace(' ', '_')}"
+        return f"{self._timestamp.strftime(DATETIME_FMT).replace(' ', '_')}"
 
     def __repr__(self):
         """
@@ -151,7 +382,7 @@ class Epoch:
         Returns:
             str: The string representation of the Epoch object
         """
-        return f"Epoch {self.timestamp}"
+        return f"Epoch {self._timestamp}"
 
     def __iter__(self):
         """
@@ -275,7 +506,7 @@ class Epoches:
         return self._epochs[epoch_id]
 
     def __contains__(
-        self, epoch_date: Union[str, dt], datetime_format: str = DEFAULT_DATETIME_FMT
+        self, epoch_date: Union[str, dt], datetime_format: str = DATETIME_FMT
     ) -> bool:
         """Check if an epoch is in the Epoch objet"""
         timestamp = parse_str_to_datetime(epoch_date, datetime_format)
@@ -320,7 +551,7 @@ class Epoches:
         return self._epochs.get(epoch_id).timestamp
 
     def get_epoch_id(
-        self, epoch_date: Union[str, dt], datetime_format: str = DEFAULT_DATETIME_FMT
+        self, epoch_date: Union[str, dt], datetime_format: str = DATETIME_FMT
     ) -> int:
         timestamp = parse_str_to_datetime(epoch_date, datetime_format)
         for i, ep in self._epochs.items():
@@ -328,7 +559,7 @@ class Epoches:
                 return i
 
     def get_epoch_by_date(
-        self, timestamp: Union[str, dt], datetime_format: str = DEFAULT_DATETIME_FMT
+        self, timestamp: Union[str, dt], datetime_format: str = DATETIME_FMT
     ) -> Epoch:
         timestamp = parse_str_to_datetime(timestamp, datetime_format)
         for ep in self._epochs.values():
@@ -339,8 +570,10 @@ class Epoches:
 
 
 if __name__ == "__main__":
+    epoch_map = EpochDataMap("/home/francesco/Projects/icepy4d/data/img")
+
     # Epoch from datetime object
-    date = dt.strptime("2021-01-01 00:00:00", DEFAULT_DATETIME_FMT)
+    date = dt.strptime("2021-01-01 00:00:00", DATETIME_FMT)
     ep = Epoch(timestamp=date)
     print(ep)
 
