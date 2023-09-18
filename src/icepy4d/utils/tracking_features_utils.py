@@ -3,9 +3,9 @@ import pandas as pd
 
 from typing import TypedDict, List, Union
 from pathlib import Path
-from itertools import groupby, product
+from itertools import groupby
 
-import icepy4d.classes as icepy4d_classes
+import icepy4d.core as icepy4d_classes
 
 from icepy4d.utils.geospatial import *
 from icepy4d.utils.timer import timeit
@@ -220,7 +220,7 @@ def tracked_points_time_series_old(
 def tracked_dict_to_df(
     features: icepy4d_classes.FeaturesDict,
     points: icepy4d_classes.PointsDict,
-    epoch_dict: icepy4d_classes.EpochDict,
+    epoch_dict: icepy4d_classes.EpochDataMap,
     fts: Features_tracked_inexes,
     min_dt: int = None,
     vx_lims: List = None,
@@ -233,7 +233,7 @@ def tracked_dict_to_df(
     Args:
         features (icepy4d_classes.FeaturesDict): A dictionary containing feature information.
         points (icepy4d_classes.PointsDict): A dictionary containing point information.
-        epoch_dict (icepy4d_classes.EpochDict):
+        epoch_dict (icepy4d_classes.EpochDataMap):
         fts (Features_tracked_inexes): A dictionary containing information about features that were tracked.
         min_dt (int, optional): The minimum number of days between `date_ini` and `date_fin`. Defaults to none.
         save_path (Union[str, Path], optional): The file path where the DataFrame should be saved. Defaults to None.
@@ -304,7 +304,7 @@ def tracked_dict_to_df(
 # def tracked_dict_to_df_old(
 #     features: icepy4d_classes.FeaturesDict,
 #     points: icepy4d_classes.PointsDict,
-#     epoch_dict: icepy4d_classes.EpochDict,
+#     epoch_dict: icepy4d_classes.EpochDataMap,
 #     fts: Features_tracked_inexes,
 #     min_dt: int = None,
 #     vx_lims: List = None,
@@ -317,7 +317,7 @@ def tracked_dict_to_df(
 #     Args:
 #         features (icepy4d_classes.FeaturesDict): A dictionary containing feature information.
 #         points (icepy4d_classes.PointsDict): A dictionary containing point information.
-#         epoch_dict (icepy4d_classes.EpochDict):
+#         epoch_dict (icepy4d_classes.EpochDataMap):
 #         fts (Features_tracked_inexes): A dictionary containing information about features that were tracked.
 #         min_dt (int, optional): The minimum number of days between `date_ini` and `date_fin`. Defaults to none.
 #         save_path (Union[str, Path], optional): The file path where the DataFrame should be saved. Defaults to None.

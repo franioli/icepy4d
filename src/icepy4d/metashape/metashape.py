@@ -26,6 +26,7 @@ import Metashape
 import numpy as np
 import pandas as pd
 import logging
+import datetime
 
 from pathlib import Path
 from easydict import EasyDict as edict
@@ -40,37 +41,41 @@ from .metashape_core import (
     read_gcp_file,
 )
 from icepy4d.utils.timer import AverageTimer
-from icepy4d.classes.calibration import read_opencv_calibration
+from icepy4d.core.calibration import read_opencv_calibration
+from icepy4d.core.constants import DATETIME_FMT
 
 REGION_RESIZE_FCT = 10.0
 
 
-def build_metashape_cfg(cfg: edict, epoch_dict: dict, cur_epoch: int) -> edict:
+def build_metashape_cfg(cfg: edict, timestamp: Union[str, datetime.datetime]) -> edict:
     """
     # build_metashape_cfg Build metashape configuration dictionary, starting from global configuration dictionary.
 
     Args:
         cfg (edict): configuration dictionary for icepy4d
-        epoch_dict (dict): dictionary containing the correspondings between epoch progressive numbers and dates
-        cur_epoch (int): current cur_epoch.
+        timestamp (Union[str, datetime.datetime]): timestamp of the current processing epoch
 
     Returns:
         edict: Metashape configuration dictionary
     """
     ms_cfg = edict()
 
+    # To be sure that the timestamp is in the correct format
+    if isinstance(timestamp, str):
+        timestamp = timestamp.replace(" ", "_")
+    elif isinstance(timestamp, datetime.datetime):
+        timestamp = timestamp.strftime(DATETIME_FMT)
+
     # Paths
-    ms_cfg.dir = cfg.paths.results_dir / f"{epoch_dict[cur_epoch]}/metashape"
-    ms_cfg.project_path = ms_cfg.dir / f"{epoch_dict[cur_epoch]}.psx"
-    ms_cfg.im_path = ms_cfg.dir / "data/images"
-    ms_cfg.im_ext = cfg.paths.image_extension
-    ms_cfg.bundler_file_path = ms_cfg.dir / f"data/{epoch_dict[cur_epoch]}.out"
+    ms_cfg.dir = cfg.paths.results_dir / f"{timestamp}/metashape"
+    ms_cfg.project_path = ms_cfg.dir / f"{timestamp}.psx"
+    ms_cfg.bundler_file_path = ms_cfg.dir / f"data/{timestamp}.out"
     ms_cfg.bundler_im_list = ms_cfg.dir / "data/im_list.txt"
     ms_cfg.gcp_filename = ms_cfg.dir / "data/gcps.txt"
     ms_cfg.calib_filenames = cfg.metashape.calib_filenames
     ms_cfg.dense_path = cfg.paths.results_dir / "point_clouds"
-    ms_cfg.dense_name = f"dense_{epoch_dict[cur_epoch]}.ply"
-    ms_cfg.mesh_name = f"mesh_{epoch_dict[cur_epoch]}.ply"
+    ms_cfg.dense_name = f"dense_{timestamp}.ply"
+    ms_cfg.mesh_name = f"mesh_{timestamp}.ply"
 
     # Processing parameters
     ms_cfg.optimize_cameras = cfg.metashape.optimize_cameras
@@ -102,27 +107,19 @@ def build_metashape_cfg(cfg: edict, epoch_dict: dict, cur_epoch: int) -> edict:
 class MetashapeProject:
     def __init__(
         self,
+        image_list: List[Path],
         cfg: edict,
         timer: AverageTimer = None,
     ) -> None:
+        self.image_list = image_list
         self.cfg = cfg
         self.timer = timer
-
-    @property
-    def project_path(self) -> str:
-        return str(self.cfg.project_path.name)
 
     @property
     def project_path(self) -> str:
         return str(self.cfg.project_path)
 
     def create_project(self) -> None:
-        # # If the project already exists and the option force_overwrite_projects is on, remove completely the old project
-        # prj_path = Path(self.project_path)
-        # if prj_path.exists() and self.cfg.force_overwrite_projects:
-        #     prj_path.unlink()
-        #     prj_files_dir = prj_path.parent / (prj_path.stem + ".files")
-        #     shutil.rmtree(prj_files_dir, ignore_errors=True)
         self.doc = create_new_project(self.project_path)
         if self.cfg.force_overwrite_projects:
             self.doc.read_only = False
@@ -130,19 +127,17 @@ class MetashapeProject:
             self.doc.chunk.euler_angles = Metashape.EulerAnglesOPK
         logging.info(f"Created project {self.project_path}.")
 
-    def add_images(self) -> None:
-        extensions = [self.cfg.im_ext, self.cfg.im_ext.upper()]
-        imlist = []
-        for ext in extensions:
-            imlist.extend(list(self.cfg.im_path.glob("*." + ext)))
-        images = [str(x) for x in imlist if x.is_file()]
+    def add_images(self, image_list: List[Path]) -> None:
+        images = [str(x) for x in image_list if x.is_file()]
         self.doc.chunk.addPhotos(images)
+
         # Add cameras and tie points from bundler output
         cameras_from_bundler(
             chunk=self.doc.chunk,
             fname=self.cfg.bundler_file_path,
             image_list=self.cfg.bundler_im_list,
         )
+
         # Fix Camera location to reference
         if len(self.cfg.cam_accuracy) == 1:
             accuracy = Metashape.Vector(
@@ -151,10 +146,9 @@ class MetashapeProject:
         elif len(self.cfg.cam_accuracy) == 3:
             accuracy = Metashape.Vector(self.cfg.cam_accuracy)
         else:
-            logging.error(
+            raise ValueError(
                 "Wrong input type for accuracy parameter. Provide a list of floats (it can be a list of a single element or of three elements)."
             )
-            return
         for i, camera in enumerate(self.doc.chunk.cameras):
             camera.reference.location = Metashape.Vector(self.cfg.camera_location[i])
             camera.reference.accuracy = accuracy
@@ -214,7 +208,7 @@ class MetashapeProject:
         elif depth_filter == "AggressiveFiltering":
             filter = Metashape.FilterMode.AggressiveFiltering
         else:
-            logging.error(
+            raise ValueError(
                 "Error: invalid choise of depth filtering. Choose one in [NoFiltering, MildFiltering, ModerateFiltering, AggressiveFiltering]"
             )
 
@@ -322,7 +316,7 @@ class MetashapeProject:
             )
 
         # Write legend file
-        with open(str(export_dir / f"sensors_legend.txt"), "w") as f:
+        with open(str(export_dir / "sensors_legend.txt"), "w") as f:
             f.write("id, label\n")
             for id, sensor in enumerate(sensors):
                 f.write(f"{id}, {sensor.label}\n")
@@ -350,11 +344,10 @@ class MetashapeProject:
     def expand_region(self, resize_fct: float) -> None:
         self.doc.chunk.resetRegion()
         self.doc.chunk.region.size = resize_fct * self.doc.chunk.region.size
-        # new_reg_size = Metashape.Vector([reg_size[0] * mul_fct[0],  reg_size[1] * mul_fct[1], reg_size[2] * mul_fct[2]])
 
     def run_full_workflow(self) -> bool:
         self.create_project()
-        self.add_images()
+        self.add_images(self.image_list)
         self.add_gcps()
         self.import_sensor_calibration()
         self.set_a_priori_accuracy()
@@ -380,6 +373,14 @@ class MetashapeProject:
         return True
 
 
+class MetashapeWriter:
+    def __init__(self, chunk: Metashape.Chunk):
+        pass
+
+
+from icepy4d.utils.logger import deprecated
+
+
 class MetashapeReader:
     def __init__(
         self,
@@ -392,6 +393,8 @@ class MetashapeReader:
         self.dist = {}  # dict with distortion parameters vector for each camera
         self.extrinsics = {}  # dict with 4x4 homogeneous matrix for each image
 
+    @deprecated
+    # NOTE: this function is not working properly. Need to be fixed
     def get_K(self, camera_id: int = None) -> Union[np.ndarray, dict]:
         if camera_id:
             return self.K[camera_id]
