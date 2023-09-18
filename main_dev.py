@@ -387,7 +387,7 @@ for ep in cfg.proc.epoch_to_process:
                 image_points=image_coords,
                 camera_centers_world=cfg.georef.camera_centers_world,
             )
-            _, abs_ori.estimate_transformation_linear(estimate_scale=True)
+            _ = abs_ori.estimate_transformation_linear(estimate_scale=True)
             points3d = abs_ori.apply_transformation(points3d=points3d)
             for i, cam in enumerate(cams):
                 epoch.cameras[cam] = abs_ori.cameras[i]
@@ -586,9 +586,9 @@ if cfg.proc.do_homography_warping:
         _ = homography_warping(
             cam_0=cam_ref,
             cam_1=cam_to_warp,
-            image=images[cam].read_image(ep).value,
+            image=epoch.images[cam].value,
             undistort=True,
-            out_path=f"res/warped/{images[cam][ep]}",
+            out_path=f"res/warped/{epoch.images[cam].name}",
         )
 
     timer_global.update("Homograpy warping")
