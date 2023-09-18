@@ -26,9 +26,10 @@ import pickle
 from datetime import datetime as dt
 from datetime import timedelta
 from pathlib import Path
-from copy import deepcopy
 from typing import Dict, Union, List, Tuple
 import os
+
+import numpy as np
 
 from .camera import Camera
 from .features import Features
@@ -41,7 +42,9 @@ from .constants import DATETIME_FMT
 logger = logging.getLogger(__name__)
 
 
-class AttributeDict(dict):
+class DotDict(dict):
+    """A dictionary that allows to access keys as attributes with the dot notation."""
+
     __getattr__ = dict.__getitem__
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
@@ -93,10 +96,8 @@ def find_closest_timestamp(
             Default is 60 seconds.
 
     Returns:
-        Tuple[dt, int, timedelta]: A tuple containing the closest timestamp, its index in the list of timestamps,
-        and the time difference between the reference timestamp and the closest timestamp.
-        If no timestamp within the specified tolerance is found, the timestamp is None, the index is None,
-        and the time difference is None.
+        Tuple[dt, int, timedelta]: A tuple containing the closest timestamp, its index in the list of timestamps, and the time difference between the reference timestamp and the closest timestamp.
+        If no timestamp within the specified tolerance is found, the timestamp, the index and the time difference are None.
     """
     tdiffs = [abs(ts - ref_timestamp) for ts in timestamps]
     min_dt = min(tdiffs) if min(tdiffs) < time_tolerance else None
@@ -116,7 +117,8 @@ class EpochDataMap(dict):
     Args:
         image_dir (Union[str, Path]): The directory containing image data.
         master_camera (str): The name of the master camera (optional).
-        time_tolerance_sec (int): The maximum time difference allowed to consider two images taken by different cameras as simultaneous (this allows for considering a non-perfect time synchronization between different cameras). Default is 1200 seconds (20 minutes).
+        time_tolerance_sec (int): The maximum time difference allowed to consider two images taken by different cameras as simultaneous (this allows for considering a non-perfect time synchronization between different cameras). Default is 180 seconds (3 minutes).
+        min_images (int): The minimum number of images required for an epoch to be included (optional).
 
     Attributes:
         _image_dir (Path): The path to the image directory.
@@ -126,12 +128,8 @@ class EpochDataMap(dict):
         _map (dict): The mapping of epoch data.
 
     Methods:
-        _get_timestamps(folder: Union[str, Path]) -> Tuple[List[dt], List[Path]]:
-            Get timestamps and image paths from a specified folder.
-        _build_map():
-            Build the mapping of epoch data.
-        _write_map(filename: str, sep: str = ",", header: bool = True) -> None:
-            Write the mapping data to a CSV file.
+        __init__(self, image_dir: Union[str, Path], master_camera=None, time_tolerance_sec: timedelta = 180, min_images: int = 2):
+            Initialize the EpochDataMap with image directory, master camera, and time tolerance.
         __getitem__(self, key):
             Retrieve epoch data by key.
         __repr__(self) -> str:
@@ -144,14 +142,22 @@ class EpochDataMap(dict):
             Get the next element in the EpochDataMap.
         __contains__(self, timestamp: Union[str, dt]) -> bool:
             Check if a timestamp is present in the EpochDataMap.
+        cams(self) -> List[str]:
+            Return the list of camera names.
         get_timestamp(self, epoch_id: int) -> dt:
             Get the timestamp of a specific epoch.
-        get_epoch_images(self, epoch_id: int) -> List[Path]:
+        get_timestamp_str(self, epoch_id: int) -> str:
+            Get the timestamp of a specific epoch as a formatted string.
+        get_images(self, epoch_id: int) -> List[Path]:
             Get the images associated with a specific epoch.
-        get_epoch_images_by_timestamp(self, timestamp: Union[str, dt]) -> List[Path]:
+        get_images_by_timestamp(self, timestamp: Union[str, dt]) -> List[Path]:
             Get the images associated with an epoch by timestamp.
-        get_epoch_image_timestamps(self, epoch_id: int) -> List[dt]:
-            Get the timestamps of images associated with a specific epoch.
+        _get_timestamps(self, folder: Union[str, Path]) -> Tuple[List[dt], List[Path]]:
+            Get timestamps and image paths from a specified folder.
+        _build_map(self, min_images: int = None):
+            Build the mapping of epoch data.
+        _write_map(self, filename: str, sep: str = ",", header: bool = True) -> None:
+            Write the mapping data to a CSV file.
     """
 
     def __init__(
@@ -159,6 +165,7 @@ class EpochDataMap(dict):
         image_dir: Union[str, Path],
         master_camera=None,
         time_tolerance_sec: timedelta = 180,
+        min_images: int = 2,
     ):
         """
         Initialize the EpochDataMap with image directory, master camera, and time tolerance.
@@ -185,7 +192,7 @@ class EpochDataMap(dict):
 
         # Build dict
         self._map = {}
-        self._build_map()
+        self._build_map(min_images)
 
         # Write dict to file
         self._write_map(self._image_dir / "epoch_map.csv")
@@ -242,31 +249,57 @@ class EpochDataMap(dict):
         timestamps = list(imageDS.timestamps.values())
         return timestamps, paths
 
-    def _build_map(self):
+    def _build_map(self, min_images: int = None):
+        # Re-initialize map
+        self._map = {}
+
         # Build imageDS for master camera and get timestamps
         timestamps, paths = self._get_timestamps(self._image_dir / self._master_camera)
 
         # build mapping dict for master camera
         for i, (ts, path) in enumerate(zip(timestamps, paths)):
-            self._map[i] = AttributeDict(
+            img = Image(path)
+            self._map[i] = DotDict(
                 {
                     "timestamp": ts,
-                    "images": {self._master_camera: Image(path)},
+                    "images": {self._master_camera: img},
+                    "dt": {self._master_camera: timedelta(seconds=0)},
                 }
             )
 
         # Find closest timestamp for each camera
-        slave_cameras = deepcopy(self._cams)
-        slave_cameras.remove(self._master_camera)
+        slave_cameras = set(self._cams)
+        slave_cameras.discard(self._master_camera)
 
         for cam in slave_cameras:
             timestamps1, paths1 = self._get_timestamps(self._image_dir / cam)
             for key, value in self._map.items():
                 ref_ts = value["timestamp"]
-                _, closest_idx, _ = find_closest_timestamp(
+                _, closest_idx, dt = find_closest_timestamp(
                     ref_ts, timestamps1, self._timetolerance
                 )
-                self._map[key]["images"][cam] = Image(paths1[closest_idx])
+                if closest_idx is not None:
+                    self._map[key]["images"][cam] = Image(paths1[closest_idx])
+                    self._map[key]["dt"][cam] = dt
+        logger.info(f"Building EpochDataMap: found {len(self._map)} epochs")
+
+        # Get max dt for each epoch
+        self._max_dt_sec = {
+            ep: max(list(x["dt"].values())).seconds for ep, x in self._map.items()
+        }
+        dtmax = np.array([x for x in self._max_dt_sec.values() if x > 0])
+        logger.info(
+            f"Mean max dt: {np.mean(dtmax):.2f} seconds (max: {np.max(dtmax):.2f} seconds))"
+        )
+
+        # Remove epochs with less than min_images images
+        removed = 0
+        if min_images is not None:
+            for key, value in self._map.copy().items():
+                if len(value["images"]) < min_images:
+                    del self._map[key]
+                    removed += 1
+            logger.info(f"Removed {removed} epochs with less than {min_images} images")
 
     def _write_map(self, filename: str, sep: str = ",", header: bool = True) -> None:
         file = open(filename, "w")
@@ -327,12 +360,23 @@ class Epoch:
         """
 
         self._timestamp = parse_str_to_datetime(timestamp, datetime_format)
-        self.images = images
+
+        if images is not None:
+            assert (
+                isinstance(images, dict) and isinstance(x, Image)
+                for x in images.values()
+            ), "Input images must be a dictionary mapping each camera name to the image (of type Image)"
+            self.images = images
         self.cameras = cameras
         self.features = features
-        self.points = points
         self.targets = targets
         self.point_cloud = point_cloud
+
+        if points is not None:
+            assert isinstance(points, Points), "Input points must be of type Points"
+            self.points = points
+        else:
+            self.points = Points()
 
         if epoch_dir is not None:
             self.epoch_dir = Path(epoch_dir)

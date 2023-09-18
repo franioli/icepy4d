@@ -260,6 +260,9 @@ class Points:
             self._iter = 0
             raise StopIteration
 
+    def __repr__(self):
+        return f"Points object with {len(self)} points"
+
     @property
     def num_points(self):
         """
