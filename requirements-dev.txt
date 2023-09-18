@@ -5,6 +5,7 @@ isort
 mkdocs
 mkdocs-material
 mkdocstrings[python]
+mkdocs-gen-files
 bumpver
 pre-commit
 nbstripout

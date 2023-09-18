@@ -3,15 +3,16 @@
 You can import icepy4d classes by
 
 ```python
-import icepy4d.classes as icepy4d_classes
+import icepy4d.core as icecore
 ```
 
 and directly access to the Camera class by
 
 ```python
-icepy4d_classes.Targets
+icecore.Targets
 ```
 
-::: icepy4d.classes.targets.Targets
+::: icepy4d.core.targets.Targets
     options:
+      show_root_heading: true
       members:

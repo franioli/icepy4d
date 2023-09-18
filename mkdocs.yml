@@ -14,26 +14,31 @@ theme:
 
 plugins:
   - search
+  - autorefs
+  # - gen-files:
+  #     scripts:
+  #     - docs/gen_ref_pages.py  # 
   - mkdocstrings:
       handlers:
         python:
           paths: [src] # search packages in the src folder
           options:
             show_source: false
+            heading_level: 2
 
 nav:
   - Home: index.md
   - Installation: installation.md
   - Getting started: getting_started.md
   - Modules:
-      - Classes:
-          - Epoch: classes/epoch.md
-          - Camera: classes/camera.md
-          - Images: classes/images.md
-          - Features: classes/features.md
-          - Points: classes/points.md
-          - Point Cloud: classes/point_cloud.md
-          - Targets: classes/targets.md
+      - Core:
+          - Epoch: core/epoch.md
+          - Camera: core/camera.md
+          - Images: core/images.md
+          - Features: core/features.md
+          - Points: core/points.md
+          - Point Cloud: core/point_cloud.md
+          - Targets: core/targets.md
       - Matching:
           - Matching: matching/matching.md
           - Tracking: matching/tracking.md
