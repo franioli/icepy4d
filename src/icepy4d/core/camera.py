@@ -100,10 +100,7 @@ class Camera:
             self.read_calibration_from_file(calib_path)
 
     def __repr__(self) -> str:
-        return f"Camera(w={self._w}, h={self._h}, K={self._K}, dist={self._dist}, extrinsics={self._extrinsics})"
-
-    def __str__(self) -> str:
-        return self.__repr__()
+        return f"Camera (f={self._K[0,0]}, img_size={self._w, self._h}"
 
     # Getters
     @property
