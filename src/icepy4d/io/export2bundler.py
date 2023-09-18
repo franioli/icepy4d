@@ -2,21 +2,21 @@ import logging
 from copy import deepcopy
 from pathlib import Path
 from shutil import copy as scopy
-from typing import List, Union
+from typing import List, Union, Dict
 
 import numpy as np
 
-from ..classes import CamerasDict, FeaturesDict
-from ..classes.point_cloud import PointCloud
-from ..classes.points import Points
-from ..classes.targets import Targets
+from ..core import CamerasDict, FeaturesDict
+from ..core.point_cloud import PointCloud
+from ..core.points import Points
+from ..core.targets import Targets
 from ..thirdparty.transformations import euler_matrix
-from .utils import create_directory, make_symlink
+from .utils import create_directory
 
 
 def write_bundler_out(
     export_dir: Union[str, Path],
-    im_dict: dict,
+    im_dict: Dict[str, Path],
     cameras: CamerasDict,
     features: FeaturesDict,
     points: Points,
@@ -50,13 +50,14 @@ def write_bundler_out(
         file.write(f"{im_dict[cam]}\n")
     file.close()
 
+    # Deprecated as the file im_list.txt contains the absolute paths to the images
     # Crates symbolic links to the images in subdirectory "data/images"
-    im_out_dir = out_dir / "images"
-    im_out_dir.mkdir(parents=True, exist_ok=True)
-    for cam in cams:
-        src = im_dict[cam]
-        dst = im_out_dir / im_dict[cam].name
-        make_symlink(src, dst)
+    # im_out_dir = out_dir / "images"
+    # im_out_dir.mkdir(parents=True, exist_ok=True)
+    # for cam in cams:
+    #     src = im_dict[cam]
+    #     dst = im_out_dir / im_dict[cam].name
+    #     make_symlink(src, dst)
 
     # Write markers to file
     if targets is not None:
