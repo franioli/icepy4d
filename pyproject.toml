@@ -37,7 +37,7 @@ requires-python = ">=3.8"
 
 
 [project.optional-dependencies]
-dev = ["flake8", "black", "bumpver", "isort", "pip-tools", "pytest", "bumpver", "mkdocs", "mkdocs-material", "mkdocstrings[python]", "pre-commit", "nbstripout", "build", "twine"]
+dev = ["flake8", "black", "bumpver", "isort", "pip-tools", "pytest", "bumpver", "mkdocs", "mkdocs-material", mkdocs-jupyter, "mkdocstrings[python]", "pre-commit", "nbstripout", "build", "twine"]
 
 [project.urls]
 Homepage = "https://github.com/franioli/icepy4d"

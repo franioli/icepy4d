@@ -6,6 +6,7 @@ mkdocs
 mkdocs-material
 mkdocstrings[python]
 mkdocs-gen-files
+mkdocs-jupyter
 bumpver
 pre-commit
 nbstripout
