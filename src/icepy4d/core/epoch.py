@@ -287,7 +287,7 @@ class EpochDataMap(dict):
         self._max_dt_sec = {
             ep: max(list(x["dt"].values())).seconds for ep, x in self._map.items()
         }
-        dtmax = np.array([x for x in self._max_dt_sec.values() if x > 0])
+        dtmax = np.array([x for x in self._max_dt_sec.values()])
         logger.info(
             f"Mean max dt: {np.mean(dtmax):.2f} seconds (max: {np.max(dtmax):.2f} seconds))"
         )
