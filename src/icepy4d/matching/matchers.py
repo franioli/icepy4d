@@ -214,7 +214,7 @@ class ImageMatcherBase(ImageMatcherABC):
 
         # Get kwargs
         do_viz_matches = kwargs.get("do_viz_matches", False)
-        save_dir = kwargs.get("save_dir", ".")
+        save_dir = kwargs.get("save_dir", None)
         gv_method = kwargs.get(
             "geometric_verification", GeometricVerification.PYDEGENSAC
         )
@@ -266,9 +266,13 @@ class ImageMatcherBase(ImageMatcherABC):
             logger.info("Geometric verification done.")
             self.timer.update("geometric_verification")
 
-        if do_viz_matches is True:
+        if save_dir is not None:
             save_dir = Path(save_dir)
             save_dir.mkdir(parents=True, exist_ok=True)
+            self.save_mkpts_as_txt(save_dir)
+
+        if do_viz_matches is True:
+            save_dir = Path(save_dir) if save_dir is not None else Path.cwd()
             try:
                 self._viz_matches_mpl(
                     image0, image1, self._mkpts0, self._mkpts1, save_dir / "matches.png"
@@ -535,6 +539,20 @@ class ImageMatcherBase(ImageMatcherABC):
             plt.show()
         else:
             plt.close(fig)
+
+    def save_mkpts_as_txt(
+        self,
+        savedir: Union[str, Path],
+        delimiter: str = ",",
+        header: str = "x,y",
+    )-> None:
+        """Save keypoints in a .txt file"""
+        path = Path(savedir)
+        path.mkdir(parents=True, exist_ok=True)
+        np.savetxt(
+            path / "keypoints_0.txt", self.mkpts0, fmt=fmt, delimiter=delimiter, newline="\n", header=header
+        )
+        np.savetxt(path / "keypoints_1.txt", self.mkpts1, fmt=fmt, delimiter=delimiter, newline="\n", header=header)
 
 
 # SuperPoint and SuperGlue default parameters
