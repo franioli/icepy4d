@@ -5,7 +5,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from itertools import product
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 import cv2
 import kornia as K
@@ -550,9 +550,9 @@ class ImageMatcherBase(ImageMatcherABC):
         path = Path(savedir)
         path.mkdir(parents=True, exist_ok=True)
         np.savetxt(
-            path / "keypoints_0.txt", self.mkpts0, fmt=fmt, delimiter=delimiter, newline="\n", header=header
+            path / "keypoints_0.txt", self.mkpts0, delimiter=delimiter, newline="\n", header=header
         )
-        np.savetxt(path / "keypoints_1.txt", self.mkpts1, fmt=fmt, delimiter=delimiter, newline="\n", header=header)
+        np.savetxt(path / "keypoints_1.txt", self.mkpts1, delimiter=delimiter, newline="\n", header=header)
 
 
 # SuperPoint and SuperGlue default parameters
@@ -1094,12 +1094,12 @@ class LOFTRMatcher(ImageMatcherBase):
 
 class LightGlueMatcher(ImageMatcherBase):
     def __init__(self, opt: dict = {}) -> None:
-        """Initializes a LOFTRMatcher with Kornia object with the given options dictionary."""
+        """Initializes a LightGlueMatcher with Kornia"""
 
-        opt = self._build_config(opt)
+        self._localfeatures = opt.get("features", "superpoint")
         super().__init__(opt)
 
-        self.matcher = KF.LoFTR(pretrained="outdoor").to(self.device).eval()
+        self.matcher = KF.LightGlue(features=self._localfeatures).to(self.device).eval()
 
     def _img_to_tensor(self, image: np.ndarray) -> torch.Tensor:
         image = K.image_to_tensor(np.array(image), False).float() / 255.0
@@ -1107,6 +1107,7 @@ class LightGlueMatcher(ImageMatcherBase):
         if image.shape[1] > 2:
             image = K.color.rgb_to_grayscale(image)
         return image
+
 
     @timeit
     def match(
@@ -1130,6 +1131,30 @@ class LightGlueMatcher(ImageMatcherBase):
 
         # Resize images if needed
         image0_, image1_ = self._resize_images(quality, image0, image1)
+
+        # Extract local features
+        if self._localfeatures == "superpoint":
+            
+            from icepy4d.thirdparty.SuperGlue.models.superpoint import SuperPoint
+            
+            def _frame2tensor(frame, device):
+                if frame.ndim == 3:
+                    frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+                return torch.from_numpy(frame / 255.0).float()[None, None].to(device)
+
+            with torch.inference_mode():
+                extractor  = SuperPoint(config={}).eval().to(self._device)
+                pred = {}
+                pred0 = extractor({"image": _frame2tensor(image0_, self._device)})
+                pred = {**pred, **{k + "0": v for k, v in pred0.items()}}
+                torch.cuda.empty_cache()
+
+                pred1 = extractor({"image": _frame2tensor(image1_, self._device)})
+                pred = {**pred, **{k + "1": v for k, v in pred1.items()}}
+                torch.cuda.empty_cache()
+
+                # TMP 
+                
 
         # Perform matching (on tiles or full images)
         if tile_selection == TileSelection.NONE:
@@ -1408,8 +1433,7 @@ class LightGlueMatcher(ImageMatcherBase):
 
 
 if __name__ == "__main__":
-    # Seup logger
-    logger.basicConfig(level=logger.INFO)
+
 
     # assset_path = Path("assets")
 
@@ -1420,14 +1444,41 @@ if __name__ == "__main__":
     imlists = [sorted(f.glob("*.jpg")) for f in folders]
 
     img_idx = 10
-    im_path0 = imlists[0][10]
-    im_path1 = imlists[1][10]
+    im_path0 = imlists[0][img_idx]
+    im_path1 = imlists[1][img_idx]
     img0 = cv2.imread(str(im_path0))
     img1 = cv2.imread(str(im_path1))
     outdir = "mmm"
     outdir = Path(outdir)
     if outdir.exists():
         os.system(f"rm -rf {outdir}")
+
+
+    # Test LightGlue
+    # Subsample for testing
+    # img0 = cv2.pyrDown(cv2.pyrDown(img0))
+    # img1 = cv2.pyrDown(cv2.pyrDown(img1))
+    grid = [5, 4]
+    overlap = 100
+    origin = [0, 0]
+    matcher = LightGlueMatcher()
+    matcher.match(
+        img0,
+        img1,
+        quality=Quality.MEDIUM,
+        tile_selection=TileSelection.PRESELECTION,
+        grid=grid,
+        overlap=overlap,
+        origin=origin,
+        do_viz_matches=True,
+        do_viz_tiles=True,
+        save_dir=outdir / "LOFTR",
+        geometric_verification=GeometricVerification.PYDEGENSAC,
+        threshold=2,
+        confidence=0.9999,
+    )
+
+
 
     # Test LOFTR
     # Subsample for testing

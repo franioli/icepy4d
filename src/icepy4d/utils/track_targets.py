@@ -37,7 +37,6 @@ from icepy4d.utils.timer import AverageTimer
 
 # TODO: Check this class with the code implemented in the icepy4d.matching.templatematch script.
 
-
 class TrackTargets:
     def __init__(
         self,
@@ -61,13 +60,15 @@ class TrackTargets:
         self.template_width = template_width
         self.search_width = search_width
         self.base_epoch = base_epoch
-
         self.target_names = target_names
         self.verbose = verbose
         self.debug_viz = debug_viz
 
         self._iter = 0
         self._cur_target = 0
+
+        # Initialize variables for storing patches
+        self._A, self._B = None, None
 
         # Initialize dictonary for storing results
         # Outer dictionary has one key for every target,
@@ -86,7 +87,7 @@ class TrackTargets:
         else:
             raise StopIteration
 
-    def extract_pathes(self, epoch: int = None) -> List[np.ndarray]:
+    def extract_path(self, patch_center: [], epoch: int = None) -> List[np.ndarray]:
         """
         extract_pathes Extract image patches for template matching.
 
@@ -106,21 +107,19 @@ class TrackTargets:
             np.round(self._pc_int[0] + self.patch_width / 2).astype(int),
             np.round(self._pc_int[1] + self.patch_width / 2).astype(int),
         ]
-        # Get patches
-        A = self.images.read_image(self.base_epoch).value[
+        # Get patch
+        patch = self.images.read_image(self.base_epoch).value[
             self._patch[1] : self._patch[3], self._patch[0] : self._patch[2]
         ]
-        B = self.images.read_image(iter).value[
-            self._patch[1] : self._patch[3], self._patch[0] : self._patch[2]
-        ]
-        return A, B
+
+        return patch
 
     def viz_template(self) -> None:
         """
         viz_template Visualize template on starting image with OpenCV
         """
-        if not hasattr(self, "_A"):
-            self.extract_pathes()
+        if self._A is None or self._B is None or self._iter == 0:
+            self._A, self._B = self.extract_pathes()
         patch_center = self._pc_int - self._patch[:2]
         template_coor = [
             (
