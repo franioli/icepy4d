@@ -2,7 +2,10 @@
 
 4D Image-based Continuos monitoring of glaciers' Evolution with low-cost stereo-cameras and Deep Learning photogrammetry.
 
+You can access the ICEpy4D documentation [franioli.github.io/icepy4d/](franioli.github.io/icepy4d/).
+
 `ICEpy4D` is a under active development.
+
 
 ## Requirements
 
@@ -53,6 +56,12 @@ python -c "import icepy4d"
 
 If no error is given, ICEpy4D is successfully installed and it can be imported within your script with `import icepy4d`
 
+## Cite ICEpy4D
+If you use `ICEpy4D` in your research, please cite it as:
+
+
+Ioli, F., Bruno, E., Calzolari, D., Galbiati, M., Mannocchi, A., Manzoni, P., Martini, M., Bianchi, A., Cina, A., De Michele, C., and Pinto, L.: A REPLICABLE OPEN-SOURCE MULTI-CAMERA SYSTEM FOR LOW-COST 4D GLACIER MONITORING, Int. Arch. Photogramm. Remote Sens. Spatial Inf. Sci., 2023, XLVIII-M-1-2023, 137–144, [https://doi.org/10.5194/isprs-archives-XLVIII-M-1-2023-137-2023](https://doi.org/10.5194/isprs-archives-XLVIII-M-1-2023-137-2023)
+
 ### For contributing
 
 Install additional requirements for development:
@@ -61,3 +70,5 @@ Install additional requirements for development:
 pip install -r requirements-dev.txt
 pre-commit install
 ```
+
+## Permissions and acknowledgements
