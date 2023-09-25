@@ -3,11 +3,13 @@ repo_url: https://github.com/franioli/icepy4d
 site_author: Francesco Ioli
 
 theme:
-  name: material
-  palette:
-    primary: indigo
-  font:
-    text: Open Sans
+  name: readthedocs
+  highlightjs: true
+  # name: material
+  # palette:
+  #   primary: indigo
+  # font:
+  #   text: Open Sans
   features:
     - navigation.path
     - navigation.footer
