@@ -2,10 +2,11 @@
 
 4D Image-based Continuos monitoring of glaciers' Evolution with low-cost stereo-cameras and Deep Learning photogrammetry.
 
-You can access the ICEpy4D documentation [franioli.github.io/icepy4d/](franioli.github.io/icepy4d/).
-
 `ICEpy4D` is a under active development.
+## Gettin Started
 
+To get started with `ICEpy4D` you can refer documentation at [franioli.github.io/icepy4d/](franioli.github.io/icepy4d/) (please, note the documentation is currently under development).  
+You can find some Jupyter Notebooks with examples in the `notebooks` folder.
 
 ## Requirements
 
