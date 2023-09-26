@@ -228,8 +228,9 @@ class ImageMatcherBase(ImageMatcherABC):
 
         if self._do_viz is True:
             try:
-                logger.error("Fast visualizing matches with OpenCV not implemented yet. Using matplotlib (slower) instead.")
-                raise NotImplementedError
+                msg = "Fast visualizing matches with OpenCV not implemented yet. Using matplotlib (slower) instead."
+                logger.error(msg)
+                raise NotImplementedError(msg)
             except NotImplementedError:
                 if self._save_dir is not None:
                     self.viz_matches_mpl(
@@ -977,8 +978,8 @@ class LOFTRMatcher(ImageMatcherBase):
         """
 
         # Covert images to tensor
-        timg0_ = self._frame2tensor(image0)
-        timg1_ = self._frame2tensor(image1)
+        timg0_ = self._frame2tensor(image0, self._device)
+        timg1_ = self._frame2tensor(image1, self._device)
 
         # Run inference
         with torch.inference_mode():
@@ -1054,8 +1055,8 @@ class LOFTRMatcher(ImageMatcherBase):
             tile1 = self._tiler.extract_patch(image1, lim1)
 
             # Covert patch to tensor
-            timg0_ = self._frame2tensor(tile0)
-            timg1_ = self._frame2tensor(tile1)
+            timg0_ = self._frame2tensor(tile0, self._device)
+            timg1_ = self._frame2tensor(tile1, self._device)
 
             # Run inference
             with torch.inference_mode():
@@ -1273,7 +1274,7 @@ if __name__ == "__main__":
     # im_path1 = assset_path / "img/cam2/IMG_1112.jpg"
 
     img_idx = 20
-    outdir = "mmm"
+    outdir = "sandbox/matching_results"
 
     folders = [Path("data/img/p1"), Path("data/img/p2")]
     imlists = [sorted(f.glob("*.jpg")) for f in folders]
