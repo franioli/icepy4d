@@ -33,7 +33,7 @@ jobs:
         with:
           python-version: "3.8"
       - name: Install MkDocs and Material for MkDocs
-        run: pip install mkdocs-material mkdocstrings[python]
+        run: pip install mkdocs-material mkdocstrings[python] mkdocs-jupyter
       - name: Install Pillow and CairoSVG (required for social card generation)
         run: pip install pillow cairosvg
       - name: Setup caching

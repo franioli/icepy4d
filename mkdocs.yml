@@ -3,17 +3,20 @@ repo_url: https://github.com/franioli/icepy4d
 site_author: Francesco Ioli
 
 theme:
-  name: material
-  palette:
-    primary: indigo
-  font:
-    text: Open Sans
+  name: readthedocs
+  highlightjs: true
+  # name: material
+  # palette:
+  #   primary: indigo
+  # font:
+  #   text: Open Sans
   features:
     - navigation.path
     - navigation.footer
 
 plugins:
   - search
+  - mkdocs-jupyter
   - autorefs
   # - gen-files:
   #     scripts:
@@ -29,7 +32,11 @@ plugins:
 nav:
   - Home: index.md
   - Installation: installation.md
-  - Getting started: getting_started.md
+  - Getting started: 
+      - 'Project set-up': getting_started.md
+      - 'matching.ipynb'
+      - 'single_epoch_stereo_reconstruction.ipynb'
+      # - 'Multi epoch reconstruction': 'notebooks/mutlitemporal_workflow.ipynb'
   - Modules:
       - Core:
           - Epoch: core/epoch.md
@@ -49,3 +56,4 @@ nav:
           - Triangulation: sfm/triangulation.md
           - Incremental reconstruction: sfm/reconstruction.md
       - Visualization: visualization.md
+  - References: references.md
