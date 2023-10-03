@@ -217,18 +217,12 @@ class SuperPoint(nn.Module):
     def extract(self, img: torch.Tensor, **conf) -> dict:
         """ Perform extraction with online resizing"""
 
-        auto_scale_image = conf.get('auto_scale_image', True)
-
         if img.dim() == 3:
             img = img[None]  # add batch dim
         assert img.dim() == 4 and img.shape[0] == 1
         shape = img.shape[-2:][::-1]
-        if auto_scale_image:
-            img, scales = ImagePreprocessor(
-                **{**self.preprocess_conf, **conf})(img)
-        else:
-            raise NotImplementedError(
-                "auto_scale_image=False is not supported yet")
+        img, scales = ImagePreprocessor(
+            **{**self.preprocess_conf, **conf})(img)
         img, scales = ImagePreprocessor(
             **{**self.preprocess_conf, **conf})(img)
         feats = self.forward({'image': img})

@@ -155,7 +155,7 @@ def plot_matches(
     line_thickness=1,
     path=None,
     fast_viz: bool = False,
-) -> None:
+) -> Union[np.ndarray, plt.Figure]:
     """Plot matching points between two images.
 
     Args:
@@ -170,11 +170,11 @@ def plot_matches(
         fast_viz: If True, use OpenCV to display the image.
 
     Returns:
-        None.
+        Union[np.ndarray, plt.Figure]: The output image if fast_viz is True, otherwise the figure object.
     """
 
     if fast_viz:
-        plot_matches_cv2(
+        out = plot_matches_cv2(
             image0,
             image1,
             pts0,
@@ -183,14 +183,13 @@ def plot_matches(
             line_thickness=line_thickness,
             path=path,
         )
-        return
-
-    fig = plot_image_pair([image0, image1])
-    plot_keypoints(pts0, pts1, color="r", ps=point_size)
-    draw_matches(pts0, pts1, color, lw=line_thickness, ps=point_size)
-    fig.savefig(str(path), bbox_inches="tight", pad_inches=0)
-    plt.close()
-
+        return out
+    else:
+        fig = plot_image_pair([image0, image1])
+        plot_keypoints(pts0, pts1, color="r", ps=point_size)
+        draw_matches(pts0, pts1, color, lw=line_thickness, ps=point_size)
+        fig.savefig(str(path), bbox_inches="tight", pad_inches=0)
+        return fig
 
 def plot_matches_cv2(
     image0,
@@ -203,7 +202,7 @@ def plot_matches_cv2(
     line_thickness=1,
     path=None,
     margin=10,
-) -> None:
+) -> np.ndarray:
     """Plot matching points between two images using OpenCV.
 
     Args:
@@ -219,7 +218,7 @@ def plot_matches_cv2(
         margin: Margin between the two images in the output.
 
     Returns:
-        None.
+        np.ndarrya: The output image.
     """
     if image0.ndim > 2:
         image0 = cv2.cvtColor(image0, cv2.COLOR_BGR2GRAY)
@@ -251,6 +250,8 @@ def plot_matches_cv2(
         )
     if path is not None:
         cv2.imwrite(path, out)
+    
+    return out
 
 
 def plot_points(

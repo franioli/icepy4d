@@ -118,17 +118,18 @@ class Image:
 
     """
 
-    def __init__(self, path: Union[str, Path], image: np.ndarray = None) -> None:
+    def __init__(self, path: Union[str, Path]) -> None:
         """
-        __init__ Create Image object
+        __init__ Create Image object as a lazy loader for image data
 
         Args:
             path (Union[str, Path]): path to the image
-            image (np.ndarray, optional): Numpy array containing pixel values. If provided, they are stored in self._value_array and they are accessible from outside the class with Image.value. Defaults to None.
         """
 
         self._path = Path(path)
-        self._value_array = image
+        assert self._path.exists(), f"Input path {self._path} not valid."
+        
+        self._value_array = None
         self._width = None
         self._height = None
         self._exif_data = None

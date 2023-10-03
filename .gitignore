@@ -24,6 +24,7 @@ colmap/
 scripts/track_targets/results/
 notebooks/logs/
 notebooks/res/
+notebooks/matches/
 
 # VScode
 # .vscode/
