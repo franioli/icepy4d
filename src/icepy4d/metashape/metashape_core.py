@@ -22,13 +22,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+import logging
+from pathlib import Path
+from typing import List, Union
+
 import Metashape
 import numpy as np
-import logging
-
-from typing import List
-from typing import Union
-from pathlib import Path
 
 from icepy4d.core.calibration import read_opencv_calibration
 
@@ -339,6 +338,12 @@ def write_marker_world_coordinates(
     file.close()
     logging.info("Marker exported successfully")
 
+
+def export_to_bunlder(    
+    chunk: Metashape.Chunk,
+    file_name: str
+) -> None:
+    pass
 
 """ Get objects"""
 
