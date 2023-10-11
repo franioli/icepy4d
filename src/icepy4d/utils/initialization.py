@@ -24,27 +24,20 @@ SOFTWARE.
 
 import argparse
 import datetime
+import logging
+import os
 import sys
 from pathlib import Path
 from pprint import pprint
-from typing import Tuple, Union, Dict
-import os
+from typing import Dict, Tuple, Union
 
 import numpy as np
 import yaml
 from easydict import EasyDict as edict
 
-from icepy4d.core import (
-    Calibration,
-    CamerasDict,
-    Epoch,
-    EpochDataMap,
-    Features,
-    ImageDS,
-    Points,
-    Targets,
-)
-from icepy4d.utils import setup_logger, get_logger, deprecated
+from icepy4d.core import (Calibration, CamerasDict, Epoch, EpochDataMap,
+                          Features, ImageDS, Points, Targets)
+from icepy4d.utils import deprecated, get_logger, setup_logger
 
 logger = get_logger()
 
@@ -91,6 +84,8 @@ def parse_cfg(cfg_file: Union[str, Path], ignore_errors: bool = False) -> edict:
         raise RuntimeError("Unable to create valid cfg dictionary from yaml file")
 
     # Setup logger
+    if logging.getLogger().hasHandlers():   # Remove existing handlers
+        logging.getLogger().handlers.clear()
     if "log" not in cfg:
         setup_logger()
     else:

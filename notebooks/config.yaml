@@ -61,7 +61,7 @@ georef:
   target_world_file: "target_world.csv"
 
   #- Targets to use for Absolute Orientation, Space Resection and Bundle Adjustment
-  targets_to_use: ["F2", "F12", "F13", "T2", "F10_2"] #
+  targets_to_use: ["F2", "F12", "F13"] #
   
 #- Other On-Off switches
 other:

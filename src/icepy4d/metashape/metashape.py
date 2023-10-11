@@ -22,27 +22,24 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+import datetime
+import logging
+from pathlib import Path
+from typing import List, Union
+from xml.etree import ElementTree as ET
+
 import Metashape
 import numpy as np
 import pandas as pd
-import logging
-import datetime
-
-from pathlib import Path
 from easydict import EasyDict as edict
-from xml.etree import ElementTree as ET
-from typing import List, Union
 
-from .metashape_core import (
-    create_new_project,
-    save_project,
-    cameras_from_bundler,
-    add_markers,
-    read_gcp_file,
-)
-from icepy4d.utils.timer import AverageTimer
 from icepy4d.core.calibration import read_opencv_calibration
 from icepy4d.core.constants import DATETIME_FMT
+from icepy4d.utils.logger import deprecated
+from icepy4d.utils.timer import AverageTimer
+
+from .metashape_core import (add_markers, cameras_from_bundler,
+                             create_new_project, read_gcp_file, save_project)
 
 REGION_RESIZE_FCT = 10.0
 
@@ -377,10 +374,6 @@ class MetashapeWriter:
     def __init__(self, chunk: Metashape.Chunk):
         pass
 
-
-from icepy4d.utils.logger import deprecated
-
-
 class MetashapeReader:
     def __init__(
         self,
@@ -504,7 +497,8 @@ class MetashapeReader:
 
 
 if __name__ == "__main__":
-    from src.icepy4d.visualization.visualization import make_focal_length_variation_plot
+    from src.icepy4d.visualization.visualization import \
+        make_focal_length_variation_plot
 
     root_path = Path().absolute()
 

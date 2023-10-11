@@ -229,31 +229,49 @@ for ep in cfg.proc.epoch_to_process:
     # )
     # epoch.features = features_old[ep]
 
-    # Define matching parameters
-    matching_quality = matching.Quality.HIGH
-    tile_selection = matching.TileSelection.PRESELECTION
-    tiling_grid = [4, 3]
-    tiling_overlap = 200
-    geometric_verification = matching.GeometricVerification.PYDEGENSAC
-    geometric_verification_threshold = 1
-    geometric_verification_confidence = 0.9999
 
-    # Create a new matcher object
-    matcher = matching.SuperGlueMatcher(cfg.matching)
+    matcher = matching.LightGlueMatcher()
     matcher.match(
         epoch.images[cams[0]].value,
         epoch.images[cams[1]].value,
-        quality=matching_quality,
-        tile_selection=tile_selection,
-        grid=tiling_grid,
-        overlap=tiling_overlap,
+        quality=matching.Quality.HIGH,
+        tile_selection= matching.TileSelection.PRESELECTION,
+        grid=[2, 2],
+        overlap=200,
+        origin=[0, 0],
         do_viz_matches=True,
-        do_viz_tiles=False,
-        save_dir=match_dir,
-        geometric_verification=geometric_verification,
-        threshold=geometric_verification_threshold,
-        confidence=geometric_verification_confidence,
+        do_viz_tiles=True,
+        min_matches_per_tile = 3,
+        max_keypoints = 8196,    
+        save_dir=epoch.epoch_dir / "matching",
+        geometric_verification=matching.GeometricVerification.PYDEGENSAC,
+        threshold=2,
+        confidence=0.9999,
     )
+    # # Define matching parameters
+    # matching_quality = matching.Quality.HIGH
+    # tile_selection = matching.TileSelection.PRESELECTION
+    # tiling_grid = [4, 3]
+    # tiling_overlap = 200
+    # geometric_verification = matching.GeometricVerification.PYDEGENSAC
+    # geometric_verification_threshold = 1
+    # geometric_verification_confidence = 0.9999
+    # Create a new matcher object
+    # matcher = matching.SuperGlueMatcher(cfg.matching)
+    # matcher.match(
+    #     epoch.images[cams[0]].value,
+    #     epoch.images[cams[1]].value,
+    #     quality=matching_quality,
+    #     tile_selection=tile_selection,
+    #     grid=tiling_grid,
+    #     overlap=tiling_overlap,
+    #     do_viz_matches=True,
+    #     do_viz_tiles=False,
+    #     save_dir=match_dir,
+    #     geometric_verification=geometric_verification,
+    #     threshold=geometric_verification_threshold,
+    #     confidence=geometric_verification_confidence,
+    # )
     timer.update("matching")
 
     # TODO: implement this as a method of Matcher class
@@ -427,10 +445,9 @@ for ep in cfg.proc.epoch_to_process:
             shutil.rmtree(metashape_path, ignore_errors=True)
 
         # Export results in Bundler format
-        im_dict = {cam: epoch.images[cam].path for cam in cams}
-        io.write_bundler_out(
+        io.ICEcy4D_2_metashape(
             export_dir=epochdir,
-            im_dict=im_dict,
+            images=epoch.images,
             cameras=epoch.cameras,
             features=epoch.features,
             points=pts,
