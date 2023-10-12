@@ -38,8 +38,13 @@ from icepy4d.core.constants import DATETIME_FMT
 from icepy4d.utils.logger import deprecated
 from icepy4d.utils.timer import AverageTimer
 
-from .metashape_core import (add_markers, cameras_from_bundler,
-                             create_new_project, read_gcp_file, save_project)
+from .metashape_core import (
+    add_markers,
+    cameras_from_bundler,
+    create_new_project,
+    read_gcp_file,
+    save_project,
+)
 
 REGION_RESIZE_FCT = 10.0
 
@@ -124,7 +129,9 @@ class MetashapeProject:
             self.doc.chunk.euler_angles = Metashape.EulerAnglesOPK
         logging.info(f"Created project {self.project_path}.")
 
-    def add_images(self, image_list: List[Path]) -> None:
+    def add_images(
+        self, image_list: List[Path], load_camera_reference: bool = True
+    ) -> None:
         images = [str(x) for x in image_list if x.is_file()]
         self.doc.chunk.addPhotos(images)
 
@@ -146,10 +153,13 @@ class MetashapeProject:
             raise ValueError(
                 "Wrong input type for accuracy parameter. Provide a list of floats (it can be a list of a single element or of three elements)."
             )
-        for i, camera in enumerate(self.doc.chunk.cameras):
-            camera.reference.location = Metashape.Vector(self.cfg.camera_location[i])
-            camera.reference.accuracy = accuracy
-            camera.reference.enabled = True
+        if load_camera_reference:
+            for i, camera in enumerate(self.doc.chunk.cameras):
+                camera.reference.location = Metashape.Vector(
+                    self.cfg.camera_location[i]
+                )
+                camera.reference.accuracy = accuracy
+                camera.reference.enabled = True
 
     def import_sensor_calibration(self) -> None:
         for i, sensor in enumerate(self.doc.chunk.sensors):
@@ -374,6 +384,7 @@ class MetashapeWriter:
     def __init__(self, chunk: Metashape.Chunk):
         pass
 
+
 class MetashapeReader:
     def __init__(
         self,
@@ -497,8 +508,7 @@ class MetashapeReader:
 
 
 if __name__ == "__main__":
-    from src.icepy4d.visualization.visualization import \
-        make_focal_length_variation_plot
+    from src.icepy4d.visualization.visualization import make_focal_length_variation_plot
 
     root_path = Path().absolute()
 

@@ -88,20 +88,54 @@ def read_xml_calibration(
     root = tree.getroot()
 
     if format == "metashape":
+        err_msg = f"Invalid camera format for {path}. "
+        assert "frame" in root.find("projection").text, (
+            err_msg + "Only the 'frame' camera is supported."
+        )
+        assert root.find("width") is not None, err_msg + "Missing 'width' parameter."
+        assert root.find("height") is not None, err_msg + "Missing 'height' parameter."
+        assert root.find("f") is not None, err_msg + "Missing 'f' parameter."
+        assert root.find("date") is not None, err_msg + "Missing 'date' parameter."
+
         try:
-            w = float(root.find("width").text)
-            h = float(root.find("height").text)
-            f = float(root.find("f").text)
-            cx = float(root.find("cx").text)
-            cy = float(root.find("cy").text)
-            k1 = float(root.find("k1").text)
-            k2 = float(root.find("k2").text)
-            p1 = float(root.find("p1").text)
-            p2 = float(root.find("p2").text)
+            keys = [
+                "f",
+                "cx",
+                "cy",
+                "k1",
+                "k2",
+                "p1",
+                "p2",
+            ]
+            pars = {}
+            for k in keys:
+                if root.find(k) is not None:
+                    pars[k] = float(root.find(k).text)
+                else:
+                    pars[k] = float(0)
+
+            w = int(root.find("width").text)
+            h = int(root.find("height").text)
+            K = np.array(
+                [[pars["f"], 0, pars["cx"]], [0, pars["f"], pars["cy"]], [0, 0, 1]]
+            )
+            dist = np.array([pars["k1"], pars["k2"], pars["p1"], pars["p2"]]).squeeze()
             date_str = root.find("date").text
             date = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ")
-            K = np.array([[f, 0, cx], [0, f, cy], [0, 0, 1]])
-            dist = np.array([k1, k2, p1, p2])
+
+            # w = float(root.find("width").text)
+            # h = float(root.find("height").text)
+            # f = float(root.find("f").text)
+            # cx = float(root.find("cx").text)
+            # cy = float(root.find("cy").text)
+            # k1 = float(root.find("k1").text)
+            # k2 = float(root.find("k2").text)
+            # p1 = float(root.find("p1").text)
+            # p2 = float(root.find("p2").text)
+            # date_str = root.find("date").text
+            # date = datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ")
+            # K = np.array([[f, 0, cx], [0, f, cy], [0, 0, 1]])
+            # dist = np.array([k1, k2, p1, p2])
         except Exception:
             raise ValueError(
                 "Unable to read xml calibration file as a Agisoft Metashape format. Check the file format."
@@ -118,7 +152,7 @@ def read_xml_calibration(
 
             distortion_data = root.find("Distortion_Coefficients").find("data").text
             distortion_values = distortion_data.split()
-            dist = np.array(distortion_values, dtype=float).reshape(-1, 1)
+            dist = np.array(distortion_values, dtype=float).squeeze()
 
             calibration_time_str = root.find("calibration_Time").text
             date = datetime.strptime(
