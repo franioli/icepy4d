@@ -60,15 +60,26 @@ If no error is given, ICEpy4D is successfully installed and it can be imported w
 ## Cite ICEpy4D
 If you use `ICEpy4D` in your research, please cite it as:
 
-
-Ioli, F., Bruno, E., Calzolari, D., Galbiati, M., Mannocchi, A., Manzoni, P., Martini, M., Bianchi, A., Cina, A., De Michele, C., and Pinto, L.: A REPLICABLE OPEN-SOURCE MULTI-CAMERA SYSTEM FOR LOW-COST 4D GLACIER MONITORING, Int. Arch. Photogramm. Remote Sens. Spatial Inf. Sci., 2023, XLVIII-M-1-2023, 137–144, [https://doi.org/10.5194/isprs-archives-XLVIII-M-1-2023-137-2023](https://doi.org/10.5194/isprs-archives-XLVIII-M-1-2023-137-2023)
+```bibtex
+@article{ioli2023replicable,
+  title={A Replicable Open-Source Multi-Camera System for Low-Cost 4d Glacier Monitoring},
+  author={Ioli, F and Bruno, E and Calzolari, D and Galbiati, M and Mannocchi, A and Manzoni, P and Martini, M and Bianchi, A and Cina, A and De Michele, C and others},
+  journal={The International Archives of the Photogrammetry, Remote Sensing and Spatial Information Sciences},
+  doi={10.5194/isprs-archives-XLVIII-M-1-2023-137-2023},
+  url={[https://doi.org/10.5194/isprs-archives-XLVIII-M-1-2023-137-2023](https://doi.org/10.5194/isprs-archives-XLVIII-M-1-2023-137-2023)},
+  volume={XLVIII-M-1-2023},
+  pages={137--144},
+  year={2023},
+  publisher={Copernicus GmbH}
+}
+```
 
 ### For contributing
 
 Install additional requirements for development:
 
 ```bash
-pip install -r requirements-dev.txt
+pip install -e .[dev]
 pre-commit install
 ```
 
