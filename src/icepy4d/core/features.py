@@ -441,6 +441,8 @@ class Features:
         for t_id, x, y, d, s in zip(ids, xx, yy, descr, scores):
             if s is not None:
                 score_val = s[0] if s.shape == (1,) else s
+            else: 
+                score_val = None
             self._values[t_id] = Feature(
                 x,
                 y,

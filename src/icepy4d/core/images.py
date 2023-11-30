@@ -127,7 +127,8 @@ class Image:
         """
 
         self._path = Path(path)
-        assert self._path.exists(), f"Input path {self._path} not valid."
+        if not self._path.exists():
+            raise FileNotFoundError(f"Invalid input path. Image {self._path} not found.")
         
         self._value_array = None
         self._width = None
