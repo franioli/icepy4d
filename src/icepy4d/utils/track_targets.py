@@ -1,352 +1,260 @@
-"""
-MIT License
-
-Copyright (c) 2022 Francesco Ioli
-
-Permission is hereby granted, free of charge, to any person obtaining _A copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR _A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-"""
-
-import numpy as np
-import cv2
-import gc
-
-from copy import deepcopy
+import shutil
+from multiprocessing import Pool
 from pathlib import Path
-from typing import List, Union
+from typing import List
 
-from icepy4d.core.images import ImageDS
-from icepy4d.core.targets import Targets
-from icepy4d.matching.templatematch import TemplateMatch, MatchResult
-from icepy4d.utils.timer import AverageTimer
+import cv2
+import numpy as np
+from icepy4d.core import Image, Targets
+from icepy4d.matching.templatematch import TemplateMatch
+from icepy4d.utils import get_logger, setup_logger
+from tqdm import tqdm
 
-# TODO: Check this class with the code implemented in the icepy4d.matching.templatematch script.
+# Setup logger
+setup_logger()
+logger = get_logger(__name__)
+
 
 class TrackTargets:
+    # Define default config
+    def_config = {
+        "template_width": 32,
+        "search_width": 128,
+        "viz_tracked": False,
+        "verbose": False,
+        "snr_threshold": 7.0,
+        "parallel": False,
+        "num_workers": None,
+    }
+    valid_methods = ["OC"]  # , "NCC"]
+
     def __init__(
         self,
-        images: ImageDS,
-        patch_centers: List[np.ndarray],
-        out_dir: str = "results",
+        master: Path,
+        images: List[Image],
+        targets: np.ndarray,
         method: str = "OC",
-        template_width: int = 32,
-        search_width: int = 128,
-        patch_width: int = 512,
-        base_epoch: int = 0,
+        out_dir: str = "results",
         target_names: List[str] = None,
-        verbose: bool = True,
-        debug_viz: bool = False,
+        **config,
     ) -> None:
+        if not isinstance(images, list):
+            raise TypeError("images must be a list of Image objects")
+
+        if not isinstance(master, Path):
+            raise TypeError(
+                "master must be a Path object with the path to the master image"
+            )
+
+        if not isinstance(targets, np.ndarray) or targets.shape[1] != 2:
+            raise TypeError(
+                "targets must be a numpy vector of shape (n, 2) containing the image coordinates of the targets to track"
+            )
+
+        if method not in self.valid_methods:
+            raise ValueError(
+                f"Method {method} currentely not supported. Use {self.valid_methods}"
+            )
+
+        # Update default config with user config
+        self.cfg = {**self.def_config, **config}
+
+        # Store input parameters
         self.images = images
-        self.out_dir = Path(out_dir)
-        self.patch_centers = patch_centers
-        self.patch_width = patch_width
-        self.method = method
-        self.template_width = template_width
-        self.search_width = search_width
-        self.base_epoch = base_epoch
+        self.targets = targets
         self.target_names = target_names
-        self.verbose = verbose
-        self.debug_viz = debug_viz
+        self.method = method
+        self.out_dir = Path(out_dir)
+        self.out_dir.mkdir(parents=True, exist_ok=True)
 
-        self._iter = 0
-        self._cur_target = 0
-
-        # Initialize variables for storing patches
-        self._A, self._B = None, None
+        # Load master image
+        self._master = cv2.imread(str(master), cv2.IMREAD_GRAYSCALE)
+        self._slave = None
 
         # Initialize dictonary for storing results
-        # Outer dictionary has one key for every target,
-        # inner dictionary has one key for every epoch
         self.results = {}
-        self.results[self._cur_target] = {}
-        self.results[self._cur_target][self._iter] = {}
 
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        while self._iter < len(self.images):
-            self._iter += 1
-            return self._iter
-        else:
-            raise StopIteration
-
-    def extract_path(self, patch_center: [], epoch: int = None) -> List[np.ndarray]:
-        """
-        extract_pathes Extract image patches for template matching.
-
-        Args:
-            epoch (int, optional): index of the image of ImageDS in which the target has to be search. If None, self._iter will be used. Defaults to None.
-        """
-        if epoch is not None:
-            iter = epoch
-        else:
-            iter = self._iter
-
-        # Coordinates of the center of the patch in full image
-        self._pc_int = np.round(self.patch_centers[self._cur_target]).astype(int)
-        self._patch = [
-            np.round(self._pc_int[0] - self.patch_width / 2).astype(int),
-            np.round(self._pc_int[1] - self.patch_width / 2).astype(int),
-            np.round(self._pc_int[0] + self.patch_width / 2).astype(int),
-            np.round(self._pc_int[1] + self.patch_width / 2).astype(int),
-        ]
-        # Get patch
-        patch = self.images.read_image(self.base_epoch).value[
-            self._patch[1] : self._patch[3], self._patch[0] : self._patch[2]
-        ]
-
-        return patch
-
-    def viz_template(self) -> None:
-        """
-        viz_template Visualize template on starting image with OpenCV
-        """
-        if self._A is None or self._B is None or self._iter == 0:
-            self._A, self._B = self.extract_pathes()
-        patch_center = self._pc_int - self._patch[:2]
-        template_coor = [
-            (
-                patch_center[0] - self.template_width,
-                patch_center[1] - self.template_width,
-            ),
-            (
-                patch_center[0] + self.template_width,
-                patch_center[1] + self.template_width,
-            ),
-        ]
-        win_name = "Template on image A"
-        img = cv2.cvtColor(deepcopy(self._A), cv2.COLOR_BGR2RGB)
-        cv2.circle(img, (patch_center[0], patch_center[1]), 0, (0, 255, 0), -1)
-        cv2.rectangle(img, template_coor[0], template_coor[1], (0, 255, 0), 1)
-        cv2.namedWindow(win_name, cv2.WINDOW_NORMAL)
-        cv2.imshow(win_name, img)
-        cv2.waitKey()
-        cv2.destroyAllWindows()
-        del img
-
-    def track_single_epoch(self) -> None:
+    def track_image(self, slave: Image) -> dict:
         """
         track_single_epoch method to actual perform feature tracking on next image
         """
-        A, B = self.extract_pathes()
+        slave_name = slave.name
+        target_names = self.target_names
+        template_width = self.cfg["template_width"]
+        search_width = self.cfg["search_width"]
+        snr_threshold = self.cfg["snr_threshold"]
+        viz_tracked = self.cfg["viz_tracked"]
+        verbose = self.cfg["verbose"]
+
+        slave_img = cv2.imread(str(str(slave.path)), cv2.IMREAD_GRAYSCALE)
+
         tm = TemplateMatch(
-            A=cv2.cvtColor(A, cv2.COLOR_RGB2GRAY),
-            B=cv2.cvtColor(B, cv2.COLOR_RGB2GRAY),
-            xy=self.patch_centers[self._cur_target] - self._patch[:2],
+            A=self._master,
+            B=slave_img,
+            xy=self.targets,
             method=self.method,
-            template_width=self.template_width,
-            search_width=self.search_width,
+            template_width=template_width,
+            search_width=search_width,
+            single_points=True,
         )
         r = tm.match()
 
+        if not r:
+            logger.info(f"No target found in image {slave_name}")
+            return None
+
+        # Save result to dict
+        du = np.diag(r.du)
+        dv = np.diag(r.dv)
+        x_est = self.targets[:, 0] + du
+        y_est = self.targets[:, 1] + dv
+        snr = np.diag(r.snr)
+        peak_corr = np.diag(r.peakCorr)
+
+        result = {
+            "image": slave_name,
+            "targets_names": target_names,
+            "targets_coord": self.targets,
+            "pu": np.diag(r.pu),
+            "pv": np.diag(r.pv),
+            "du": du,
+            "dv": dv,
+            "x_est": x_est,
+            "y_est": y_est,
+            "snr": snr,
+            "peak_corr": peak_corr,
+            "meanAbsCorr": np.diag(r.meanAbsCorr),
+        }
+
         # Print result to std out
-        if self.verbose:
-            if r:
-                print(
-                    f"du: {r.du:.2f} dv: {r.dv:.2f} - Coor peak: {r.peakCorr:.2f} - SNR {r.snr:.2f}"
-                )
-            else:
-                print("Target not found")
+        if verbose:
+            msg = ""
+            for n, u, v, s, p in zip(target_names, du, dv, snr, peak_corr):
+                if s > snr_threshold:
+                    msg += f"{slave_name}\t\t{n}\t{u:.2f}\t\t{v:.2f}\t\t{s:.2f}\t\t{p:.2f}\n"
+                else:
+                    msg += f"{slave_name}\t\t{n}\tRejected\n"
+            print(msg)
 
-        # Create output image with the tracked target marked
-        # TODO: pass output folder param to class
-        if self.debug_viz:
-            if r:
-                self.viz_result(self.out_dir, r)
+        # Write result to file
+        # TODO: move to a separate method
+        fname = self.out_dir / f"{slave_name}.csv"
+        with open(fname, "w") as f:
+            f.write("label,x,y\n")
+            for name, x, y, s in zip(target_names, x_est, y_est, snr):
+                if s > snr_threshold:
+                    f.write(f"{name},{x:.3f},{y:.3f}\n")
 
-        if self.target_names is not None:
-            target_name = self.target_names[self._cur_target]
-        else:
-            target_name = self._cur_target
-        self.results[target_name][self._iter] = r
-        del self._A, self._B, tm, r
-        gc.collect()
+        # Visualize result
+        # TODO: move to a separate method
+        if viz_tracked:
+            img_dir = self.out_dir / "img"
+            img_dir.mkdir(parents=True, exist_ok=True)
+            img = cv2.imread(str(slave.path))
+            for x, y, s in zip(x_est, y_est, snr):
+                if s > snr_threshold:
+                    cv2.drawMarker(
+                        img,
+                        (np.round(x).astype(int), np.round(y).astype(int)),
+                        (0, 255, 0),
+                        cv2.MARKER_CROSS,
+                        2,
+                    )
+                elif not np.isnan(x):
+                    cv2.drawMarker(
+                        img,
+                        (np.round(x).astype(int), np.round(y).astype(int)),
+                        (0, 0, 255),
+                        cv2.MARKER_CROSS,
+                        2,
+                    )
+            cv2.imwrite(
+                str(img_dir / f"{slave_name}.jpg"),
+                img,
+            )
+
+        return result
 
     def track(self) -> None:
         """
-        track Perform tracking of the patch in all the following epoches by calling TemplateMatch
+        Perform tracking of the patch in all the following epochs by calling TemplateMatch
         """
+        if self.cfg["verbose"]:
+            print("Image\t\t\t\t\ttarget\tdu\t\tdv\t\tSNR\t\tPeak Corr")
 
-        print(f"\tEpoch {self._iter} - image: {self.images[self._iter]}... ", end=" ")
-
-        self.track_single_epoch()
-
-        # Go to next epoch and call track recursively
-        next(self)
-        if self._iter < len(self.images):
-            self.track()
+        if self.cfg["parallel"]:
+            logger.info("Running in parallel mode")
+            # # Use multiprocessing Pool to parallelize the execution of the tracking
+            with Pool(processes=self.cfg["num_workers"]) as pool:
+                self.results = pool.map(self.track_image, self.images)
         else:
-            print("Tracking completed.")
+            # Run non-parallel version for comparison
+            for slave in tqdm(self.images):
+                self.results[slave.name] = self.track_image(slave)
 
-    def track_all_targets(self):
-        """
-        track_all_targets run tracking for all the targets that are present in self.patch_centers
-        """
-        timer = AverageTimer()
-
-        num_targets = self.patch_centers.shape[0]
-        while self._cur_target < num_targets:
-            if self.target_names is not None:
-                target_name = self.target_names[self._cur_target]
-            else:
-                target_name = self._cur_target
-            print(f"Tracking target {target_name}")
-            self.results[target_name] = {}
-            self.track()
-            timer.update(f"target {target_name}")
-
-            self._iter = 0
-            self._cur_target += 1
-
-        # Write targets to csv files
-        self.write_results_to_file(self.out_dir, self.target_names)
-
-    def viz_result(self, out_dir: Union[str, Path], res: MatchResult) -> None:
-        """
-        viz_result Visualize the tracked point on the image B patch and write image to disk
-
-        Args:
-            out_dir (Union[str, Path]): output directory where to save image
-            res (MatchResult): MatchResult instance containing template matching result
-        """
-        out_dir = Path(out_dir) / "img"
-        out_dir.mkdir(parents=True, exist_ok=True)
-        x_est = res.pu + res.du
-        y_est = res.pv + res.dv
-        img = deepcopy(cv2.cvtColor(self._B, cv2.COLOR_RGB2BGR))
-        cv2.drawMarker(
-            img,
-            (np.round(x_est).astype(int), np.round(y_est).astype(int)),
-            (0, 255, 0),
-            cv2.MARKER_CROSS,
-            2,
-        )
-        im_name = self.images.get_image_stem(self._iter)
-        ext = self.images.get_image_path(self._iter).suffix
-        if self.target_names is not None:
-            target_name = self.target_names[self._cur_target]
-        else:
-            target_name = self._cur_target
-        cv2.imwrite(
-            str(out_dir / f"{target_name}_{im_name}{ext}"),
-            img,
-        )
-
-    def write_results_to_file(
-        self,
-        folder: Union[str, Path],
-        targets_name: List[str] = None,
-        format: str = "csv",
-        sep: str = ",",
-        write_mode: str = "w",
-    ) -> None:
-        """
-        write_results_to_file Write (full) image coordinates of the tracked target to csv file
-
-        Args:
-            folder (Union[str, Path]): output folder
-            targets_name (List[str], optional): List containing the target names. If None, a numeric index will be used. Defaults to "None".
-            format (str, optional): output file format. Defaults to "csv".
-            sep (str, optional): field separator. Defaults to ",".
-        """
-
-        folder = Path(folder)
-        self._cur_target = 0
-        self._iter = 0
-        num_targets = self.patch_centers.shape[0]
-        if targets_name is None:
-            targets_name = [x for x in range(num_targets)]
-
-        for ep, image in enumerate(self.images):
-            f = open(folder / f"{image.stem}.{format}", write_mode)
-            f.write(f"label{sep}x{sep}y\n")
-            for i in range(num_targets):
-                if self.results[i][ep]:
-                    x_est = self.patch_centers[i, 0] + self.results[i][ep].du
-                    y_est = self.patch_centers[i, 1] + self.results[i][ep].dv
-                    f.write(f"{targets_name[i]}{sep}{x_est:.4f}{sep}{y_est:.4f}\n")
-                else:
-                    print(
-                        f"Writing output error: target {targets_name[i]} not found on image {image.stem}"
-                    )
-            f.close()
-        print("Targets files saved correctely.")
+        logger.info("Tracking completed.")
 
 
 if __name__ == "__main__":
-    # TODO: implement tracking from and to a specific epoch
-
-    # Parameters
-    OUT_DIR = "tools/track_targets/block_3/results"
-
-    TARGETS_DIR = "tools/track_targets/block_3/data/targets"
-    TARGETS_IMAGES_FNAMES = ["IMG_2637.csv", "IMG_1112.csv"]
-    TARGETS_WORLD_FNAME = "target_world.csv"
-    IM_DIR = "tools/track_targets/block_3/data/images"
-
+    # Define input parameters
     cams = ["p1", "p2"]
-    targets_to_track = ["F2", "F13"]
+    IM_DIRS = ["data/img/p1", "data/img/p2"]
+    MASTER_IMAGES = [
+        "p1_20230725_135953_IMG_1149.JPG",
+        "p2_20230725_140026_IMG_0887.JPG",
+    ]
+    TARGETS_DIR = "data/targets"
+    TARGETS_WORLD_FNAME = "targets_world.csv"
+    TARGETS_IMAGES_FNAMES = [
+        "p1_20230725_135953_IMG_1149.csv",
+        "p2_20230725_140026_IMG_0887.csv",
+    ]
+    OUT_DIR = "tracking_res"
 
-    patch_width = 512
-    template_width = 16
-    search_width = 64
+    # Define targets to track
+    targets_to_track = ["F2", "F10", "T3"]
 
-    debug_viz = True
-    verbose = True
+    # Template matching parameters
+    template_width = 32
+    search_width = 128
 
-    target_dir = Path(TARGETS_DIR)
-    targets_image_paths = [target_dir / fname for fname in TARGETS_IMAGES_FNAMES]
-    targets = Targets(
-        im_file_path=targets_image_paths,
-        obj_file_path=target_dir / TARGETS_WORLD_FNAME,
-    )
+    for id, cam in enumerate(cams):
+        # Build Targets object
+        target_dir = Path(TARGETS_DIR)
+        targets = Targets(
+            im_file_path=[target_dir / f for f in TARGETS_IMAGES_FNAMES],
+            obj_file_path=target_dir / TARGETS_WORLD_FNAME,
+        )
 
-    for cam_id, cam in enumerate(cams):
-        print(f"Processing camera {cam}")
-
-        images = ImageDS(Path(IM_DIR) / cam)
+        # Build list of Image objects
+        img_dir = Path(IM_DIRS[id])
+        images = [Image(f) for f in sorted(img_dir.glob("*"))]
+        master = img_dir / MASTER_IMAGES[id]
+        out_dir = Path(OUT_DIR) / cam
+        if out_dir.exists():
+            shutil.rmtree(out_dir)
 
         # Define nx2 array with image coordinates of the targets to track
         # in the form of:
         # [x1, y1],
         # [x2, y2]...
         # You can create it manually or use Target class
-        targets_coord = np.zeros((len(targets_to_track), 2))
-        for i, target in enumerate(targets_to_track):
-            targets_coord[i] = targets.get_image_coor_by_label([target], cam_id)[
-                0
-            ].squeeze()
+        targets_coord, _ = targets.get_image_coor_by_label(targets_to_track, id)
 
-        # Define TrackTargets object and run tracking
-        tracking = TrackTargets(
+        # Define TrackTarget object and run tracking
+        logger.info(f"Tracking targets {targets_to_track} in camera {cam}")
+        tracking = TrackTarget(
+            master=master,
             images=images,
-            patch_centers=targets_coord,
-            out_dir=OUT_DIR,
+            targets=targets_coord.squeeze(),
+            out_dir=out_dir,
             target_names=targets_to_track,
-            patch_width=patch_width,
             template_width=template_width,
             search_width=search_width,
-            debug_viz=debug_viz,
-            verbose=verbose,
+            verbose=True,
+            viz_tracked=True,
+            parallel=True,
         )
-        # tracking.viz_template()
-        tracking.track_all_targets()
+        tracking.track()
 
-        print("Done.")
+    print("Done.")
