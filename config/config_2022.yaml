@@ -30,7 +30,7 @@ proc:
   do_space_resection: false
 
   #- Load existing results by reading Epochs object from disk (if False, the results will be overwritten)
-  load_existing_results: false
+  load_existing_results: true
 
   #- If True try to coregister point clouds based on n double points
   do_coregistration: true
@@ -62,7 +62,7 @@ georef:
 
   #- Targets to use for Absolute Orientation, Space Resection and Bundle Adjustment
   targets_to_use: ["F2", "F12", "F13", "T2", "F10_2"] #
-  
+
 #- Other On-Off switches
 other:
   #- visualize outputs
@@ -73,42 +73,10 @@ other:
 
 #- Matching options
 matching:
-  resize: [-1]
-  keypoint_threshold: 0.0001
-  max_keypoints: 8192 #2048 #   10240
-  weights: "outdoor"
-  match_threshold: 0.2
-  viz_matches: true
-  fast_viz: true
-  force_cpu: false
-  useTile: true
-  writeTile2Disk: false
-  do_viz_tile: true
-  rowDivisor: 2
-  colDivisor: 3
-  overlap: 400
   #- Threshold [px] and confidence for PyDegensac robust estimation
   # (used to reject false matches and compute relative orientation)
   pydegensac_threshold: 1.5
   pydegensac_confidence: 0.9999
-
-#- Tracking options
-tracking:
-  resize: [-1]
-  keypoint_threshold: 0.0001
-  max_keypoints: 12288 # 8192
-  weights: "outdoor"
-  match_threshold: 0.4
-  viz_matches: true
-  fast_viz: true
-  force_cpu: false
-  useTile: true
-  writeTile2Disk: false
-  do_viz_tile: false
-  rowDivisor: 3
-  colDivisor: 4
-  pydegensac_threshold: 2
-  pydegensac_confidence: 0.999
 
 #- Metashape parameters for Bundle Adjustment and Dense Matching
 # Note that to use Metashape, you need a license properly configured and you need to enable do_metashape_processing in Proc section of this yaml file.

@@ -86,8 +86,8 @@ for ep in cfg.proc.epoch_to_process:
             )
             epoch = initialization.initialize_epoch(
                 cfg=cfg,
+                epoch_timestamp=epoch_map.get_timestamp(ep),
                 images=epoch_map.get_images(ep),
-                epoch_id=ep,
                 epoch_dir=epochdir,
             )
 
