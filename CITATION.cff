@@ -1,0 +1,51 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: "Ioli"
+    given-names: "Francesco"
+    orcid: "http://orcid.org/0000-0001-7429-891X"
+  - family-names: "Dematteis"
+    given-names: "Niccolò"
+    orcid: "http://orcid.org/0000-0002-9232-7531"
+  - family-names: "Giordan"
+    given-names: "Daniele"
+    orcid: "http://orcid.org/0000-0003-0136-2436"
+  - family-names: "Nex"
+    given-names: "Francesco"
+    orcid: http://orcid.org/0000-0002-5712-6902"
+  - family-names: "Pinto"
+    given-names: "Livio"
+    orcid: "http://orcid.org/0000-0002-9559-4387"
+title: "Deep Learning Low-cost Photogrammetry for 4D Short-term Glacier
+Dynamics Monitoring"
+version: 1.9.0
+doi: 10.1007/s41064-023-00272-w
+date-released: 2023-07-19
+url: "https://zenodo.org/records/8164639"
+preferred-citation:
+  type: article
+  authors:
+  - family-names: "Ioli"
+    given-names: "Francesco"
+    orcid: "http://orcid.org/0000-0001-7429-891X"
+  - family-names: "Dematteis"
+    given-names: "Niccolò"
+    orcid: "http://orcid.org/0000-0002-9232-7531"
+  - family-names: "Giordan"
+    given-names: "Daniele"
+    orcid: "http://orcid.org/0000-0003-0136-2436"
+  - family-names: "Nex"
+    given-names: "Francesco"
+    orcid: http://orcid.org/0000-0002-5712-6902"
+  - family-names: "Pinto"
+    given-names: "Livio"
+    orcid: "http://orcid.org/0000-0002-9559-4387"
+  doi: "10.1007/s41064-023-00272-w"
+  journal: "PFG – Journal of Photogrammetry, Remote Sensing and Geoinformation Science"
+  # start: 1 # First page number
+  # end: 10 # Last page number
+  title: "Deep Learning Low-cost Photogrammetry for 4D Short-term Glacier
+  Dynamics Monitoring"  
+  # issue: 1
+  # volume: 1
+  year: 2024
