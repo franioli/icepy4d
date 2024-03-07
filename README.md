@@ -60,6 +60,16 @@ If no error is given, ICEpy4D is successfully installed and it can be imported w
 ## Cite ICEpy4D
 If you use `ICEpy4D` in your research, please cite it as:
 
+@article{ioli2024,
+  title={Deep Learning Low-cost Photogrammetry for 4D Short-term Glacier
+Dynamics Monitoring},
+  author={Ioli, Francesco and Dematteis, Nicolò and Giordan, Daniele and Nex, Francesco and Pinto Livio},
+  journal={PFG – Journal of Photogrammetry, Remote Sensing and Geoinformation Science},
+  year={2024},
+  DOI = {10.1007/s41064-023-00272-w}
+}
+
+
 ```bibtex
 @article{ioli2023replicable,
   title={A Replicable Open-Source Multi-Camera System for Low-Cost 4d Glacier Monitoring},
