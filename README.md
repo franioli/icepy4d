@@ -1,8 +1,9 @@
-# Welcome to ICEpy4D
+# ICEpy4D - 4D Image-based Continuos monitoring of glaciers' Evolution with low-cost stereo-cameras and Deep Learning photogrammetry.
 
-4D Image-based Continuos monitoring of glaciers' Evolution with low-cost stereo-cameras and Deep Learning photogrammetry.
+**NOTE:** This repository has been archived as reference for methodology used in the paper [Ioli et al. (2024)](https://doi.org/10.1007/s41064-023-00272-w), but it is currently not mantinaied anymore. 
+Please, use the more advanced and up-to-date [Deep Image Matching toolbox](https://github.com/3DOM-FBK/deep-image-matching) for a robusst and completely open source multi-view image matching with deep learning features. 
+(the multi-temporal component is not implemented in DIM and can be taken from this repository if needed, but it is not seamless integrated).
 
-`ICEpy4D` is a under active development.
 ## Gettin Started
 
 To get started with `ICEpy4D` you can refer documentation at [https://franioli.github.io/icepy4d/](https://franioli.github.io/icepy4d/) (please, note the documentation is currently under development).  
